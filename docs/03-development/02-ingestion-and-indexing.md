@@ -242,7 +242,9 @@ class Chunk:
 
 实现不变（见原 §3.6-§3.8）：
 
-- Embedding：Voyage `voyage-3-large` 或智谱 `embedding-3`，批 64 一次
+- Embedding：Voyage `voyage-4-large` 或智谱 `embedding-3`，批 64 一次（统一通过本机 LiteLLM proxy 调用，不直接走 voyageai SDK）
+- 全量索引走 Voyage **Batch API**（33% 折扣、12h 完成窗口）；POC / 增量 / 重建走标准 endpoint。由 `.env` 中 `VOYAGE_USE_BATCH_API_FOR_FULL_INDEX` 控制
+- Reranker：Voyage `rerank-2.5`（同样走 LiteLLM proxy）
 - Qdrant：collection per provider，payload 字段加索引 (`spec_number`, `release`, `series`, `clause`, `chunk_type`)
 - BM25：LlamaIndex `BM25Retriever`，全量重建（50k+ chunks < 60s）
 - 元数据：PG `chunks_meta` + `documents` + `document_versions`

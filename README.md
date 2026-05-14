@@ -64,8 +64,8 @@ flowchart LR
 | **后端** | FastAPI + SQLAlchemy 2.0 (async) + Alembic + Pydantic v2 |
 | **前端** | Flutter 3.x (Web + Android 同码) + Riverpod 2.x + go_router + dio (SSE) |
 | **Agent LLM** | `mimo-v2.5-pro` (1M context) / `mimo-v2.5` (omni 多模态) - 本机 LiteLLM |
-| **Embedding** | Voyage `voyage-3-large` 与智谱 `embedding-3` POC 双轨决胜 |
-| **Reranker** | Voyage `rerank-2` |
+| **Embedding** | Voyage `voyage-4-large` 与智谱 `embedding-3` POC 双轨决胜（账号在 v4 系列各有 200M tokens 免费） |
+| **Reranker** | Voyage `rerank-2.5`（200M tokens 免费） |
 | **向量库 / DB / 缓存** | Qdrant / PostgreSQL / Redis（**复用宿主已有实例**） |
 | **监控** | Langfuse Cloud Free Tier |
 | **评测** | Ragas + TeleQnA 转化的金标准集 (≥120 题) + Telco-DPR 风格 retrieval-only |

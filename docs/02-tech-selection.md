@@ -21,9 +21,9 @@
 | **Agent 主 LLM** | `mimo-v2.5-pro` (本机 LiteLLM) | `glm-4.6` | 1M context、function calling、长 horizon agent |
 | **轻量 LLM**（路由/改写/多查询） | `mimo-v2.5` (本机 LiteLLM) | `glm-4.5-air` | 便宜一半、原生 omni、1M context |
 | **Vision**（索引期图片描述） | `mimo-v2.5` (本机 LiteLLM) | `qwen-vl-plus` | 已在 LiteLLM、omni 多模态、零额外配置 |
-| **Embedding（首选）** | Voyage `voyage-3-large` | 智谱 `embedding-3` | POC 双轨决出，默认主用 Voyage |
-| **Embedding（POC 对照组）** | 智谱 `embedding-3` (本机 LiteLLM) | OpenAI `text-embedding-3-large` | 验证国产是否足够 |
-| **Reranker** | Voyage `rerank-2` | Jina v2 | 与 voyage embedding 同供应商，协同最佳 |
+| **Embedding（首选）** | Voyage `voyage-4-large` | 智谱 `embedding-3` | POC 双轨决出，默认主用 Voyage；账号 200M tokens 免费 |
+| **Embedding（POC 对照组）** | 智谱 `embedding-3` (本机 LiteLLM) | — | 验证国产是否足够；本期不再设海外对照组 |
+| **Reranker** | Voyage `rerank-2.5` | Jina v2 | 与 voyage embedding 同供应商，协同最佳；账号 200M tokens 免费 |
 | **稀疏检索** | LlamaIndex BM25 / SPLADE | Qdrant 原生 sparse | 与 dense 混合做 hybrid |
 | **文档主源** | `GSMA/3GPP` HF `marked/` tree (Rel-18 + Rel-19，按 `spec_id` 去重保留最新，仅 5G 相关系列 TS) | TSpec-LLM (已陈旧)、自爬+Docling | 官方预解析 markdown；过滤后约 1296 篇；表格 inline、公式保留、图片为同目录文件；不收录 TR |
 | **文档兜底** | LibreOffice + Docling | unstructured | 用于外部上传 doc / Rel-17 / 离群 spec |
@@ -104,6 +104,9 @@ flowchart TB
 | `glm-4.5-air` | 智谱 | text | - | 超低成本备份 |
 | `qwen-plus` / `qwen-max` | 阿里 | text | - | 备份 LLM |
 | `embedding-3` | 智谱 | embedding | - | **Embedding POC 对照组** |
+| `voyage-4-large` | Voyage | embedding | 32K | **Embedding 首选**；200M tokens 免费 |
+| `voyage-4` | Voyage | embedding | 32K | 备用 embedding（更便宜） |
+| `rerank-2.5` | Voyage | reranker | 8K | **Reranker 首选**；200M tokens 免费 |
 
 ### 2.2 Agent 主脑 — `mimo-v2.5-pro`
 
@@ -145,17 +148,17 @@ LangGraph 节点直接复用此 client，零额外抽象。
 
 ### 3.1 选型不确定性
 
-英文技术文档 retrieval 的 SOTA 是 Voyage `voyage-3-large`（32K context，MTEB retrieval 67.2），但智谱 `embedding-3` 在本机 LiteLLM 已配置，零额外接入成本。在 3GPP 这种**特殊领域、英文为主、表格公式多**的场景，两者差距未必显著到值得付费——必须实测。
+英文技术文档 retrieval 的当前 SOTA 是 Voyage `voyage-4-large`（32K context，v4 系列在 Voyage 官方基准上全面优于 v3 系列；`voyage-3-large` 已被 Voyage 归入 Older models 区），但智谱 `embedding-3` 在本机 LiteLLM 已配置，零额外接入成本。在 3GPP 这种**特殊领域、英文为主、表格公式多**的场景，两者差距未必显著到值得付费——必须实测。
 
 ### 3.2 POC 双轨方案
 
-| 项 | Voyage `voyage-3-large` | 智谱 `embedding-3` |
-|----|-------------------------|--------------------|
-| 维度 | 1024 / 1536 / 2048（Matryoshka） | 2048 |
+| 项 | Voyage `voyage-4-large` | 智谱 `embedding-3` |
+|----|--------------------------|--------------------|
+| 维度 | Matryoshka（默认 1024，可降至 256 / 512 / 1024 / 2048） | 2048 |
 | Context | 32K | 8K（足够 chunk 级） |
-| 价格 | $0.06 / M tokens | ¥0.5 / M tokens ≈ $0.07 |
-| MTEB retrieval | 67.2（SOTA） | 公开数据稀缺 |
-| 海外 API | 是（需 key + 代理）| 否（本机） |
+| 标准单价 | $0.12 / M tokens | ¥0.5 / M tokens ≈ $0.07 |
+| 账号免费额度 | **200M tokens**（足以覆盖本项目 POC + 全量索引 + 多次重建） | 本机 LiteLLM 走智谱企业额度 |
+| 海外 API | 是（统一走本机 LiteLLM proxy 即可） | 否（本机） |
 
 **POC 流程**：
 
@@ -165,17 +168,27 @@ LangGraph 节点直接复用此 client，零额外抽象。
 4. 胜出者用于全量索引；如差距 < 5%，选择智谱 embedding-3（成本更低、零依赖）
 
 **预算**：
-全量索引按 GSMA Rel-18+Rel-19 去重保留最新后仅保留 5G 相关系列 TS：`1296` 篇、`raw.md` 约 `621MiB` 估算；实际 chunk 与 embedding token 数以 M1 数据源审计输出为准。Voyage 一次全量预计仍是低十美元级；POC 双轨与少量重建可承担，但 Vision 描述需要按图片 hash 缓存控制一次性成本。
+全量索引按 GSMA Rel-18+Rel-19 去重保留最新后仅保留 5G 相关系列 TS：`1296` 篇、`raw.md` 约 `621MiB`；实际 chunk 与 embedding token 数以 M1 数据源审计输出为准。按 100M tokens 估算口径，**voyage-4-large 全量 + 多次重建均落在 200M 免费额度内**，对外费用接近 0。POC 期智谱不消耗 Voyage 额度。Vision 描述费用仍需按图片 hash 缓存控制。
 
 ### 3.3 索引向量重建路径
 
 预留 `embedding_provider` 字段在 chunk 元数据里。切换 embedding 时无需重新解析 doc，只需重新走 embedding+索引环节。
 
-## 4. Reranker — Voyage `rerank-2`
+### 3.4 Batch API（全量索引专用）
 
-- 16K query context，多语言，cross-encoder
-- 与 voyage-3-large embedding 同供应商，**双方训练上下文一致**，hybrid 协同最佳
-- 价格 $0.05 / 1K queries
+Voyage 提供 [Batch API](https://docs.voyageai.com/docs/batch-inference)：12h 完成窗口、相比标准 endpoint **33% 折扣**。本项目的取舍：
+
+- **全量索引**（M6，约 100M tokens 一次性）→ 走 Batch API
+- **POC 双轨、增量索引、单篇重建** → 走标准 endpoint（要快）
+- 由 `.env` 中 `VOYAGE_USE_BATCH_API_FOR_FULL_INDEX` 控制
+- 即使免费额度还在，Batch API 也能在用量监控上把"全量"与"日常调用"分开，便于观测
+
+## 4. Reranker — Voyage `rerank-2.5`
+
+- 8K query context（足够 3GPP chunk + 改写后 query），cross-encoder
+- 与 voyage-4-large embedding 同供应商，**双方训练上下文一致**，hybrid 协同最佳
+- 标准单价 $0.05 / M tokens（按 query × N_doc + Σ doc tokens 计费，**不是按 query 数**——这是 Voyage 2024 起的统一口径）
+- 账号 200M tokens 免费额度，按"100 题 × 6 query × 50 candidates × 500 tokens"估算，全量评测期都用不完
 - 调用模式：每次检索 top-50 candidates → reranker → top-5
 
 如 embedding POC 智谱胜出（不走 Voyage），reranker 回退到 **Jina reranker v2**（8K context、价格 Cohere 1/5、国内可访问性好）。
@@ -400,18 +413,20 @@ graph LR
 ## 15. 成本估算（小规模多用户、按 Voyage embedding 全量胜出口径）
 
 > 量级更新：GSMA Rel-18+Rel-19 去重保留最新并过滤为 5G 相关系列 TS 后约 `1296` 篇，`raw.md` 约 `621MiB`。chunk 数与 embedding tokens 以 M1/M2 实测校准；暂按 `100M` embed tokens 做容量预算。
+>
+> 选型变更（2026-05）：embedding 改用 `voyage-4-large`、reranker 改用 `rerank-2.5`。账号在两者上各有 200M tokens 免费额度，本项目预算口径内 embedding/rerank 成本均落在免费区，下表保留"用尽免费后"的等效付费口径，便于做最差情况估算。
 
-| 项 | 计费 | 估算 |
-|----|------|------|
-| 索引一次性·Embedding | Voyage 100M tokens × $0.06 / M = **$6** | ~$6 |
+| 项 | 计费（免费额度后等效付费口径） | 估算 |
+|----|------------------------------|------|
+| 索引一次性·Embedding | Voyage `voyage-4-large` 100M tokens × $0.12 / M = $12；Batch API 33% 折扣后 ≈ $8 | **本项目落在 200M 免费内 = $0**；超出按 ≤ $8 算 |
 | 索引一次性·Vision 描述（保留集约 27,042 个图片引用；hash 去重约 6,435 张唯一图片） | 按唯一图片估：输入 12.9M × $0.40 + 输出 9.7M × $2 ≈ $24.5；若无 hash 缓存按引用重复调用，上限约 $100 | ~$25（有缓存） |
 | Agent 月查询 100 次 × 6 LLM 调用 × 10K tokens | mimo-pro 6M × $3 ≈ $18 | ~$18 |
-| Embedding 查询 100 × 6 query × 500 tokens | 0.3M × $0.06 ≈ $0.02 | ~$0.02 |
-| Reranker 100 × 6 × 50 candidates | Voyage rerank 600 calls × $0.05/K = $0.03 | ~$0.03 |
+| Embedding 查询 100 × 6 query × 500 tokens | 0.3M × $0.12 ≈ $0.04 | **免费内 = $0** |
+| Reranker 100 × 6 × 50 candidates × 500 tokens | Voyage `rerank-2.5` 约 15M tokens × $0.05 / M ≈ $0.75 | **免费内 = $0** |
 | Tavily Web 搜索 20 次/月 | 免费层 | $0 |
 | Langfuse Cloud | Free | $0 |
-| **合计·首月（含一次性索引）** | | **≈ $50-70** |
-| **合计·后续月（不含索引）** | | **≈ $18-25** |
+| **合计·首月（含一次性索引，免费额度内）** | | **≈ $43**（主要是 Vision + Agent LLM） |
+| **合计·后续月（不含索引，免费额度内）** | | **≈ $18-25** |
 
 > Vision 描述仍是主要批处理作业之一，但实际 GSMA 图片存在大量跨 release / 跨 spec 重复。已确认本期按**保留集全量图片 Vision**交付，因此控费策略不用于跳过图片，只用于限流、失败续跑、重复图片 hash 缓存与预算告警。若唯一图片数或平均输出 token 明显高于估算，必须先暂停作业并更新成本审批。
 

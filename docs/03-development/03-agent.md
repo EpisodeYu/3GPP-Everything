@@ -181,7 +181,7 @@ async def rerank_node(state: AgentState) -> AgentState:
     scores = await voyage_client.rerank(
         query=state.rewritten_queries[0] if state.rewritten_queries else state.user_input,
         documents=docs,
-        model="rerank-2",
+        model="rerank-2.5",
         top_k=5,
     )
     reranked = sorted_by_rerank(state.candidates, scores)[:5]
@@ -341,7 +341,7 @@ async for event in graph.astream_events(..., config={"callbacks":[handler]}):
 | hyde | mimo-v2.5-pro | 3-5s | 仅 complex |
 | multi_query | mimo-v2.5 | 1-2s | 仅 complex |
 | retrieve | - | 0.3-0.8s | dense + sparse 并发 |
-| rerank | voyage rerank-2 | 0.5-1s | |
+| rerank | voyage rerank-2.5 | 0.5-1s | |
 | generate | mimo-v2.5-pro | 5-30s | streaming；50-1000 tokens |
 | self_rag | mimo-v2.5 | 2-3s | |
 

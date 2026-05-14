@@ -338,7 +338,7 @@ volumes:
 | PostgreSQL | `pg_isready` + `alembic upgrade head --sql` dry run | 不启动新版本 API；先恢复 DB 或修权限 |
 | Qdrant | `GET /collections` + active collection 存在 | API 进入 degraded read-only；禁止重建索引 |
 | Redis | `PING` + stream consumer group 可创建 | 禁止 admin 异步任务；聊天限流降级为内存 |
-| LiteLLM | `/v1/models` 至少含 `mimo-v2.5-pro`、`mimo-v2.5`、`embedding-3` | `/ready` 失败；聊天接口返回 503 |
+| LiteLLM | `/v1/models` 至少含 `mimo-v2.5-pro`、`mimo-v2.5`、`embedding-3`、`voyage-4-large`、`rerank-2.5` | `/ready` 失败；聊天接口返回 503 |
 
 部署脚本必须先检查共享服务，再拉起项目容器。备份脚本也只备份本项目 database、active Qdrant collection、BM25/markdown 目录，不碰其他项目数据。
 
