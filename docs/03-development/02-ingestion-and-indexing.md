@@ -330,21 +330,28 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 
 ## 5. 数据存储约束（更新）
 
+按"现在策略"（GSMA `marked/` sparse-checkout、TS-only 5G 系列白名单、1296 篇、`raw.md` 621MiB、唯一图片 6.4k 张）重算后口径：
+
 | 项 | 大小 | 备注 |
 |----|------|------|
-| HF cache | ~5-10GB | 含 `raw.md`、图片文件与 repo 元数据缓存 |
-| `/data/tgpp/fallback/raw/` | ~2GB | 仅兜底路径外部 doc |
-| `/data/tgpp/fallback/docx/` | ~1GB | 兜底 |
-| `/data/tgpp/markdown/` | ~1-3GB | 主库 `raw.md` 当前约 621MiB，另含解析后的 section JSON |
-| `/data/tgpp/images/` | ~3-10GB | 主库图片引用约 27.0k、唯一图片 hash 约 6.4k，另含 Vision 结果与 manifest |
+| HF cache | ~3-8GB | 仅 sparse-checkout `marked/`（不拉 `original/` doc/docx）+ repo 元数据缓存 |
+| `/data/tgpp/fallback/raw/` | ~0-1GB | 仅兜底路径外部 doc，MVP 几乎用不上 |
+| `/data/tgpp/fallback/docx/` | ~0-1GB | 兜底 |
+| `/data/tgpp/markdown/` | ~1-2GB | 主库 `raw.md` 当前约 621MiB，另含解析后的 section JSON |
+| `/data/tgpp/images/` | ~1-3GB | 主库图片引用约 27.0k、唯一图片 hash 约 6.4k，另含 Vision 结果与 manifest |
 | `/data/tgpp/bm25/` | ~1-2GB | 全量 chunk 重建后 |
-| Qdrant collection × 2（POC） | ~6-16GB | 各 ~3-8GB，取决于向量维度/quantization |
-| Qdrant collection × 1（生产） | ~3-8GB | 仅胜出 provider |
-| snapshot / backup 暂存 | ~15-25GB | 本地短期备份，长期建议同步到远端 |
+| Qdrant 生产 collection | ~3-5GB | 单 provider 稳态，约 25-35 万 chunks × 1024 维 + payload index |
+| POC embedding 对比临时空间 | +3-5GB（峰值） | **默认串行**跑两个 provider、跑完即清；仅在 ≥ 50GB 自由空间时允许短期双轨并存 |
+| snapshot / backup 暂存（zstd） | ~5-10GB | 本地短期备份，长期建议同步到远端；启用 zstd 后比裸 tar 小 50-70% |
+| Docker image / volume 余量 | ~5-10GB | 镜像层 + 临时 volume |
 
-**总计峰值 ~45-80GB**（含 POC 双轨、全量 Vision 与短期备份暂存）。因此项目启动前要求 `/data` 可用空间 ≥ 80GB；低于 50GB 不进入全量索引。
+**总计**：
+- **峰值（POC 期 + 短期备份 + 全量 Vision）**：~30-50GB
+- **稳态（POC 完成清理后）**：~15-25GB
 
-> 若紧张：(a) 关闭 docling fallback raw/docx 缓存（用完即删）；(b) POC 结束立即删除失败 provider collection；(c) Qdrant 启用 scalar quantization；(d) 将 snapshot 立即同步到远端后删除本地副本。
+因此项目启动前要求 `/data` 可用空间 ≥ 50GB（推荐 +50GB）；最低 +30GB 时必须在 POC 期严格串行跑 embedding（跑完一个 provider→评测→删除→再跑下一个），不允许双轨并存；< 30GB 不进入全量索引。
+
+> 若紧张：(a) HF 仅 sparse-checkout `marked/`，不拉 `original/`；(b) 关闭 docling fallback raw/docx 缓存（用完即删）；(c) POC 串行而非并行，并立即删除失败 provider collection；(d) Qdrant 启用 scalar quantization；(e) snapshot 用 zstd 压缩并立即同步到远端后删除本地副本。
 
 ## 6. 监控点
 

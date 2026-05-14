@@ -4,7 +4,7 @@
 
 ## 1. 交付物
 
-- ✅ `/data` 可用空间 ≥ 80 GB（低于 50GB 不进入全量索引）
+- ✅ `/data` 可用空间 ≥ 50 GB（推荐 +50GB；低于 30GB 不进入全量索引；POC embedding 对比期默认串行跑、跑完即清）
 - ✅ 本机已运行的 Qdrant / PostgreSQL / Redis / LiteLLM 完成"本项目专属命名空间"（独立 db / collection / Redis db number / LiteLLM key）
 - ✅ 项目仓库目录骨架（按 `00-overview.md §3`）
 - ✅ `.env.example` 完整、`.env` 本地填充验证可用
@@ -16,13 +16,13 @@
 
 ### 2.1 磁盘扩容
 
-- 用户向云厂商扩容（推荐 +80GB，最低 +50GB）→ 挂到 `/dev/vda2` 或新分区 `/data`
+- 用户向云厂商扩容（推荐 +50GB，最低 +30GB）→ 挂到 `/dev/vda2` 或新分区 `/data`
 - 如新分区：mount 到 `/data`，将 Docker volume root 迁移过去：
   ```
   /etc/docker/daemon.json:
   { "data-root": "/data/docker" }
   ```
-- 验收：`df -h` 显示 `/data`（或承载 Docker/Qdrant/项目数据的挂载点）可用 ≥ 80GB
+- 验收：`df -h` 显示 `/data`（或承载 Docker/Qdrant/项目数据的挂载点）可用 ≥ 50GB；< 50GB 时仅允许 POC 串行跑 embedding，不得双轨并存
 
 ### 2.2 共享服务专属命名空间
 
@@ -375,7 +375,7 @@ def health():
 
 ## 3. 验收清单
 
-- [ ] `df -h` 显示 `/data` 可用空间 ≥ 80GB（或记录为什么临时低于此值且不进入全量索引）
+- [ ] `df -h` 显示 `/data` 可用空间 ≥ 50GB（或记录为什么临时低于此值且不进入全量索引；< 50GB 时 POC 期不允许双轨并存）
 - [ ] `psql -h 127.0.0.1 -U tgpp_app -d tgpp_everything -c '\dx'` 列出 `uuid-ossp`、`pgcrypto`
 - [ ] `curl 127.0.0.1:6333/collections` 仍可访问、且本项目所有 collection 都以 `tgpp_chunks_` 开头
 - [ ] `redis-cli -n 5 ping` 返回 PONG

@@ -23,7 +23,7 @@ flowchart TB
         T2 --> T3["按 Rel-18/19 相关性 / 实体匹配筛选<br/>(100-200 题)"]
         T3 --> T4["LLM 转化: MCQ -> 开放问答 + 期望事实点"]
         T4 --> T5["人工校验修改"]
-        H1["手工补充 20-30 题<br/>(跨文档/表格/公式/负样本)"]
+        H1["手工补充 20-30 题<br/>(表格/公式/多章节合并/负样本)"]
         T5 & H1 --> G["eval/golden/v1.yaml"]
     end
     subgraph eval["三路评测"]
@@ -120,10 +120,10 @@ flowchart TB
 
 补充 TeleQnA 难以覆盖的场景：
 
-- **跨文档对比**："23.501 R18 vs R19 在 NEF 服务上的差异"
 - **表格定位**："38.331 中 RRCReconfiguration 的 IE 列表完整结构"
 - **公式查询**："38.214 的 CQI 计算公式"
 - **章节路径**："列出 23.502 §4.2 所有子节"
+- **多章节合并推理**："列出 23.502 §4.3 PDU Session 建立涉及到的所有 NF 与消息序列"
 - **负样本**："5G UE 的 MAC 地址格式"（必须返回未找到）
 
 每条保持 §3.5 的 YAML 格式。
@@ -142,8 +142,8 @@ sources:
 
 categories:
   - definition            # ~30 题
-  - procedure             # ~30 题
-  - cross_compare         # ~15 题
+  - procedure             # ~35 题
+  - multi_section         # ~10 题（多章节合并推理，但不跨 spec/版本）
   - table_lookup          # ~10 题
   - formula               # ~10 题
   - tool                  # ~10 题

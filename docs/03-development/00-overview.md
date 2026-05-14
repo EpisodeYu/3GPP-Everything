@@ -47,7 +47,7 @@ graph TB
 |--------|----------|
 | 本期范围 | 完整生产级交付：GSMA Rel-18+Rel-19 按 `spec_id` 去重保留最新，仅收录 5G 相关系列 TS（约 1296 篇，不收录 TR）、保留集全量图片 Vision、多用户基础能力、Web+Android、CI/CD、HTTPS、备份恢复 |
 | 用户模型 | 小规模多用户低并发；实现 admin/user RBAC，不做组织/租户级复杂权限矩阵 |
-| 磁盘门槛 | `/data` 可用空间 ≥ 80GB；低于 50GB 不进入全量索引 |
+| 磁盘门槛 | `/data` 可用空间 ≥ 50GB（推荐 +50GB）；低于 30GB 不进入全量索引；POC embedding 对比期默认串行跑、跑完即清 |
 | HyDE 模型 | `mimo-v2.5-pro`，质量优先；路由/改写/multi-query 用 `mimo-v2.5` |
 | Qdrant collection | POC 与生产均使用 `tgpp_chunks_{provider}`，如 `tgpp_chunks_voyage` / `tgpp_chunks_glm` |
 | 前端 Markdown | `flutter_markdown_plus` + `flutter_math_fork` |
