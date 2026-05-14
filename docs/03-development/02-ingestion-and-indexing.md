@@ -1,6 +1,6 @@
 # 03·02 - 文档摄取与索引
 
-> 负责把 3GPP 规范变成 Qdrant 中可被 hybrid 检索的 chunk。**主路径**直接消费 [`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) HF 数据集（已预解析为结构化 markdown）；**兜底路径**保留 LibreOffice + Docling 用于外部上传的离群 doc。
+> 负责把 3GPP 规范变成 Qdrant 中可被 hybrid 检索的 chunk。**主路径**直接消费 [`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) HF `marked/` 文件树（每篇 spec 一个 `raw.md` + 同目录图片）；**兜底路径**保留 LibreOffice + Docling 用于外部上传的离群 doc。
 
 ## 1. 交付物
 
@@ -10,7 +10,7 @@
   - 通用：`status` / `purge`
 - ✅ 全流程 idempotent：重跑同一篇 spec 不产生重复 chunk
 - ✅ POC（M2）：20 篇代表性 spec 完成 Voyage / 智谱双轨索引，存于 `tgpp_chunks_voyage` / `tgpp_chunks_glm`
-- ✅ 生产（M6）：GSMA Rel-18 + Rel-19 全量 ~938 篇 specs / ~169k sections 索引
+- ✅ 生产（M6）：GSMA Rel-18 + Rel-19 按 `spec_id` 去重保留最新、过滤为 5G 相关系列 TS 后的 `1296` 篇 specs 索引
 - ✅ BM25 稀疏索引（LlamaIndex 持久化到 `INGEST_DATA_DIR/bm25/`）
 - ✅ 进度日志可视、失败可续传
 
@@ -19,13 +19,14 @@
 ```mermaid
 flowchart TB
     subgraph hf["1. HF 数据集加载"]
-        A1["datasets.load_dataset('GSMA/3GPP', 'rel-18')"]
-        A1 --> A2["每行 = 一个 section<br/>spec_number/clause/title/body/images"]
-        A2 --> A3["按 spec_number 分组"]
-        A3 --> A4["按 document_order 排序 + 还原 section 树"]
+        A1["HF tree: marked/Rel-{18,19}/"]
+        A1 --> A2["{NN}_series/{spec_id}/raw.md<br/>+ 同目录图片"]
+        A2 --> A3["按 spec_id 去重<br/>R19 覆盖 R18"]
+        A3 --> A4["过滤 TS + 5G 系列白名单"]
+        A4 --> A5["解析 markdown 标题/章节<br/>还原 section 树"]
     end
     subgraph image["2. 图片处理"]
-        B1["读取 images 字段引用"] --> B2["下载图片 (HF 本地缓存)"]
+        B1["枚举 spec 目录图片"] --> B2["下载图片 (HF 本地缓存)"]
         B2 --> B3["mimo-v2.5 Vision 生成结构化描述<br/>(Redis 缓存)"]
     end
     subgraph chunk["3. Chunking"]
@@ -60,61 +61,108 @@ flowchart LR
 
 在写正式 loader 前，必须先完成并记录一次 GSMA 数据源验证，输出 `eval-results/source-audit/gsma_dataset_audit.md`：
 
-- **schema 验证**：打印 20 行样本，确认 `spec_number / release / clause / section_title / body / images / document_order` 的实际字段名、类型与空值比例。
-- **release 覆盖**：统计 Rel-18 / Rel-19 的 spec 数、section 数、图片数，和文档中估算值（~938 specs / ~169k sections）对齐；差异 > 5% 时先更新规划再继续。
-- **版本映射**：记录 `spec_number`、3GPP 官方版本号（如 `i80`）、GSMA dataset revision/commit hash 的映射，确保后续引用能追溯到具体版本。
+- **文件树验证**：枚举 `marked/Rel-{18,19}/{NN}_series/{spec_uid}/raw.md` 与同目录图片文件，确认当前 GSMA 仍是 markdown 文件树而非 section 行表。
+- **release 覆盖**：统计 Rel-18 / Rel-19 的 release-doc 数、跨 release 重复数、去重保留最新后的 spec 数、TS/TR 分布、系列分布、`raw.md` 总大小、图片文件引用数与唯一图片 hash 数。当前主库基线：R18 `1345`、R19 `1557`、重复 `1173`；去重后再过滤 TS + 5G 系列白名单，保留 `1296` 篇（Rel-19 `1274`，R18-only `22`），图片引用 `27,042`、唯一图片约 `6,435`。
+- **版本映射**：记录 `spec_id`、`spec_uid`、release、3GPP 官方版本号（如 `i90` / `j30`，从 `original/` 文件名映射）、GSMA dataset revision/commit hash，确保后续引用能追溯到具体版本。
 - **license / 使用边界**：核对 GSMA HF dataset 声明与 3GPP 版权提示，确认本项目内部检索、引用、缓存与公网访问的合规边界。
-- **图片字段**：确认 `images` 是否是 bytes、路径、HF Image 对象或引用列表；验证 10 张图片可下载、可 hash、可送 Vision。
+- **图片文件**：验证 10 张图片可下载、可 hash、可送 Vision；确认 hash 缓存命中后不会重复计费。
 
 未通过以上门禁，不进入 20 篇 POC 索引。
+
+当前主库 TS-only 系列分布基线：
+
+| 系列 | 文档数 | `raw.md` | 图片引用 |
+|------|--------|----------|----------|
+| 21 | 5 | 0.1MiB | 9 |
+| 22 | 87 | 6.0MiB | 345 |
+| 23 | 130 | 49.4MiB | 7437 |
+| 24 | 141 | 41.0MiB | 2699 |
+| 26 | 118 | 20.2MiB | 1591 |
+| 27 | 7 | 2.3MiB | 84 |
+| 28 | 132 | 14.9MiB | 1182 |
+| 29 | 187 | 78.8MiB | 4174 |
+| 31 | 16 | 3.7MiB | 319 |
+| 32 | 145 | 19.8MiB | 1679 |
+| 33 | 89 | 16.9MiB | 1409 |
+| 34 | 7 | 4.0MiB | 66 |
+| 35 | 32 | 1.0MiB | 90 |
+| 36 | 77 | 141.5MiB | 2128 |
+| 37 | 32 | 31.4MiB | 394 |
+| 38 | 91 | 190.2MiB | 3436 |
 
 ### 4.1 GSMA HF 加载器（主路径核心）
 
 ```python
 ingestion/hf_loader/
 ├── __init__.py
-├── loader.py            # datasets.load_dataset wrapper + 流式
-├── spec_grouper.py      # 按 spec_number 分组、还原 section 树
-├── image_resolver.py    # 处理 images 字段，下载到本地缓存
+├── loader.py            # HF tree 枚举 + raw.md 下载 + 流式 SpecBundle
+├── spec_grouper.py      # 按 spec_id 去重、还原 section 树
+├── image_resolver.py    # 处理同目录图片文件，下载到本地缓存
 └── runner.py            # CLI 入口
 ```
 
-**关键 schema**（来自 GSMA/3GPP）：
+**关键 manifest schema**（由 GSMA/3GPP 文件树生成）：
 
 | Field | Type | 用途 |
 |-------|------|------|
 | `spec_id` | string | 对外展示与 API 使用的 dotted 编号，如 "38.331" |
-| `spec_uid` | string | 内部紧凑编号，如 "38331"（如 GSMA 提供） |
+| `spec_uid` | string | GSMA 目录中的紧凑编号，如 "38331" |
 | `spec_number` | string | 原始字段，通常等同 `spec_id` |
-| `spec_type` | string | "TS" / "TR" |
-| `title` | string | spec 全称 |
+| `spec_type` | string | "TS" / "TR"（优先从 `original/` 文件或 markdown 标题推断） |
+| `title` | string | spec 全称（从 `raw.md` 标题或原文元数据抽取） |
+| `release` | string | "Rel-18" / "Rel-19" |
+| `series` | string | "38" |
+| `raw_md_path` | string | HF repo 内 `marked/.../raw.md` 路径 |
+| `source_doc_path` | string | HF repo 内 `original/.../*.doc(x)` 路径（用于官方版本号映射） |
+| `source_doc_version` | string | 3GPP 文件名版本后缀，如 "i90" / "j30" |
+| `image_paths` | list[string] | 同 spec 目录下图片路径 |
+| `image_hashes` | list[string] | 图片 bytes hash，用于 Vision 缓存 |
+| `dataset_revision` | string | GSMA HF commit hash |
+
+**解析后 Section schema**（由 `raw.md` 生成）：
+
+| Field | Type | 用途 |
+|-------|------|------|
+| `spec_id` | string | 对外展示与 API 使用的 dotted 编号 |
 | `release` | string | "Rel-18" / "Rel-19" |
 | `clause` | string | 章节号 "5.2.1" |
 | `section_title` | string | 章节标题 |
 | `body` | string | section markdown（表格/公式 inline） |
 | `body_chars` | int32 | 字符数 |
 | `document_order` | int32 | 在 spec 内的位置 |
-| `images` | list[Image] | 图片引用 |
+| `image_refs` | list[string] | section 中引用或邻近的图片路径 |
 
 **加载策略**：
 
 ```python
-from datasets import load_dataset
+from huggingface_hub import HfApi, hf_hub_download
 
-# 先 pin revision，再落本地 cache/manifest；不要在 streaming iterator 中无界 defaultdict 分组。
-ds = load_dataset("GSMA/3GPP", split="train", token=HF_TOKEN, revision=GSMA_REVISION)
+# 先 pin revision，再枚举 marked/original 文件树并落本地 SQLite manifest。
+api = HfApi(token=HF_TOKEN)
+tree = api.list_repo_tree(
+    repo_id="GSMA/3GPP",
+    repo_type="dataset",
+    revision=GSMA_REVISION,
+    path_in_repo="marked",
+    recursive=True,
+)
 
-manifest = write_manifest(ds, releases={"Rel-18", "Rel-19"})
-for spec_id in manifest.spec_ids:
-    sections = load_sections_for_spec(ds, spec_id)  # 可按 parquet shard / 本地 sqlite manifest 实现
-    sections.sort(key=lambda s: s["document_order"])
-    yield SpecBundle(spec_id, sections, dataset_revision=GSMA_REVISION)
+manifest = write_manifest_from_tree(tree, releases={"Rel-18", "Rel-19"})
+manifest = dedupe_keep_latest(manifest)  # 同 spec_id 优先 Rel-19
+manifest = manifest.filter(
+    spec_type="TS",
+    series={"21","22","23","24","26","27","28","29","31","32","33","34","35","36","37","38"},
+)
+for spec in manifest.iter_specs():
+    raw_md = hf_hub_download("GSMA/3GPP", spec.raw_md_path, repo_type="dataset", revision=GSMA_REVISION)
+    sections = parse_markdown_sections(raw_md)
+    yield SpecBundle(spec.spec_id, sections, image_paths=spec.image_paths, dataset_revision=GSMA_REVISION)
 ```
 
 实现要求：
 
-- 小样本/POC 可以非流式读取；全量时先建立本地 manifest（SQLite 或 parquet），避免多次全表扫描。
-- 不允许把全量 169k sections 按 spec 全部塞进内存再处理；按 spec 顺序流式产出 `SpecBundle`。
+- 小样本/POC 可以直接下载单篇 `raw.md`；全量时先建立本地 manifest（SQLite 或 parquet），避免多次 HF tree 扫描。
+- 不允许把全量 `raw.md` 或解析后 sections 全部塞进内存；按 spec 顺序流式产出 `SpecBundle`。
 - 每次 `hf-pull` 记录 `GSMA_REVISION`，后续 chunk / Qdrant payload / PG metadata 都写入同一个 revision。
 
 **Spec → Section 树还原**：
@@ -123,20 +171,25 @@ for spec_id in manifest.spec_ids:
 
 ### 4.2 图片处理
 
-GSMA `images` 字段含图片引用：
+GSMA `marked/` 中每个 spec 目录可包含图片文件：
 
 ```python
-# 每张图：{ "path": "...", "bytes": <bytes> } 或类似
+# marked/Rel-19/38_series/38211/
+# ├── raw.md
+# ├── 63e0c22852c26699d0bd095a2d796bab_img.jpg
+# ├── 64662465bba247703fdec49c8f3309f9_img.jpg
+# └── d401d69d03672a3e96a1c73dd3af1ccd_img.jpg
 ```
 
-- HF datasets 已把图片 cache 到本地 `~/.cache/huggingface/datasets/`，按文件指针读
+- 通过 `hf_hub_download` 把图片 cache 到本地，按 bytes 读取
 - 直接喂 `mimo-v2.5` 生成描述（Prompt 同主文档原 §3.4）
 - 缓存：`Redis tgpp:vision:{sha256(image_bytes)}`，TTL 永久
 
 **全量 Vision 作业策略**：
 
 - 启动期跑 50 张人工抽检，确认 Vision 描述质量
-- 本期已确认全量图片都做 Vision 描述，不提供跳过装饰图的默认策略
+- 本期已确认保留集全量图片都做 Vision 描述，不提供跳过装饰图的默认策略
+- 当前 GSMA 主库基线：按 Rel-19 覆盖重复 spec、保留 R18-only，并过滤为 5G 相关系列 TS 后，共 `27,042` 个图片引用、约 `6,435` 个唯一图片 hash。单篇 `38.211` 只有 3-4 张图，但图密集 spec 会贡献数百张。
 - 可保留图片分类字段（`figure_kind=decorative|diagram|chart|table|unknown`），但分类只影响后续质量分析，不影响是否生成描述
 - 以图片 bytes hash 做 Redis + PG 双层缓存；重复图片不重复调用 Vision
 - 默认并发 1-2，按每日成本阈值和 LiteLLM 限流动态暂停；所有失败进入 retry queue
@@ -247,7 +300,7 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 
 **M1（开发周 1-2）**：HF + Docling 双路径打通
 
-1. HF loader：拉一行验证 schema，按 `spec_number=23.501` 过滤还原章节树
+1. HF loader：拉取单篇 `raw.md` 验证 manifest 与 markdown 解析，按 `spec_id=23.501` 过滤还原章节树
 2. 抽 1 篇代表性 spec（如 `38.331`，最大最复杂）：从 GSMA HF 走完整链路 → chunk + 图片 Vision 描述
 3. 人工抽检：
    - 章节层级 vs 原 PDF 目录（≥ 95% 一致）
@@ -269,9 +322,9 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 
 两套 collection 完成索引供 M3 评测使用。
 
-**M6（开发周 7-8）**：全量 938 篇
+**M6（开发周 7-8）**：全量 1296 篇（R18/R19 去重保留最新 + TS-only + 5G 系列）
 
-- 估算单 spec 索引耗时（M2 期可得）× 938 - 并行度 → 总耗时
+- 估算单 spec 索引耗时（M2 期可得）× 1296 - 并行度 → 总耗时
 - 控制单日并发与每日费用阈值（防 Vision 描述费用超 §15 估算）
 - 失败重试 + 续传
 
@@ -279,11 +332,11 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 
 | 项 | 大小 | 备注 |
 |----|------|------|
-| HF datasets 本地 cache | ~5-10GB | 含 Parquet + 图片引用/缓存 |
+| HF cache | ~5-10GB | 含 `raw.md`、图片文件与 repo 元数据缓存 |
 | `/data/tgpp/fallback/raw/` | ~2GB | 仅兜底路径外部 doc |
 | `/data/tgpp/fallback/docx/` | ~1GB | 兜底 |
-| `/data/tgpp/markdown/` | ~3GB | 每篇 spec 拼接的完整 markdown（阅读器用） |
-| `/data/tgpp/images/` | ~5-15GB | 全量 Vision 图片缓存 + hash manifest |
+| `/data/tgpp/markdown/` | ~1-3GB | 主库 `raw.md` 当前约 621MiB，另含解析后的 section JSON |
+| `/data/tgpp/images/` | ~3-10GB | 主库图片引用约 27.0k、唯一图片 hash 约 6.4k，另含 Vision 结果与 manifest |
 | `/data/tgpp/bm25/` | ~1-2GB | 全量 chunk 重建后 |
 | Qdrant collection × 2（POC） | ~6-16GB | 各 ~3-8GB，取决于向量维度/quantization |
 | Qdrant collection × 1（生产） | ~3-8GB | 仅胜出 provider |
@@ -310,8 +363,8 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 | GSMA 数据集 markdown 中公式格式特殊 | 非标 LaTeX / Word equation 残留 | M1 抽检 + 加正则净化层；前端 fallback 显示原始字符串 |
 | 表格 markdown 内嵌图片 / 复杂结构 | 个别表格 | 解析时遇到非标用兜底 Docling 处理；记入 known_issues.yaml |
 | HF dataset 长期不更新 | GSMA 维护节奏 | 监控 `last_modified`；6 个月无更新自动告警；兜底爬虫可补 |
-| Vision 描述费用超预算 | 30k 图片 × 1500 tokens 输出 ≈ $115，实际图片数可能更高 | 按全量 Vision 要求继续处理，但用 hash 缓存、低并发、每日预算阈值、失败队列与人工暂停机制控风险 |
-| HF 数据集需要授权但 token 失败 | HF 服务状态 / token 配置错 | M0 阶段验证 token 拉取 1 行成功；CI 中走匿名公共子集 fixture |
+| Vision 描述费用超预算 | 主库约 27.0k 图片引用，但唯一图片 hash 约 6.4k；若未命中 hash 缓存会重复计费 | 按保留集全量 Vision 要求继续处理，但必须用 hash 缓存、低并发、每日预算阈值、失败队列与人工暂停机制控风险 |
+| HF 数据集需要授权但 token 失败 | HF 服务状态 / token 配置错 | M0 阶段验证 token 可拉取单篇 `raw.md` 与图片；CI 中走匿名公共子集 fixture |
 | Docling fallback 解析失败 | 老格式 / 嵌入特殊对象 | 失败计入 PG 状态表；known_issues 记录 |
 
 ## 8. 验收清单
@@ -327,7 +380,7 @@ POC 阶段（M1+M2）：
 
 生产阶段（M6）：
 
-- [ ] GSMA Rel-18 + Rel-19 全量 938 篇 specs 状态 = `indexed`
+- [ ] GSMA Rel-18 + Rel-19 去重保留最新、过滤为 5G 相关系列 TS 后的 1296 篇 specs 状态 = `indexed`
 - [ ] 单篇 spec 重新索引（`--force`）不产生 Qdrant 重复 point
 - [ ] 一篇 spec 删除（`purge`）后 Qdrant + PG + BM25 三处全清干净
 - [ ] `status` CLI 输出含 source 列（gsma_hf / docling_fallback）
