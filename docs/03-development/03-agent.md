@@ -419,8 +419,10 @@ if state.paused:    raise NodeInterrupt("paused by user")  # 区别：paused 不
 
 ## 14. 验收清单
 
-- [ ] `pytest -m unit backend/tests/unit/agent/` 全绿
-- [ ] `pytest -m integration backend/tests/integration/agent/` 覆盖：
+> 标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人审（外部 trace 可视化、回答质量）。
+
+- [ ] `[auto]` `pytest -m unit backend/tests/unit/agent/` 全绿
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/agent/` 覆盖：
   - simple QA 端到端
   - complex QA 端到端
   - raw_lookup 模式
@@ -429,8 +431,9 @@ if state.paused:    raise NodeInterrupt("paused by user")  # 区别：paused 不
   - **从历史 checkpoint fork 出新会话 + 老会话变只读**
   - **rollback 最后 N 轮 messages + checkpoints 一致性**
   - 工具节点显式触发（web_search、glossary、toc、params）
-- [ ] Langfuse 中能看到完整 trace（每个节点 span + token stream）
-- [ ] 流式 SSE event 序列符合 §7 表
+- [ ] `[human]` Langfuse 中能看到完整 trace（每个节点 span + token stream）—— Langfuse Cloud 账号由人创建，trace 实际效果由人确认
+- [ ] `[auto]` 流式 SSE event 序列符合 §7 表（集成测断言事件顺序与字段）
+- [ ] `[auto]` self-RAG retry 上限：构造低置信度场景，验证不会死循环（`retry_count >= 2` 强制收敛）
 
 ## 15. 完成后下一步
 

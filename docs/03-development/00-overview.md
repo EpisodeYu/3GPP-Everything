@@ -1,6 +1,22 @@
 # 03·00 - 开发规划总览
 
 > Plan 第 3 部分的入口。本目录拆分为 8 份子规划文档，按依赖顺序排列；除 00 之外的 7 份各自描述一个独立交付物。
+>
+> 本项目采用 **vibe coding 模式**：Agent 主导执行、人主导决策与节奏。具体协作规则见项目根 `CLAUDE.md` 与 `docs/00-vibe-coding-protocol.md`。下文里出现的"开发者要 X"一律理解为"Agent 要 X，由人按里程碑节奏验收"。
+
+## 0. Agent 入场指南
+
+> 你（Agent）第一次进入这个项目时，按下列顺序进行。
+
+1. 读完 `CLAUDE.md` + `docs/00-vibe-coding-protocol.md`。如果有任一条不清楚，停下问人。
+2. 用 `make` / `docker compose ps` 等命令确认当前实际进展（不要相信文档默认描述的"现在在 M0"，以代码 / 共享服务实际状态为准）。
+3. 找到当前里程碑（见 §3）：
+   - 若 Mx 未通过完成度门禁 → 从 Mx 继续
+   - 若 Mx 已完成、Mx+1 没开始 → 主动问人："要不要进 Mx+1？"
+4. 在那个里程碑对应的子文档里挑 1 个未完成的"交付物"作为本次任务。
+5. 按 `CLAUDE.md §6` 的 plan → implement → self-verify → handoff 循环走。
+
+> **不要**一次性把 8 份子文档全读完当上下文。每次只读"当前任务相关"的那一两份。
 
 ## 1. 子规划清单与依赖
 
@@ -55,54 +71,48 @@ graph TB
 | chunk 标识 | API/SSE 使用字符串 `chunk_id`（Qdrant point id）；PG 外键字段命名为 `chunk_meta_id` |
 | 生产备份 | 备份 active provider collection，collection 名从环境变量/DB 读取，不写死 provider |
 
-## 3. 里程碑与时间线
+## 3. 里程碑与完成度门禁
 
-按"周"为单位，单人节奏（每周可投入时间不固定，按工作量估算）。
+> Vibe coding 模式下不绑定"按周"时间表。里程碑按"完成度门禁"推进：上一个的门禁不全绿，不进下一个；具体节奏由人按产品反馈决定。
 
 ```mermaid
-gantt
-    title 3GPP-Everything 里程碑
-    dateFormat YYYY-MM-DD
-    section M0 准备
-    磁盘扩容 + 共享服务调研               :m0a, 2026-05-14, 2d
-    项目骨架 + .env + Compose 雏形        :m0b, after m0a, 3d
-    HF token + GSMA dataset 试拉单篇       :m0c, after m0b, 1d
-    section M1 数据接入 POC
-    GSMA HF loader + section 树还原        :m1a, after m0c, 2d
-    单 spec 端到端 (chunk + Vision 描述)   :m1b, after m1a, 3d
-    Docling 兜底链路接入 (上传 1 个 doc)    :m1c, after m1b, 2d
-    section M2 索引 + 检索 POC
-    20 spec 双轨 Qdrant 索引 (Voyage/GLM)   :m2a, after m1c, 4d
-    Hybrid retrieve + rerank baseline      :m2b, after m2a, 3d
-    section M3 评测集 + Embedding 决胜
-    TeleQnA 拉取 + Standards 类过滤        :m3a, after m2b, 1d
-    LLM 转化 100 题 + 人工校验             :m3b, after m3a, 4d
-    Ragas 决胜两套 embedding               :m3c, after m3b, 2d
-    section M4 Agent + 后端
-    LangGraph 状态图主干                   :m4a, after m3c, 5d
-    self-RAG + 工具节点                    :m4b, after m4a, 4d
-    FastAPI + SSE + Auth + DB              :m4c, after m4a, 5d
-    section M5 前端
-    Flutter chat + SSE 客户端              :m5a, after m4c, 5d
-    阅读器 + 管理页                        :m5b, after m5a, 5d
-    section M6 全量索引 (GSMA R18+R19)
-    1296 TS spec 去重索引(挑选 embedding) :m6a, after m4b, 5d
-    section M7 评测扩展 + 监控
-    手工补 20-30 复杂题 + 负样本           :m7a, after m6a, 3d
-    Langfuse trace + Datasets + eval       :m7b, after m4b, 3d
-    section M8 上线
-    Docker Compose 生产化                  :m8a, after m5b, 3d
-    Nginx + Let's Encrypt + 域名           :m8b, after m8a, 2d
-    GitHub Actions CI                      :m8c, after m4c, 3d
-    Smoke + 验收                           :m8d, after m8b, 2d
+graph LR
+    M0["M0 准备<br/>infra"] --> M1["M1 数据接入 POC<br/>HF + Docling"]
+    M1 --> M2["M2 索引检索 POC<br/>20 spec 双轨"]
+    M2 --> M3["M3 评测集+Embedding 决胜"]
+    M3 --> M4["M4 Agent + 后端"]
+    M4 --> M5["M5 前端"]
+    M3 --> M6["M6 全量索引"]
+    M4 --> M6
+    M6 --> M7["M7 评测扩展 + 监控"]
+    M5 --> M8["M8 上线"]
+    M7 --> M8
 ```
 
-**关键决策点**：
+| 里程碑 | 主交付物 | 完成度门禁（全部通过才算完成） | 关键决策点（必须人审） |
+|--------|---------|------------------------------|----------------------|
+| **M0** 准备 | `/data` 扩容、共享服务命名空间、项目骨架、`.env.example`、dev Compose、Makefile | `01-infrastructure.md §3` 全部勾选；`make lint` + `curl /health` 通过 | 磁盘是否达 50GB 推荐线 |
+| **M1** 数据接入 POC | HF loader、单 spec 端到端 chunk + Vision、Docling 兜底 | `02-ingestion-and-indexing.md §4.0 数据源验证门禁` 输出 audit md；至少 1 篇 spec（建议 38.331）走完整链路 | mimo-v2.5 Vision 图片描述质量；GSMA markdown section 树还原一致性（≥ 95%）|
+| **M2** 索引检索 POC | 20 spec 双轨 Qdrant 索引（voyage / glm），Hybrid retrieve baseline | `02-...md §8` POC 子清单全勾；两 collection 各 > 8000 chunks | retrieve baseline 在抽测查询上"看起来合理" |
+| **M3** 评测集 + Embedding 决胜 | TeleQnA 抽取 + 转化 100 题 + 人审；金标准 v1.yaml ≥ 120 题；两 embedding 评测出结果 | `06-...md §12` 与 `eval-results/m3-embedding-poc.md` 都齐备 | **embedding 选型决策由人拍板（基于 §8 决胜规则）** |
+| **M4** Agent + 后端 | LangGraph 主干 + self-RAG + 工具节点；FastAPI + SSE + Auth + DB；Alembic migration | `03-agent.md §14` + `04-backend-api.md §12` 全绿；CI 集成测全过 | self-RAG retry 是否过激；鉴权 / RBAC 边界 |
+| **M5** 前端 | Flutter chat + SSE 客户端、阅读器、管理后台、checkpoint UI 闭环 | `05-frontend.md §14` 全绿 | **UX 体验由人主审**（流式动效、引用 chip、checkpoint 闭环易用度）|
+| **M6** 全量索引 | GSMA R18+R19 TS-only 5G 系列 1296 篇全部 indexed；BM25 持久化；全量图片 Vision 命中 hash 缓存 | `02-...md §8` 生产清单全勾；磁盘占用与成本符合 `02-tech-selection.md §15` 预算 | 全量跑前**必须由人 approve 预算与并发策略** |
+| **M7** 评测扩展 + 监控 | 手工补 20-30 题；Langfuse Dataset + 自动 eval；成本告警 | `06-...md §12` 全绿 + nightly eval 连跑 2 次 ≥ 阈值 | 评测阈值是否符合验收（faithfulness ≥ 0.85、context recall ≥ 0.80）|
+| **M8** 上线 | 生产 Compose、Nginx + Let's Encrypt、CI 全套、Runbook、备份/回滚演练 | `07-cicd-and-deployment.md §10` 全绿；`https://<域名>/health` 200 | 首次上线、域名 DNS、首个 admin 账号、对外可访问 |
 
-- **M1 验收**：GSMA HF loader 走通、section 树还原正确；mimo-v2.5 图片描述质量过关；Docling 兜底链路也能跑——决定主路径策略
-- **M3 验收**：两套 embedding 的 retrieval recall 差距 —— 决定全量索引走 Voyage 还是智谱
-- **M6 完成前不进入 M7 全量评测**：避免在错误 embedding 上浪费评测时间
-- **M8 上线前 CI 必须绿**
+**关键决策点重申**（来自上表"必须人审"列）：
+
+- **M1**：HF loader 走通、section 树还原 ≥ 95%、Vision 描述质量过关——决定主路径策略
+- **M3**：两套 embedding 的 retrieval 指标 → 决定全量索引走哪个 provider
+- **M6 完成前**不进入 M7 全量评测：避免在错误 embedding 上浪费评测
+- **M8 上线前**：CI 全绿、回滚演练做过一次
+
+**Agent 行为提示**：
+
+- 每个里程碑内部任务的拆分与排序，Agent 自主决定，但每完成一项要按 `00-vibe-coding-protocol.md §4` 输出完成报告
+- 里程碑之间不要"偷跑"：M2 没勾完不要开 M3 任务（除非 M3 任务有独立性且人明确允许）
+- 任何里程碑的"关键决策点"必须由人 approve，Agent 不能自行通过——这是 `CLAUDE.md §5` 触发条件
 
 ## 4. 目录骨架
 
@@ -193,13 +203,16 @@ gantt
 
 ## 6. 开发规则
 
-- **Conventional Commits**：`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `test:`
-- **分支**：`main` 保护；功能走 feature branch + PR
+- **Conventional Commits**：`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `test:`, `perf:`, `build:`, `ci:`
+- **分支**：`main` 保护；功能走 feature branch + PR；Agent 不直接 push 到 main
 - **Python**：3.11+（与本机已有 uvicorn 一致），Pydantic v2，async 优先
 - **依赖管理**：`pyproject.toml` + `uv`（更快），requirements 由 uv 锁定
 - **Flutter**：稳定通道，Dart 3.x
-- **测试**：单测对纯函数 / 数据变换；集成测对 retriever / agent / API；eval 对端到端 RAG 质量
-- **文档**：每个模块顶部 docstring 说明"做什么 / 不做什么"，符合根目录 `CLAUDE.md` 第 2 条简洁原则
+- **测试**（vibe coding 硬要求，详见 `CLAUDE.md §4` 与 `00-vibe-coding-protocol.md §6`）：
+  - 单测对纯函数 / 数据变换；集成测对 retriever / agent / API；eval 对端到端 RAG 质量
+  - **新增/修改业务代码 → 必须新增或更新测试**，跑通才算"完成"
+  - 大功能完成或跨 ≥ 3 模块改动 → 必须跑回归（lint + unit + integration + eval 子集）
+- **文档**：每个模块顶部 docstring 说明"做什么 / 不做什么"，符合 `CLAUDE.md §2` 简洁原则；文档与代码相互引用的地方，**改一处必检另一处**
 
 ## 7. "本期不做"清单（提醒）
 

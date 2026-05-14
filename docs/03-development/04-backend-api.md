@@ -462,13 +462,16 @@ async def app_error_handler(req, exc): ...
 
 ## 12. 验收清单
 
-- [ ] `pytest -m unit backend/tests/unit/api/` 全绿
-- [ ] `pytest -m integration backend/tests/integration/api/` 全绿
-- [ ] `curl /docs` 可访问 Swagger UI，所有路由有描述
-- [ ] `curl /health` 200；`curl /ready` 检测每个依赖
-- [ ] Postman 跑通端到端：bootstrap admin → 登录 → 创建普通用户 → 创建会话 → 发消息（SSE） → 看引用 → 取消 → 删除会话
-- [ ] Alembic：`alembic upgrade head` 在干净 PG 上成功；`alembic downgrade -1` 也可
-- [ ] RBAC 验证：普通用户无法访问 admin 路由；停用用户无法 refresh；logout 后 refresh token 失效
+> 标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人介入（密钥、SSE 实际体验、首个 admin 凭证）。
+
+- [ ] `[auto]` `pytest -m unit backend/tests/unit/api/` 全绿
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/` 全绿
+- [ ] `[auto]` `curl /docs` 可访问 Swagger UI，所有路由有 `summary` + `description`（pytest 检查 OpenAPI schema 覆盖度）
+- [ ] `[auto]` `curl /health` 200；`curl /ready` 检测每个依赖（集成测覆盖各依赖断连时降级行为）
+- [ ] `[human]` Postman 或脚本跑通端到端：bootstrap admin → 登录 → 创建普通用户 → 创建会话 → 发消息（SSE） → 看引用 → 取消 → 删除会话 —— **bootstrap admin invite code、SSE 体验、checkpoint 链路由人确认**
+- [ ] `[auto]` Alembic：`alembic upgrade head` 在干净 PG 上成功；`alembic downgrade -1` 也可（CI 跑）
+- [ ] `[auto]` RBAC 验证：普通用户无法访问 admin 路由；停用用户无法 refresh；logout 后 refresh token 失效（集成测覆盖）
+- [ ] `[auto]` 限流：超过 `chat` / `tools_websearch` / `admin_crawl` bucket 阈值返回 429（集成测覆盖）
 
 ## 13. 完成后下一步
 

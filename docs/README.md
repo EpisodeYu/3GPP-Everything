@@ -1,6 +1,11 @@
 # 3GPP-Everything 项目文档索引
 
-整个 Plan 分为三部分，按顺序阅读：
+> 本项目采用 **vibe coding 模式**：Agent 主导执行，人主导决策与节奏。
+> Agent 入场第一步：读 [`../CLAUDE.md`](../CLAUDE.md) + [`00-vibe-coding-protocol.md`](./00-vibe-coding-protocol.md)，再按当前里程碑选任务。
+
+## 第 0 部分 - 协作协议
+
+- [`00-vibe-coding-protocol.md`](./00-vibe-coding-protocol.md) — 角色边界、协作循环、任务卡格式、完成报告模板、回归测试分层、升级回报机制
 
 ## 第 1 部分 - 需求澄清
 
@@ -27,8 +32,16 @@
 
 ## 阅读顺序建议
 
+**Agent 入场**：
+
 ```
-01 → 02 → 03-dev/00（先看全局决策总表）→ 01 → 02 → 03 → 04 → 05 → 06 → 07
+CLAUDE.md → 00-vibe-coding-protocol.md → 01 → 02 → 03-dev/00（全局决策总表）→ 按当前里程碑挑相关子文档
+```
+
+**完整通读（人新接手时）**：
+
+```
+00 → 01 → 02 → 03-dev/00 → 01 → 02 → 03 → 04 → 05 → 06 → 07
 ```
 
 实施期允许局部并行：

@@ -375,14 +375,17 @@ def health():
 
 ## 3. 验收清单
 
-- [ ] `df -h` 显示 `/data` 可用空间 ≥ 50GB（或记录为什么临时低于此值且不进入全量索引；< 50GB 时 POC 期不允许双轨并存）
-- [ ] `psql -h 127.0.0.1 -U tgpp_app -d tgpp_everything -c '\dx'` 列出 `uuid-ossp`、`pgcrypto`
-- [ ] `curl 127.0.0.1:6333/collections` 仍可访问、且本项目所有 collection 都以 `tgpp_chunks_` 开头
-- [ ] `redis-cli -n 5 ping` 返回 PONG
-- [ ] `curl -s -H "Authorization: Bearer $LITELLM_API_KEY" http://127.0.0.1:4000/v1/models` 列出至少 `mimo-v2.5-pro`、`mimo-v2.5`、`embedding-3`
-- [ ] `make lint` 全绿
-- [ ] `docker compose -f deploy/docker-compose.yml up --build` 起来后 `curl localhost:8002/health` 返回 200
-- [ ] `docker compose down` 干净退出
+> 标注：`[auto]` = Agent 自跑命令即可判定；`[human]` = 需要人介入（涉及账号/扩容/外部 secret/产品口径）。
+
+- [ ] `[human]` `df -h` 显示 `/data` 可用空间 ≥ 50GB（扩容动作必须由人完成；< 50GB 时人须 approve "不进入全量索引 / POC 期不允许双轨并存"的偏离）
+- [ ] `[auto]` `psql -h 127.0.0.1 -U tgpp_app -d tgpp_everything -c '\dx'` 列出 `uuid-ossp`、`pgcrypto`
+- [ ] `[auto]` `curl 127.0.0.1:6333/collections` 仍可访问、且本项目所有 collection 都以 `tgpp_chunks_` 开头
+- [ ] `[auto]` `redis-cli -n 5 ping` 返回 PONG
+- [ ] `[human]` `curl -s -H "Authorization: Bearer $LITELLM_API_KEY" http://127.0.0.1:4000/v1/models` 列出至少 `mimo-v2.5-pro`、`mimo-v2.5`、`embedding-3`（LiteLLM key 由人发放）
+- [ ] `[auto]` `make lint` 全绿
+- [ ] `[auto]` `docker compose -f deploy/docker-compose.yml up --build` 起来后 `curl localhost:8002/health` 返回 200
+- [ ] `[auto]` `docker compose down` 干净退出
+- [ ] `[auto]` `.env.example` 与本文 §2.4 清单字段一一对应（CI 校验脚本可加）
 
 ## 4. 风险与排雷
 

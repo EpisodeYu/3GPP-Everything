@@ -319,13 +319,17 @@ app_zh.arb        # 中文
 
 ## 14. 验收清单
 
-- [ ] `flutter analyze` 0 警告 0 错误
-- [ ] `flutter test` 全绿
-- [ ] Chrome / Edge 实测：登录 → 创建会话 → 流式问答 → 看引用 → 跳阅读器 → 高亮 → 取消正在进行的问答 → 收藏 / 笔记 / 反馈
-- [ ] Checkpoint 闭环实测：跑中暂停 → 关浏览器 → 重进会话点恢复 → SSE 续跑后续节点；从历史 user 消息 fork → 跳转新会话 → 老会话进入 "分叉历史" 分组只读；删除最后 N 轮后剩余消息状态正确
-- [ ] Android emulator 实测：同上（交互可简陋，能用即可）
-- [ ] 切换中/英、light/dark 后再走一次完整流程
-- [ ] 管理后台：拉取任务 + 进度 + 跳 Langfuse
+> 标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人介入（UX 体验由人主审，这是 §M5 关键决策点）。
+
+- [ ] `[auto]` `flutter analyze` 0 警告 0 错误
+- [ ] `[auto]` `flutter test` 全绿（widget test + golden test）
+- [ ] `[auto]` `flutter test integration_test/` 跑通 mock API 下的完整 send → token → final 流程
+- [ ] `[human]` Chrome / Edge 实测：登录 → 创建会话 → 流式问答 → 看引用 → 跳阅读器 → 高亮 → 取消正在进行的问答 → 收藏 / 笔记 / 反馈
+- [ ] `[human]` Checkpoint 闭环实测：跑中暂停 → 关浏览器 → 重进会话点恢复 → SSE 续跑后续节点；从历史 user 消息 fork → 跳转新会话 → 老会话进入 "分叉历史" 分组只读；删除最后 N 轮后剩余消息状态正确
+- [ ] `[human]` Android emulator 实测：同上（交互可简陋，能用即可）
+- [ ] `[human]` 切换中/英、light/dark 后再走一次完整流程
+- [ ] `[human]` 管理后台：拉取任务 + 进度 + 跳 Langfuse
+- [ ] `[auto]` OpenAPI 生成的 Dart client 与后端 schema 一致（CI 在 backend 变更时跑 codegen diff）
 
 ## 15. 完成后下一步
 
