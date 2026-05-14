@@ -1,6 +1,6 @@
 # 03·05 - 前端（Flutter Web + Android）
 
-> 一套 Flutter 代码同时跑 Web 与 Android。MVP 优先 Web 体验，Android 交互精修排到 v2。
+> 一套 Flutter 代码同时跑 Web 与 Android。MVP 优先 Web 体验，但 Android 必须完成核心闭环；移动端精细交互优化排到 v2。
 
 ## 1. 交付物
 
@@ -230,7 +230,7 @@ class ChatController extends AsyncNotifier<ChatRunState> {
 
 ## 7. 管理后台
 
-仅 `role=admin` 用户可访问（单用户阶段默认是 admin）。
+仅 `role=admin` 用户可访问。首次部署通过 bootstrap 创建第一个管理员，之后由管理员在用户管理页创建或停用其他账号。
 
 - **文档表**：列出 `documents` + 状态 + chunk_count + 最后索引时间。按 release / series 过滤
 - **任务面板**：列出 crawl / index_rebuild 任务，进度条 + log_tail（10 行）

@@ -8,7 +8,7 @@
 - ✅ Pydantic v2 请求/响应 schema 全套
 - ✅ SQLAlchemy 2.0 async ORM + Alembic 迁移（PG schema）
 - ✅ SSE 流式 `/chat` 接口，与 §3 SSE 事件表一致
-- ✅ JWT + 单用户 token 双模式鉴权（`AUTH_MODE` 切换）
+- ✅ 多用户鉴权：JWT access token + refresh token + RBAC（admin/user）+ 审计日志
 - ✅ OpenAPI / Swagger UI（`/docs`）覆盖所有路由
 - ✅ 健康检查 `/health`、就绪检查 `/ready`
 - ✅ 集成测覆盖核心路由
@@ -17,9 +17,14 @@
 
 | 资源 | 方法 | 路径 | 说明 |
 |------|------|------|------|
-| **Auth** | POST | `/api/v1/auth/login` | 单用户 token 验证 → 签发 JWT；多用户期改账密 |
+| **Auth** | POST | `/api/v1/auth/bootstrap-admin` | 首次部署时创建第一个管理员（只能执行一次） |
+|  | POST | `/api/v1/auth/login` | 用户名/密码登录 → 签发 access + refresh token |
 |  | POST | `/api/v1/auth/refresh` | 刷新 JWT |
+|  | POST | `/api/v1/auth/logout` | 撤销当前 refresh token |
 |  | GET | `/api/v1/auth/me` | 当前用户信息 |
+| **Users (admin)** | GET | `/api/v1/users` | 管理员列出用户 |
+|  | POST | `/api/v1/users` | 管理员创建用户 |
+|  | PATCH | `/api/v1/users/{uid}` | 启停用户 / 改角色 / 重置密码 |
 | **Sessions** | GET | `/api/v1/sessions` | 列出当前用户会话（分页） |
 |  | POST | `/api/v1/sessions` | 创建空会话 |
 |  | GET | `/api/v1/sessions/{sid}` | 获取会话元信息 + 消息列表 |
@@ -31,8 +36,10 @@
 | **Reader（章节阅读器）** | GET | `/api/v1/docs` | 已索引文档列表（带筛选 release/series） |
 |  | GET | `/api/v1/docs/{spec_id}` | 单篇 TS 章节树 |
 |  | GET | `/api/v1/docs/{spec_id}/sections/{path}` | 取某章节完整 markdown + chunks |
+|  | GET | `/api/v1/docs/{spec_id}/search` | spec 内 BM25 搜索（阅读器搜索框） |
 |  | GET | `/api/v1/chunks/{chunk_id}` | 单 chunk 详情 + 上下文展开 |
 | **Admin** | POST | `/api/v1/admin/crawl` | 触发 FTP 爬虫（异步任务） |
+|  | POST | `/api/v1/admin/upload-doc` | 上传单个 doc/docx 走 Docling 兜底链路 |
 |  | POST | `/api/v1/admin/index/rebuild` | 重建索引（异步任务，可指定 spec） |
 |  | GET | `/api/v1/admin/tasks/{tid}` | 异步任务状态 |
 |  | GET | `/api/v1/admin/stats` | 索引数 / chunk 数 / API 用量统计 |
@@ -49,6 +56,8 @@
 ```mermaid
 erDiagram
     users ||--o{ sessions : has
+    users ||--o{ refresh_tokens : has
+    users ||--o{ audit_logs : triggers
     users ||--o{ favorites : has
     users ||--o{ notes : has
     sessions ||--o{ messages : has
@@ -59,6 +68,7 @@ erDiagram
     chunks_meta ||--o{ message_citations : referenced_by
     chunks_meta ||--o{ favorites : favorited
     chunks_meta ||--o{ notes : noted
+    glossary ||--o{ chunks_meta : sourced_from
     users ||--o{ api_usage : has
 ```
 
@@ -68,9 +78,30 @@ erDiagram
 class User(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     username: Mapped[str] = mapped_column(unique=True)
-    password_hash: Mapped[str | None]              # 单用户 token 模式时可空
+    password_hash: Mapped[str]
     role: Mapped[str] = mapped_column(default="user")   # "user" | "admin"
+    is_active: Mapped[bool] = mapped_column(default=True)
+    last_login_at: datetime | None
     created_at, updated_at: timestamps
+
+class RefreshToken(Base):
+    id: UUID = pk
+    user_id: UUID = FK(users.id, ondelete="CASCADE")
+    token_hash: str = unique
+    expires_at: datetime
+    revoked_at: datetime | None
+    created_at: timestamp
+
+class AuditLog(Base):
+    id: UUID = pk
+    actor_user_id: UUID | None = FK(users.id)
+    action: str                         # "user.create" / "admin.index_rebuild" / ...
+    target_type: str | None
+    target_id: str | None
+    ip: str | None
+    user_agent: str | None
+    metadata: JSON
+    created_at: timestamp
 
 class Session(Base):
     id: UUID = pk
@@ -104,7 +135,8 @@ class Message(Base):
 class MessageCitation(Base):
     id: UUID = pk
     message_id: UUID = FK
-    chunk_id: UUID = FK(chunks_meta.id)
+    chunk_meta_id: UUID = FK(chunks_meta.id)
+    chunk_id: str                       # Qdrant point id / API 展示 id
     rank: int                       # 在答案中第几次出现
     rerank_score: float | None
     # 展示用
@@ -114,7 +146,8 @@ class MessageCitation(Base):
 
 class Document(Base):
     id: UUID = pk
-    spec_id: str = unique           # "23.501"
+    spec_id: str                    # "23.501"（对外展示/API 使用）
+    spec_uid: str | None            # "23501"（内部紧凑编号，如数据源提供）
     release: str                    # "Rel-18"
     series: str                     # "23"
     title: str
@@ -123,6 +156,8 @@ class Document(Base):
     chunk_count: int = 0
     status: Literal["pending","crawled","parsed","indexed","failed"]
     error_msg: text | None
+    source: Literal["gsma_hf","docling_fallback"]
+    gsma_dataset_revision: str | None
 
 class DocumentVersion(Base):
     id: UUID = pk
@@ -148,6 +183,17 @@ class ChunkMeta(Base):
     parent_section_id: UUID | None   # 自引用，指向同表的 section 头 chunk
     raw_extra: JSON                  # 表格 md / 图片 uri / latex
     provider: str                    # voyage / glm（用于双轨期分辨）
+
+class Glossary(Base):
+    id: UUID = pk
+    term: str                         # "PDU Session"
+    normalized_term: str              # lowercase / stripped，用于唯一匹配
+    definition: text
+    spec_id: str
+    section_path: ARRAY(text)
+    source_chunk_meta_id: UUID | None = FK(chunks_meta.id)
+    source_revision: str | None
+    created_at, updated_at: timestamps
 
 class Favorite(Base):
     id, user_id, target_type (chunk|message), target_id, created_at
@@ -178,8 +224,13 @@ class Task(Base):
 
 - `messages(session_id, created_at DESC)`
 - `chunks_meta(spec_id, section_path)` GIN
+- `chunks_meta(chunk_id)` unique
 - `chunks_meta(parent_section_id)`
+- `glossary(normalized_term)`
+- `refresh_tokens(token_hash)` unique
+- `audit_logs(actor_user_id, created_at DESC)`
 - `api_usage(user_id, day)` unique
+- `documents(spec_id, release)` unique
 - `documents(release, series)`
 
 ### 3.3 Alembic 工作流
@@ -276,27 +327,29 @@ async def cancel_run(...):
     )
 ```
 
-## 5. 鉴权
+## 5. 鉴权与授权
 
 ```python
 # backend/app/core/auth.py
 
-class AuthMode(str, Enum):
-    SINGLE_USER = "single_user"
-    JWT = "jwt"
-
 def get_current_user(...) -> User:
-    if settings.AUTH_MODE == "single_user":
-        # 头部 Authorization: Bearer <SINGLE_USER_TOKEN>
-        # 命中后返回 fixed user
-        ...
-    else:
-        # JWT 解码 + DB 查询
-        ...
+    # 1. 校验 Authorization: Bearer <access_token>
+    # 2. 解码 JWT，读取 sub / role / exp / jti
+    # 3. 查询 DB 用户，确认 is_active=True
+    # 4. 返回 User；失败统一 401
+    ...
+
+def require_role(*roles: str):
+    # admin-only 路由使用 Depends(require_role("admin"))
+    ...
 ```
 
-- single_user 模式：`.env` 中静态 token 即可，省掉登录流程
-- JWT 模式（预留）：标准 OAuth2 password flow，access + refresh
+- 首次部署：`POST /api/v1/auth/bootstrap-admin` 只有在 `users` 表为空时可用；成功后写 `audit_logs`。
+- 登录：用户名/密码校验后签发 access token（15min）与 refresh token（7d）。
+- refresh token：只在 DB 中保存 hash；logout、用户停用、密码重置时撤销。
+- RBAC：`admin` 可访问用户管理、索引管理、上传、任务与用量；`user` 只能访问自己的会话、收藏、笔记、反馈与只读文档。
+- 审计：用户创建/停用、角色变更、索引重建、上传文档、删除会话等写 `audit_logs`。
+- 安全：密码用 `passlib[bcrypt]`；JWT signing key 来自 `APP_SECRET_KEY`；生产要求 HTTPS，禁止在日志中输出 token。
 
 ## 6. 限流与配额（最小实现）
 
@@ -321,8 +374,9 @@ class Settings(BaseSettings):
     APP_ENV: Literal["dev","prod"] = "dev"
     APP_DEBUG: bool = True
     APP_SECRET_KEY: str
-    AUTH_MODE: Literal["single_user","jwt"] = "single_user"
-    SINGLE_USER_TOKEN: str | None = None
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ALLOWED_ORIGINS: list[str] = []
     # ... 全部 .env key 一一映射
 
     class Config:
@@ -346,6 +400,7 @@ log.info("agent.node.end", node="retrieve", duration_ms=650, chunks=50)
 - prod 输出 JSON 一行 / 一条，便于挂日志收集
 - dev 输出 pretty console
 - 包含 `trace_id`（与 Langfuse trace 对齐）
+- 认证、管理与上传类操作必须写 `audit_logs`，日志中只记录 token hash 前缀或 request id，不记录 secret 原文
 
 ### 7.3 错误统一处理
 
@@ -367,10 +422,10 @@ async def app_error_handler(req, exc): ...
 
 简化方案（不引入 Celery）：
 
-- `Task` 表 + `Redis stream tgpp:tasks`
-- API 接到 admin 触发 → 写 task + LPUSH redis
-- 单独的 `worker.py` 进程订阅 redis stream，按 kind 分发到 ingestion CLI
-- 同进程 `asyncio.create_task` 也可（单用户场景资源紧，但要小心阻塞 event loop）
+- `Task` 表 + `Redis Streams`（`tgpp:tasks`）
+- API 接到 admin 触发 → 写 task + `XADD tgpp:tasks`
+- 单独的 `worker.py` 进程使用 consumer group 订阅 stream，按 kind 分发到 ingestion CLI；处理完成后 `XACK`
+- 同进程 `asyncio.create_task` 仅限 dev/POC；生产多用户阶段使用独立 worker，避免阻塞 API event loop
 
 二期需要可靠任务队列再换 Celery / arq。
 
@@ -399,9 +454,9 @@ async def app_error_handler(req, exc): ...
 - [ ] `pytest -m integration backend/tests/integration/api/` 全绿
 - [ ] `curl /docs` 可访问 Swagger UI，所有路由有描述
 - [ ] `curl /health` 200；`curl /ready` 检测每个依赖
-- [ ] Postman 跑通端到端：登录 → 创建会话 → 发消息（SSE） → 看引用 → 取消 → 删除会话
+- [ ] Postman 跑通端到端：bootstrap admin → 登录 → 创建普通用户 → 创建会话 → 发消息（SSE） → 看引用 → 取消 → 删除会话
 - [ ] Alembic：`alembic upgrade head` 在干净 PG 上成功；`alembic downgrade -1` 也可
-- [ ] Single-user mode 与 JWT mode 切换均可工作
+- [ ] RBAC 验证：普通用户无法访问 admin 路由；停用用户无法 refresh；logout 后 refresh token 失效
 
 ## 13. 完成后下一步
 

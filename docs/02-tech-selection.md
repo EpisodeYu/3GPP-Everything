@@ -5,7 +5,7 @@
 > 决策原则（来自需求文档 + 服务器现实）：
 >
 > 1. **服务器性能差**：2 核 / 3.8GB RAM（实际可用 ~500MB）/ 8GB swap，**严禁本地跑 embedding/reranker/重模型**
-> 2. **磁盘紧张**：根盘 `/dev/vda2` 50G 已用 90%，**项目启动前必须扩容 +20GB**
+> 2. **磁盘紧张**：根盘 `/dev/vda2` 50G 已用 90%，本期要做全量 GSMA + 全量 Vision + 备份，**项目启动前必须准备 `/data` 可用空间 ≥ 80GB**（推荐扩容 +80GB，最低 +50GB）
 > 3. **优先复用本机已有服务**：Qdrant（:6333）、PostgreSQL（:5432）、Redis（:6379）、LiteLLM（:4000）都已运行
 > 4. **混合模式**：关键质量环节（embedding / reranker）走海外 SOTA API，其余环节走本地 LiteLLM 国产
 > 5. **POC 验证**：embedding 选型有显著不确定性，必须用小子集双轨建索引 + 金标准评测后再全量
@@ -19,7 +19,7 @@
 | **框架·检索/解析** | LlamaIndex 0.13+ | - | Docling 集成、auto-merging/hierarchical 索引、hybrid 检索原生 |
 | **框架·工具/Prompt** | LangChain 0.3+ | - | 与 LangGraph 同生态、Loader 全、Tools/Prompt 兼容层 |
 | **Agent 主 LLM** | `mimo-v2.5-pro` (本机 LiteLLM) | `glm-4.6` | 1M context、function calling、长 horizon agent |
-| **轻量 LLM**（路由/改写/HyDE） | `mimo-v2.5` (本机 LiteLLM) | `glm-4.5-air` | 便宜一半、原生 omni、1M context |
+| **轻量 LLM**（路由/改写/多查询） | `mimo-v2.5` (本机 LiteLLM) | `glm-4.5-air` | 便宜一半、原生 omni、1M context |
 | **Vision**（索引期图片描述） | `mimo-v2.5` (本机 LiteLLM) | `qwen-vl-plus` | 已在 LiteLLM、omni 多模态、零额外配置 |
 | **Embedding（首选）** | Voyage `voyage-3-large` | 智谱 `embedding-3` | POC 双轨决出，默认主用 Voyage |
 | **Embedding（POC 对照组）** | 智谱 `embedding-3` (本机 LiteLLM) | OpenAI `text-embedding-3-large` | 验证国产是否足够 |
@@ -37,11 +37,11 @@
 | **后端** | FastAPI + SSE | - | 用户已指定 |
 | **后端 ORM** | SQLAlchemy 2.0 (async) + asyncpg | - | LangGraph PG checkpointer 共用连接 |
 | **后端迁移** | Alembic | - | SQLAlchemy 标配 |
-| **后端鉴权** | JWT + python-jose / fastapi-users | 简单 token | 预留多用户，但单用户先用静态 token |
+| **后端鉴权** | JWT + refresh token + RBAC + python-jose | fastapi-users | 本期按多用户基础能力实现，不再走静态 token 主路径 |
 | **前端** | Flutter 3.x (Web + Android) | - | 用户已指定 |
 | **前端状态** | Riverpod 2.x | Bloc | 比 Bloc 更轻量、官方推荐方向 |
 | **前端流式协议** | SSE (HTTP) | WebSocket | FastAPI 简单、单向足够、移动端友好 |
-| **前端 markdown/数学** | flutter_markdown + flutter_math_fork | - | LaTeX 渲染社区标准 |
+| **前端 markdown/数学** | flutter_markdown_plus + flutter_math_fork | flutter_markdown core | LaTeX 与 Markdown 扩展能力更适合表格/引用定制 |
 | **监控** | Langfuse Cloud Free | LangSmith | 用户已指定 |
 | **评测** | Ragas + 金标准 YAML + Langfuse Datasets | DeepEval | Ragas 是 RAG 评测事实标准 |
 | **CI** | GitHub Actions | - | 仓库在 GitHub |
@@ -121,7 +121,7 @@ flowchart TB
 - 定价 $0.40/$2.00 per M tokens（比 Pro 便宜一半）
 - **用途**：
   - 索引期为图片生成结构化描述（批量任务，便宜要紧）
-  - Agent 路由 / 查询改写 / HyDE 这类"短输入短输出"任务
+  - Agent 路由 / 查询改写 / multi-query 这类"短输入短输出"任务
   - 留 `mimo-v2.5-pro` 给主生成 + self-RAG 校验
 
 ### 2.4 LangChain ↔ LiteLLM 接入
@@ -160,12 +160,12 @@ LangGraph 节点直接复用此 client，零额外抽象。
 **POC 流程**：
 
 1. 选 20 篇代表性 TS（覆盖 SA / RAN / CT 各工作组，含表格密集 / 公式密集 / 流程图密集各几篇）
-2. 用相同 chunking 策略分别建两个 Qdrant collection：`pog_voyage`、`pog_glm`
+2. 用相同 chunking 策略分别建两个 Qdrant collection：`tgpp_chunks_voyage`、`tgpp_chunks_glm`
 3. 在金标准评测集（30-100 题）上跑 retrieval-only 评测，对比 `context_recall@5/10/20`、`context_precision@5/10`、`MRR`
 4. 胜出者用于全量索引；如差距 < 5%，选择智谱 embedding-3（成本更低、零依赖）
 
 **预算**：
-全量索引 200-400 篇 TS ≈ 3-5M tokens × 单价，两套合计 < $1，**完全可承担**。
+全量索引按 GSMA Rel-18+Rel-19 ~938 篇 / ~169k sections 估算，chunk 后约 80M embedding tokens。Voyage 一次全量约 $5；POC 双轨与少量重建可承担，但 Vision 描述才是成本与耗时主项。
 
 ### 3.3 索引向量重建路径
 
@@ -204,7 +204,7 @@ graph LR
 - 本机已运行 v1.17.1 在 `127.0.0.1:6333`，已有 `forge_docs` collection
 - **新建独立 collection**：`tgpp_chunks_voyage`、`tgpp_chunks_glm`（POC 期）→ 收敛后保留胜者
 - 不影响现有 `forge_docs`，无需独立部署
-- 单机 p95 检索 < 30ms（10M 向量级别），200-400 篇 TS 估算 50k-100k chunks，绰绰有余
+- 单机 p95 检索目标 < 100ms；Rel-18+Rel-19 全量估算 200k+ chunks，Qdrant 单机可承载，但必须监控内存、磁盘和 payload index 大小
 
 **注意事项**：
 
@@ -337,6 +337,33 @@ graph TB
 - `docker-compose.yml` 通过 `extra_hosts: ["host.docker.internal:host-gateway"]` 或 `network_mode: "host"` 访问宿主已有服务
 - 索引 worker 不常驻，按需 `docker compose run --rm ingest python -m ingestion.cli ...`
 
+## 12.1 资源边界与容量规划
+
+本期目标是完整生产级交付，但宿主机规格很低（2 核 / 3.8GB RAM，实际可用内存可能只有数百 MB），因此必须把"在线服务"和"重型作业"分开规划：
+
+| 类别 | 运行位置 | 约束 |
+|------|----------|------|
+| API / Web / Nginx | 项目 Docker Compose | 常驻，内存预算尽量 < 1GB |
+| Qdrant / PostgreSQL / Redis / LiteLLM | 宿主已有共享服务 | 不在本项目 compose 内重复启动 |
+| Flutter / Docker image 构建 | GitHub Actions 或开发机 | 不在低配生产机上构建 |
+| 全量 HF ingest / Vision 描述 / embedding | `ingest` 容器按需运行，默认并发 1-2 | 必须支持断点续跑、限流、失败队列 |
+| RAG eval 全集 | Nightly CI 或手动任务 | 生产机只保留结果，不承担重评测压力 |
+
+磁盘规划按全量 Vision 口径：
+
+| 项 | 估算 |
+|----|------|
+| HF cache（Parquet + 图片引用） | 5-10GB |
+| 规范 markdown / section JSON / 元数据中间产物 | 5-8GB |
+| 图片缓存与 Vision 结果 | 5-15GB |
+| Qdrant 生产 collection | 3-8GB（视维度/quantization） |
+| POC 双轨 collection 临时空间 | 6-16GB |
+| BM25 / eval-results / 日志 | 2-5GB |
+| Docker image / volume 余量 | 10-15GB |
+| 本地短期备份与 snapshot 暂存 | 15-25GB |
+
+**硬要求**：`/data` 可用空间 ≥ 80GB，低于 50GB 不进入全量索引；全量完成后清理 POC collection 与中间缓存，长期只保留胜出 provider 的生产 collection。
+
 ## 13. CI / 质量保证
 
 ```mermaid
@@ -366,7 +393,7 @@ graph LR
 | P4: Agent 端到端冒烟 | 开发周 5 | 完整 LangGraph 跑通一次复杂查询 | 验证 self-RAG / 工具调用 |
 | P5: 流式 UX 验证 | 开发周 6 | Flutter Web 跑通 SSE 节点状态流 | SSE 兼容性 / 取消机制 |
 
-## 15. 成本估算（单用户、月度，按 Voyage embedding 全量胜出口径）
+## 15. 成本估算（小规模多用户、按 Voyage embedding 全量胜出口径）
 
 > 量级更新：GSMA Rel-18+Rel-19 共 938 篇 / ~169k sections，按 chunking 后保守估 200k chunks × 400 tokens 平均 = **80M embed tokens**
 
@@ -382,7 +409,9 @@ graph LR
 | **合计·首月（含一次性索引）** | | **≈ $140** |
 | **合计·后续月（不含索引）** | | **≈ $18-25** |
 
-> Vision 描述是一次性大头开销。若需控成本，可：(a) 仅对 GSMA `images` 字段中**非装饰类**的图片做描述（用小模型筛选）；(b) 跳过 figure 类、仅做 chart/sequence 类。预计可降 50-70%。
+> Vision 描述是一次性大头开销。已确认本期按**全量图片 Vision**交付，因此控费策略不用于跳过图片，只用于限流、失败续跑、重复图片缓存与预算告警。若全量图片数或平均输出 token 明显高于估算，必须先暂停作业并更新成本审批。
+
+多用户低并发阶段按 5 名活跃用户 / 月 1000 次查询估算，后续月成本约为上表 Agent 与检索调用的 10 倍，即 **$180-250/月**。这不是高并发容量承诺，只用于提前设置成本告警阈值。
 
 ## 16. 替换/逃生路径
 
@@ -397,7 +426,7 @@ graph LR
 
 | 项 | 说明 |
 |---|------|
-| 磁盘扩容 +20GB | 至少为 docker volume + Qdrant 索引留出空间 |
+| 磁盘扩容到 `/data` 可用空间 ≥ 80GB | 为 HF cache、全量 Vision、Qdrant、Docker volume、日志与短期备份留出空间 |
 | **HuggingFace token** | 拉 `GSMA/3GPP` 数据集（`HF_TOKEN` 环境变量；huggingface.co 注册即可，免费） |
 | Voyage AI API key | embedding + reranker；从 voyageai.com 申请 |
 | Tavily API key | Web 搜索；tavily.com 申请，free tier 即可 |

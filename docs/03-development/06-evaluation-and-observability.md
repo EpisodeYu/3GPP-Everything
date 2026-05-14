@@ -197,6 +197,7 @@ items:
 - 手工题与转化题在统计上同等权重；CI eval 子集时分层抽样
 - `expected_facts` 是 "答案里必须出现的关键事实"，不要 paraphrase 一致才算
 - `must_say_not_found` 给负样本做严格 grounding 校验
+- CI 子集必须按 category 分层抽样，至少覆盖 definition / procedure / table_lookup / negative；不得只抽简单题。
 
 ## 4. Runner 实现
 
@@ -307,11 +308,13 @@ Langfuse 自动 eval（Cloud 内置）：
 `backend/tests/eval/test_golden_v1.py`：
 
 ```python
+import os
+
 @pytest.mark.eval
-@pytest.mark.parametrize("subset", [10])
-async def test_golden_v1_subset(subset, api_client):
+async def test_golden_v1_subset(api_client):
     """CI 跑 - 10 题快速烟测"""
-    results = await run_eval(Path("eval/golden/v1.yaml"), subset=subset)
+    subset = int(os.getenv("EVAL_SUBSET_SIZE", "10"))
+    results = await run_eval(Path("eval/golden/v1.yaml"), subset=subset, stratified=True)
     avg_recall = mean(r.context_recall_section for r in results)
     avg_faith = mean(r.ragas_faithfulness for r in results if r.ragas_faithfulness)
     assert avg_recall >= 0.6, f"context recall too low: {avg_recall}"
@@ -414,7 +417,7 @@ PRICING = {
 
 ## 11. 监控指标（应用层）
 
-记录到 PG / structlog（不用 Prometheus，单用户够了）：
+记录到 PG / structlog（小规模多用户阶段先不引入 Prometheus）：
 
 - `agent.run.duration_ms` (p50/p95)
 - `agent.run.llm_calls`
