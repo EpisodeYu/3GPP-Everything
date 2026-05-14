@@ -78,13 +78,13 @@ class AgentState(BaseModel):
 stateDiagram-v2
     [*] --> classify
     classify --> raw_lookup: mode=raw_lookup
-    classify --> light_rag: complexity=simple AND class!=tool
+    classify --> fast_rag: complexity=simple AND class!=tool
     classify --> rewrite: complexity=complex
     classify --> tools: class=tool
     rewrite --> hyde
     hyde --> multi_query
     multi_query --> retrieve
-    light_rag --> retrieve
+    fast_rag --> retrieve
     retrieve --> rerank
     rerank --> generate
     tools --> tool_dispatch
@@ -100,14 +100,17 @@ stateDiagram-v2
     cross_compare --> retrieve
     generate --> self_rag
     self_rag --> retrieve: verdict=retry AND retry_count<2
-    self_rag --> [*]: verdict=accept OR retry_count>=2
+    self_rag --> insufficient: verdict=insufficient OR retry_count>=2
+    self_rag --> [*]: verdict=accept
+    insufficient --> [*]
     raw_lookup --> retrieve_only
-    retrieve_only --> [*]
+    retrieve_only --> rerank_lookup
+    rerank_lookup --> [*]
 ```
 
 ## 4. 节点实现
 
-### 4.1 `classify_node` — 路由 / 复杂度判定
+### 4.1 `classify_node` — 路由 / 复杂度判定 / fast path 改写
 
 - 模型：`mimo-v2.5`（轻量）
 - 结构化输出（Pydantic schema）：
@@ -117,6 +120,7 @@ class ClassifyOutput(BaseModel):
     query_class: Literal["definition","procedure","cross_compare","tool","unknown"]
     complexity: Literal["simple","complex"]
     detected_language: Literal["zh","en","mixed"]
+    rewritten_query: str | None          # simple fast path 直接使用；complex 可为空
     needs_explicit_tools: list[str]   # 当 user_input 明确要求"搜索一下"等
     reason: str                        # 简短理由（≤ 50 字）
 ```
@@ -127,6 +131,7 @@ class ClassifyOutput(BaseModel):
   - `cross_compare` = 跨文档 / 跨版本对比
   - `tool` = 缩写表 / 章节目录 / 参数查询
   - 复杂度：包含多个 entity / 需要多文档证据 → complex
+- simple 查询必须同时输出一个英文 `rewritten_query`，避免再单独调用 `rewrite_node`；只有 complex 才进入 `rewrite_node + hyde + multi_query`
 
 ### 4.2 `rewrite_node` — 查询改写
 
@@ -217,7 +222,13 @@ class SelfRagOutput(BaseModel):
 - 路由：
   - `accept` → END
   - `retry` 且 `retry_count < 2` → 把 `missing_aspects` 改写为新 query，回 `retrieve_node`
-  - `insufficient` → 生成最终回答："未在已索引 3GPP 文档中找到 …"，END
+  - `insufficient` 或 retry 后仍不足 → 生成最终回答："未在已索引 3GPP 文档中找到 …"，END
+
+**性能策略**：
+
+- simple fast path 不默认跑完整 self-RAG retry 循环；只做轻量 citation/grounding check（同一 `self_rag_node`，但 `allow_retry=false`）。
+- complex / cross_compare 仍做 self-RAG 校验；其中 cross_compare 不走 retry 子图，只输出校验结论和置信度，避免成本失控。
+- 低置信度 simple 查询（rerank top score 低、引用不足、生成答案缺引用）才升级到完整 self-RAG retry。
 
 ### 4.9 工具节点
 
@@ -242,7 +253,7 @@ class SelfRagOutput(BaseModel):
 
 #### `cross_compare`
 - 跨版本/跨文档对比的辅助节点：根据 user_input 自动调用两次 retrieve（不同 spec / 版本 filter），合并后送 generate
-- 不进 self-RAG 循环（成本控制）
+- 做 self-RAG 校验但不进入 retry 循环（成本控制）；若证据不足，直接返回"未找到足够证据完成对比"
 
 ### 4.10 `raw_lookup_node`
 
@@ -341,8 +352,9 @@ async for event in graph.astream_events(..., config={"callbacks":[handler]}):
 | generate | mimo-v2.5-pro | 5-30s | streaming；50-1000 tokens |
 | self_rag | mimo-v2.5 | 2-3s | |
 
-**simple 链路**：classify + rewrite + retrieve + rerank + generate + self_rag ≈ 10-40s
-**complex 链路**：再加 hyde + multi_query + （可能一次 retry）= 20-60s
+**simple fast path**：classify（含 rewrite）+ retrieve + rerank + generate + 轻量 grounding check，目标 P95 < 15s。
+**complex 链路**：rewrite + hyde + multi_query + retrieve/rerank + generate + self-RAG（最多 1 次 retry），目标 P95 < 60s。
+**raw_lookup**：retrieve + rerank，不调用生成 LLM，目标 P95 < 5s。
 
 与需求 §4.1 一致。
 
@@ -375,7 +387,7 @@ if state.cancelled: raise NodeInterrupt("cancelled by user")
 | self_rag 死循环 | 一直 retry | `retry_count >= 2` 强制 accept |
 | 工具节点权限滥用 | Agent 自作主张调 web_search | 严格判断 `explicit_tools`，prompt 中明示"未列入 explicit_tools 不得调用" |
 | Voyage 海外延迟波动 | 网络抖动 | tenacity + 30s timeout + fallback 到 Jina rerank（已在选型文档） |
-| PG checkpointer 锁竞争 | 单 user 但多并发请求 | 单用户场景几乎不触发；多用户期换 connection pool tuning |
+| PG checkpointer 锁竞争 | 小规模多用户同时发起长任务 | thread_id 按 session 隔离；必要时调连接池与 checkpoint 写入频率 |
 
 ## 13. 验收清单
 

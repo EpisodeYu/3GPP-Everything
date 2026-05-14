@@ -39,7 +39,23 @@ graph TB
 | 06 | `06-evaluation-and-observability.md` | 金标准 YAML、Ragas pipeline、Langfuse 集成、API 用量指标 | 02, 03 |
 | 07 | `07-cicd-and-deployment.md` | GH Actions workflow、生产 Compose、Nginx 反代、Let's Encrypt | 01, 04, 05, 06 |
 
-## 2. 里程碑与时间线
+## 2. 全局决策总表
+
+以下决策是本文档集的唯一口径。子文档若出现不同写法，以本表为准并同步修订。
+
+| 决策项 | 统一口径 |
+|--------|----------|
+| 本期范围 | 完整生产级交付：Rel-18+Rel-19 全量、全量图片 Vision、多用户基础能力、Web+Android、CI/CD、HTTPS、备份恢复 |
+| 用户模型 | 小规模多用户低并发；实现 admin/user RBAC，不做组织/租户级复杂权限矩阵 |
+| 磁盘门槛 | `/data` 可用空间 ≥ 80GB；低于 50GB 不进入全量索引 |
+| HyDE 模型 | `mimo-v2.5-pro`，质量优先；路由/改写/multi-query 用 `mimo-v2.5` |
+| Qdrant collection | POC 与生产均使用 `tgpp_chunks_{provider}`，如 `tgpp_chunks_voyage` / `tgpp_chunks_glm` |
+| 前端 Markdown | `flutter_markdown_plus` + `flutter_math_fork` |
+| Redis 异步任务 | 使用 Redis Streams（`XADD`/consumer group），不使用 list `LPUSH` |
+| chunk 标识 | API/SSE 使用字符串 `chunk_id`（Qdrant point id）；PG 外键字段命名为 `chunk_meta_id` |
+| 生产备份 | 备份 active provider collection，collection 名从环境变量/DB 读取，不写死 provider |
+
+## 3. 里程碑与时间线
 
 按"周"为单位，单人节奏（每周可投入时间不固定，按工作量估算）。
 
@@ -88,7 +104,7 @@ gantt
 - **M6 完成前不进入 M7 全量评测**：避免在错误 embedding 上浪费评测时间
 - **M8 上线前 CI 必须绿**
 
-## 3. 目录骨架
+## 4. 目录骨架
 
 ```
 3GPP-Everything/
@@ -161,7 +177,7 @@ gantt
 └── CLAUDE.md
 ```
 
-## 4. 项目命名约定
+## 5. 项目命名约定
 
 - Python 包名：`backend.app`, `ingestion`，统一 snake_case
 - 数据库 schema：单数 + 复数表名（`users`, `sessions`, `messages`, `documents`, ...）
@@ -175,7 +191,7 @@ gantt
 
 > 选用 `tgpp` 而非 `3gpp`，避开"标识符以数字开头"的语言/工具限制。
 
-## 5. 开发规则
+## 6. 开发规则
 
 - **Conventional Commits**：`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `test:`
 - **分支**：`main` 保护；功能走 feature branch + PR
@@ -185,17 +201,17 @@ gantt
 - **测试**：单测对纯函数 / 数据变换；集成测对 retriever / agent / API；eval 对端到端 RAG 质量
 - **文档**：每个模块顶部 docstring 说明"做什么 / 不做什么"，符合根目录 `CLAUDE.md` 第 2 条简洁原则
 
-## 6. "本期不做"清单（提醒）
+## 7. "本期不做"清单（提醒）
 
 > 来自需求文档 §5，开发期间出现冲动时回看这里。
 
-- 多用户并发 / RBAC
+- 高并发多租户 SaaS（组织隔离、企业 SSO、复杂权限矩阵）
 - 灰度 / AB
-- 移动端深度交互优化（Android 仅做"能用"，二期再说）
+- 移动端深度交互优化（Android 本期完成核心闭环，精细体验二期再说）
 - 自动定时索引
 - LLM 微调
 
-## 7. 阅读顺序建议
+## 8. 阅读顺序建议
 
 按依赖图从上到下读：`01 → 02 → 03 → 04 → 05 → 06 → 07`。
 

@@ -16,7 +16,7 @@
 
 | # | 文档 | 主题 |
 |---|------|------|
-| 00 | [`03-development/00-overview.md`](./03-development/00-overview.md) | 总览、里程碑 Gantt、目录骨架、命名约定 |
+| 00 | [`03-development/00-overview.md`](./03-development/00-overview.md) | 总览、全局决策总表、里程碑 Gantt、目录骨架、命名约定 |
 | 01 | [`03-development/01-infrastructure.md`](./03-development/01-infrastructure.md) | 磁盘扩容、共享服务命名空间、`.env`、Docker Compose 雏形、Makefile |
 | 02 | [`03-development/02-ingestion-and-indexing.md`](./03-development/02-ingestion-and-indexing.md) | FTP 爬虫、LibreOffice + Docling 解析、Vision 描述、chunking、Qdrant + BM25 索引 |
 | 03 | [`03-development/03-agent.md`](./03-development/03-agent.md) | LangGraph 状态图、节点、self-RAG、工具节点、PG checkpointer、流式协议 |
@@ -28,7 +28,7 @@
 ## 阅读顺序建议
 
 ```
-01 → 02 → 03-dev/00 → 01 → 02 → 03 → 04 → 05 → 06 → 07
+01 → 02 → 03-dev/00（先看全局决策总表）→ 01 → 02 → 03 → 04 → 05 → 06 → 07
 ```
 
 实施期允许局部并行：

@@ -56,6 +56,18 @@ flowchart LR
 
 ## 4. 任务拆解
 
+### 4.0 数据源验证门禁（M0/M1 阻断项）
+
+在写正式 loader 前，必须先完成并记录一次 GSMA 数据源验证，输出 `eval-results/source-audit/gsma_dataset_audit.md`：
+
+- **schema 验证**：打印 20 行样本，确认 `spec_number / release / clause / section_title / body / images / document_order` 的实际字段名、类型与空值比例。
+- **release 覆盖**：统计 Rel-18 / Rel-19 的 spec 数、section 数、图片数，和文档中估算值（~938 specs / ~169k sections）对齐；差异 > 5% 时先更新规划再继续。
+- **版本映射**：记录 `spec_number`、3GPP 官方版本号（如 `i80`）、GSMA dataset revision/commit hash 的映射，确保后续引用能追溯到具体版本。
+- **license / 使用边界**：核对 GSMA HF dataset 声明与 3GPP 版权提示，确认本项目内部检索、引用、缓存与公网访问的合规边界。
+- **图片字段**：确认 `images` 是否是 bytes、路径、HF Image 对象或引用列表；验证 10 张图片可下载、可 hash、可送 Vision。
+
+未通过以上门禁，不进入 20 篇 POC 索引。
+
 ### 4.1 GSMA HF 加载器（主路径核心）
 
 ```python
@@ -71,8 +83,9 @@ ingestion/hf_loader/
 
 | Field | Type | 用途 |
 |-------|------|------|
-| `spec_id` | string | "38331" |
-| `spec_number` | string | "38.331" |
+| `spec_id` | string | 对外展示与 API 使用的 dotted 编号，如 "38.331" |
+| `spec_uid` | string | 内部紧凑编号，如 "38331"（如 GSMA 提供） |
+| `spec_number` | string | 原始字段，通常等同 `spec_id` |
 | `spec_type` | string | "TS" / "TR" |
 | `title` | string | spec 全称 |
 | `release` | string | "Rel-18" / "Rel-19" |
@@ -88,20 +101,21 @@ ingestion/hf_loader/
 ```python
 from datasets import load_dataset
 
-# 流式拉取，避免一次性载入内存
-ds = load_dataset("GSMA/3GPP", split="train", streaming=True, token=HF_TOKEN)
+# 先 pin revision，再落本地 cache/manifest；不要在 streaming iterator 中无界 defaultdict 分组。
+ds = load_dataset("GSMA/3GPP", split="train", token=HF_TOKEN, revision=GSMA_REVISION)
 
-# 过滤
-ds = ds.filter(lambda x: x["release"] in {"Rel-18", "Rel-19"})
-
-# 分组
-specs: dict[str, list] = defaultdict(list)
-for row in ds:
-    specs[row["spec_number"]].append(row)
-for spec_no, sections in specs.items():
+manifest = write_manifest(ds, releases={"Rel-18", "Rel-19"})
+for spec_id in manifest.spec_ids:
+    sections = load_sections_for_spec(ds, spec_id)  # 可按 parquet shard / 本地 sqlite manifest 实现
     sections.sort(key=lambda s: s["document_order"])
-    yield SpecBundle(spec_no, sections)
+    yield SpecBundle(spec_id, sections, dataset_revision=GSMA_REVISION)
 ```
+
+实现要求：
+
+- 小样本/POC 可以非流式读取；全量时先建立本地 manifest（SQLite 或 parquet），避免多次全表扫描。
+- 不允许把全量 169k sections 按 spec 全部塞进内存再处理；按 spec 顺序流式产出 `SpecBundle`。
+- 每次 `hf-pull` 记录 `GSMA_REVISION`，后续 chunk / Qdrant payload / PG metadata 都写入同一个 revision。
 
 **Spec → Section 树还原**：
 
@@ -119,11 +133,14 @@ GSMA `images` 字段含图片引用：
 - 直接喂 `mimo-v2.5` 生成描述（Prompt 同主文档原 §3.4）
 - 缓存：`Redis tgpp:vision:{sha256(image_bytes)}`，TTL 永久
 
-**控成本策略**（成本估算章节提到的）：
+**全量 Vision 作业策略**：
 
 - 启动期跑 50 张人工抽检，确认 Vision 描述质量
-- 加 `--skip-decorative` 选项：用小模型先判图片是否含信息（流程图/架构图/表格图），装饰类直接跳过
-- 配置 `MAX_IMAGES_PER_SPEC=200` 上限，超出按 caption-only 处理
+- 本期已确认全量图片都做 Vision 描述，不提供跳过装饰图的默认策略
+- 可保留图片分类字段（`figure_kind=decorative|diagram|chart|table|unknown`），但分类只影响后续质量分析，不影响是否生成描述
+- 以图片 bytes hash 做 Redis + PG 双层缓存；重复图片不重复调用 Vision
+- 默认并发 1-2，按每日成本阈值和 LiteLLM 限流动态暂停；所有失败进入 retry queue
+- 每 500 张输出一次抽检样本，人工确认描述没有系统性错误后再继续
 
 ### 4.3 Chunking 策略（两路径共用）
 
@@ -148,8 +165,9 @@ ingestion/chunker/
 @dataclass
 class Chunk:
     chunk_id: str                       # uuid5(spec_number + clause + offset_in_section)
-    spec_id: str                        # "38331"
-    spec_number: str                    # "38.331"
+    spec_id: str                        # "38.331"（对外展示与 API 使用）
+    spec_uid: str | None                 # "38331"（内部紧凑编号，如有）
+    spec_number: str                    # 原始 spec_number 字段
     spec_type: str                      # "TS" / "TR"
     release: str                        # "Rel-18" / "Rel-19"
     series: str                         # "38"
@@ -261,18 +279,19 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 
 | 项 | 大小 | 备注 |
 |----|------|------|
-| HF datasets 本地 cache | ~3-5GB | 含 Parquet + 图片 |
+| HF datasets 本地 cache | ~5-10GB | 含 Parquet + 图片引用/缓存 |
 | `/data/tgpp/fallback/raw/` | ~2GB | 仅兜底路径外部 doc |
 | `/data/tgpp/fallback/docx/` | ~1GB | 兜底 |
 | `/data/tgpp/markdown/` | ~3GB | 每篇 spec 拼接的完整 markdown（阅读器用） |
-| `/data/tgpp/images/` | ~2GB | Vision 描述前下载缓存 |
-| `/data/tgpp/bm25/` | ~500MB | 全量 chunk 重建后 |
-| Qdrant collection × 2（POC） | ~6GB | 各 ~3GB |
-| Qdrant collection × 1（生产） | ~3GB | 仅胜出 provider |
+| `/data/tgpp/images/` | ~5-15GB | 全量 Vision 图片缓存 + hash manifest |
+| `/data/tgpp/bm25/` | ~1-2GB | 全量 chunk 重建后 |
+| Qdrant collection × 2（POC） | ~6-16GB | 各 ~3-8GB，取决于向量维度/quantization |
+| Qdrant collection × 1（生产） | ~3-8GB | 仅胜出 provider |
+| snapshot / backup 暂存 | ~15-25GB | 本地短期备份，长期建议同步到远端 |
 
-**总计 ~17GB**，扩容 +20GB 仍够（紧张）。
+**总计峰值 ~45-80GB**（含 POC 双轨、全量 Vision 与短期备份暂存）。因此项目启动前要求 `/data` 可用空间 ≥ 80GB；低于 50GB 不进入全量索引。
 
-> 若紧张：(a) 关闭 docling fallback raw/docx 缓存（用完即删）；(b) Qdrant 启用 scalar quantization 砍 75% 存储
+> 若紧张：(a) 关闭 docling fallback raw/docx 缓存（用完即删）；(b) POC 结束立即删除失败 provider collection；(c) Qdrant 启用 scalar quantization；(d) 将 snapshot 立即同步到远端后删除本地副本。
 
 ## 6. 监控点
 
@@ -291,7 +310,7 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 | GSMA 数据集 markdown 中公式格式特殊 | 非标 LaTeX / Word equation 残留 | M1 抽检 + 加正则净化层；前端 fallback 显示原始字符串 |
 | 表格 markdown 内嵌图片 / 复杂结构 | 个别表格 | 解析时遇到非标用兜底 Docling 处理；记入 known_issues.yaml |
 | HF dataset 长期不更新 | GSMA 维护节奏 | 监控 `last_modified`；6 个月无更新自动告警；兜底爬虫可补 |
-| Vision 描述费用超预算 | 30k 图片 × 1500 tokens 输出 ≈ $115 | 加 `--skip-decorative` 与 `MAX_IMAGES_PER_SPEC` 限流；按需 budget alert |
+| Vision 描述费用超预算 | 30k 图片 × 1500 tokens 输出 ≈ $115，实际图片数可能更高 | 按全量 Vision 要求继续处理，但用 hash 缓存、低并发、每日预算阈值、失败队列与人工暂停机制控风险 |
 | HF 数据集需要授权但 token 失败 | HF 服务状态 / token 配置错 | M0 阶段验证 token 拉取 1 行成功；CI 中走匿名公共子集 fixture |
 | Docling fallback 解析失败 | 老格式 / 嵌入特殊对象 | 失败计入 PG 状态表；known_issues 记录 |
 

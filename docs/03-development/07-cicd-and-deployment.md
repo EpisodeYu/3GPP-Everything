@@ -119,12 +119,12 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: cd backend && uv sync --dev
       - run: cd backend && uv run alembic upgrade head
-      # 注：CI 中没有真实 Qdrant 索引；用 fixture index（事先生成的小数据集 dump）
+      # 注：CI 中没有真实全量 Qdrant 索引；用 fixture index（事先生成的小数据集 dump）
       - run: |
           mkdir -p /tmp/qdrant-fixture
-          curl -L $FIXTURE_URL -o /tmp/qdrant-fixture/snapshot.tar.gz
-          tar xzf /tmp/qdrant-fixture/snapshot.tar.gz -C ...
-      - run: cd backend && uv run pytest -m eval -q --subset 10
+          curl -L "${{ secrets.EVAL_FIXTURE_URL }}" -o /tmp/qdrant-fixture/snapshot.tar.gz
+          ./deploy/scripts/restore-qdrant-fixture.sh /tmp/qdrant-fixture/snapshot.tar.gz
+      - run: cd backend && EVAL_SUBSET_SIZE=10 uv run pytest -m eval -q
 
   frontend:
     runs-on: ubuntu-latest
@@ -329,6 +329,19 @@ volumes:
 
 > 复用宿主已有 Qdrant / PG / Redis / LiteLLM，**不在 compose 中起这些**。
 
+## 3.1 共享服务依赖
+
+生产 compose 只管理本项目 API/Web/Nginx/ingest，以下共享服务必须在部署前通过 `/ready` 与脚本检查：
+
+| 服务 | 检查 | 失败时处理 |
+|------|------|------------|
+| PostgreSQL | `pg_isready` + `alembic upgrade head --sql` dry run | 不启动新版本 API；先恢复 DB 或修权限 |
+| Qdrant | `GET /collections` + active collection 存在 | API 进入 degraded read-only；禁止重建索引 |
+| Redis | `PING` + stream consumer group 可创建 | 禁止 admin 异步任务；聊天限流降级为内存 |
+| LiteLLM | `/v1/models` 至少含 `mimo-v2.5-pro`、`mimo-v2.5`、`embedding-3` | `/ready` 失败；聊天接口返回 503 |
+
+部署脚本必须先检查共享服务，再拉起项目容器。备份脚本也只备份本项目 database、active Qdrant collection、BM25/markdown 目录，不碰其他项目数据。
+
 ## 4. Nginx 配置
 
 ### 4.1 `deploy/nginx/default.conf`（HTTP，仅做 ACME challenge + 301 跳 HTTPS）
@@ -486,11 +499,11 @@ mkdir -p $BACKUP_DIR
 pg_dump -h 127.0.0.1 -U tgpp_app -d tgpp_everything -F c -f $BACKUP_DIR/pg.dump
 
 # 2. Qdrant snapshot（仅本项目 collection）
-curl -X POST http://127.0.0.1:6333/collections/tgpp_chunks_voyage/snapshots
-curl -X POST http://127.0.0.1:6333/collections/tgpp_chunks_glm/snapshots
-# 拷贝 snapshot 出来（路径取决于 Qdrant storage 配置）
-cp -r /var/lib/qdrant/storage/collections/tgpp_chunks_voyage/snapshots $BACKUP_DIR/qdrant_voyage
-cp -r /var/lib/qdrant/storage/collections/tgpp_chunks_glm/snapshots $BACKUP_DIR/qdrant_glm
+ACTIVE_PROVIDER=${EMBEDDING_PROVIDER:-voyage}
+ACTIVE_COLLECTION=${QDRANT_ACTIVE_COLLECTION:-tgpp_chunks_${ACTIVE_PROVIDER}}
+curl -X POST "http://127.0.0.1:6333/collections/${ACTIVE_COLLECTION}/snapshots"
+# 拷贝 snapshot 出来（路径取决于 Qdrant storage 配置；生产部署时必须在 .env 或 runbook 中写明）
+cp -r "/var/lib/qdrant/storage/collections/${ACTIVE_COLLECTION}/snapshots" "$BACKUP_DIR/qdrant_${ACTIVE_COLLECTION}"
 
 # 3. BM25 持久化目录
 tar czf $BACKUP_DIR/bm25.tar.gz /data/tgpp/bm25/
@@ -498,7 +511,7 @@ tar czf $BACKUP_DIR/bm25.tar.gz /data/tgpp/bm25/
 # 4. markdown / parsed json（可选，大文件）
 tar czf $BACKUP_DIR/markdown.tar.gz /data/tgpp/markdown/
 
-# 5. 保留最近 7 天
+# 5. 保留最近 7 天；同时建议异步同步到远端对象存储/另一台机器
 find /backup/tgpp -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} +
 
 echo "backup done: $BACKUP_DIR"
@@ -517,7 +530,8 @@ echo "backup done: $BACKUP_DIR"
 5. `./deploy/scripts/init-letsencrypt.sh`
 6. `docker compose -f deploy/docker-compose.prod.yml up -d`
 7. `curl https://tgpp.example.com/health` 验
-8. （可选）`docker compose --profile ingest run --rm ingest python -m ingestion.cli pipeline --releases 17,18`
+8. `POST /api/v1/auth/bootstrap-admin` 创建首个管理员
+9. （可选）`docker compose --profile ingest run --rm ingest python -m ingestion.cli pipeline-hf --releases 18,19 --provider $EMBEDDING_PROVIDER`
 
 ### 8.2 日常更新
 
@@ -532,14 +546,16 @@ echo "backup done: $BACKUP_DIR"
 | Agent 总报 voyage 超时 | 海外网络 | 切 `EMBEDDING_PROVIDER=glm`，热切换 |
 | Langfuse 写不进 | Cloud 抖动 | 看 backend 日志 `langfuse.flush` 错误；本地缓冲会自动重试 |
 | 磁盘满 | data volume 涨 | `du -sh /data/tgpp/*`；清理 `images/` 重建索引时不动 markdown |
+| 用户无法登录 | token/用户状态 | 查 `audit_logs`、确认 `is_active=true`、必要时用管理员重置密码 |
 
 ## 9. 安全
 
 - 所有 secrets 走 GitHub Secrets + `.env`（不入 git）
 - Nginx 启用 HSTS、CSP、X-Frame-Options
 - API 默认拒绝 cors（仅放行配置的 frontend origin）
-- 单用户 token 至少 32 字节随机
-- JWT 模式（二期）：access 15min、refresh 7d、refresh 黑名单走 Redis
+- 首个管理员通过一次性 bootstrap invite code 创建，创建后清空或轮换
+- JWT access 15min、refresh 7d；refresh token 只存 hash，可撤销
+- admin 路由强制 RBAC + audit log；上传文件限制类型/大小并隔离到 `/data/tgpp/fallback/raw/`
 
 ## 10. 验收清单
 
