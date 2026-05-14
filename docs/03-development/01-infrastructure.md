@@ -96,12 +96,15 @@ LLM_AGENT_MODEL=mimo-v2.5-pro
 LLM_LIGHT_MODEL=mimo-v2.5
 LLM_VISION_MODEL=mimo-v2.5
 
-# === Embedding 与 Reranker（外部 API）===
+# === Embedding 与 Reranker（外部 API；本项目统一走 LiteLLM proxy）===
 EMBEDDING_PROVIDER=voyage         # voyage / glm (POC 期可切)
-VOYAGE_API_KEY=
-VOYAGE_EMBEDDING_MODEL=voyage-3-large
-VOYAGE_RERANK_MODEL=rerank-2
-GLM_EMBEDDING_MODEL=embedding-3   # 通过 LiteLLM 调用
+VOYAGE_API_KEY=                    # 由 LiteLLM 注入，本项目代码不直接读
+VOYAGE_EMBEDDING_MODEL=voyage-4-large   # 200M tokens 免费，单价 $0.12/M
+VOYAGE_RERANK_MODEL=rerank-2.5          # 200M tokens 免费，单价 $0.05/M
+GLM_EMBEDDING_MODEL=embedding-3          # 智谱，POC 对照组，通过 LiteLLM 调用
+
+# 全量索引可选启用 Voyage Batch API（标准 endpoint 33% 折扣，12h 完成窗口）
+VOYAGE_USE_BATCH_API_FOR_FULL_INDEX=false
 
 # === Web 搜索 ===
 TAVILY_API_KEY=
@@ -381,7 +384,7 @@ def health():
 - [ ] `[auto]` `psql -h 127.0.0.1 -U tgpp_app -d tgpp_everything -c '\dx'` 列出 `uuid-ossp`、`pgcrypto`
 - [ ] `[auto]` `curl 127.0.0.1:6333/collections` 仍可访问、且本项目所有 collection 都以 `tgpp_chunks_` 开头
 - [ ] `[auto]` `redis-cli -n 5 ping` 返回 PONG
-- [ ] `[human]` `curl -s -H "Authorization: Bearer $LITELLM_API_KEY" http://127.0.0.1:4000/v1/models` 列出至少 `mimo-v2.5-pro`、`mimo-v2.5`、`embedding-3`（LiteLLM key 由人发放）
+- [ ] `[human]` `curl -s -H "Authorization: Bearer $LITELLM_API_KEY" http://127.0.0.1:4000/v1/models` 列出至少 `mimo-v2.5-pro`、`mimo-v2.5`、`embedding-3`、`voyage-4-large`、`rerank-2.5`（LiteLLM key 由人发放；旧 `voyage-3-large` / `rerank-2` 已下线，验收时不应出现）
 - [ ] `[auto]` `make lint` 全绿
 - [ ] `[auto]` `docker compose -f deploy/docker-compose.yml up --build` 起来后 `curl localhost:8002/health` 返回 200
 - [ ] `[auto]` `docker compose down` 干净退出

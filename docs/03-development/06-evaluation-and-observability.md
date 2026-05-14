@@ -373,16 +373,17 @@ async def main():
 - LLM / Embedding / Reranker / Vision / WebSearch 每次调用计入 PG `api_usage`
 - LLM token 数从 LiteLLM 响应 `usage` 字段读
 - Embedding 按 token 数估算
-- Reranker / WebSearch 按调用次数计费
-- 单价由 `app/llm/pricing.py` 表维护
+- Reranker 按 token 数计费（Voyage 口径：`query_tokens × n_docs + Σ doc_tokens`，**不是按 query 次数**）
+- WebSearch 按调用次数计费
+- 单价由 `app/llm/pricing.py` 表维护；标的是"用尽免费额度后"的等效单价，免费区内本表算出的成本由 usage 上层标记为 `billed=false`
 
 ```python
 PRICING = {
-    "mimo-v2.5-pro":   {"input": 1.0/1e6, "output": 3.0/1e6},
-    "mimo-v2.5":       {"input": 0.4/1e6, "output": 2.0/1e6},
-    "voyage-3-large":  {"per_token_embed": 0.06/1e6},
-    "voyage-rerank-2": {"per_call": 0.05/1000},
-    "tavily-search":   {"per_call": 0.01},
+    "mimo-v2.5-pro":    {"input": 1.0/1e6, "output": 3.0/1e6},
+    "mimo-v2.5":        {"input": 0.4/1e6, "output": 2.0/1e6},
+    "voyage-4-large":   {"per_token_embed": 0.12/1e6},      # 200M tokens 免费
+    "voyage-rerank-2.5": {"per_token_rerank": 0.05/1e6},    # 200M tokens 免费，按 token 不按 query
+    "tavily-search":    {"per_call": 0.01},
 }
 ```
 
