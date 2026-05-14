@@ -372,7 +372,40 @@ sequenceDiagram
 if state.cancelled: raise NodeInterrupt("cancelled by user")
 ```
 
-## 12. 风险与排雷
+> **取消 vs 暂停的区别**：取消 = 标记 `cancelled=true`，graph 在下一节点终止并保留落盘 checkpoint，但**会话状态视为终止**——下次再问从头跑；暂停 = 同样停在下一节点边界，但**保留为"可恢复 run"**——下次进会话从最后一个 checkpoint 直接续跑后续节点。详见 §12。
+
+## 12. Checkpoint 操作集（暴露给后端）
+
+LangGraph `PostgresSaver` 在每个节点输出后自动落 checkpoint，`thread_id = session_id`。Agent 层向 `04-backend-api.md` 暴露以下 5 个操作（封装为 `backend/app/agent/checkpoint.py` 的纯函数，后端 API 直接包装）：
+
+| 操作 | LangGraph 调用 | 行为 |
+|------|---------------|------|
+| `list_checkpoints(session_id)` | `tgpp_agent.aget_state_history(config={thread_id})` | 返回该会话所有 checkpoint 的 (checkpoint_id, parent_checkpoint_id, created_at, last_node, message_id) 列表，按时间倒序 |
+| `pause_run(session_id, run_id)` | `aupdate_state({paused: true, run_id})` | 当前 run 在下一节点边界停止；checkpoint 保留；run 状态机置 `paused` |
+| `resume_run(session_id)` | `astream_events(input=None, config={thread_id})` | 不传新 input，LangGraph 从最后 checkpoint 续跑剩余节点；前端继续接 SSE |
+| `fork_from(session_id, checkpoint_id, new_user_message)` | `aupdate_state(config={thread_id, checkpoint_id}, values={...})` + `astream_events(input=new_user_message)` | 从指定 checkpoint 起新分支：原会话标记为只读历史，新建 `session_id'` 继承 checkpoint 链 + 新 user message 触发后续节点跑 |
+| `rollback(session_id, last_n)` | 删除最近 `n` 个 checkpoint（同时删 PG `messages` 表对应行） | 恢复到 N+1 轮末状态；不可逆 |
+
+**State 增补字段**（落到 §2 AgentState）：
+
+```python
+paused: bool = False              # pause_run 设置；resume_run 清除
+run_id: str | None = None         # 当前活跃 run 标识，pause/cancel 用于鉴别
+```
+
+**节点边界检测**：与取消机制共用同一段，扩展为：
+
+```python
+if state.cancelled: raise NodeInterrupt("cancelled by user")
+if state.paused:    raise NodeInterrupt("paused by user")  # 区别：paused 不清空 state，可恢复
+```
+
+**Fork 实现要点**：
+
+- LangGraph 不支持"同 thread_id 多分支并存"，因此 fork 通过**新建 thread_id** 实现：拷贝 checkpoint 链到新 `session_id'`，原 `session_id` 在 PG `sessions` 表标 `status=archived_branch`，前端会话列表分组显示
+- 不做多分支可视化（详见需求 §3.9 不在范围）
+
+## 13. 风险与排雷
 
 | 风险 | 触发 | 应对 |
 |------|------|------|
@@ -381,8 +414,10 @@ if state.cancelled: raise NodeInterrupt("cancelled by user")
 | 工具节点权限滥用 | Agent 自作主张调 web_search | 严格判断 `explicit_tools`，prompt 中明示"未列入 explicit_tools 不得调用" |
 | Voyage 海外延迟波动 | 网络抖动 | tenacity + 30s timeout + fallback 到 Jina rerank（已在选型文档） |
 | PG checkpointer 锁竞争 | 小规模多用户同时发起长任务 | thread_id 按 session 隔离；必要时调连接池与 checkpoint 写入频率 |
+| 暂停的 run 永不恢复堆积 checkpoint | 用户暂停后忘了 | 后台任务每天清理 `paused` 状态超过 N 天的 run；同时 `sessions` 表展示"暂停中"标记 |
+| Fork 后用户在新旧分支间来回切换混乱 | UX 不清晰 | 会话列表按"主线 / 分叉历史"两组分开；archived_branch 加视觉灰度 |
 
-## 13. 验收清单
+## 14. 验收清单
 
 - [ ] `pytest -m unit backend/tests/unit/agent/` 全绿
 - [ ] `pytest -m integration backend/tests/integration/agent/` 覆盖：
@@ -390,10 +425,13 @@ if state.cancelled: raise NodeInterrupt("cancelled by user")
   - complex QA 端到端
   - raw_lookup 模式
   - 中途取消
+  - **暂停 → 关进程 → 重启 → 恢复续跑**
+  - **从历史 checkpoint fork 出新会话 + 老会话变只读**
+  - **rollback 最后 N 轮 messages + checkpoints 一致性**
   - 工具节点显式触发（web_search、glossary、toc、params）
 - [ ] Langfuse 中能看到完整 trace（每个节点 span + token stream）
 - [ ] 流式 SSE event 序列符合 §7 表
 
-## 14. 完成后下一步
+## 15. 完成后下一步
 
-→ `04-backend-api.md` 把 agent 包成 FastAPI 路由，对外暴露 SSE。
+→ `04-backend-api.md` 把 agent 包成 FastAPI 路由，对外暴露 SSE 与 checkpoint API。

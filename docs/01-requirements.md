@@ -108,6 +108,10 @@ LangGraph 编排，节点包含：
 
 - **Flutter 单代码库同时交付 Web + Android**；MVP 优先 Web 体验，但 Android 也必须完成核心闭环验收
 - **流式 UX**：SSE 节点状态流（改写中/检索中/重排中/生成中）+ token 流 + 命中 chunk 实时预览 + 中途取消/重问
+- **会话 checkpoint 控制**（依托 LangGraph PostgresSaver，详见 §3.9）：
+  - **暂停/恢复**：跑 Agent 中可"暂停"（区别于"取消"——暂停保留中间态，下次进会话从同一 checkpoint 续跑）
+  - **从历史消息分叉重问**：点会话里某条 user 消息的"从这里重问"，从该轮 checkpoint 起新分支，旧分支折叠为只读历史（MVP 单线分叉，不做多分支并存树）
+  - **会话回滚**：删除最后 N 轮消息（与对应 checkpoint），用于上下文跑偏时"清屏但保留前面有用部分"
 - **管理页**（Web）：
   - 已索引文档/版本/chunk 数列表
   - 一键"拉取新文档/重建索引"
@@ -121,7 +125,17 @@ LangGraph 编排，节点包含：
 - 鉴权：多用户账号体系 + JWT/refresh token + RBAC（admin/user）+ 基础审计
 - 文档管理/索引管理 API
 - 会话/收藏/反馈 API
+- **会话 checkpoint API**（包装 LangGraph PostgresSaver）：列出某会话的 checkpoints、从指定 checkpoint 分叉、暂停正在跑的 run、恢复已暂停 run、回滚最后 N 轮
 - 健康检查、配置分离（dev/prod）
+
+### 3.9 会话 checkpoint 与可恢复性
+
+- **持久化层**：LangGraph `PostgresSaver` 在每个节点输出后落 checkpoint 到 PG（同库 `langgraph_checkpoints` schema），`thread_id = session_id`
+- **MVP 范围**：
+  - **暂停 / 恢复**：暂停 = 中断当前 run 但保留 checkpoint；恢复 = 从最后一个 checkpoint 续跑，不重做前面节点（区别于"取消 + 重问"——后者从头跑）
+  - **单线分叉**：从某条历史 user 消息对应的 checkpoint 起新分支后，老分支变只读但仍保留在 DB（用户可切回查看），新分支成为当前活跃线
+  - **会话回滚**：删除最后 N 轮 messages + 对应 checkpoints，恢复到第 N+1 轮末状态
+- **不在 MVP 范围**：多分支并存的对话树可视化、checkpoint 时间轴 UI、跨会话合并、按 chunk 级粒度回滚
 
 ## 4. 非功能需求
 
@@ -172,6 +186,11 @@ LangGraph 编排，节点包含：
 - 移动端深度交互优化（本期 Android 做核心闭环与基础适配，不做精细移动体验）
 - 自动定时索引更新（手动触发即可）
 - LLM 微调（业界共识：3GPP 频繁更新，RAG 优于微调）
+- **多 Agent backbone 并存与用户显式模式选择**（二期演进方向）：
+  - **用户显式 Agent 模式选择**：UI 上让用户主动选 `fast / deep / react / multi-agent`，覆盖系统自动路由
+  - **ReAct 范式**：把 §3.3 现有的 self-RAG retry 升级成显式的 reasoning + action loop（LLM 自主决定是否继续检索、调用哪个工具、何时停止），与"复杂查询完整链路"形成两套独立 backbone
+  - **专家团队多 Agent**：Supervisor + 多 worker（按系列/层面切分，如核心网 / 无线接入 / 安全），并行检索后讨论汇总
+  - 不进入本期原因：(a) 与现有 self-RAG retry 语义重叠，效果增量需要先把基线跑起来才能验证；(b) 单查询成本翻 3-10 倍，与 §4.1 成本目标冲突；(c) 评测要按模式分桶重做，金标准集口径变化大；(d) 多 Agent 并行事件流需要重写前端可视化。MVP 保留 `mode: qa | raw_lookup` + `explicit_tools` 两个轻量级显式开关即可
 
 ## 6. 验收标准（高阶）
 
@@ -179,6 +198,7 @@ LangGraph 编排，节点包含：
 - **金标准评测 ≥ 120 题**（TeleQnA 抽取 + 转化 100-200 + 手工补充 20-30）：faithfulness ≥ 0.85、context recall ≥ 0.80
 - TeleQnA Standards 类原生选择题 LLM 正确率 ≥ 80%（对照口径，不卡死）
 - Web 端 + Android 端均可走完"登录 → 提问 → 流式响应 → 看引用 → 跳章节"完整链路
+- **会话 checkpoint 闭环可用**：暂停跑中 run → 关页面 → 重进会话恢复续跑；从历史 user 消息分叉重问 → 新分支接管、旧分支只读保留；删除最后 N 轮 + checkpoints 后会话状态正确回滚
 - 多用户基础能力可用：管理员初始化、登录/刷新 token、用户启停、admin/user 权限隔离、审计日志可查
 - Docker Compose 一键拉起；Nginx + HTTPS 可公网访问
 - CI 跑通：lint + unit + integration + RAG eval
