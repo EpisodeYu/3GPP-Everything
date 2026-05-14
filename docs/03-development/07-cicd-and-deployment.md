@@ -559,15 +559,17 @@ echo "backup done: $BACKUP_DIR"
 
 ## 10. 验收清单
 
-- [ ] PR opened 时 CI 全部 job 跑通；< 15 分钟总耗时
-- [ ] Nightly eval 跑通；阈值未达开 issue
-- [ ] `deploy.yml` 手动触发后 GHCR 有镜像、生产成功拉新版
-- [ ] `https://tgpp.example.com/health` 200
-- [ ] SSE 在生产域名下顺畅（token 流不卡顿）
-- [ ] `init-letsencrypt.sh` 可重复执行不破坏现状
-- [ ] `backup.sh` 输出可用的 dump 与 snapshot；`restore.sh` 在测试环境上 restore 成功
-- [ ] 项目根 `README.md` 含完整部署 runbook
-- [ ] 失败回滚演练 1 次（部署上一版本 sha 成功）
+> 标注：`[auto]` = Agent 自跑可判定；`[human]` = 必须人介入（生产部署、域名、首次上线、回滚演练）。
+
+- [ ] `[auto]` PR opened 时 CI 全部 job 跑通；< 15 分钟总耗时
+- [ ] `[auto]` Nightly eval 跑通；阈值未达开 issue
+- [ ] `[human]` `deploy.yml` 手动触发后 GHCR 有镜像、生产成功拉新版（生产部署必须人 approve，这是 `CLAUDE.md §5.3 / 5.4` 触发）
+- [ ] `[human]` `https://tgpp.example.com/health` 200（域名/证书涉外部账号）
+- [ ] `[human]` SSE 在生产域名下顺畅（token 流不卡顿）—— 由人在浏览器实测
+- [ ] `[auto]` `init-letsencrypt.sh` 可重复执行不破坏现状（dry-run 与 staging 模式跑过）
+- [ ] `[auto]` `backup.sh` 输出可用的 dump 与 snapshot；`restore.sh` 在测试环境上 restore 成功（集成测/CI 跑）
+- [ ] `[auto]` 项目根 `README.md` 含完整部署 runbook（结构检查脚本可验证关键小节存在）
+- [ ] `[human]` **失败回滚演练 1 次**（部署上一版本 sha 成功）—— 必须由人执行并签字
 
 ## 11. 风险与排雷
 

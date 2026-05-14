@@ -1,8 +1,10 @@
 # 3GPP-Everything
 
 > 基于 3GPP 规范文档的生产级 RAG Agent —— 让你像查代码一样查协议。
+>
+> 本项目采用 **vibe coding 模式**：Agent 主导开发/验证全流程，由人反馈产品问题、把控开发节奏。Agent 入场前请先读 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/00-vibe-coding-protocol.md`](./docs/00-vibe-coding-protocol.md)。
 
-[![Status](https://img.shields.io/badge/status-planning--M0-blue)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-3%20parts-orange)](./docs/README.md)
+[![Status](https://img.shields.io/badge/status-planning--M0-blue)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-3%20parts-orange)](./docs/README.md) [![Mode](https://img.shields.io/badge/dev--mode-vibe%20coding-purple)](./CLAUDE.md)
 
 ## 是什么
 
@@ -19,11 +21,12 @@
 
 ```
 M0 准备 ──> M1 数据接入 POC ──> M2 索引检索 POC ──> M3 评测集+Embedding决胜
-   ↑ 现在在这里
+   ↑ 当前里程碑
    └── 计划文档全部就绪，代码尚未动工
 ```
 
-完整里程碑见 [`docs/03-development/00-overview.md`](./docs/03-development/00-overview.md)。
+里程碑按"完成度门禁"推进（**不绑定时间表**）：上一个里程碑的门禁未全绿，不进下一个。
+完整里程碑与每段的"必须自动化 / 必须人审"清单见 [`docs/03-development/00-overview.md`](./docs/03-development/00-overview.md)。
 
 ## 架构速览
 
@@ -74,9 +77,11 @@ flowchart LR
 
 | # | 文档 | 主题 |
 |---|------|------|
+| **0** | [`docs/00-vibe-coding-protocol.md`](./docs/00-vibe-coding-protocol.md) | Vibe coding 协作协议 - 角色边界、任务卡、完成报告、回归测试分层、升级回报 |
 | **1** | [`docs/01-requirements.md`](./docs/01-requirements.md) | 需求澄清 - 项目定位、场景、功能/非功能需求、验收标准 |
 | **2** | [`docs/02-tech-selection.md`](./docs/02-tech-selection.md) | 技术选型 - 选型总表、决策依据、POC 计划、成本估算 |
 | **3** | [`docs/03-development/`](./docs/03-development/) | 开发规划（8 份） - 总览/基础设施/摄取/Agent/后端/前端/评测/CICD |
+| **守则** | [`CLAUDE.md`](./CLAUDE.md) | Agent 项目守则 - 工作循环、测试硬要求、停下来问人的触发条件 |
 
 完整索引：[`docs/README.md`](./docs/README.md)
 
@@ -109,7 +114,7 @@ make eval
 
 ```
 3GPP-Everything/
-├── docs/                  ← 三部分 Plan 文档
+├── docs/                  ← 协作协议 + 三部分 Plan 文档
 ├── backend/               ← FastAPI + LangGraph Agent
 ├── ingestion/             ← HF 数据加载 + Docling 兜底 + Vision + chunking + indexer
 ├── frontend/              ← Flutter Web + Android
@@ -118,7 +123,7 @@ make eval
 ├── .github/workflows/     ← CI / nightly eval / deploy
 ├── .env.example
 ├── Makefile
-└── CLAUDE.md              ← Agent 协作行为准则
+└── CLAUDE.md              ← 项目守则（Agent 入场必读）
 ```
 
 ## 设计要点

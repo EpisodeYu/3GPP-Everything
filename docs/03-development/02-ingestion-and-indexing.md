@@ -376,21 +376,25 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 
 ## 8. 验收清单
 
+> 标注：`[auto]` = Agent 自跑可判定；`[human]` = 必须人审（涉及成本审批、数据源 license、质量主观判断）。
+
 POC 阶段（M1+M2）：
 
-- [ ] `hf-load` 能流式读 GSMA 全量并按 release 过滤
-- [ ] 单篇 spec（建议 `38.331`）从 HF 到 Qdrant 端到端跑通
-- [ ] 20 篇全部完成 voyage / glm 双轨索引
-- [ ] 两个 Qdrant collection 均 > 8000 chunks
-- [ ] BM25 持久化目录可被 backend 加载
-- [ ] 兜底 Docling 链路：手工上传 1 个 doc，完整流程跑通
+- [ ] `[auto]` `hf-load` 能流式读 GSMA 全量并按 release 过滤（pytest 集成测覆盖）
+- [ ] `[human]` 单篇 spec（建议 `38.331`）从 HF 到 Qdrant 端到端跑通——**章节层级 vs 原 PDF 目录 ≥ 95% 一致** 与 **Vision 描述质量** 由人抽检
+- [ ] `[human]` 20 篇全部完成 voyage / glm 双轨索引（动用 Voyage 真实 API 配额 → 必须事先 approve；见 `CLAUDE.md §5.2`）
+- [ ] `[auto]` 两个 Qdrant collection 均 > 8000 chunks
+- [ ] `[auto]` BM25 持久化目录可被 backend 加载（集成测覆盖：load + 简单 query 返回 ≥ 1 命中）
+- [ ] `[human]` 兜底 Docling 链路：手工上传 1 个 doc，完整流程跑通（抽检解析质量）
+- [ ] `[auto]` §4.0 数据源验证门禁 audit md 已生成且检查项齐备
 
 生产阶段（M6）：
 
-- [ ] GSMA Rel-18 + Rel-19 去重保留最新、过滤为 5G 相关系列 TS 后的 1296 篇 specs 状态 = `indexed`
-- [ ] 单篇 spec 重新索引（`--force`）不产生 Qdrant 重复 point
-- [ ] 一篇 spec 删除（`purge`）后 Qdrant + PG + BM25 三处全清干净
-- [ ] `status` CLI 输出含 source 列（gsma_hf / docling_fallback）
+- [ ] `[human]` GSMA Rel-18 + Rel-19 去重保留最新、过滤为 5G 相关系列 TS 后的 1296 篇 specs 状态 = `indexed`（**全量动作必须由人 approve 预算/并发**；进度由 Agent 报告，达成由人确认）
+- [ ] `[auto]` 单篇 spec 重新索引（`--force`）不产生 Qdrant 重复 point（集成测覆盖）
+- [ ] `[auto]` 一篇 spec 删除（`purge`）后 Qdrant + PG + BM25 三处全清干净（集成测覆盖）
+- [ ] `[auto]` `status` CLI 输出含 source 列（gsma_hf / docling_fallback）
+- [ ] `[auto]` 一致性回归：随机抽 5 篇 spec 的 chunk 数与 manifest 一致；图片 Vision 缓存命中率 ≥ 80%
 
 ## 9. 完成后下一步
 

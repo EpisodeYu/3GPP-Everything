@@ -431,15 +431,18 @@ PRICING = {
 
 ## 12. 验收清单
 
-- [ ] TeleQnA 拉取 + 过滤 + 转化流水线可重跑（`make eval-build`）
-- [ ] `eval/golden/v1.yaml` ≥ 120 题；含 `teleqna_origin_id` 可追溯；由懂 3GPP 的人 review 过
-- [ ] `python -m eval.runner --subset 10` 跑通无错误
-- [ ] `python -m eval.teleqna.native_mcq_runner` 跑完 Standards 子集，输出 LLM 选对 %
-- [ ] Langfuse Dataset 与 Run 在 Web UI 可见，evaluators 自动出分
-- [ ] CI eval 子集（10 题）耗时 < 10 分钟，全绿
-- [ ] Nightly eval 全集跑通；阈值未达自动开 GitHub issue
-- [ ] M3 embedding POC 决胜决策有书面记录（`eval-results/m3-embedding-poc.md`）
-- [ ] 前端管理后台展示 today / month 成本
+> 标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人介入（评测内容由懂 3GPP 的人 review、外部账号、决策签字）。
+
+- [ ] `[auto]` TeleQnA 拉取 + 过滤 + 转化流水线可重跑（`make eval-build`）
+- [ ] `[human]` `eval/golden/v1.yaml` ≥ 120 题；含 `teleqna_origin_id` 可追溯；**由懂 3GPP 的人 review 过**（这是质量门禁，Agent 不能自己说通过）
+- [ ] `[auto]` `python -m eval.runner --subset 10` 跑通无错误
+- [ ] `[auto]` `python -m eval.teleqna.native_mcq_runner` 跑完 Standards 子集，输出 LLM 选对 %
+- [ ] `[human]` Langfuse Dataset 与 Run 在 Web UI 可见，evaluators 自动出分（外部账号，人确认看到）
+- [ ] `[auto]` CI eval 子集（10 题）耗时 < 10 分钟，全绿；分层抽样按 category 覆盖
+- [ ] `[auto]` Nightly eval 全集跑通；阈值未达自动开 GitHub issue
+- [ ] `[human]` M3 embedding POC 决胜**决策由人拍板**，结果与签字记录在 `eval-results/m3-embedding-poc.md`
+- [ ] `[auto]` 前端管理后台展示 today / month 成本（widget test 覆盖渲染）
+- [ ] `[auto]` 成本告警阈值触发后能写日志/发通知（mock webhook 验证）
 
 ## 13. 风险与排雷
 
