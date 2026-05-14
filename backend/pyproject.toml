@@ -49,6 +49,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E","F","I","B","UP","SIM","RUF"]
+# 项目文档与注释采用中文；ruff RUF001/2/3 对中文标点会产生大量噪声，统一关掉。
+ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.black]
 line-length = 100
