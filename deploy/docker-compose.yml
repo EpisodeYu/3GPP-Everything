@@ -1,0 +1,50 @@
+name: tgpp
+
+services:
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: tgpp-api
+    env_file: ../.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8002:8002"
+    volumes:
+      - ../backend:/app
+      - ${INGEST_DATA_DIR:-./data}:/data/tgpp
+    networks:
+      - tgpp-net
+    restart: unless-stopped
+
+  ingest:
+    build:
+      context: ../ingestion
+      dockerfile: Dockerfile
+    container_name: tgpp-ingest
+    env_file: ../.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../ingestion:/app
+      - ${INGEST_DATA_DIR:-./data}:/data/tgpp
+    networks:
+      - tgpp-net
+    profiles: ["ingest"]
+
+  web:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: tgpp-web
+    ports:
+      - "8082:80"
+    networks:
+      - tgpp-net
+    depends_on: [api]
+    restart: unless-stopped
+
+networks:
+  tgpp-net:
+    driver: bridge

@@ -1,0 +1,6 @@
+build/
+.dart_tool/
+android/.gradle/
+android/build/
+ios/build/
+test/
