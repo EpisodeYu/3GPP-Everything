@@ -25,7 +25,7 @@
 | **Embedding（POC 对照组）** | 智谱 `embedding-3` (本机 LiteLLM) | OpenAI `text-embedding-3-large` | 验证国产是否足够 |
 | **Reranker** | Voyage `rerank-2` | Jina v2 | 与 voyage embedding 同供应商，协同最佳 |
 | **稀疏检索** | LlamaIndex BM25 / SPLADE | Qdrant 原生 sparse | 与 dense 混合做 hybrid |
-| **文档主源** | `GSMA/3GPP` HF dataset (Rel-18 + Rel-19) | TSpec-LLM (已陈旧)、自爬+Docling | 官方预解析；938 篇；表格 inline、公式保留、图片单独字段 |
+| **文档主源** | `GSMA/3GPP` HF `marked/` tree (Rel-18 + Rel-19，按 `spec_id` 去重保留最新，仅 5G 相关系列 TS) | TSpec-LLM (已陈旧)、自爬+Docling | 官方预解析 markdown；过滤后约 1296 篇；表格 inline、公式保留、图片为同目录文件；不收录 TR |
 | **文档兜底** | LibreOffice + Docling | unstructured | 用于外部上传 doc / Rel-17 / 离群 spec |
 | **FTP 爬虫** | `download_3gpp` PyPI | `gw-space/3gpp-document-downloader-mcp` | 兜底场景才用，主路径用 HF |
 | **向量库** | Qdrant (复用本机 :6333) | pgvector | 已在运行、Rust、低资源 |
@@ -165,7 +165,7 @@ LangGraph 节点直接复用此 client，零额外抽象。
 4. 胜出者用于全量索引；如差距 < 5%，选择智谱 embedding-3（成本更低、零依赖）
 
 **预算**：
-全量索引按 GSMA Rel-18+Rel-19 ~938 篇 / ~169k sections 估算，chunk 后约 80M embedding tokens。Voyage 一次全量约 $5；POC 双轨与少量重建可承担，但 Vision 描述才是成本与耗时主项。
+全量索引按 GSMA Rel-18+Rel-19 去重保留最新后仅保留 5G 相关系列 TS：`1296` 篇、`raw.md` 约 `621MiB` 估算；实际 chunk 与 embedding token 数以 M1 数据源审计输出为准。Voyage 一次全量预计仍是低十美元级；POC 双轨与少量重建可承担，但 Vision 描述需要按图片 hash 缓存控制一次性成本。
 
 ### 3.3 索引向量重建路径
 
@@ -204,7 +204,7 @@ graph LR
 - 本机已运行 v1.17.1 在 `127.0.0.1:6333`，已有 `forge_docs` collection
 - **新建独立 collection**：`tgpp_chunks_voyage`、`tgpp_chunks_glm`（POC 期）→ 收敛后保留胜者
 - 不影响现有 `forge_docs`，无需独立部署
-- 单机 p95 检索目标 < 100ms；Rel-18+Rel-19 全量估算 200k+ chunks，Qdrant 单机可承载，但必须监控内存、磁盘和 payload index 大小
+- 单机 p95 检索目标 < 100ms；Rel-18+Rel-19 TS-only 5G 系列预计为数十万级 chunks，Qdrant 单机可承载，但必须以 M1/M2 实测 chunk 数校准内存、磁盘和 payload index 大小
 
 **注意事项**：
 
@@ -245,15 +245,19 @@ graph LR
 
 ```mermaid
 flowchart LR
-    A["datasets.load_dataset('GSMA/3GPP', 'rel-18')"] --> B["每行 = 一个 section<br/>(spec_number, clause, title, body, images...)"]
-    B --> C["按 spec 分组、还原 section 树"]
-    C --> D["chunking + 图片 Vision 描述"]
-    D --> E["Chunk 化 + 元数据"]
+    A["HF tree: marked/Rel-{18,19}/.../{spec_id}/raw.md"] --> B["raw.md + 同目录图片文件"]
+    B --> C["按 spec_id 去重<br/>R19 覆盖 R18"]
+    C --> D["过滤 TS + 5G 系列白名单"]
+    D --> E["解析 markdown 标题/章节<br/>还原 section 树"]
+    E --> F["chunking + 图片 Vision 描述"]
+    F --> G["Chunk 化 + 元数据"]
 ```
 
-- **天然解析好**：每行就是一个 section，章节号 (`clause`) 是字段，`body` 是 markdown（表格 inline、公式可解析）
-- **图片**：`images` 字段是图片引用列表；下载后调 `mimo-v2.5` 生成结构化描述
-- **量级**：Rel-18 (549) + Rel-19 (442) = ~938 篇 specs，约 169k sections
+- **天然解析好**：每篇 spec 已转换为 `raw.md`（表格 inline、公式可解析），但不再是 section 行表；loader 需从 markdown 标题/章节文本中还原 section 树
+- **图片**：图片是 spec 目录下的 jpg 等文件；按 bytes hash 调 `mimo-v2.5` 生成结构化描述并永久缓存
+- **过滤规则**：只保留 `spec_type=TS`，不收录 TR；系列白名单为 `21/22/23/24/26/27/28/29/31/32/33/34/35/36/37/38`
+- **量级**：Rel-18 `1345` 篇、Rel-19 `1557` 篇；合计 `2902` 个 release-doc entries，跨 release 重复 `1173` 篇；按 `spec_id` 去重后再过滤 TS + 5G 系列白名单，保留 `1296` 篇，`raw.md` 约 `621MiB`
+- **图片规模**：保留集约 `27,042` 个图片文件引用、约 `6,435` 个唯一图片 hash；单篇如 `38.211` 只有 3 张左右，但图密集 spec 会贡献数百张
 - **license**：核对 GSMA 数据集声明，本项目内部使用合规即可
 
 ### 10.2 兜底路径 — LibreOffice + Docling
@@ -353,9 +357,9 @@ graph TB
 
 | 项 | 估算 |
 |----|------|
-| HF cache（Parquet + 图片引用） | 5-10GB |
-| 规范 markdown / section JSON / 元数据中间产物 | 5-8GB |
-| 图片缓存与 Vision 结果 | 5-15GB |
+| HF cache（`raw.md` + 图片文件 + repo 元数据） | 5-10GB |
+| 规范 markdown / section JSON / 元数据中间产物 | 3-6GB |
+| 图片缓存与 Vision 结果 | 3-10GB |
 | Qdrant 生产 collection | 3-8GB（视维度/quantization） |
 | POC 双轨 collection 临时空间 | 6-16GB |
 | BM25 / eval-results / 日志 | 2-5GB |
@@ -387,7 +391,7 @@ graph LR
 
 | POC | 何时做 | 目标 | 决策点 |
 |-----|--------|------|--------|
-| P1: 文档解析单文件 | 开发周 1 | 1 篇 TS（含表格/公式/图片）走完 LibreOffice + Docling + mimo-v2.5 描述 | Docling 是否能完整保留章节层级；mimo-omni 图片描述质量是否可用 |
+| P1: 文档解析单文件 | 开发周 1 | 1 篇 GSMA `raw.md` TS（含表格/公式/图片）走完 markdown section 解析 + mimo-v2.5 描述；另用 1 篇上传 doc 验证 Docling 兜底 | GSMA markdown 是否能稳定还原章节层级；mimo-omni 图片描述质量是否可用；Docling 兜底是否可用 |
 | P2: 索引 20 篇 + 检索 | 开发周 2-3 | 20 篇代表性 TS 建索引、查询能召回正确章节 | Hybrid 是否优于单向量；chunking 策略验证 |
 | P3: Embedding 双轨评测 | 开发周 3-4 | Voyage vs 智谱 在金标准集上的 retrieval 指标 | 决定全量用哪个 embedding |
 | P4: Agent 端到端冒烟 | 开发周 5 | 完整 LangGraph 跑通一次复杂查询 | 验证 self-RAG / 工具调用 |
@@ -395,21 +399,21 @@ graph LR
 
 ## 15. 成本估算（小规模多用户、按 Voyage embedding 全量胜出口径）
 
-> 量级更新：GSMA Rel-18+Rel-19 共 938 篇 / ~169k sections，按 chunking 后保守估 200k chunks × 400 tokens 平均 = **80M embed tokens**
+> 量级更新：GSMA Rel-18+Rel-19 去重保留最新并过滤为 5G 相关系列 TS 后约 `1296` 篇，`raw.md` 约 `621MiB`。chunk 数与 embedding tokens 以 M1/M2 实测校准；暂按 `100M` embed tokens 做容量预算。
 
 | 项 | 计费 | 估算 |
 |----|------|------|
-| 索引一次性·Embedding | Voyage 80M tokens × $0.06 / M = **$4.8** | ~$5 |
-| 索引一次性·Vision 描述（GSMA images 字段约 30k 图片 × 1500 tokens 输出） | mimo-v2.5 输入估 60M × $0.40 + 输出 45M × $2 = $114 | ~$115 |
+| 索引一次性·Embedding | Voyage 100M tokens × $0.06 / M = **$6** | ~$6 |
+| 索引一次性·Vision 描述（保留集约 27,042 个图片引用；hash 去重约 6,435 张唯一图片） | 按唯一图片估：输入 12.9M × $0.40 + 输出 9.7M × $2 ≈ $24.5；若无 hash 缓存按引用重复调用，上限约 $100 | ~$25（有缓存） |
 | Agent 月查询 100 次 × 6 LLM 调用 × 10K tokens | mimo-pro 6M × $3 ≈ $18 | ~$18 |
 | Embedding 查询 100 × 6 query × 500 tokens | 0.3M × $0.06 ≈ $0.02 | ~$0.02 |
 | Reranker 100 × 6 × 50 candidates | Voyage rerank 600 calls × $0.05/K = $0.03 | ~$0.03 |
 | Tavily Web 搜索 20 次/月 | 免费层 | $0 |
 | Langfuse Cloud | Free | $0 |
-| **合计·首月（含一次性索引）** | | **≈ $140** |
+| **合计·首月（含一次性索引）** | | **≈ $50-70** |
 | **合计·后续月（不含索引）** | | **≈ $18-25** |
 
-> Vision 描述是一次性大头开销。已确认本期按**全量图片 Vision**交付，因此控费策略不用于跳过图片，只用于限流、失败续跑、重复图片缓存与预算告警。若全量图片数或平均输出 token 明显高于估算，必须先暂停作业并更新成本审批。
+> Vision 描述仍是主要批处理作业之一，但实际 GSMA 图片存在大量跨 release / 跨 spec 重复。已确认本期按**保留集全量图片 Vision**交付，因此控费策略不用于跳过图片，只用于限流、失败续跑、重复图片 hash 缓存与预算告警。若唯一图片数或平均输出 token 明显高于估算，必须先暂停作业并更新成本审批。
 
 多用户低并发阶段按 5 名活跃用户 / 月 1000 次查询估算，后续月成本约为上表 Agent 与检索调用的 10 倍，即 **$180-250/月**。这不是高并发容量承诺，只用于提前设置成本告警阈值。
 

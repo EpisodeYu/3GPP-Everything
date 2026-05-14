@@ -24,10 +24,13 @@
 
 ### 3.1 文档语料
 
-- **范围**：**Rel-18 + Rel-19 全部 TS/TR**，覆盖 SA/RAN/CT 工作组
-- **主要来源**：[`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) HuggingFace 数据集——官方维护，**已预解析为结构化 markdown**，每行 = 一个 section，含 `spec_number / release / clause / section_title / body / images` 字段
-- **量级**：约 **938 篇 specs / 169k sections**，dataset 体积 ~1.51GB
-- **兜底来源**：内置 3GPP FTP 爬虫 + LibreOffice + Docling 解析链路——用于"用户上传的离群 spec"、"GSMA 数据集还未收录的最新版本"、"特定 Rel-17 spec 临时需求"等场景
+- **范围**：**Rel-18 + Rel-19 中 5G 相关系列的 TS 文档，不收录 TR**；按 `spec_id` 去重并保留最新 release（同一 spec 同时存在 R18/R19 时保留 R19；R18-only 保留 R18）
+- **系列白名单**：核心系列 `21/22/23/24/28/29/31/32/33`，无线接入 `36/37/38`，周边与垂直主题 `26/27/34/35`
+- **主要来源**：[`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) HuggingFace 数据集——官方维护；当前实际形态为 `marked/Rel-{18,19}/{NN}_series/{spec_id}/raw.md` + 同目录图片文件，`original/` 保留官方 doc/docx 源文件
+- **量级**：按 GSMA `main`（2026-04-15，sha `25e0bfe...`）统计：Rel-18 `1345` 篇、Rel-19 `1557` 篇，合计 `2902` 个 release-doc entries；跨 release 重复 `1173` 篇，去重后再过滤 TS + 5G 系列白名单，保留 `1296` 篇（Rel-19 `1274` 篇、R18-only `22` 篇），`raw.md` 约 `621MiB`
+- **系列分布**：核心系列 `932` 篇，无线接入 `200` 篇，周边与垂直主题 `164` 篇
+- **图片量级**：过滤后约 `27,042` 个图片文件引用，按文件名/hash 去重约 `6,435` 张唯一图片；Vision 描述必须基于图片 hash 缓存，避免重复调用
+- **兜底来源**：内置 3GPP FTP 爬虫 + LibreOffice + Docling 解析链路——用于"用户上传的离群 spec"、"GSMA 数据集还未收录的最新版本"、"特定 Rel-17 或更老 spec 临时需求"等场景
 - **更新**：手动触发"重新拉取 GSMA HF"；HF 推送新版即可更新；增量重建索引
 
 ### 3.2 文档解析（两条链路）
@@ -35,8 +38,8 @@
 ```mermaid
 flowchart LR
     subgraph mainpath["主路径 - GSMA HuggingFace"]
-        H1["GSMA/3GPP dataset"] --> H2["load_dataset (Parquet)"]
-        H2 --> H3["每行 = 一个 section<br/>(spec/clause/title/body/images)"]
+        H1["GSMA/3GPP marked tree"] --> H2["raw.md + 同目录图片"]
+        H2 --> H3["按 markdown 标题/章节解析 section"]
         H3 --> H4["chunking + 图片 Vision 描述"]
     end
     subgraph fallback["兜底路径 - 离群 doc / 上传"]
@@ -49,12 +52,12 @@ flowchart LR
     G --> I["向量索引 + 倒排索引"]
 ```
 
-- **主路径**：直接消费 GSMA HF 数据集——表格已 inlined 在 markdown body 中、公式 GSMA 已转化、章节号天然是字段；只需做 chunking 与图片 Vision 描述
+- **主路径**：直接消费 GSMA HF `marked/` 文件树——表格已 inlined 在 `raw.md` 中、公式 GSMA 已转化；需从 markdown 标题/章节文本中还原 section 树，再做 chunking 与图片 Vision 描述
 - **兜底路径**：保留 LibreOffice + Docling，用于外部 doc 上传 / Rel-17 / 最新 freeze 未入 HF 的 spec
 - 解析单元保留：spec 编号、release、章节号路径（如 `5.6.1.2`）、章节标题、所在 document_order
 - 公式：保留 LaTeX 形式（GSMA 输出已是 markdown 内可识别公式），前端 MathJax/KaTeX 渲染
 - 表格：GSMA 已 inline 在 section body 中；chunking 时若表格独占段落则拆为独立 chunk
-- 图片：GSMA 提供 `images` 字段（原图引用列表），调用 Vision 多模态模型生成结构化描述加入检索；原图前端可点击查看
+- 图片：GSMA 在 spec 目录下提供 jpg 等图片文件；按图片 bytes hash 生成并缓存 Vision 结构化描述加入检索，原图前端可点击查看
 
 ### 3.3 Agent 能力（最高档 + 平衡延迟）
 
@@ -170,7 +173,7 @@ LangGraph 编排，节点包含：
 
 ## 6. 验收标准（高阶）
 
-- **GSMA Rel-18 + Rel-19 全量 ~938 篇 specs 完成索引**（含全量图片 Vision 描述、失败可续跑）
+- **GSMA Rel-18 + Rel-19 去重保留最新、过滤为 5G 相关系列 TS 后的 `1296` 篇 specs 完成索引**（含保留集全量图片 Vision 描述、失败可续跑、重复图片 hash 缓存）
 - **金标准评测 ≥ 120 题**（TeleQnA 抽取 + 转化 100-200 + 手工补充 20-30）：faithfulness ≥ 0.85、context recall ≥ 0.80
 - TeleQnA Standards 类原生选择题 LLM 正确率 ≥ 80%（对照口径，不卡死）
 - Web 端 + Android 端均可走完"登录 → 提问 → 流式响应 → 看引用 → 跳章节"完整链路

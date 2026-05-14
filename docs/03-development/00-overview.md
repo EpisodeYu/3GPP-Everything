@@ -45,7 +45,7 @@ graph TB
 
 | 决策项 | 统一口径 |
 |--------|----------|
-| 本期范围 | 完整生产级交付：Rel-18+Rel-19 全量、全量图片 Vision、多用户基础能力、Web+Android、CI/CD、HTTPS、备份恢复 |
+| 本期范围 | 完整生产级交付：GSMA Rel-18+Rel-19 按 `spec_id` 去重保留最新，仅收录 5G 相关系列 TS（约 1296 篇，不收录 TR）、保留集全量图片 Vision、多用户基础能力、Web+Android、CI/CD、HTTPS、备份恢复 |
 | 用户模型 | 小规模多用户低并发；实现 admin/user RBAC，不做组织/租户级复杂权限矩阵 |
 | 磁盘门槛 | `/data` 可用空间 ≥ 80GB；低于 50GB 不进入全量索引 |
 | HyDE 模型 | `mimo-v2.5-pro`，质量优先；路由/改写/multi-query 用 `mimo-v2.5` |
@@ -66,7 +66,7 @@ gantt
     section M0 准备
     磁盘扩容 + 共享服务调研               :m0a, 2026-05-14, 2d
     项目骨架 + .env + Compose 雏形        :m0b, after m0a, 3d
-    HF token + GSMA dataset 试拉一行       :m0c, after m0b, 1d
+    HF token + GSMA dataset 试拉单篇       :m0c, after m0b, 1d
     section M1 数据接入 POC
     GSMA HF loader + section 树还原        :m1a, after m0c, 2d
     单 spec 端到端 (chunk + Vision 描述)   :m1b, after m1a, 3d
@@ -86,7 +86,7 @@ gantt
     Flutter chat + SSE 客户端              :m5a, after m4c, 5d
     阅读器 + 管理页                        :m5b, after m5a, 5d
     section M6 全量索引 (GSMA R18+R19)
-    938 spec 索引(挑选 embedding)         :m6a, after m4b, 5d
+    1296 TS spec 去重索引(挑选 embedding) :m6a, after m4b, 5d
     section M7 评测扩展 + 监控
     手工补 20-30 复杂题 + 负样本           :m7a, after m6a, 3d
     Langfuse trace + Datasets + eval       :m7b, after m4b, 3d
