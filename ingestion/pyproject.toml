@@ -15,6 +15,10 @@ dependencies = [
   "pydantic-settings>=2.4",
   "pyyaml>=6.0",
   "voyageai>=0.3",
+  "huggingface-hub>=0.26",
+  "pillow>=10.4",
+  "tiktoken>=0.7",
+  "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +26,8 @@ dev = [
   "ruff>=0.6",
   "black>=24.8",
   "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=5.0",
 ]
 
 [tool.ruff]
@@ -30,6 +36,13 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E","F","I","B","UP","SIM","RUF"]
+# 项目文档与注释采用中文；ruff RUF001/2/3 对中文标点会产生大量噪声，统一关掉。
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+# typer.Option 作为参数默认值是官方推荐用法，B008 在此处属误报。
+"hf_loader/runner.py" = ["B008", "E501"]
+"cli.py" = ["B008", "E501"]
 
 [tool.black]
 line-length = 100
