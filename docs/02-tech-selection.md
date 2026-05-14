@@ -5,7 +5,7 @@
 > 决策原则（来自需求文档 + 服务器现实）：
 >
 > 1. **服务器性能差**：2 核 / 3.8GB RAM（实际可用 ~500MB）/ 8GB swap，**严禁本地跑 embedding/reranker/重模型**
-> 2. **磁盘紧张**：根盘 `/dev/vda2` 50G 已用 90%，本期要做全量 GSMA + 全量 Vision + 备份，**项目启动前必须准备 `/data` 可用空间 ≥ 80GB**（推荐扩容 +80GB，最低 +50GB）
+> 2. **磁盘紧张**：根盘 `/dev/vda2` 50G 已用 90%，本期要做全量 GSMA + 全量 Vision + 备份，**项目启动前必须准备 `/data` 可用空间 ≥ 50GB**（推荐扩容 +50GB；最低 +30GB，且 POC 期串行跑两个 embedding provider 而非双轨并存）
 > 3. **优先复用本机已有服务**：Qdrant（:6333）、PostgreSQL（:5432）、Redis（:6379）、LiteLLM（:4000）都已运行
 > 4. **混合模式**：关键质量环节（embedding / reranker）走海外 SOTA API，其余环节走本地 LiteLLM 国产
 > 5. **POC 验证**：embedding 选型有显著不确定性，必须用小子集双轨建索引 + 金标准评测后再全量
@@ -353,20 +353,20 @@ graph TB
 | 全量 HF ingest / Vision 描述 / embedding | `ingest` 容器按需运行，默认并发 1-2 | 必须支持断点续跑、限流、失败队列 |
 | RAG eval 全集 | Nightly CI 或手动任务 | 生产机只保留结果，不承担重评测压力 |
 
-磁盘规划按全量 Vision 口径：
+磁盘规划按全量 Vision 口径（`docs/03-development/02-ingestion-and-indexing.md §5` 重算后口径）：
 
 | 项 | 估算 |
 |----|------|
-| HF cache（`raw.md` + 图片文件 + repo 元数据） | 5-10GB |
-| 规范 markdown / section JSON / 元数据中间产物 | 3-6GB |
-| 图片缓存与 Vision 结果 | 3-10GB |
-| Qdrant 生产 collection | 3-8GB（视维度/quantization） |
-| POC 双轨 collection 临时空间 | 6-16GB |
-| BM25 / eval-results / 日志 | 2-5GB |
-| Docker image / volume 余量 | 10-15GB |
-| 本地短期备份与 snapshot 暂存 | 15-25GB |
+| HF cache（`marked/` sparse-checkout + repo 元数据） | 3-8GB |
+| 规范 markdown / section JSON / 元数据中间产物 | 1-2GB |
+| 图片缓存与 Vision 结果（6.4k 张唯一图） | 1-3GB |
+| Qdrant 生产 collection | 3-5GB（视维度/quantization） |
+| POC embedding 对比临时空间（推荐串行跑、每轮跑完即清；不建议双轨并存） | +3-5GB（峰值） |
+| BM25 / eval-results / 日志 | 1-2GB |
+| Docker image / volume 余量 | 5-10GB |
+| 本地短期备份与 snapshot 暂存（zstd 压缩） | 5-10GB |
 
-**硬要求**：`/data` 可用空间 ≥ 80GB，低于 50GB 不进入全量索引；全量完成后清理 POC collection 与中间缓存，长期只保留胜出 provider 的生产 collection。
+**硬要求**：`/data` 可用空间 ≥ 50GB（推荐 +50GB），低于 30GB 不进入全量索引；POC 期间默认**串行**跑两个 embedding provider 并跑完即清，仅 ≥ 50GB 时才允许短期双轨并存做对比；全量完成后清理 POC collection 与中间缓存，长期稳态约 15-25GB。
 
 ## 13. CI / 质量保证
 
@@ -430,7 +430,7 @@ graph LR
 
 | 项 | 说明 |
 |---|------|
-| 磁盘扩容到 `/data` 可用空间 ≥ 80GB | 为 HF cache、全量 Vision、Qdrant、Docker volume、日志与短期备份留出空间 |
+| 磁盘扩容到 `/data` 可用空间 ≥ 50GB（推荐 +50GB；最低 +30GB） | 为 HF cache、全量 Vision、Qdrant、Docker volume、日志与短期备份留出空间；< 50GB 时 POC 期需串行跑 embedding provider |
 | **HuggingFace token** | 拉 `GSMA/3GPP` 数据集（`HF_TOKEN` 环境变量；huggingface.co 注册即可，免费） |
 | Voyage AI API key | embedding + reranker；从 voyageai.com 申请 |
 | Tavily API key | Web 搜索；tavily.com 申请，free tier 即可 |

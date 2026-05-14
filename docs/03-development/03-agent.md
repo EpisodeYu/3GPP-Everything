@@ -8,7 +8,7 @@
 - ✅ 完整节点集（路由 / 改写 / 检索 / rerank / 生成 / self-RAG 校验 / 工具调用）
 - ✅ PostgresSaver checkpointer：会话级持久化、可中断恢复
 - ✅ 流式 API：`astream_events` 输出节点状态 + token 增量 + 中间结果（hit chunks）
-- ✅ 5 个工具节点：`web_search` / `glossary` / `toc` / `params` / `cross_compare`
+- ✅ 4 个工具节点：`web_search` / `glossary` / `toc` / `params`
 - ✅ 中途取消：thread cancel 机制
 - ✅ Langfuse 集成（CallbackHandler 在 graph invoke 时注入）
 
@@ -44,7 +44,7 @@ class AgentState(BaseModel):
     messages: Annotated[Sequence[BaseMessage], add_messages] = []
 
     # 路由结果
-    query_class: Literal["definition","procedure","cross_compare","tool","unknown"] | None = None
+    query_class: Literal["definition","procedure","tool","unknown"] | None = None
     complexity: Literal["simple","complex"] = "simple"   # 决定走单跳还是完整链路
 
     # 查询改写
@@ -92,12 +92,10 @@ stateDiagram-v2
     tool_dispatch --> glossary
     tool_dispatch --> toc
     tool_dispatch --> params
-    tool_dispatch --> cross_compare
     web_search --> generate
     glossary --> generate
     toc --> generate
     params --> generate
-    cross_compare --> retrieve
     generate --> self_rag
     self_rag --> retrieve: verdict=retry AND retry_count<2
     self_rag --> insufficient: verdict=insufficient OR retry_count>=2
@@ -117,7 +115,7 @@ stateDiagram-v2
 
 ```python
 class ClassifyOutput(BaseModel):
-    query_class: Literal["definition","procedure","cross_compare","tool","unknown"]
+    query_class: Literal["definition","procedure","tool","unknown"]
     complexity: Literal["simple","complex"]
     detected_language: Literal["zh","en","mixed"]
     rewritten_query: str | None          # simple fast path 直接使用；complex 可为空
@@ -128,7 +126,6 @@ class ClassifyOutput(BaseModel):
 - 在 prompt 中明示判定标准：
   - `definition` = 单一术语 / 单一字段定义
   - `procedure` = 流程类查询
-  - `cross_compare` = 跨文档 / 跨版本对比
   - `tool` = 缩写表 / 章节目录 / 参数查询
   - 复杂度：包含多个 entity / 需要多文档证据 → complex
 - simple 查询必须同时输出一个英文 `rewritten_query`，避免再单独调用 `rewrite_node`；只有 complex 才进入 `rewrite_node + hyde + multi_query`
@@ -173,7 +170,7 @@ async def retrieve_node(state: AgentState) -> AgentState:
 - `dense_retriever`：`backend/app/retrieval/dense.py` 包 LlamaIndex VectorStoreIndex（Qdrant backend）
 - `sparse_retriever`：BM25 from persist dir
 - RRF 融合：`score = sum(1 / (60 + rank_i))`
-- 过滤：根据 `query_class` 选 `spec_id` 限定（cross_compare 不限）
+- 过滤：根据 `query_class` 选 `spec_id` 限定
 - 缓存：`Redis tgpp:cache:retrieve:{sha256(query+filter)}` TTL 1h
 
 ### 4.6 `rerank_node`
@@ -227,7 +224,7 @@ class SelfRagOutput(BaseModel):
 **性能策略**：
 
 - simple fast path 不默认跑完整 self-RAG retry 循环；只做轻量 citation/grounding check（同一 `self_rag_node`，但 `allow_retry=false`）。
-- complex / cross_compare 仍做 self-RAG 校验；其中 cross_compare 不走 retry 子图，只输出校验结论和置信度，避免成本失控。
+- complex 查询仍做 self-RAG 校验，最多 retry 2 次后强制收敛，避免成本失控。
 - 低置信度 simple 查询（rerank top score 低、引用不足、生成答案缺引用）才升级到完整 self-RAG retry。
 
 ### 4.9 工具节点
@@ -250,10 +247,6 @@ class SelfRagOutput(BaseModel):
 #### `params`
 - IE / 字段查询（"X 字段在哪些 spec 出现过"）
 - 走 BM25 全文检索（精确字段名 + 限定 `chunk_type` 为 text/table）
-
-#### `cross_compare`
-- 跨版本/跨文档对比的辅助节点：根据 user_input 自动调用两次 retrieve（不同 spec / 版本 filter），合并后送 generate
-- 做 self-RAG 校验但不进入 retry 循环（成本控制）；若证据不足，直接返回"未找到足够证据完成对比"
 
 ### 4.10 `raw_lookup_node`
 
@@ -397,7 +390,7 @@ if state.cancelled: raise NodeInterrupt("cancelled by user")
   - complex QA 端到端
   - raw_lookup 模式
   - 中途取消
-  - 工具节点显式触发（web_search、glossary、toc、params、cross_compare）
+  - 工具节点显式触发（web_search、glossary、toc、params）
 - [ ] Langfuse 中能看到完整 trace（每个节点 span + token stream）
 - [ ] 流式 SSE event 序列符合 §7 表
 
