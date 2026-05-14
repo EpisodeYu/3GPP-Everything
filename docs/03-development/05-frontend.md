@@ -207,12 +207,17 @@ class ChatController extends AsyncNotifier<ChatRunState> {
 - 多行输入；Enter 发送，Shift+Enter 换行
 - 显式工具下拉勾选：`web_search`、`glossary`、`toc`、`params`，未勾选 Agent 不会调
 - 模式 toggle：QA / RawLookup
-- 跑起来后按钮变"取消"
+- 跑起来后按钮变 "暂停 / 取消" 双按钮：
+  - **取消**：终止当前 run，保留已生成内容；下次重问从头跑（语义同今 MVP）
+  - **暂停**：停在下一节点边界并保留 checkpoint；UI 在该消息位置显示 "已暂停 · 点击恢复" 横幅，点击触发 `POST /sessions/{sid}/resume`，SSE 接续后续节点事件
 
-### 5.6 历史与重问
+### 5.6 历史、分叉、回滚
 
-- 用户消息长按：复制 / 编辑后重发（创建新分支会话还是覆盖 thread？MVP 简单做：编辑后新建会话，复制粘贴现有历史）
-- assistant 消息长按：复制全文 / 复制 markdown / thumb up/down / 添加到收藏
+- **用户消息长按**：复制 / "从这里重问"（fork）
+  - "从这里重问"调 `POST /sessions/{sid}/fork` body `{checkpoint_id, new_user_message}`，后端返回新 `session_id'`，前端跳转到新会话；原会话标记 `archived_branch`，从会话列表的 "主线" 分组移到 "分叉历史" 分组（折叠默认收起）
+- **assistant 消息长按**：复制全文 / 复制 markdown / thumb up/down / 添加到收藏
+- **会话回滚**：会话设置菜单里 "删除最后 N 轮"（slider 选 1-10），调 `POST /sessions/{sid}/rollback`；UI 提示 "不可撤销"二次确认
+- **archived_branch 会话**：仅可读，不显示 composer，顶部 banner "这是从主线 fork 出的历史分支" + "回到主线" 按钮
 
 ## 6. 章节阅读器
 
@@ -317,6 +322,7 @@ app_zh.arb        # 中文
 - [ ] `flutter analyze` 0 警告 0 错误
 - [ ] `flutter test` 全绿
 - [ ] Chrome / Edge 实测：登录 → 创建会话 → 流式问答 → 看引用 → 跳阅读器 → 高亮 → 取消正在进行的问答 → 收藏 / 笔记 / 反馈
+- [ ] Checkpoint 闭环实测：跑中暂停 → 关浏览器 → 重进会话点恢复 → SSE 续跑后续节点；从历史 user 消息 fork → 跳转新会话 → 老会话进入 "分叉历史" 分组只读；删除最后 N 轮后剩余消息状态正确
 - [ ] Android emulator 实测：同上（交互可简陋，能用即可）
 - [ ] 切换中/英、light/dark 后再走一次完整流程
 - [ ] 管理后台：拉取任务 + 进度 + 跳 Langfuse

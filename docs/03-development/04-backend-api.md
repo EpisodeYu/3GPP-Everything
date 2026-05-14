@@ -31,7 +31,12 @@
 |  | PATCH | `/api/v1/sessions/{sid}` | 改标题等 |
 |  | DELETE | `/api/v1/sessions/{sid}` | 删除会话（PG cascade） |
 | **Chat (流式)** | POST | `/api/v1/sessions/{sid}/messages` | 发送消息，返回 SSE 事件流 |
-|  | DELETE | `/api/v1/sessions/{sid}/runs/{rid}` | 取消正在跑的 graph |
+|  | DELETE | `/api/v1/sessions/{sid}/runs/{rid}` | 取消正在跑的 graph（终止；下次重问从头跑） |
+| **Checkpoint** | POST | `/api/v1/sessions/{sid}/runs/{rid}/pause` | 暂停跑中 run（保留 checkpoint，可恢复，区别于取消） |
+|  | POST | `/api/v1/sessions/{sid}/resume` | 从最后一个 checkpoint 续跑剩余节点；返回 SSE 事件流 |
+|  | GET | `/api/v1/sessions/{sid}/checkpoints` | 列出该会话所有 checkpoint（按时间倒序，含 last_node / message_id） |
+|  | POST | `/api/v1/sessions/{sid}/fork` | body: `{checkpoint_id, new_user_message}`，从指定 checkpoint 起新会话；原会话标记 `archived_branch` |
+|  | POST | `/api/v1/sessions/{sid}/rollback` | body: `{last_n: int}`，删除最后 N 轮 messages + checkpoints |
 | **Messages** | GET | `/api/v1/sessions/{sid}/messages/{mid}` | 单条消息详情（含 citations） |
 | **Reader（章节阅读器）** | GET | `/api/v1/docs` | 已索引文档列表（带筛选 release/series） |
 |  | GET | `/api/v1/docs/{spec_id}` | 单篇 TS 章节树 |
@@ -108,6 +113,9 @@ class Session(Base):
     user_id: UUID = FK(users.id)
     title: str
     mode_default: Literal["qa","raw_lookup"] = "qa"
+    status: Literal["active","paused","archived_branch"] = "active"   # checkpoint 用
+    forked_from_session_id: UUID | None = FK(sessions.id)              # 如从其他会话 fork 出
+    forked_from_checkpoint_id: str | None                              # LangGraph checkpoint id
     created_at, updated_at: timestamps
     last_message_at: datetime | None
     # 计算字段：message_count via relationship
@@ -124,8 +132,9 @@ class Message(Base):
     citations: relationship -> MessageCitation
     confidence: float | None
     self_rag_verdict: str | None
-    # 关联 langgraph thread / run 用于 cancel
+    # 关联 langgraph thread / run 用于 cancel / pause / fork
     langgraph_run_id: str | None
+    langgraph_checkpoint_id: str | None        # 该消息生成完成时的 checkpoint，fork 用
     # 关联 langfuse trace
     langfuse_trace_id: str | None
     # token 用量
@@ -447,6 +456,9 @@ async def app_error_handler(req, exc): ...
 | Pydantic v2 与 LangChain v0.3 兼容 | 升级抖动 | 锁定 minor 版本，CI 跑兼容性测试 |
 | 大量历史消息撑爆 messages context | 长会话 | 取最近 N 条 + summary 注入 system prompt（v2 优化） |
 | LiteLLM 共享实例临时挂 | 共享服务 | tenacity 重试 + `/ready` 检测 + 降级"503 模型暂不可用" |
+| 暂停的 run 长期堆积 checkpoint | 用户暂停后忘了 | 后台任务每天清理 `paused` 状态超过 N 天的 run；`sessions` 表 status=paused 时前端展示标记 |
+| Fork 后用户分不清主线/历史 | UX 不清晰 | 会话列表分组：active / archived_branch；archived_branch 加视觉灰度，仅可读 |
+| Rollback 删除时与跑中 run 冲突 | 用户回滚正在跑的会话 | API 强制要求先 pause/cancel；接口 409 Conflict 拒绝 |
 
 ## 12. 验收清单
 
