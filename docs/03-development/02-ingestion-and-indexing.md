@@ -559,13 +559,20 @@ python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
 **M1（开发周 1-2）**：HF + Docling 双路径打通
 
 1. HF loader：拉取单篇 `raw.md` 验证 manifest 与 markdown 解析，按 `spec_id=23.501` 过滤还原章节树
-2. 抽 1 篇代表性 spec（如 `38.331`，最大最复杂）：从 GSMA HF 走完整链路 → chunk + 图片 Vision 描述
-3. 人工抽检：
-   - 章节层级 vs 原 PDF 目录（≥ 95% 一致）
-   - markdown 表格渲染正确
-   - 公式 LaTeX 在 KaTeX 中能渲染
-   - 10 张图片描述质量
-4. 兜底链路：上传 1 个外部 `.doc` 走完整 Docling 流程
+2. ✅ **抽 1 篇代表性 spec 38.331 端到端跑通**（**2026-05-15 完成**）：详见
+   [`docs/04-handoff/2026-05-15-m1-poc-38331.md`](../04-handoff/2026-05-15-m1-poc-38331.md)
+   - chunker（接入 VisionResolver） → vision → embed → Qdrant + BM25 + PG 全链路打通
+   - 9042 chunks → dedupe 8853 unique；Qdrant + BM25 + PG 三处计数一致
+   - 64 张 figure chunk vision 命中 100%（含 2 张 mimo 偶发 retry 修复）
+   - Voyage `voyage-4-large` 1.66M tokens / 93.6s / dim=1024
+   - 静态质量审查：table 93% 标准 GFM / formula 100% `$$..$$` KaTeX 兼容 / vision 0 hallucination
+   - Retrieval smoke 8 个 hard query：5 EXCELLENT / 2 VERY GOOD / 1 GOOD
+   - 暴露并修复 3 个 P0/P1 bug；记录 4 个 P2/P3 chunker / vision issue 留 M2 前补
+3. 人工抽检（Claude Opus 4.7 亲审，已在 POC handoff 完成）：
+   - markdown 表格渲染合规性
+   - 公式 LaTeX KaTeX 兼容性
+   - 10 张图片描述质量（实际亲审 64 张全样）
+4. 兜底链路：上传 1 个外部 `.doc` 走完整 Docling 流程 ⏳ M1 中后期
 
 **M2（开发周 3-4）**：20 篇双轨
 
