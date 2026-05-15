@@ -42,7 +42,10 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 [tool.ruff.lint.per-file-ignores]
 # typer.Option 作为参数默认值是官方推荐用法，B008 在此处属误报。
 "hf_loader/runner.py" = ["B008", "E501"]
+"chunker/runner.py" = ["B008", "E501"]
 "cli.py" = ["B008", "E501"]
+# scripts/ 是评测/一次性脚本，prompt 字符串长是正常情况
+"scripts/*.py" = ["E501"]
 
 [tool.black]
 line-length = 100
