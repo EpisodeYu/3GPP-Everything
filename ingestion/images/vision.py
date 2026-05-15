@@ -311,9 +311,7 @@ def call_mimo_unified(
     meta = {
         "model": payload.get("model", model),
         "completion_tokens": usage.get("completion_tokens", 0),
-        "reasoning_tokens": (usage.get("completion_tokens_details") or {}).get(
-            "reasoning_tokens"
-        ),
+        "reasoning_tokens": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens"),
         "finish_reason": finish_reason,
         "raw_text": text,
     }

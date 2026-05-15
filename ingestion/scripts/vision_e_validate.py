@@ -50,9 +50,7 @@ from ingestion.images.vision import (
 )
 from ingestion.scripts.vision_strategy_benchmark import SAMPLES
 
-REPORT_PATH = Path(
-    "/home/s1yu/3GPP-Everything/eval-results/source-audit/vision_e_validate.md"
-)
+REPORT_PATH = Path("/home/s1yu/3GPP-Everything/eval-results/source-audit/vision_e_validate.md")
 
 
 @dataclass(slots=True)
@@ -306,7 +304,9 @@ def _render_report(stats_list: list[CallStats], *, model: str, no_cache: bool) -
     lines.append("## 2. 调用统计")
     lines.append("")
     lines.append(f"- 总样本: {total}")
-    lines.append(f"- 成功: {len(ok_calls)}（其中缓存命中: {len(cached_calls)}, 新调用: {len(fresh_calls)}）")
+    lines.append(
+        f"- 成功: {len(ok_calls)}（其中缓存命中: {len(cached_calls)}, 新调用: {len(fresh_calls)}）"
+    )
     lines.append(f"- 失败: {len(fail_calls)}")
     lines.append("")
     lines.append("description tokens 分布（成功样本）:")
@@ -334,9 +334,7 @@ def _render_report(stats_list: list[CallStats], *, model: str, no_cache: bool) -
         )
         lines.append("")
         lines.append(f"- section_title: {sample.section_title}")
-        lines.append(
-            f"- image: {sample.image_size} bytes, sha256 `{sample.image_sha256[:16]}...`"
-        )
+        lines.append(f"- image: {sample.image_size} bytes, sha256 `{sample.image_sha256[:16]}...`")
         if not s.ok:
             lines.append(f"- 状态：❌ {s.error}")
             lines.append("")
@@ -345,9 +343,7 @@ def _render_report(stats_list: list[CallStats], *, model: str, no_cache: bool) -
         lines.append(
             f"- 状态：✅ {cache_tag} · figure_kind=`{s.figure_kind}` · spec_role=`{s.spec_role}`"
         )
-        lines.append(
-            f"- description: {s.description_tokens} tokens / {len(s.description)} chars"
-        )
+        lines.append(f"- description: {s.description_tokens} tokens / {len(s.description)} chars")
         lines.append(
             f"- visible_labels: {s.visible_labels_count} · visible_acronyms: {s.visible_acronyms_count}"
         )
@@ -376,7 +372,9 @@ def _render_report(stats_list: list[CallStats], *, model: str, no_cache: bool) -
     lines.append("## 4. 结论")
     lines.append("")
     if threshold_pass:
-        lines.append("✅ **PROMPT_E_UNIFIED 通过 §4.2.5 第 1 项验收门槛**：可上线 vision.py 主路径。")
+        lines.append(
+            "✅ **PROMPT_E_UNIFIED 通过 §4.2.5 第 1 项验收门槛**：可上线 vision.py 主路径。"
+        )
     else:
         lines.append(
             "❌ **未通过验收门槛**：JSON 解析成功率 < 95%。"

@@ -304,8 +304,14 @@ def test_resolver_dead_letter_after_max_retries() -> None:
 
 
 def test_resolver_dead_letter_on_http_errors() -> None:
-    http = _StubHttp(responses=[RuntimeError("net1"), RuntimeError("net2"),
-                                 RuntimeError("net3"), RuntimeError("net4")])
+    http = _StubHttp(
+        responses=[
+            RuntimeError("net1"),
+            RuntimeError("net2"),
+            RuntimeError("net3"),
+            RuntimeError("net4"),
+        ]
+    )
     cache = _fake_cache()
     resolver = VisionResolver(
         http_client=http,

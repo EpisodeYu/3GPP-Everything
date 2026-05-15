@@ -56,9 +56,7 @@ def vision_call(
     spec_id: str = typer.Option("", help="ctx.spec_id；纯 debug 时可留空"),
     clause: str = typer.Option("", help="ctx.clause"),
     section_title: str = typer.Option("", help="ctx.section_title"),
-    no_cache: bool = typer.Option(
-        False, help="禁用 Redis 缓存（强制重新调 mimo）"
-    ),
+    no_cache: bool = typer.Option(False, help="禁用 Redis 缓存（强制重新调 mimo）"),
     max_tokens: int = typer.Option(DEFAULT_MAX_TOKENS, help="单次响应 max_tokens"),
     max_retries: int = typer.Option(
         DEFAULT_MAX_RETRIES, help="失败重试次数（生产值；debug 可降为 0 快速失败）"
@@ -135,9 +133,7 @@ def vision_call(
 
 @app.command("vision-cache")
 def vision_cache(
-    sha256: str = typer.Option(
-        "", help="单 hash 查询：列出 OK / RETRY / DEAD 三个 key 状态"
-    ),
+    sha256: str = typer.Option("", help="单 hash 查询：列出 OK / RETRY / DEAD 三个 key 状态"),
     list_dead: bool = typer.Option(False, help="列出所有 dead-letter 条目"),
     list_retry: bool = typer.Option(False, help="列出所有 retry 队列条目"),
     purge_dead: bool = typer.Option(False, help="清空 dead-letter 队列（不影响 OK 缓存）"),
