@@ -40,6 +40,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
+    Text,
     UniqueConstraint,
     bindparam,
     create_engine,
@@ -66,11 +67,13 @@ chunks_meta_table = Table(
     Column("spec_type", String(8), nullable=False),
     Column("release", String(16), nullable=False, index=True),
     Column("series", String(8), nullable=False, index=True),
-    Column("title", String(512), nullable=False),
+    # title / section_title 用 Text（unbounded）：3GPP markdown 偶发把整段
+    # 表头作为 section_title（chunker 边缘 case），长度可达 ~1500 字符。
+    Column("title", Text, nullable=False),
     Column("chunk_type", String(32), nullable=False, index=True),
     Column("clause", String(64), nullable=False, index=True),
     Column("section_path", JSON, nullable=False),
-    Column("section_title", String(512), nullable=False),
+    Column("section_title", Text, nullable=False),
     Column("parent_section_id", String(64), nullable=False, index=True),
     Column("parent_section_chars", Integer, nullable=False, default=0),
     Column("document_order", Integer, nullable=False, default=0),
