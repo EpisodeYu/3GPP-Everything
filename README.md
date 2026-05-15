@@ -1,10 +1,8 @@
 # 3GPP-Everything
 
 > 基于 3GPP 规范文档的生产级 RAG Agent —— 让你像查代码一样查协议。
->
-> 本项目采用 **vibe coding 模式**：Agent 主导开发/验证全流程，由人反馈产品问题、把控开发节奏。Agent 入场前请先读 [`CLAUDE.md`](./CLAUDE.md) 与 [`docs/00-vibe-coding-protocol.md`](./docs/00-vibe-coding-protocol.md)。
 
-[![Status](https://img.shields.io/badge/status-planning--M0-blue)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-3%20parts-orange)](./docs/README.md) [![Mode](https://img.shields.io/badge/dev--mode-vibe%20coding-purple)](./CLAUDE.md)
+[![Status](https://img.shields.io/badge/status-M1%20数据接入%20POC-blue)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-3%20parts-orange)](./docs/README.md)
 
 ## 是什么
 
@@ -21,9 +19,23 @@
 
 ```
 M0 准备 ──> M1 数据接入 POC ──> M2 索引检索 POC ──> M3 评测集+Embedding决胜
-   ↑ 当前里程碑
-   └── 计划文档全部就绪，代码尚未动工
+  ✅ 完成      ⏳ 进行中（38.331 端到端 POC 已完成）
 ```
+
+**已完成**：
+
+- **M0 基础设施**：项目骨架、`.env.example`、dev Docker Compose、Makefile、共享服务（Qdrant / PostgreSQL / Redis / LiteLLM）接入策略
+- **M1 数据接入 POC**：
+  - HF loader：`GSMA/3GPP` 数据集加载器（manifest 缓存、release 过滤、`spec_id` 去重）+ 54 项单测 + 真实 HF 烟雾测试
+  - chunker：section-tree 还原、原子块切分、garbage filter、figure / table 处理、token 预算合并
+  - Vision pipeline：`mimo-v2.5` 多模态图片描述 + Redis hash 缓存 + dead-letter + retry，CLI 可独立运行
+  - Indexer pipeline：Voyage `voyage-4-large` (2048-dim) / 智谱 `embedding-3` 双轨 embedding → Qdrant + BM25 + PostgreSQL 元数据，CLI 一键索引
+  - **端到端 POC (38.331)**：8853 unique chunks、figure vision 64/64=100%、Voyage embedding 1.66M tokens / 93.6s、Qdrant + BM25 + PG 三处写入一致；8 条 hard query retrieval smoke 5 EXCELLENT / 2 VERY GOOD / 1 GOOD
+
+**进行中 / 下一步**：
+
+- M1 §4.7 余下 POC 步骤（Docling 兜底路径 + 多 spec 抽样）
+- M2 20 spec 双轨索引（voyage / glm collection 各 ≥ 8000 chunks，hybrid retrieve baseline）
 
 里程碑按"完成度门禁"推进（**不绑定时间表**）：上一个里程碑的门禁未全绿，不进下一个。
 完整里程碑与每段的"必须自动化 / 必须人审"清单见 [`docs/03-development/00-overview.md`](./docs/03-development/00-overview.md)。
@@ -64,7 +76,7 @@ flowchart LR
 | **后端** | FastAPI + SQLAlchemy 2.0 (async) + Alembic + Pydantic v2 |
 | **前端** | Flutter 3.x (Web + Android 同码) + Riverpod 2.x + go_router + dio (SSE) |
 | **Agent LLM** | `mimo-v2.5-pro` (1M context) / `mimo-v2.5` (omni 多模态) - 本机 LiteLLM |
-| **Embedding** | Voyage `voyage-4-large` 与智谱 `embedding-3` POC 双轨决胜（账号在 v4 系列各有 200M tokens 免费） |
+| **Embedding** | Voyage `voyage-4-large` (2048-dim) 与智谱 `embedding-3` POC 双轨决胜（账号在 v4 系列各有 200M tokens 免费） |
 | **Reranker** | Voyage `rerank-2.5`（200M tokens 免费） |
 | **向量库 / DB / 缓存** | Qdrant / PostgreSQL / Redis（**复用宿主已有实例**） |
 | **监控** | Langfuse Cloud Free Tier |
@@ -77,53 +89,57 @@ flowchart LR
 
 | # | 文档 | 主题 |
 |---|------|------|
-| **0** | [`docs/00-vibe-coding-protocol.md`](./docs/00-vibe-coding-protocol.md) | Vibe coding 协作协议 - 角色边界、任务卡、完成报告、回归测试分层、升级回报 |
 | **1** | [`docs/01-requirements.md`](./docs/01-requirements.md) | 需求澄清 - 项目定位、场景、功能/非功能需求、验收标准 |
 | **2** | [`docs/02-tech-selection.md`](./docs/02-tech-selection.md) | 技术选型 - 选型总表、决策依据、POC 计划、成本估算 |
 | **3** | [`docs/03-development/`](./docs/03-development/) | 开发规划（8 份） - 总览/基础设施/摄取/Agent/后端/前端/评测/CICD |
-| **守则** | [`CLAUDE.md`](./CLAUDE.md) | Agent 项目守则 - 工作循环、测试硬要求、停下来问人的触发条件 |
+| **4** | [`docs/04-handoff/`](./docs/04-handoff/) | 每个里程碑节点的完成报告 / 交接文档（最新一份：38.331 端到端 POC） |
 
 完整索引：[`docs/README.md`](./docs/README.md)
 
-## 快速开始（开发期 - 待 M0 完成后启用）
+## 快速开始（M1 当前形态）
 
-> 当前阶段代码尚未动工，以下命令对应 Plan 中 `03-development/01-infrastructure.md` 验收通过后的形态。
+> M1 阶段后端 API 与前端尚未启用，下面命令覆盖目前可运行的 ingestion 全链路。M2+ 章节随阶段推进会补全。
 
 ```bash
 # 1. 准备
 cp .env.example .env
-# 编辑 .env 填入 HF_TOKEN、VOYAGE_API_KEY、TAVILY_API_KEY、LANGFUSE keys、域名等
+# 编辑 .env 填入 HF_TOKEN、VOYAGE_API_KEY、LITELLM_*、QDRANT_*、PG_*、REDIS_* 等
 
-# 2. 启动（dev 模式 - 复用宿主已有 Qdrant/PG/Redis/LiteLLM）
+# 2. 启动 dev compose（复用宿主已有 Qdrant / PostgreSQL / Redis / LiteLLM）
 make dev
 # 或: docker compose -f deploy/docker-compose.yml up --build
 
-# 3. 验证
-curl http://localhost:8002/health
+# 3. 拉取 HF manifest（缓存到 INGEST_DATA_DIR/manifest/）
+uv run --project ingestion python -m ingestion.cli pull-manifest
 
-# 4. 摄取数据（M2+）
-make ingest-poc                                                # 单文件 POC
-docker compose --profile ingest run --rm ingest \
-  python -m ingestion.cli pipeline-hf --releases 18,19         # 全量
+# 4. 单 spec 端到端索引（38.331 POC 形态：chunker → vision → embed → Qdrant + BM25 + PG）
+uv run --project ingestion python -m ingestion.cli index 38.331 --provider voyage
 
-# 5. 跑评测
-make eval
+# 5. 检索 smoke（POC 阶段使用 ingestion/scripts/poc_retrieval_smoke.py）
+uv run --project ingestion python -m ingestion.scripts.poc_retrieval_smoke --provider voyage
+
+# 6. 状态查询
+uv run --project ingestion python -m ingestion.cli index-status --provider voyage
+
+# 7. 单元 / lint / type-check
+cd ingestion && uv run pytest && uv run ruff check . && uv run black --check . && uv run mypy .
 ```
+
+> 后端 (`backend/`) 与前端 (`frontend/`) 当前仅有骨架，待 M4 / M5 启用。
 
 ## 项目结构
 
 ```
 3GPP-Everything/
-├── docs/                  ← 协作协议 + 三部分 Plan 文档
-├── backend/               ← FastAPI + LangGraph Agent
+├── docs/                  ← 需求 / 选型 / 开发规划 / 里程碑 handoff
+├── backend/               ← FastAPI + LangGraph Agent（M4 启用，目前骨架）
 ├── ingestion/             ← HF 数据加载 + Docling 兜底 + Vision + chunking + indexer
-├── frontend/              ← Flutter Web + Android
-├── eval/                  ← TeleQnA 转化 + 金标准集 + Ragas runner
+├── frontend/              ← Flutter Web + Android（M5 启用，目前骨架）
+├── eval/                  ← TeleQnA 转化 + 金标准集 + Ragas runner（M3 启用）
 ├── deploy/                ← Docker Compose / Nginx / 脚本
 ├── .github/workflows/     ← CI / nightly eval / deploy
 ├── .env.example
-├── Makefile
-└── CLAUDE.md              ← 项目守则（Agent 入场必读）
+└── Makefile
 ```
 
 ## 设计要点
@@ -138,7 +154,7 @@ make eval
 
 完整版见 [`docs/01-requirements.md §6`](./docs/01-requirements.md#6-验收标准高阶)。
 
-- GSMA Rel-18 + Rel-19 全量 ~938 篇 specs 完成索引
+- GSMA Rel-18 + Rel-19 5G 系列 TS（约 1296 篇）完成索引
 - 金标准评测 ≥120 题：faithfulness ≥ 0.85、context recall ≥ 0.80
 - Web + Android 端均可走完"提问 → 流式响应 → 看引用 → 跳章节"
 - Docker Compose 一键拉起；Nginx + HTTPS 公网可访问
@@ -160,4 +176,4 @@ make eval
 
 ## English (brief)
 
-A production-grade RAG agent over 3GPP specifications. Ingests the [`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) HuggingFace dataset (Rel-18 + Rel-19, ~938 specs) via LlamaIndex; orchestrated by LangGraph with self-RAG, query rewrite, HyDE, multi-query, hybrid retrieval, and reranker; served via FastAPI + SSE; Flutter Web + Android frontend. Single-user MVP, multi-user reserved. See [`docs/`](./docs/) for the full 3-part plan.
+A production-grade RAG agent over 3GPP specifications. Ingests the [`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) HuggingFace dataset (Rel-18 + Rel-19 5G TS, ~1296 specs) via LlamaIndex; orchestrated by LangGraph with self-RAG, query rewrite, HyDE, multi-query, hybrid retrieval, and reranker; served via FastAPI + SSE; Flutter Web + Android frontend. See [`docs/`](./docs/) for the full plan. Current milestone: M1 (data ingestion POC) — HF loader, chunker, vision pipeline, and indexer all live; 38.331 end-to-end POC produced 8853 chunks across Qdrant + BM25 + PostgreSQL.
