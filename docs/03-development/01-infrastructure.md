@@ -94,7 +94,7 @@ LITELLM_API_KEY=
 # 模型名（与 LiteLLM config.yaml 中的 model_name 一致）
 LLM_AGENT_MODEL=mimo-v2.5-pro
 LLM_LIGHT_MODEL=mimo-v2.5
-LLM_VISION_MODEL=mimo-v2.5
+LLM_VISION_MODEL=mimo-v2.5       # reasoning 模型；与 omni 同价但 1M 上下文。代码默认 max_tokens=16384，按需消耗不会浪费。
 
 # === Embedding 与 Reranker（外部 API；本项目统一走 LiteLLM proxy）===
 EMBEDDING_PROVIDER=voyage         # voyage / glm (POC 期可切)
