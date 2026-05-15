@@ -257,6 +257,11 @@ Strict rules:
 
 #### 4.2.2 vision.py 接口契约
 
+> **2026-05-15 实现完成**：`ingestion/images/{vision.py, prompts.py, runner.py}`、Redis 缓存与
+> 失败队列、22 项 unit 测试、CLI `vision-call` / `vision-cache` 子命令、12 图 mini benchmark
+> （§4.2.5 第 1 项）已落地。详见
+> [`docs/04-handoff/2026-05-15-m1-vision.md`](../04-handoff/2026-05-15-m1-vision.md)。
+
 ```python
 # ingestion/images/vision.py
 
@@ -325,18 +330,27 @@ mimo-as-judge 在 v2 benchmark 中给自家输出（B、C）几乎全 5.0，对 
 
 #### 4.2.5 待 vision.py 实施时验证 / 决策的开放项
 
-1. **PROMPT_E_UNIFIED 单调用同时输出 description + 结构化字段**——vision.py 实施时跑 12 图 mini
-   验证（成本 < $1），确认 JSON 解析成功率 ≥ 95% 且 description 长度仍能保持 v2 B 水准。
-2. **mimo-v2-omni（无 reasoning，便宜 3×）配 PROMPT_E_UNIFIED** 是否够用？v2 的 prompt 已强制
-   anti-hallucination 边界，omni 之前 vision_smoke 单跑会 hallucinate（TMGI → AMF 错），但加了完整
-   prompt 后未知。值得跑一次 12 图对比。如果 omni 够用，全量成本可降到 ~$7。
+1. **PROMPT_E_UNIFIED 单调用同时输出 description + 结构化字段**——✅ **2026-05-15 已验证通过**
+   （[`eval-results/source-audit/vision_e_validate.md`](../../eval-results/source-audit/vision_e_validate.md)）：
+   - JSON 解析成功率：**12/12 = 100%**（≥ 95% 阈值通过）
+   - description median tokens：**199**（v2 B 是 331，v2 C 是 169；E 介于两者之间，比 C 高 18%）
+   - 总 completion_tokens：25,952（12 张图，~$0.30，远低于阈值）
+   - 单图 elapsed median：23s（含 reasoning_tokens median 1300+，主要耗时在 reasoning）
+   - 结构化字段健康：`visible_labels` median=14，`visible_acronyms` median=5，
+     `figure_kind` 全部落在 valid set 内（含 1 张被识别成 `block_diagram` 而非
+     `architecture`，符合实际——是 reference-point 的 box 图）
+2. **mimo-v2-omni（无 reasoning，便宜 3×）配 PROMPT_E_UNIFIED** 是否够用？⏳ **延后到 M2 全量
+   索引前再考虑**。M1 vision.py 已用 mimo-v2.5 跑通；25.9k ct/12 张推算全量 6435 张约 14M ct
+   ≈ ~$15-20，仍在 §4.2.3 预算上限内（≤ $20），不急于换 omni。如未来想省 60% 成本，再跑 12 图
+   omni 对比；prompt 已避免 hallucination（强制 anti-hallucination 边界），omni 风险可控。
 3. **GSMA mermaid 抽取规则**：vision.py 写完后再补一个独立小函数 `extract_gsma_mermaid(alt, caption_text)`
    用正则识别 ```` ```mermaid ```` 块；建议放在 `chunker/figure.py` 而不是 vision.py（与 vision API
-   调用解耦）。
+   调用解耦）。⏳ M2 chunker 复跑前补。
 4. **A 路径完全弃用是否过激**？某些 spec 系列（如 38.413 时序图）GSMA 准确率可能 100%，
    那些系列直接复用 A description 可省钱。但需要按系列做正确率统计才能判断——M3 评测期再说。
 5. **figure_kind=undescribable 的处理**：chunker 应识别此标记并在 `raw_extra` 中记录；考虑是否
-   把这类 figure 排除出 embedding（避免低质量 chunk 污染检索）。
+   把这类 figure 排除出 embedding（避免低质量 chunk 污染检索）。M1 vision.py 已照常缓存
+   undescribable（避免反复调），chunker 仍写 description；M3 评测期决定是否过滤。
 
 ### 4.3 Chunking 策略（两路径共用）
 
@@ -583,6 +597,12 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 - 图片描述失败率 + 平均耗时
 - 图片 Vision 缓存命中率（hash 命中率，目标 ≥ 70%；27k 引用 / 6.4k 唯一）
 - `figure_kind == 'undescribable'` 的图片数（方案 E 兜底，应该极少）
+- **Vision dead-letter 数**（来源：Redis key `tgpp:vision:dead:*`）：
+  - vision.py 重试 3 次仍失败的图片落入 dead-letter
+  - 来源指标：`ingestion vision-cache --list-dead` 列出全部条目（含 last_error）
+  - 阈值：dead-letter 比例 > 1% 触发警告，需人工排查（多半是 mimo prompt 问题或图片损坏）
+  - 处理：修复后 `ingestion vision-cache --purge-dead` 让下次 chunk 重新尝试
+- **Vision retry 队列堆积**（Redis key `tgpp:vision:retry:*`）：理想稳态接近 0
 - Embedding API 调用次数 / 耗时 / 错误
 - 写入 Qdrant 失败次数
 
