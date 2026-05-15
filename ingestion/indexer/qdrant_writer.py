@@ -60,7 +60,7 @@ class QdrantWriter:
       - upsert_batch_size: 单次 upsert 携带的 point 数
 
     流程：
-      writer = QdrantWriter(provider="voyage", dim=1024)
+      writer = QdrantWriter(provider="voyage", dim=2048)
       writer.ensure_collection()          # idempotent
       writer.upsert_chunks(chunks, vectors)   # 批量
       writer.purge_spec("38.331")          # 删除某 spec 全部 point

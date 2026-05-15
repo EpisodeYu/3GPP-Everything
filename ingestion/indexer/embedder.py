@@ -6,7 +6,8 @@
 - batch 64：单次 POST `/embeddings` 携带 ≤ 64 个文本；超过自动切片。
 - 失败重试：tenacity 指数退避；区分 HTTP 4xx（不重试）vs 5xx/网络异常（重试 3 次）。
 - 向量维度动态探测：首次成功调用后缓存 `dim` 给 QdrantWriter 建 collection；避免硬编码
-  voyage-3-large(1024) / voyage-4-large(2048) / embedding-3(2048) 的差异。
+  voyage-3-large(1024) / voyage-4-large(默认 1024，本项目 LiteLLM 显式配置 2048) /
+  embedding-3(2048) 的差异。
 - provider 抽象：`voyage` / `glm` 都通过 LiteLLM；二者仅 model name 不同。
 
 接口契约：
@@ -14,7 +15,7 @@
 ```python
 embedder = Embedder.from_env(provider="voyage")
 result = embedder.embed_texts(["text1", "text2", ...])  # 自动 batch + retry
-# → EmbeddingBatchResult(vectors=[...], dim=1024, model="voyage-4-large", prompt_tokens=N)
+# → EmbeddingBatchResult(vectors=[...], dim=2048, model="voyage-4-large", prompt_tokens=N)
 ```
 
 测试注入点：
