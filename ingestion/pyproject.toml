@@ -19,6 +19,7 @@ dependencies = [
   "pillow>=10.4",
   "tiktoken>=0.7",
   "sqlalchemy>=2.0",
+  "psycopg[binary]>=3.1",
   "redis>=5.0",
 ]
 
@@ -46,6 +47,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "hf_loader/runner.py" = ["B008", "E501"]
 "chunker/runner.py" = ["B008", "E501"]
 "images/runner.py" = ["B008", "E501"]
+"indexer/runner.py" = ["B008", "E501"]
 "cli.py" = ["B008", "E501"]
 # scripts/ 是评测/一次性脚本，prompt 字符串长是正常情况
 "scripts/*.py" = ["E501"]
