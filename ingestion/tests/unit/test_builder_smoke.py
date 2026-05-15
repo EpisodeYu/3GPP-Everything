@@ -146,6 +146,46 @@ def test_build_chunks_no_chunk_too_oversize() -> None:
         assert count_tokens(c.content) <= 450, f"chunk too large: {count_tokens(c.content)} tokens"
 
 
+def test_build_chunks_dedup_identical_content_within_section() -> None:
+    """§6.1 of `2026-05-15-m1-poc-38331.md`：同 section 内若 splitter 输出两份完全相同的
+    packed text，builder 应在 section 出口处 dedupe（保留首次出现）。"""
+    # 同 section body 中重复出现等价的 action_list 短语 + 周边 paragraph，
+    # 经 splitter packing 后可能产出 content 相同的副本 piece。
+    body = (
+        "Intro paragraph providing context for the section.\n\n"
+        "- 1> for groupcast and broadcast; or\n\n"
+        "- 1> for groupcast and broadcast; or\n\n"
+        "- 1> for groupcast and broadcast; or\n"
+    )
+    sec = _sec(clause="5.8.3.2", title="Initiation", body=body)
+    chunks, _ = build_chunks(_bundle([sec]))
+    contents = [c.content for c in chunks]
+    assert len(contents) == len(
+        set(contents)
+    ), f"duplicate chunk content found: {[c[:80] for c in contents]}"
+    chunk_ids = [c.chunk_id for c in chunks]
+    assert len(chunk_ids) == len(set(chunk_ids))
+
+
+def test_build_chunks_dedup_cross_section_same_parent_id() -> None:
+    """§6.1 of `2026-05-15-m1-poc-38331.md`：GSMA marker 把 `***field***` 等渲染成
+    `####` 标题，clause 为空 + 同名 → 多 section 共享 parent_section_id；当各 section
+    内描述完全一致时 chunk_id 也会撞。build_chunks 应在 spec 出口处做 chunk_id 去重。
+    """
+    shared_body = (
+        "Duration of the measurement window in which to receive SS/PBCH blocks. "
+        "It is given in number of subframes (see clause 5.5.2.10)."
+    )
+    sections = [
+        _sec(clause="", title="***duration***", body=shared_body, document_order=0),
+        _sec(clause="", title="***duration***", body=shared_body, document_order=1),
+        _sec(clause="", title="***duration***", body=shared_body, document_order=2),
+    ]
+    chunks, _ = build_chunks(_bundle(sections))
+    chunk_ids = [c.chunk_id for c in chunks]
+    assert len(chunk_ids) == len(set(chunk_ids)), f"duplicate chunk_ids: {chunk_ids}"
+
+
 def test_build_chunks_small_short_siblings_merged_into_one() -> None:
     """body 长度需 ≥ 30 chars 以通过 garbage_filter 的 empty-body 启发式。"""
     sections = [

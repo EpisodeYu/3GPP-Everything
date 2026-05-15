@@ -115,6 +115,18 @@ def build_chunks(
         )
         chunks.extend(sec_chunks)
 
+    # §6.1: spec 级 chunk_id 去重——多 section 共享 parent_section_id（GSMA marker 把
+    # `***field***` 等字段名渲染成 `####` 标题，clause="" 且同名 → 同 parent_section_id；
+    # 各 section 内一致的描述段经 hash 后 chunk_id 撞），保留首次出现的副本。
+    seen_ids: set[str] = set()
+    deduped: list[Chunk] = []
+    for c in chunks:
+        if c.chunk_id in seen_ids:
+            continue
+        seen_ids.add(c.chunk_id)
+        deduped.append(c)
+    chunks = deduped
+
     stats.chunks_total = len(chunks)
     for c in chunks:
         stats.chunks_by_type[c.chunk_type] = stats.chunks_by_type.get(c.chunk_type, 0) + 1
@@ -163,6 +175,7 @@ def _build_section_chunks(
     image_repo_dir = _spec_image_dir(entry)
 
     out: list[Chunk] = []
+    seen_content: set[str] = set()  # 同 section 内 content dedupe（§6.1）
     figure_idx_iter = iter(_iter_figure_block_indices(blocks))
     for piece in pieces:
         if piece.chunk_type == "figure":
@@ -186,6 +199,13 @@ def _build_section_chunks(
 
         if not content.strip():
             continue
+        # §6.1: 同 section 内若 splitter 输出两份完全一致的 packed text（多见于
+        # 短 action_list 短语在嵌套结构中重复出现，packing 后等价），跳过后续
+        # 副本——chunk_id = uuid5(spec_id|clause|sha256(content)) 会撞且检索价值
+        # 重复。pipeline 层 dedupe 仍保留作为 belt-and-braces。
+        if content in seen_content:
+            continue
+        seen_content.add(content)
         chunk = _make_chunk(
             entry=entry,
             sec=sec,

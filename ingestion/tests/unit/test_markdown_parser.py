@@ -157,6 +157,64 @@ class TestDetectSpecTypeAndTitle:
         assert title is None
 
 
+class TestPseudoHeadingAndLongTitle:
+    """覆盖 §6.5 of `2026-05-15-m1-poc-38331.md`：GSMA marker 偶发把表行误打 #### 前缀。"""
+
+    def test_skip_pseudo_heading_starting_with_pipe(self):
+        # `#### |` 后跟表格内容是 GSMA marker 偶发输出；不应被视为标题
+        md = (
+            "# 3GPP TS 38.331 V19.0.0\n\n"
+            "## 5.1 Real section\n\n"
+            "Body of 5.1.\n\n"
+            "#### | <b><i>FieldName</i> descriptions</b> | |\n"
+            "|---|---|\n"
+            "| field1 | desc1 |\n"
+        )
+        sections = parse_markdown_sections(md, spec_id="38.331", release="Rel-19")
+        # 不应出现 clause="" 且 title 以 `|` 起头的伪 section
+        for s in sections:
+            assert not s.section_title.startswith(
+                "|"
+            ), f"pseudo heading not filtered: title={s.section_title!r}"
+        # 伪标题之后的表格内容应留在 5.1 section 的 body 内
+        real = next(s for s in sections if s.clause == "5.1")
+        assert "FieldName" in real.body
+
+    def test_skip_pseudo_heading_delim_only(self):
+        md = (
+            "# 3GPP TS 38.331 V19.0.0\n\n"
+            "## 5.1 Real section\n\n"
+            "Body.\n\n"
+            "### |---|---|\n"
+            "| a | b |\n"
+        )
+        sections = parse_markdown_sections(md, spec_id="38.331", release="Rel-19")
+        assert not any("|---|" in s.section_title for s in sections)
+
+    def test_long_title_truncated(self):
+        very_long = "A " * 800  # 1600 chars，必然超 1200 阈值
+        md = f"# 3GPP TS 38.331 V19.0.0\n\n## 5.1 {very_long}\n\nBody.\n"
+        sections = parse_markdown_sections(md, spec_id="38.331", release="Rel-19")
+        s = next(s for s in sections if s.clause == "5.1")
+        assert len(s.section_title) <= 1200
+        assert s.section_title.endswith("…")
+
+    def test_legitimate_long_title_preserved(self):
+        """跨 2559 spec 扫描实测最长合法标题 ~1137 字符（23.502 / 33.220 procedure
+        spec 的 step 标题）不应被截断。本测试用 1100 字符代表性长标题。
+        """
+        real_title = (
+            "14a-c. If the AMF has changed since the last Registration procedure, "
+            "if UE Registration type is Initial Registration or Emergency Registration, "
+            "or if the UE provides a SUPI which does not refer to a valid context in "
+        ) * 4  # ~900 chars，与真实 23.502 长 step 标题量级一致
+        md = f"# 3GPP TS 23.502 V19.0.0\n\n#### 4.2.2.2.2 {real_title}\n\nBody.\n"
+        sections = parse_markdown_sections(md, spec_id="23.502", release="Rel-19")
+        s = next(s for s in sections if s.clause == "4.2.2.2.2")
+        assert real_title.strip() in s.section_title
+        assert not s.section_title.endswith("…")
+
+
 class TestExtractImageRefs:
     @pytest.mark.parametrize(
         "text,expected",
