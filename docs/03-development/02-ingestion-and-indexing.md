@@ -480,7 +480,7 @@ ingestion/indexer/
 **关键设计**：
 
 - Embedding：Voyage `voyage-4-large` 或智谱 `embedding-3`，batch 64 一次；统一通过本机 LiteLLM proxy 的 `/v1/embeddings` 调用，**不直接走 voyageai SDK**。tenacity 退避 + 5xx/网络异常重试 3 次；4xx 立即失败
-- 向量维度动态探测：首次成功调用后从 response 推断 `dim`；QdrantWriter 据此建 collection。避免硬编码 voyage-3-large(1024) / voyage-4-large(2048) / embedding-3(2048) 的差异
+- 向量维度动态探测：首次成功调用后从 response 推断 `dim`；QdrantWriter 据此建 collection。**本项目标准向量维度 = 2048**（voyage-4-large 默认 1024，已在 LiteLLM `config.yaml` 显式配置 `output_dimension: 2048` 拉齐到 embedding-3 的 2048 维；voyage-3-large 1024 仅作对照）。切维度后 Qdrant collection 不可改 dim，需 drop 重建
 - 全量索引走 Voyage **Batch API**（33% 折扣、12h 完成窗口）；POC / 增量 / 重建走标准 endpoint。由 `.env` 中 `VOYAGE_USE_BATCH_API_FOR_FULL_INDEX` 控制（**M1 indexer 当前先实现标准 endpoint，Batch API 留 M6 全量再接**）
 - Reranker：Voyage `rerank-2.5`（同样走 LiteLLM proxy；M3 评测期接入）
 - Qdrant：collection per provider（`tgpp_chunks_voyage` / `tgpp_chunks_glm`），payload keyword 索引字段：`spec_id`, `spec_number`, `release`, `series`, `clause`, `chunk_type`, `parent_section_id`（M3 small2big 召回需要按 parent group）
@@ -564,7 +564,7 @@ python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
    - chunker（接入 VisionResolver） → vision → embed → Qdrant + BM25 + PG 全链路打通
    - 9042 chunks → dedupe 8853 unique；Qdrant + BM25 + PG 三处计数一致
    - 64 张 figure chunk vision 命中 100%（含 2 张 mimo 偶发 retry 修复）
-   - Voyage `voyage-4-large` 1.66M tokens / 93.6s / dim=1024
+   - Voyage `voyage-4-large` 1.66M tokens / 93.6s / dim=1024（POC 当时 LiteLLM 未显式声明 `output_dimension`；已于 2026-05-16 改为 2048，复跑需 drop 老 collection 重建。详见 handoff §6.4 FIX）
    - 静态质量审查：table 93% 标准 GFM / formula 100% `$$..$$` KaTeX 兼容 / vision 0 hallucination
    - Retrieval smoke 8 个 hard query：5 EXCELLENT / 2 VERY GOOD / 1 GOOD
    - 暴露并修复 3 个 P0/P1 bug；记录 4 个 P2/P3 chunker / vision issue 留 M2 前补
@@ -605,7 +605,7 @@ python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
 | `/data/tgpp/markdown/` | ~1-2GB | 主库 `raw.md` 当前约 621MiB，另含解析后的 section JSON |
 | `/data/tgpp/images/` | ~1-3GB | 主库图片引用约 27.0k、唯一图片 hash 约 6.4k，另含 Vision 结果与 manifest |
 | `/data/tgpp/bm25/` | ~1-2GB | 全量 chunk 重建后 |
-| Qdrant 生产 collection | ~3-5GB | 单 provider 稳态，约 25-35 万 chunks × 1024 维 + payload index |
+| Qdrant 生产 collection | ~5-10GB | 单 provider 稳态，约 25-35 万 chunks × **2048 维**（项目标准）+ payload index |
 | POC embedding 对比临时空间 | +3-5GB（峰值） | **默认串行**跑两个 provider、跑完即清；仅在 ≥ 50GB 自由空间时允许短期双轨并存 |
 | snapshot / backup 暂存（zstd） | ~5-10GB | 本地短期备份，长期建议同步到远端；启用 zstd 后比裸 tar 小 50-70% |
 | Docker image / volume 余量 | ~5-10GB | 镜像层 + 临时 volume |

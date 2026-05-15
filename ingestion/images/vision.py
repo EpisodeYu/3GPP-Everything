@@ -41,6 +41,9 @@ CACHE_KEY_DEAD = f"{CACHE_KEY_PREFIX}:dead:{{sha256}}"
 DEFAULT_MAX_TOKENS = 8192
 DEFAULT_HTTP_TIMEOUT_S = 180.0
 DEFAULT_MAX_RETRIES = 3
+# mimo-v2.5 偶发把可见图片误判为 undescribable（见 38.331 POC handoff §6.3）。
+# 命中 undescribable 时额外再调 N 次；N 次都还是 undescribable 才接受并缓存。
+DEFAULT_UNDESCRIBABLE_RETRIES = 3
 
 
 # -------------------- 数据契约（与 §4.2.2 对齐） --------------------
@@ -331,6 +334,9 @@ class VisionResolver:
       - model: vision 模型；缺省读 LLM_VISION_MODEL，再缺省 'mimo-v2.5'
       - max_tokens: 单次调用 max_tokens（避免 reasoning 截断；不增加成本，按实际计费）
       - max_retries: 失败重试上限（含首次共调用 max_retries+1 次；超过 → dead-letter）
+      - undescribable_retries: 收到 figure_kind=undescribable 时额外重试次数。
+        mimo-v2.5 偶发把可见图片误判为 undescribable（见 POC handoff §6.3），
+        全部重试仍 undescribable 才接受最终结果（不进 dead-letter，照常缓存）
       - image_mime: figure 文件扩展名 → MIME 映射；默认 jpeg
       - on_dead_letter: 进 dead-letter 时的回调（监控用）
 
@@ -352,6 +358,7 @@ class VisionResolver:
         model: str | None = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
         max_retries: int = DEFAULT_MAX_RETRIES,
+        undescribable_retries: int = DEFAULT_UNDESCRIBABLE_RETRIES,
         image_mime: str = "image/jpeg",
         on_dead_letter: Callable[[str, dict, str], None] | None = None,
     ) -> None:
@@ -364,6 +371,7 @@ class VisionResolver:
         self._model = model or os.environ.get("LLM_VISION_MODEL") or "mimo-v2.5"
         self._max_tokens = max_tokens
         self._max_retries = max_retries
+        self._undescribable_retries = max(0, int(undescribable_retries))
         self._image_mime = image_mime
         self._on_dead_letter = on_dead_letter
 
@@ -419,9 +427,22 @@ class VisionResolver:
     def _call_with_retry(
         self, *, image_path: str, image_bytes: bytes, sha256: str, ctx: dict
     ) -> VisionResult:
+        """两类"重试"独立计数：
+        - hard_failures（HTTP error / length 截断 / JSON 解析失败）：
+          达到 max_retries+1 → dead-letter
+        - undescribable_attempts（mimo 误判 figure_kind=undescribable）：
+          额外多调 N 次，全部仍 undescribable 才接受最终结果，**不进** dead-letter
+        """
         last_error: str = ""
-        # max_retries 表示"重试次数"，所以总尝试次数 = max_retries + 1
-        for attempt in range(self._max_retries + 1):
+        hard_failures = 0
+        undescribable_attempts = 0
+        last_undescribable: VisionResult | None = None
+        # 总尝试次数硬上限，防退化为死循环
+        max_total_attempts = (self._max_retries + 1) + self._undescribable_retries
+        attempt_idx = 0
+
+        while attempt_idx < max_total_attempts:
+            attempt_idx += 1
             try:
                 payload, meta = call_mimo_unified(
                     self._http,
@@ -432,57 +453,97 @@ class VisionResolver:
                 )
             except Exception as exc:
                 last_error = f"http_error: {type(exc).__name__}: {exc}"
+                hard_failures += 1
                 log.warning(
-                    "vision: HTTP fail (attempt %d/%d) for %s: %s",
-                    attempt + 1,
+                    "vision: HTTP fail (hard %d/%d) for %s: %s",
+                    hard_failures,
                     self._max_retries + 1,
                     image_path,
                     last_error,
                 )
-            else:
-                if meta["finish_reason"] == "length":
-                    last_error = (
-                        f"finish_reason=length completion_tokens={meta['completion_tokens']} "
-                        f"reasoning_tokens={meta['reasoning_tokens']}"
-                    )
-                    log.warning(
-                        "vision: truncated (attempt %d/%d) for %s: %s",
-                        attempt + 1,
-                        self._max_retries + 1,
-                        image_path,
-                        last_error,
-                    )
-                else:
-                    parsed = parse_vision_json(meta["raw_text"])
-                    norm = normalize_vision_payload(parsed) if parsed is not None else None
-                    if norm is None:
-                        snippet = (meta["raw_text"] or "")[:200]
-                        last_error = f"json_parse_or_schema_fail: {snippet!r}"
-                        log.warning(
-                            "vision: parse fail (attempt %d/%d) for %s: %s",
-                            attempt + 1,
-                            self._max_retries + 1,
-                            image_path,
-                            last_error,
-                        )
-                    else:
-                        return VisionResult(
-                            description=norm["description"],
-                            figure_kind=norm["figure_kind"],
-                            visible_labels=norm["visible_labels"],
-                            visible_acronyms=norm["visible_acronyms"],
-                            spec_role=norm["spec_role"],
-                            undescribable_reason=norm["undescribable_reason"],
-                            model=meta["model"],
-                            completion_tokens=meta["completion_tokens"],
-                            reasoning_tokens=meta["reasoning_tokens"],
-                            cached=False,
-                            raw_response=payload,
-                        )
-            # 失败：累计 retry 计数
-            self._cache.bump_retry(sha256, error=last_error, ctx=_prune_ctx(ctx))
+                self._cache.bump_retry(sha256, error=last_error, ctx=_prune_ctx(ctx))
+                if hard_failures > self._max_retries:
+                    break
+                continue
 
-        # 全部尝试用尽 → dead-letter
+            if meta["finish_reason"] == "length":
+                last_error = (
+                    f"finish_reason=length completion_tokens={meta['completion_tokens']} "
+                    f"reasoning_tokens={meta['reasoning_tokens']}"
+                )
+                hard_failures += 1
+                log.warning(
+                    "vision: truncated (hard %d/%d) for %s: %s",
+                    hard_failures,
+                    self._max_retries + 1,
+                    image_path,
+                    last_error,
+                )
+                self._cache.bump_retry(sha256, error=last_error, ctx=_prune_ctx(ctx))
+                if hard_failures > self._max_retries:
+                    break
+                continue
+
+            parsed = parse_vision_json(meta["raw_text"])
+            norm = normalize_vision_payload(parsed) if parsed is not None else None
+            if norm is None:
+                snippet = (meta["raw_text"] or "")[:200]
+                last_error = f"json_parse_or_schema_fail: {snippet!r}"
+                hard_failures += 1
+                log.warning(
+                    "vision: parse fail (hard %d/%d) for %s: %s",
+                    hard_failures,
+                    self._max_retries + 1,
+                    image_path,
+                    last_error,
+                )
+                self._cache.bump_retry(sha256, error=last_error, ctx=_prune_ctx(ctx))
+                if hard_failures > self._max_retries:
+                    break
+                continue
+
+            result = VisionResult(
+                description=norm["description"],
+                figure_kind=norm["figure_kind"],
+                visible_labels=norm["visible_labels"],
+                visible_acronyms=norm["visible_acronyms"],
+                spec_role=norm["spec_role"],
+                undescribable_reason=norm["undescribable_reason"],
+                model=meta["model"],
+                completion_tokens=meta["completion_tokens"],
+                reasoning_tokens=meta["reasoning_tokens"],
+                cached=False,
+                raw_response=payload,
+            )
+
+            if (
+                norm["figure_kind"] == "undescribable"
+                and undescribable_attempts < self._undescribable_retries
+            ):
+                undescribable_attempts += 1
+                last_undescribable = result
+                log.warning(
+                    "vision: undescribable result (retry %d/%d) for %s; reason=%r",
+                    undescribable_attempts,
+                    self._undescribable_retries,
+                    image_path,
+                    norm["undescribable_reason"],
+                )
+                continue
+
+            return result
+
+        # 所有 hard 失败用尽：若期间已拿到过 undescribable 结果，**优先返回它**
+        # 而不是丢进 dead-letter（图像本身可用，下游 chunker 仍能用 description）
+        if last_undescribable is not None:
+            log.warning(
+                "vision: hard failures exhausted after seeing undescribable for %s; "
+                "accepting last undescribable result",
+                image_path,
+            )
+            return last_undescribable
+
+        # 全部尝试用尽且没有任何成功结果 → dead-letter
         log.error(
             "vision: dead-letter image=%s sha256=%s error=%s", image_path, sha256[:8], last_error
         )
@@ -509,6 +570,7 @@ def build_resolver_from_env(
     revision: str | None = None,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     max_retries: int = DEFAULT_MAX_RETRIES,
+    undescribable_retries: int = DEFAULT_UNDESCRIBABLE_RETRIES,
 ) -> VisionResolver:
     """读 .env 一次性构造 VisionResolver（生产 / CLI 用）。
 
@@ -522,6 +584,7 @@ def build_resolver_from_env(
         image_loader=image_loader,
         max_tokens=max_tokens,
         max_retries=max_retries,
+        undescribable_retries=undescribable_retries,
     )
 
 

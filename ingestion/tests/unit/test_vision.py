@@ -377,26 +377,84 @@ def test_resolver_truncated_response_treated_as_failure() -> None:
     assert len(http.calls) == 2
 
 
-def test_resolver_returns_undescribable_without_dead_letter() -> None:
+def test_resolver_returns_undescribable_after_exhausting_retries() -> None:
+    """mimo 连续 4 次都返回 undescribable → 接受最终结果并缓存（不进 dead-letter）。
+
+    见 POC handoff §6.3：mimo-v2.5 偶发把可见图片误判为 undescribable，
+    增加额外 retry 防止单次误判即写入降级结果；全部仍 undescribable 才认账。
+    """
     text = (
         '{"figure_kind": "undescribable", "description": "blank scan", '
         '"undescribable_reason": "image is blank"}'
     )
-    http = _StubHttp(responses=[_ok_payload(text)])
+    http = _StubHttp(responses=[_ok_payload(text) for _ in range(4)])
     cache = _fake_cache()
     resolver = VisionResolver(
         http_client=http,
         cache=cache,
         image_loader=_fixed_loader(sha256="u-h"),
         model="m",
+        undescribable_retries=3,
     )
     out = resolver("img.jpg", _ctx())
     assert out is not None
     assert out["figure_kind"] == "undescribable"
     assert out["undescribable_reason"] == "image is blank"
-    # undescribable 也写正常缓存（不会反复调）
+    # 初始 1 次 + 3 次 retry = 4 次总调用
+    assert len(http.calls) == 4
+    # undescribable 仍写正常缓存（不会反复调）
     assert cache.get("u-h") is not None
     assert not cache.is_dead("u-h")
+
+
+def test_resolver_retries_undescribable_and_recovers_with_valid_kind() -> None:
+    """mimo 首次误判 undescribable，retry 后返回真实 figure_kind → 用真实结果。"""
+    undescribable = _ok_payload(
+        '{"figure_kind": "undescribable", "description": "blank?", '
+        '"undescribable_reason": "uncertain"}'
+    )
+    good = _ok_payload(
+        '{"figure_kind": "message_flow", "description": "UE -> AMF call flow", '
+        '"undescribable_reason": ""}'
+    )
+    http = _StubHttp(responses=[undescribable, good])
+    cache = _fake_cache()
+    resolver = VisionResolver(
+        http_client=http,
+        cache=cache,
+        image_loader=_fixed_loader(sha256="u-h2"),
+        model="m",
+        undescribable_retries=3,
+    )
+    out = resolver("img.jpg", _ctx())
+    assert out is not None
+    assert out["figure_kind"] == "message_flow"
+    assert out["description"] == "UE -> AMF call flow"
+    assert len(http.calls) == 2
+    # 缓存的是好结果
+    cached = cache.get("u-h2")
+    assert cached is not None
+    assert cached["figure_kind"] == "message_flow"
+
+
+def test_resolver_undescribable_disabled_when_retries_zero() -> None:
+    """undescribable_retries=0 时保持旧行为：单次 undescribable 立即接受。"""
+    text = (
+        '{"figure_kind": "undescribable", "description": "blank", '
+        '"undescribable_reason": "blank"}'
+    )
+    http = _StubHttp(responses=[_ok_payload(text)])
+    resolver = VisionResolver(
+        http_client=http,
+        cache=_fake_cache(),
+        image_loader=_fixed_loader(sha256="u-h3"),
+        model="m",
+        undescribable_retries=0,
+    )
+    out = resolver("img.jpg", _ctx())
+    assert out is not None
+    assert out["figure_kind"] == "undescribable"
+    assert len(http.calls) == 1
 
 
 def test_resolver_prunes_long_ctx_from_retry_record() -> None:
