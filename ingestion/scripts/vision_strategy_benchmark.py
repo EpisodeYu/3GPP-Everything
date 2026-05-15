@@ -193,12 +193,74 @@ Output STRICT JSON (no prose, no markdown fences):
 
 ACRONYM_RE = re.compile(r"\b[A-Z][A-Z0-9-]{1,15}\*?\b")
 COMMON_NON_ACRONYMS = {
-    "A", "AN", "BE", "BY", "DO", "GO", "HE", "IF", "IN", "IS", "IT", "MY", "NO", "OF",
-    "ON", "OR", "SO", "TO", "UP", "US", "WE", "AM", "AS", "AT", "ALL", "AND", "ARE",
-    "BUT", "FOR", "HAS", "HER", "HIS", "HOW", "ITS", "MAY", "NOT", "OUR", "OUT", "SHE",
-    "THE", "WAS", "WHO", "WHY", "YOU", "BEEN", "CAN", "ONE", "TWO", "THREE", "FOUR",
-    "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN", "I", "II", "III", "IV", "V", "VI",
-    "JSON", "OK", "URL", "URI", "ID", "IDS",
+    "A",
+    "AN",
+    "BE",
+    "BY",
+    "DO",
+    "GO",
+    "HE",
+    "IF",
+    "IN",
+    "IS",
+    "IT",
+    "MY",
+    "NO",
+    "OF",
+    "ON",
+    "OR",
+    "SO",
+    "TO",
+    "UP",
+    "US",
+    "WE",
+    "AM",
+    "AS",
+    "AT",
+    "ALL",
+    "AND",
+    "ARE",
+    "BUT",
+    "FOR",
+    "HAS",
+    "HER",
+    "HIS",
+    "HOW",
+    "ITS",
+    "MAY",
+    "NOT",
+    "OUR",
+    "OUT",
+    "SHE",
+    "THE",
+    "WAS",
+    "WHO",
+    "WHY",
+    "YOU",
+    "BEEN",
+    "CAN",
+    "ONE",
+    "TWO",
+    "THREE",
+    "FOUR",
+    "FIVE",
+    "SIX",
+    "SEVEN",
+    "EIGHT",
+    "NINE",
+    "TEN",
+    "I",
+    "II",
+    "III",
+    "IV",
+    "V",
+    "VI",
+    "JSON",
+    "OK",
+    "URL",
+    "URI",
+    "ID",
+    "IDS",
 }
 
 
@@ -608,7 +670,9 @@ def render_report(
     lines.append("")
     lines.append("- benchmark date: 2026-05-15")
     lines.append(f"- vision model: `{model}` (via LiteLLM proxy)")
-    lines.append(f"- samples: {len(samples)} figures across {len({s.kind_label for s in samples})} kinds")
+    lines.append(
+        f"- samples: {len(samples)} figures across {len({s.kind_label for s in samples})} kinds"
+    )
     lines.append(
         "- prompt 版本：v2 = 应用 docs §4.2 改进清单 7 条（anti-hallucination / "
         "verbatim acronyms / 强制枚举 visible labels / 自适应长度 / "
@@ -616,7 +680,9 @@ def render_report(
     )
     lines.append("")
     lines.append("- 三种方案：")
-    lines.append("  - **A** = GSMA 自带描述（image_alt + caption_text + spec_caption），无 API 调用")
+    lines.append(
+        "  - **A** = GSMA 自带描述（image_alt + caption_text + spec_caption），无 API 调用"
+    )
     lines.append(
         "  - **B** = mimo-v2.5 free-text + v2 prompt（无 GSMA 上下文）"
         "—— 公平 baseline：升级到与 C 同等 prompt 质量，但不含 GSMA caption / surrounding"
@@ -704,7 +770,8 @@ def render_report(
                 vals = [
                     j.scores.get(m, {}).get(dim)
                     for j in judge_results
-                    if isinstance(j.scores.get(m), dict) and j.scores.get(m, {}).get(dim) is not None
+                    if isinstance(j.scores.get(m), dict)
+                    and j.scores.get(m, {}).get(dim) is not None
                 ]
                 avg[m] = sum(vals) / len(vals) if vals else 0
             lines.append(f"| {dim} | {avg['A']:.2f} | {avg['B']:.2f} | {avg['C']:.2f} |")
@@ -743,7 +810,9 @@ def render_report(
         ga: GenResult = r["gens"]["A"]
         gb: GenResult = r["gens"]["B"]
         gc: GenResult = r["gens"]["C"]
-        lines.append(f"### [{s.kind_label}] {s.spec_id} clause {s.clause or '-'} — `{s.image_basename}`")
+        lines.append(
+            f"### [{s.kind_label}] {s.spec_id} clause {s.clause or '-'} — `{s.image_basename}`"
+        )
         lines.append("")
         lines.append(f"- section_title: {s.section_title}")
         lines.append(f"- image: {len(s.image_bytes)} bytes, sha256 `{s.image_sha256[:16]}...`")
@@ -788,9 +857,7 @@ def render_report(
             lines.append("| 维度 | A | B | C |")
             lines.append("|------|---|---|---|")
             for d in dims:
-                lines.append(
-                    f"| {d} | {sa.get(d, '-')} | {sb.get(d, '-')} | {sc.get(d, '-')} |"
-                )
+                lines.append(f"| {d} | {sa.get(d, '-')} | {sb.get(d, '-')} | {sc.get(d, '-')} |")
             lines.append(f"- winner: **{j.scores.get('overall_winner', '?')}**")
             comments = (j.scores.get("comments") or "").strip()
             if comments:
@@ -838,7 +905,9 @@ def main() -> int:
                 gb = gen_b_mimo_freetext(
                     client, s, base_url=base_url, api_key=api_key, model=model, max_tokens=8192
                 )
-                print(f"     ct={gb.completion_tokens} rt={gb.reasoning_tokens} elapsed={gb.elapsed_s:.1f}s")
+                print(
+                    f"     ct={gb.completion_tokens} rt={gb.reasoning_tokens} elapsed={gb.elapsed_s:.1f}s"
+                )
             except Exception as exc:
                 print(f"     B FAIL: {exc}")
                 gb = GenResult(
