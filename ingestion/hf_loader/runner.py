@@ -251,7 +251,14 @@ def hf_vision_smoke(
     model: str = typer.Option(
         None, help="vision model；默认读 .env LLM_VISION_MODEL 或 'mimo-v2.5'"
     ),
-    max_tokens: int = typer.Option(400, help="单次 Vision 响应最大 token 数"),
+    max_tokens: int = typer.Option(
+        16384,
+        help=(
+            "单次 Vision 响应最大 token 数。reasoning 模型 reasoning_tokens 有强随机性"
+            "（同图同模型两次调用差 9×）；mimo 系列按需停止不会填满 max_tokens。"
+            "设大不增加成本（按实际 ct 计费），但可彻底避免被截断。"
+        ),
+    ),
     output: Path = typer.Option(
         Path("eval-results/source-audit/gsma_vision_smoke.md"),
         help="输出报告路径",
@@ -350,25 +357,43 @@ def hf_vision_smoke(
                 )
                 resp.raise_for_status()
                 payload = resp.json()
-                msg = payload["choices"][0]["message"]
+                choice = payload["choices"][0]
+                msg = choice["message"]
+                finish_reason = choice.get("finish_reason")
                 description = (msg.get("content") or "").strip()
-                if not description:
-                    # mimo-v2.5 把内容放在 reasoning_content 时兜底
-                    description = (msg.get("reasoning_content") or "").strip()
-                rows.append(
-                    {
-                        "spec_id": spec_id,
-                        "repo_path": repo_path,
-                        "size": img.size,
-                        "sha256": img.sha256,
-                        "model": payload.get("model", vision_model),
-                        "elapsed_s": round(time.time() - t0, 2),
-                        "description": description[:800],
-                        "ok": bool(description),
-                    }
+                usage = payload.get("usage") or {}
+                reasoning_tokens = (usage.get("completion_tokens_details") or {}).get(
+                    "reasoning_tokens"
                 )
+                # 严格判定：
+                # - finish_reason=length 表示 max_tokens 被吃完，content 多半是被截断
+                #   的草稿或空字符串，不能当成"成功描述"。reasoning_content 是模型的
+                #   思考过程，绝不能 fallback 当成最终描述向用户暴露。
+                ok = bool(description) and finish_reason != "length"
+                row = {
+                    "spec_id": spec_id,
+                    "repo_path": repo_path,
+                    "size": img.size,
+                    "sha256": img.sha256,
+                    "model": payload.get("model", vision_model),
+                    "elapsed_s": round(time.time() - t0, 2),
+                    "description": description[:800],
+                    "ok": ok,
+                    "finish_reason": finish_reason,
+                    "completion_tokens": usage.get("completion_tokens"),
+                    "reasoning_tokens": reasoning_tokens,
+                }
+                if not ok and not description:
+                    row["error"] = (
+                        f"empty content (finish_reason={finish_reason}, "
+                        f"reasoning_tokens={reasoning_tokens}). "
+                        f"提示：reasoning 模型需更大 max_tokens，或换用 mimo-v2-omni。"
+                    )
+                rows.append(row)
+                mark = "✓" if ok else "✗"
                 typer.echo(
-                    f"  ✓ {spec_id} ({img.size}B, {time.time() - t0:.1f}s): "
+                    f"  {mark} {spec_id} ({img.size}B, {time.time() - t0:.1f}s, "
+                    f"finish={finish_reason}, rt={reasoning_tokens}): "
                     f"{description[:80].replace(chr(10), ' ')!r}..."
                 )
             except Exception as exc:
@@ -404,11 +429,24 @@ def _format_vision_smoke_md(rows: list[dict], model: str) -> str:
         lines.append(f"### {r['spec_id']} — `{r['repo_path']}`")
         lines.append("")
         if not r.get("ok"):
-            lines.append(f"- 状态：❌ {r.get('error', 'no description returned')}")
+            err = r.get("error") or (
+                f"truncated (finish_reason={r.get('finish_reason')}, "
+                f"completion_tokens={r.get('completion_tokens')}, "
+                f"reasoning_tokens={r.get('reasoning_tokens')})"
+            )
+            lines.append(f"- 状态：❌ {err}")
+            if r.get("description"):
+                lines.append("")
+                lines.append(f"_截断的 content 前 200 字符_：`{r['description'][:200]!r}`")
         else:
             lines.append(f"- bytes: {r.get('size')}")
             lines.append(f"- sha256: `{r.get('sha256', '')[:16]}…`")
-            lines.append(f"- elapsed: {r.get('elapsed_s')}s")
+            lines.append(
+                f"- elapsed: {r.get('elapsed_s')}s · "
+                f"finish={r.get('finish_reason')} · "
+                f"completion_tokens={r.get('completion_tokens')} "
+                f"(reasoning={r.get('reasoning_tokens')})"
+            )
             lines.append("")
             lines.append("**描述：**")
             lines.append("")
