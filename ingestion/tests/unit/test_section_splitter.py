@@ -114,3 +114,42 @@ def test_atomic_block_kinds_preserved_in_source_kinds() -> None:
 
 def test_empty_blocks_returns_empty() -> None:
     assert split_section([]) == []
+
+
+def test_oversize_table_force_split_preserves_header_separator() -> None:
+    """§6.2 of `2026-05-15-m1-poc-38331.md`：超大表强切时每片仍带 caption+header+`|---|`。
+
+    构造一个含极长 cell（单行 ~600 tokens）的表，目标 max_tokens=200 → 必然触发
+    safety net；验证每片 markdown 都含 `|---|` 分隔行（前端 react-markdown +
+    remark-gfm 能正确渲染）。
+    """
+    big_cell = "long word " * 200  # ~400 tokens
+    rows = [f"| field{i} | {big_cell} |" for i in range(8)]
+    body = "Table 5.1-1: Big descriptions.\n| name | desc |\n|------|------|\n" + "\n".join(rows)
+    blocks = parse_atomic_blocks(body)
+    pieces = split_section(blocks, target_tokens=100, max_tokens=200, overlap_tokens=0)
+    table_pieces = [p for p in pieces if p.chunk_type == "table"]
+    assert len(table_pieces) > 1
+    for p in table_pieces:
+        # 每片都应含 separator 行（即使是 force_split_overflow 兜底也加回 header）
+        has_sep = any(
+            ln.strip().startswith("|")
+            and set(ln.replace("|", "").replace(":", "").strip()) <= {"-", " "}
+            and "-" in ln
+            for ln in p.text.splitlines()
+        )
+        assert has_sep, f"table piece missing |---| separator:\n{p.text[:300]}"
+        # caption 也保留
+        assert "Table 5.1-1" in p.text, f"table piece missing caption:\n{p.text[:200]}"
+
+
+def test_oversize_table_with_single_huge_row_each_piece_keeps_header() -> None:
+    """单 cell 极长导致每行 > max_tokens，每个 hard-split 子片仍要带 header+delim。"""
+    body = "Table 6.1-1: Single huge.\n" "| col |\n" "|-----|\n" f"| {'x ' * 500} |\n"
+    blocks = parse_atomic_blocks(body)
+    pieces = split_section(blocks, target_tokens=80, max_tokens=120, overlap_tokens=0)
+    table_pieces = [p for p in pieces if p.chunk_type == "table"]
+    assert table_pieces
+    for p in table_pieces:
+        assert "Table 6.1-1" in p.text
+        assert "|-----|" in p.text

@@ -37,6 +37,10 @@ from .atomic_blocks import (
 from .models import AtomicBlock
 from .tokenize_utils import count_tokens, split_by_tokens
 
+# table 结构识别（与 atomic_blocks 同义；本模块兜底强切表时用）
+_TABLE_PIPE_RE = re.compile(r"^\s*\|.*\|\s*$")
+_TABLE_DELIM_RE = re.compile(r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$")
+
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?。！？])\s+")
 _PARA_SPLIT_RE = re.compile(r"\n{2,}")
 
@@ -157,7 +161,11 @@ def split_section(
 
 
 def _enforce_size_safety_net(pieces: list[SplitPiece], *, max_tokens: int) -> list[SplitPiece]:
-    """对所有非 figure 片做最终大小校验；超 max × 1.5 强切。"""
+    """对所有非 figure 片做最终大小校验；超 max × 1.5 强切。
+
+    table 类型走 table-aware 切片，确保每片仍保留 caption + header + `|---|` 分隔行；
+    其他类型走 `split_by_tokens` 纯 token 强切。详见 §6.2 of `2026-05-15-m1-poc-38331.md`。
+    """
     safety_limit = int(max_tokens * 1.5)
     out: list[SplitPiece] = []
     for piece in pieces:
@@ -170,7 +178,12 @@ def _enforce_size_safety_net(pieces: list[SplitPiece], *, max_tokens: int) -> li
         # 强切；保留同 chunk_type / source_kinds（标注溢出）
         sub_extra = dict(piece.extra)
         sub_extra["force_split_overflow"] = True
-        for sub_text in split_by_tokens(piece.text, max_tokens=max_tokens):
+        sub_texts = (
+            _force_split_table(piece.text, max_tokens=max_tokens)
+            if piece.chunk_type == "table"
+            else split_by_tokens(piece.text, max_tokens=max_tokens)
+        )
+        for sub_text in sub_texts:
             out.append(
                 SplitPiece(
                     text=sub_text,
@@ -180,6 +193,87 @@ def _enforce_size_safety_net(pieces: list[SplitPiece], *, max_tokens: int) -> li
                 )
             )
     return out
+
+
+def _force_split_table(table_text: str, *, max_tokens: int) -> list[str]:
+    """安全网用 table-aware 强切：保证每片都带 caption + header + `|---|` 分隔行。
+
+    与 `atomic_blocks.split_table_text` 的区别：本函数兜底当 splitter 上游估算的
+    `max_rows_per_chunk` 仍让单片超 max_tokens × 1.5 时调用，因此需要按 token 而非
+    行数为粒度切：
+
+    1. 拆出 caption / header_block / data_rows（与 split_table_text 同语义）
+    2. 计算每片预算 = max_tokens - 头部开销（caption + header + delim）
+    3. 贪心累积 data_rows，按 token 累计装入 ≤ 预算
+    4. 单行超预算 → 调 `split_by_tokens` 强切该行，每个子片单独成片（仍带头部）
+    5. 若没有 delim（identifiable 不是表）→ 退回 `split_by_tokens` 不带头部
+    """
+    lines = table_text.splitlines()
+    caption: str | None = None
+    body_start = 0
+    if lines and not _TABLE_PIPE_RE.match(lines[0]):
+        caption = lines[0]
+        body_start = 1
+        while body_start < len(lines) and not lines[body_start].strip():
+            body_start += 1
+
+    body_lines = lines[body_start:]
+    delim_idx = -1
+    for k, ln in enumerate(body_lines):
+        if _TABLE_DELIM_RE.match(ln):
+            delim_idx = k
+            break
+
+    if delim_idx < 0:
+        # 不像合规表 —— 退化为通用 token 强切
+        return split_by_tokens(table_text, max_tokens=max_tokens)
+
+    header_block = body_lines[: delim_idx + 1]
+    data_rows = body_lines[delim_idx + 1 :]
+    while data_rows and not data_rows[-1].strip():
+        data_rows.pop()
+
+    if not data_rows:
+        return [table_text]
+
+    header_prefix_parts: list[str] = []
+    if caption:
+        header_prefix_parts.append(caption)
+        header_prefix_parts.append("")
+    header_prefix_parts.extend(header_block)
+    header_prefix = "\n".join(header_prefix_parts)
+    header_tokens = count_tokens(header_prefix)
+    # 给单片留出至少 1 个 token 容纳数据行
+    row_budget = max(1, max_tokens - header_tokens)
+
+    def assemble(row_lines: list[str]) -> str:
+        return header_prefix + "\n" + "\n".join(row_lines)
+
+    pieces: list[str] = []
+    cur_rows: list[str] = []
+    cur_tokens = 0
+    for row in data_rows:
+        row_tok = count_tokens(row)
+        if row_tok > row_budget:
+            # 先 flush 已累积的
+            if cur_rows:
+                pieces.append(assemble(cur_rows))
+                cur_rows = []
+                cur_tokens = 0
+            # 单行超预算：按 token 强切 row 内容（每个子片仍带头部 + delim）
+            for sub in split_by_tokens(row, max_tokens=row_budget):
+                pieces.append(assemble([sub]))
+            continue
+        if cur_tokens + row_tok > row_budget and cur_rows:
+            pieces.append(assemble(cur_rows))
+            cur_rows = []
+            cur_tokens = 0
+        cur_rows.append(row)
+        cur_tokens += row_tok
+
+    if cur_rows:
+        pieces.append(assemble(cur_rows))
+    return pieces
 
 
 def _dominant_chunk_type(kinds: list[str]) -> str:
@@ -308,15 +402,52 @@ def _split_paragraph_fallback(text: str, *, max_tokens: int) -> list[SplitPiece]
 def _estimate_max_rows_for_table(table_text: str, *, max_tokens: int) -> int:
     """估算表格每片能放多少数据行。
 
-    简单做法：测整个表的总 token，按 (data_rows * max / total_tokens) 估；保底 2 行。
+    更稳健的估算：基于"每片实际预算 = max_tokens - 头部开销"和"最大单行 token"
+    估行数，避免行长非均匀（少数巨大 cell）时上层产出仍超 max × 1.5 进入兜底
+    强切（§6.2 of `2026-05-15-m1-poc-38331.md` 的 84% no-separator 路径来源）。
     """
-    total_tok = count_tokens(table_text)
-    if total_tok == 0:
-        return 1
     lines = table_text.splitlines()
-    data_rows = max(1, len(lines))
-    rows_per_chunk = max(2, int(data_rows * max_tokens / total_tok * 0.8))
-    return min(rows_per_chunk, data_rows)
+    if not lines:
+        return 1
+
+    # 拆 caption / header / delim / data 估各自 token
+    body_start = 0
+    caption_tokens = 0
+    if lines and not _TABLE_PIPE_RE.match(lines[0]):
+        caption_tokens = count_tokens(lines[0])
+        body_start = 1
+        while body_start < len(lines) and not lines[body_start].strip():
+            body_start += 1
+
+    body_lines = lines[body_start:]
+    delim_idx = -1
+    for k, ln in enumerate(body_lines):
+        if _TABLE_DELIM_RE.match(ln):
+            delim_idx = k
+            break
+    if delim_idx < 0:
+        # 没有合规分隔 —— 退回简单估算
+        total_tok = count_tokens(table_text) or 1
+        return max(2, int(len(lines) * max_tokens / total_tok * 0.8))
+
+    header_tokens = count_tokens("\n".join(body_lines[: delim_idx + 1]))
+    data_rows = body_lines[delim_idx + 1 :]
+    while data_rows and not data_rows[-1].strip():
+        data_rows.pop()
+    if not data_rows:
+        return 1
+
+    # 取最大单行 token 作为最坏情况
+    per_row_tokens = [count_tokens(r) for r in data_rows if r.strip()]
+    if not per_row_tokens:
+        return 1
+    overhead = caption_tokens + header_tokens
+    budget = max(1, max_tokens - overhead)
+    # 用 95 分位行长（兼顾少数巨大 cell）
+    sorted_rows = sorted(per_row_tokens)
+    p95_row = sorted_rows[max(0, int(len(sorted_rows) * 0.95) - 1)]
+    rows_per_chunk = max(1, budget // max(1, p95_row))
+    return min(rows_per_chunk, len(data_rows))
 
 
 def _apply_overlap(pieces: list[SplitPiece], *, overlap_tokens: int) -> list[SplitPiece]:

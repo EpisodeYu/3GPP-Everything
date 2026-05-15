@@ -29,7 +29,7 @@ from .models import AtomicBlock
 
 _HEADING_RE = re.compile(r"^#{1,6}\s")
 _TABLE_PIPE_RE = re.compile(r"^\s*\|.*\|\s*$")
-_TABLE_DELIM_RE = re.compile(r"^\s*\|?\s*[:\- ]+\s*(\|[:\- ]*)+\|?\s*$")
+_TABLE_DELIM_RE = re.compile(r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$")
 _TABLE_CAPTION_RE = re.compile(
     r"^\s*\**\s*Table\s+[A-Z]?\d+(?:\.\d+)*(?:-\d+)?[\.:]?\s*:?\s*", re.IGNORECASE
 )

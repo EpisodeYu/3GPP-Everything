@@ -37,6 +37,47 @@ def test_simple_table_recognized() -> None:
     assert "| a    | b    |" in table.text
 
 
+def test_table_delim_regex_rejects_empty_cell_row() -> None:
+    """`|     |     |`（全空 cell）不应被识别为 delim 行（§6.2 of 2026-05-15 POC）。
+
+    GSMA marker 偶发把表的第一行渲染成"空 cell + 真 delim"双行结构，老正则
+    `[:\\- ]+` 允许全空格 → 把空 cell 行误认为 delim → split_table_text 把后续
+    pieces 的真 delim 行抛掉。
+    """
+    from ingestion.chunker.atomic_blocks import _TABLE_DELIM_RE
+
+    empty_cells = "|                              |                                  |"
+    assert not _TABLE_DELIM_RE.match(empty_cells)
+    # 真 delim 仍要识别
+    assert _TABLE_DELIM_RE.match("|---|---|")
+    assert _TABLE_DELIM_RE.match("|:----|----:|")
+    assert _TABLE_DELIM_RE.match("|------|------|------|")
+    # 带空格的合法 delim
+    assert _TABLE_DELIM_RE.match("| --- | --- |")
+
+
+def test_table_empty_header_row_split_keeps_real_delim() -> None:
+    """带空 cell header + 真 delim 行的表（GSMA marker 偶发产物），按行切后每片
+    都应保留真 delim 行（§6.2 of 2026-05-15 POC：38.331 field descriptions 表型）。
+    """
+    from ingestion.chunker.atomic_blocks import split_table_text
+
+    body_text = (
+        "|        |                          |\n"
+        "|--------|--------------------------|\n"
+        "| field1 | description for field 1 |\n"
+        "| field2 | description for field 2 |\n"
+        "| field3 | description for field 3 |\n"
+        "| field4 | description for field 4 |\n"
+    )
+    pieces = split_table_text(body_text, max_rows_per_chunk=2)
+    assert len(pieces) >= 2
+    for p in pieces:
+        # 每片都含真 delim 行（regex 修复前第二片会丢 delim）
+        has_real_delim = any("--" in ln and "|" in ln for ln in p.splitlines())
+        assert has_real_delim, f"piece missing delim:\n{p}"
+
+
 def test_table_with_caption_absorbed() -> None:
     body = (
         "Intro paragraph.\n\n"

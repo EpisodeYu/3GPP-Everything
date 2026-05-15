@@ -25,6 +25,13 @@ from .models import SectionBlock
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$", re.MULTILINE)
 # clause 形如 "1.2.3" / "5" / "A.1.2"（附录），允许字母前缀。
 _CLAUSE_RE = re.compile(r"^([A-Z]?[\dA-Z][\d.]*)\s+(.+)$", re.IGNORECASE)
+# 标题最大长度安全网（防 GSMA marker 把整行表格内容误打 `####` 注入成"标题"
+# 这种漏网 pseudo-heading）。阈值取 1200：基于本地 2559 spec / 50w heading 扫描，
+# 真实最长合法标题为 23.502 / 33.220 procedure spec 的 1137 字符步骤标题（如
+# "14a-c. If the AMF has changed since the last Registration procedure ..."）；
+# 1200 = 1137 + ~5% 缓冲。pseudo-heading 案例（如 38.331 POC 暴露的 1639 字符
+# 表头）仍会命中截断。
+_SECTION_TITLE_MAX_CHARS = 1200
 _IMAGE_REF_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 # 标准 3GPP H1 形式：'# 3GPP TS 38.211 V19.0.0 (2025-09)'，也兼容 '# **3GPP TR ...'
 _SPEC_TYPE_RE = re.compile(
@@ -102,7 +109,7 @@ def parse_markdown_sections(text: str, *, spec_id: str, release: str) -> list[Se
     - body 取到下一个 heading 之前；不再做更细的层级 nest（父子关系由 chunker
       根据 clause 重建）。
     """
-    matches = list(_HEADING_RE.finditer(text))
+    matches = [m for m in _HEADING_RE.finditer(text) if not _is_pseudo_heading(m.group(2))]
 
     # 顶部 H1（spec title）：第一个 heading 且 level==1 且整篇里 H1 仅它一个，
     # 就跳过，作为 spec title 看待。
@@ -164,15 +171,42 @@ def _split_clause(title_raw: str) -> tuple[str, str]:
     """把 '5.2.1 Frame structure' 拆成 ('5.2.1', 'Frame structure')。
 
     没有编号前缀（如 'Foreword' / 'Annex A'）时返回 ('', title_raw)。
+    超长 title 截断到 `_SECTION_TITLE_MAX_CHARS`，加 `…` 后缀（避免 PG schema /
+    UI 展示崩塌；详见 §6.5 of `2026-05-15-m1-poc-38331.md`）。
     """
     match = _CLAUSE_RE.match(title_raw)
     if not match:
-        return "", title_raw
+        return "", _truncate_title(title_raw)
     candidate = match.group(1)
     # 必须含至少一个数字，否则视作 'Annex' / 'Scope' 之类纯文本标题
     if not any(c.isdigit() for c in candidate):
-        return "", title_raw
-    return candidate, match.group(2).strip()
+        return "", _truncate_title(title_raw)
+    return candidate, _truncate_title(match.group(2).strip())
+
+
+def _truncate_title(title: str) -> str:
+    if len(title) <= _SECTION_TITLE_MAX_CHARS:
+        return title
+    return title[: _SECTION_TITLE_MAX_CHARS - 1].rstrip() + "…"
+
+
+def _is_pseudo_heading(title_raw: str) -> bool:
+    """判定 `## …` 命中是否其实是被误打 `#` 前缀的非标题行。
+
+    GSMA marker 偶发把表格首行打成 `#### | <b>...</b> | | |---...---|`：
+    `_HEADING_RE` 正则会把整段 table content 视作 title_raw，PG / 前端崩。
+    判定规则（任一命中即认为是伪标题）：
+    - 空标题
+    - 标题以 `|` 起头（markdown table 行）
+    - 标题含 markdown table 分隔符 `|---|` / `|----|` 等
+    """
+    s = title_raw.strip()
+    if not s:
+        return True
+    if s.startswith("|"):
+        return True
+    # 表格分隔行（含 `|---`、`|:---`、`|----` 等）—— 即使前面没 `|` 也算
+    return bool(re.search(r"\|\s*:?-{2,}", s))
 
 
 def extract_image_refs(text: str) -> list[str]:
