@@ -195,6 +195,34 @@ GSMA `marked/` 中每个 spec 目录可包含图片文件：
 - 默认并发 1-2，按每日成本阈值和 LiteLLM 限流动态暂停；所有失败进入 retry queue
 - 每 500 张输出一次抽检样本，人工确认描述没有系统性错误后再继续
 
+**当前 prompt（M1 第一阶段使用，位于 `ingestion/hf_loader/runner.py::hf-vision-smoke`）**：
+
+```text
+You are reading a figure extracted from a 3GPP technical specification.
+In 3-5 concise English sentences, describe:
+  (1) what the figure shows;
+  (2) key elements / entities / arrows / labels visible;
+  (3) likely role in the spec (architecture diagram, message flow,
+      frame structure, etc.).
+Do NOT speculate about content not visible. Output plain text only.
+```
+
+**Prompt 改进清单（M1 第二阶段 chunker / `ingestion/images/vision.py` 同步推进）**：
+
+> 现版 prompt 在 §4.0 门禁 10 张抽样上 10/10 描述合格（人审通过），
+> 但下列 7 处可继续优化以提高下游检索 / 索引质量。**做这些改动时必须
+> 跟金标准回归集对比指标，避免改坏。**
+
+1. **加 anti-hallucination 边界**：明确禁止补充图中读不到的 3GPP 领域知识；推断角色（spec_role）必须用 `likely` / `appears to` 等弱断言词。规避"模型常识泄漏到描述"污染 embedding 检索。
+2. **注入 caption + 邻近段落上下文**：从 raw.md 抽取 `Figure X.Y.Z-N: ...` caption + 前 1 段正文，作为 prompt 变量（`{caption}` / `{context_paragraph}`），锚定 figure 真实含义。由 chunker 阶段提供。
+3. **句数限制改自适应**：从"3-5 句"改为"按图复杂度，最长 1-8 句 / 最长 N tokens"。logo 类 1 句够，AMR 全链路图要 8-10 句。
+4. **强制保留字面 token**：明确要求 "Preserve every acronym, identifier, function name (e.g., AMR, TMGI, MAC-S, f1*, N1, AMF) verbatim as in the figure." 保证 BM25 检索能命中。
+5. **强制枚举 visible_labels**：要求列出"框内文字 / 箭头标签 / 坐标轴名 / 图例项"，避免模型只给概述而漏掉关键文本。
+6. **改用结构化 JSON 输出**：字段 `{figure_kind, visible_labels[], visible_acronyms[], description, spec_role}`。`description` 进 embedding，其他字段进 Qdrant payload 做过滤 + facet。下游解析远比正则可靠。
+7. **anti-hallucination 兜底**：明确说"图损坏 / 空白 / 仅 logo / 不可识别"时输出 `{figure_kind: 'undescribable', reason: '...'}`，避免模型硬编一段假描述。
+
+实施顺序：M1 第二阶段 38.331 端到端做 (1)(4)(5)(7) 的 free-text 微调（不动数据结构）；M2 二十篇双轨切换到 (2)(3)(6) 的结构化 JSON + caption 注入（同步 chunker、indexer）；M3 评测期用金标准回归集量化提升幅度。
+
 ### 4.3 Chunking 策略（两路径共用）
 
 ```python
