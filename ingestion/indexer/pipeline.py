@@ -93,13 +93,28 @@ def index_spec(
     stats = IndexStats(spec_id=bundle.spec_id)
     try:
         # 1) chunker
-        chunks, build_stats = build_chunks(
+        raw_chunks, build_stats = build_chunks(
             bundle,
             params=chunk_params or ChunkParams(),
             vision_resolver=components.vision_resolver,
         )
+        # 兜底：去重同 chunk_id（chunker 在极少数 section 内会产生 content 完全
+        # 相同的副本 chunk → 同 uuid5 ID；PG `UNIQUE(chunk_id, provider)` 会拒。
+        # Qdrant / BM25 也只需要 unique。这是 chunker P3 issue（已记录），
+        # indexer 在入口去重，不影响检索质量）。
+        chunks = _dedupe_chunks(raw_chunks)
+        if len(chunks) < len(raw_chunks):
+            log.warning(
+                "spec %s: deduplicated chunks %d → %d (chunker produced %d duplicates)",
+                bundle.spec_id,
+                len(raw_chunks),
+                len(chunks),
+                len(raw_chunks) - len(chunks),
+            )
         stats.chunks_total = len(chunks)
-        stats.chunks_by_type = dict(build_stats.chunks_by_type)
+        stats.chunks_by_type = {
+            k: sum(1 for c in chunks if c.chunk_type == k) for k in dict(build_stats.chunks_by_type)
+        }
         if not chunks:
             log.warning("spec %s produced 0 chunks; skipping index", bundle.spec_id)
             return stats
@@ -201,6 +216,22 @@ def index_specs(
 
     pstats.elapsed_s = round(time.time() - t0, 2)
     return pstats
+
+
+def _dedupe_chunks(chunks: list[Chunk]) -> list[Chunk]:
+    """按 chunk_id 去重，保留首次出现。
+
+    `chunk_id = uuid5(spec_id|clause|sha256(content)[:16])` 内容稳定 → 同 ID
+    意味着 content 完全相同。这里保留第一个出现的副本，丢弃后续重复。
+    """
+    seen: set[str] = set()
+    out: list[Chunk] = []
+    for c in chunks:
+        if c.chunk_id in seen:
+            continue
+        seen.add(c.chunk_id)
+        out.append(c)
+    return out
 
 
 def index_stats_to_json(stats: IndexStats) -> dict:

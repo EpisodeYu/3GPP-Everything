@@ -160,6 +160,7 @@ def _build_section_chunks(
     parent_section_id = _make_parent_section_id(entry.spec_id, sec.clause, sec.section_title)
     parent_section_chars = sec.body_chars
     section_path = _split_section_path(sec.clause)
+    image_repo_dir = _spec_image_dir(entry)
 
     out: list[Chunk] = []
     figure_idx_iter = iter(_iter_figure_block_indices(blocks))
@@ -173,6 +174,7 @@ def _build_section_chunks(
                 piece,
                 sec=sec,
                 spec_id=entry.spec_id,
+                image_repo_dir=image_repo_dir,
                 vision_resolver=vision_resolver,
                 surrounding_paragraph=surrounding_by_idx.get(blk_idx),
             )
@@ -205,6 +207,23 @@ def _iter_figure_block_indices(blocks: list) -> list[int]:
     return [i for i, b in enumerate(blocks) if b.kind == "figure"]
 
 
+def _spec_image_dir(entry: SpecManifestEntry) -> str:
+    """从 `entry.raw_md_path` (`marked/<rel>/<series>/<spec_uid>/raw.md`)
+    推 spec 同目录前缀。两层兜底：
+      1) 用 entry.image_paths[0] 的目录（最稳）
+      2) 用 raw_md_path 的 parent
+    """
+    if entry.image_paths:
+        first = entry.image_paths[0].replace("\\", "/")
+        if "/" in first:
+            return first.rsplit("/", 1)[0]
+    if entry.raw_md_path:
+        rp = entry.raw_md_path.replace("\\", "/")
+        if "/" in rp:
+            return rp.rsplit("/", 1)[0]
+    return ""
+
+
 def _build_text_chunk_content(
     piece: SplitPiece, *, sec: SectionBlock, spec_id: str
 ) -> tuple[str, dict]:
@@ -225,16 +244,29 @@ def _build_figure_chunk_content(
     *,
     sec: SectionBlock,
     spec_id: str,
+    image_repo_dir: str,
     vision_resolver: VisionResolver | None,
     surrounding_paragraph: str | None,
 ) -> tuple[str, dict]:
-    """figure 片：用 figure.py 构造结构化 content。"""
+    """figure 片：用 figure.py 构造结构化 content。
+
+    markdown 中 `![alt](xxx_img.jpg)` 只携带 basename；vision_resolver / HF 下载
+    需要完整 repo_path（`marked/<rel>/<series>/<spec_uid>/xxx_img.jpg`）。
+    `image_repo_dir` 由 builder 根据 `entry.raw_md_path` 的 parent 算出后传入；
+    本函数负责把 extract.image_path 替换成完整 repo_path（若它不是绝对路径且
+    不以 `marked/` 开头）。
+    """
+    from dataclasses import replace as _dc_replace
+
     from .models import AtomicBlock
 
     extract = extract_figure(AtomicBlock(kind="figure", text=piece.text, extra=piece.extra))
     if extract is None:
-        # 拿不到结构化抽取就退回 text-style
         return _build_text_chunk_content(piece, sec=sec, spec_id=spec_id)
+    extract = _dc_replace(
+        extract,
+        image_path=_resolve_image_repo_path(extract.image_path, image_repo_dir),
+    )
     content, raw_extra = build_figure_content(
         extract,
         spec_id=spec_id,
@@ -245,6 +277,28 @@ def _build_figure_chunk_content(
     )
     raw_extra["source_kinds"] = piece.source_kinds
     return content, raw_extra
+
+
+def _resolve_image_repo_path(image_path: str, image_repo_dir: str) -> str:
+    """把 markdown 中的相对 image_path 转换为 HF 完整 repo_path。
+
+    规则：
+      - 空字符串 → 原样返回
+      - 绝对路径（本地文件） → 原样返回
+      - 已带 `marked/` 前缀 → 原样返回
+      - 否则 → `{image_repo_dir}/{basename}`
+    """
+    if not image_path:
+        return image_path
+    p = image_path.replace("\\", "/")
+    while p.startswith("./"):
+        p = p[2:]
+    if p.startswith("/") or p.startswith("marked/"):
+        return p
+    base = (image_repo_dir or "").replace("\\", "/").rstrip("/")
+    if not base:
+        return p
+    return f"{base}/{p.rsplit('/', 1)[-1]}"
 
 
 def _section_header(spec_id: str, sec: SectionBlock) -> str:
