@@ -462,16 +462,46 @@ class Chunk:
 
 ### 4.4 Embedding & Qdrant 索引
 
-实现不变（见原 §3.6-§3.8）：
+> **2026-05-15 实现完成**：`ingestion/indexer/{embedder,qdrant_writer,bm25_writer,pg_writer,pipeline,runner}.py`、`embed` / `index` / `pipeline-hf` / `index-status` / `purge-spec` CLI、47 项 unit 测试已落地。详见
+> [`docs/04-handoff/2026-05-15-m1-indexer.md`](../04-handoff/2026-05-15-m1-indexer.md)。
 
-- Embedding：Voyage `voyage-4-large` 或智谱 `embedding-3`，批 64 一次（统一通过本机 LiteLLM proxy 调用，不直接走 voyageai SDK）
-- 全量索引走 Voyage **Batch API**（33% 折扣、12h 完成窗口）；POC / 增量 / 重建走标准 endpoint。由 `.env` 中 `VOYAGE_USE_BATCH_API_FOR_FULL_INDEX` 控制
-- Reranker：Voyage `rerank-2.5`（同样走 LiteLLM proxy）
-- Qdrant：collection per provider，payload 字段加索引 (`spec_number`, `release`, `series`, `clause`, `chunk_type`)
-- BM25：LlamaIndex `BM25Retriever`，全量重建（50k+ chunks < 60s）
-- 元数据：PG `chunks_meta` + `documents` + `document_versions`
+```python
+ingestion/indexer/
+├── __init__.py
+├── models.py            # IndexResult / IndexStats / PipelineStats 数据契约
+├── embedder.py          # LiteLLM /embeddings (voyage / glm)，batch 64，tenacity 重试
+├── qdrant_writer.py     # collection 创建 + payload 索引 + 幂等 upsert
+├── bm25_writer.py       # chunks.jsonl + meta.json 持久化（backend 加载）
+├── pg_writer.py         # PG chunks_meta CREATE IF NOT EXISTS + DELETE-then-INSERT
+├── pipeline.py          # 单 spec / 多 spec 端到端编排
+└── runner.py            # CLI 子命令
+```
 
-`Document` 表新增字段：
+**关键设计**：
+
+- Embedding：Voyage `voyage-4-large` 或智谱 `embedding-3`，batch 64 一次；统一通过本机 LiteLLM proxy 的 `/v1/embeddings` 调用，**不直接走 voyageai SDK**。tenacity 退避 + 5xx/网络异常重试 3 次；4xx 立即失败
+- 向量维度动态探测：首次成功调用后从 response 推断 `dim`；QdrantWriter 据此建 collection。避免硬编码 voyage-3-large(1024) / voyage-4-large(2048) / embedding-3(2048) 的差异
+- 全量索引走 Voyage **Batch API**（33% 折扣、12h 完成窗口）；POC / 增量 / 重建走标准 endpoint。由 `.env` 中 `VOYAGE_USE_BATCH_API_FOR_FULL_INDEX` 控制（**M1 indexer 当前先实现标准 endpoint，Batch API 留 M6 全量再接**）
+- Reranker：Voyage `rerank-2.5`（同样走 LiteLLM proxy；M3 评测期接入）
+- Qdrant：collection per provider（`tgpp_chunks_voyage` / `tgpp_chunks_glm`），payload keyword 索引字段：`spec_id`, `spec_number`, `release`, `series`, `clause`, `chunk_type`, `parent_section_id`（M3 small2big 召回需要按 parent group）
+- BM25：**ingestion 端只持久化"BM25 检索源"**（`INGEST_DATA_DIR/bm25/{provider}/chunks.jsonl + by_spec/{spec_id}.jsonl + meta.json`），backend 加载时由 LlamaIndex `BM25Retriever` 现场构建（50k+ chunks < 60s）。理由：ingestion 不需要 llama-index 重依赖；spec 级 purge / 重建只需删 by_spec 文件
+- 元数据：PG `chunks_meta`（ingestion 维护）+ `documents` + `document_versions`（backend alembic 维护）
+
+**幂等语义**（plan §3）：
+
+- chunk_id = uuid5(spec_id|clause|sha256(content)[:16])：内容不变 → ID 不变 → 重跑真正幂等
+- `index` / `pipeline-hf` 默认 `purge_before=True`：写之前按 spec_id 清 Qdrant + BM25 by_spec + PG chunks_meta 三处旧记录，避免内容变化（如 vision 改了 description）后旧 chunk_id 残留
+- `--skip-indexed`：Qdrant 该 spec_id 已有 point > 0 → 跳过（增量续传用，新内容请关掉）
+
+**PG `chunks_meta` 表所有权**（过渡方案）：
+
+- M1 阶段 backend alembic 未上线 → ingestion 端用 `CREATE TABLE IF NOT EXISTS` 维护 chunks_meta 一张表
+- 字段以 docs §3.1 + chunker 实际输出为最小子集；`char_offset_start` / `char_offset_end` 设 nullable（chunker small2big 策略不产生准确偏移）；`document_id` FK 暂不创建
+- 唯一约束改为 `UNIQUE (chunk_id, provider)`（支持双轨 voyage + glm 共存同 chunk_id）
+- backend alembic 上线后通过 `op.create_table_if_not_exists` 接管，不会冲突
+- 详见 `ingestion/indexer/pg_writer.py` 文件头注释 + handoff
+
+`Document` 表新增字段（**留给 backend alembic 实施时同步**）：
 
 ```python
 class Document(Base):
@@ -500,25 +530,29 @@ class Document(Base):
 `ingestion/cli.py`（typer）：
 
 ```bash
-# 主路径
-python -m ingestion.cli hf-pull                              # 拉取/更新 HF 数据集到本地 cache（流式，不全量下载）
-python -m ingestion.cli hf-load --releases 18,19             # 加载并打印统计
-python -m ingestion.cli hf-index --releases 18,19 --provider voyage --limit 20
-python -m ingestion.cli pipeline-hf --releases 18,19 --provider voyage   # 一键全量
+# 主路径（M1 已实施 - 见 §4.1 / §4.2 / §4.3 / §4.4）
+python -m ingestion.cli hf-pull                              # 拉取/更新 HF 数据集到本地 cache
+python -m ingestion.cli hf-load 38.331                       # 加载并打印 raw.md 头部 + 章节
+python -m ingestion.cli chunk 38.331 --inspect 5.2.1         # chunker 单 spec 调试
+python -m ingestion.cli vision-call <image_path>             # 单图 Vision 抽检
+python -m ingestion.cli embed 38.331 --provider voyage       # 单 spec embedding dry-run（不写）
+python -m ingestion.cli index 38.331 --provider voyage       # 单 spec 完整 indexer（写 Qdrant + BM25 + PG）
+python -m ingestion.cli pipeline-hf --provider voyage \      # 多 spec 批跑
+       --spec-ids 38.211,38.331 --no-vision                   #   POC：先 dry-run vision 跑通链路
+python -m ingestion.cli pipeline-hf --provider voyage \      # M6 全量入口
+       --only-whitelist
+python -m ingestion.cli index-status --provider voyage       # 状态查询（Qdrant + BM25 + PG）
+python -m ingestion.cli purge-spec 38.331 --provider voyage  # 清掉单 spec 的所有索引
 
-# 兜底
+# 兜底（M1 中后期）
 python -m ingestion.cli parse-single /path/to/xxx.doc --debug
 python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
-
-# 通用
-python -m ingestion.cli status                  # 已索引列表 + chunk_count + source
-python -m ingestion.cli purge --spec 23.501 --provider voyage
 ```
 
-每个子命令 idempotent：
+**幂等语义**：每个子命令默认幂等（详见 §4.4）。
 
-- 主路径状态机：`hf_pulled → chunked → embedded → indexed`
-- 兜底状态机：`uploaded → docx → parsed → chunked → embedded → indexed`
+- 主路径状态：依赖 chunk_id（uuid5 内容稳定）+ Qdrant upsert + `(chunk_id, provider)` UNIQUE + `purge_before` 强清理；无显式状态表。状态查询用 `index-status`
+- 兜底状态机（M1 后期）：`uploaded → docx → parsed → chunked → embedded → indexed`
 
 ### 4.7 POC 验证步骤（修订）
 
@@ -603,8 +637,15 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
   - 阈值：dead-letter 比例 > 1% 触发警告，需人工排查（多半是 mimo prompt 问题或图片损坏）
   - 处理：修复后 `ingestion vision-cache --purge-dead` 让下次 chunk 重新尝试
 - **Vision retry 队列堆积**（Redis key `tgpp:vision:retry:*`）：理想稳态接近 0
-- Embedding API 调用次数 / 耗时 / 错误
-- 写入 Qdrant 失败次数
+- Embedding API 调用次数 / 耗时 / 错误（来源：`Embedder` 内部 `tenacity` 重试日志 + `IndexStats.embedding_tokens`）
+- 写入 Qdrant 失败次数（来源：`pipeline-hf` 输出的 `PipelineStats.failures` 列表）
+
+**Indexer 健康指标**（M2 实施时统一采集）：
+- 每篇 spec `IndexStats.chunks_total / qdrant_upserted / pg_upserted / bm25_persisted` —— 四者应相等（除空 spec）
+- 每篇 spec `IndexStats.embedding_tokens` —— 用于 Voyage 计费回算 + 单价异常告警
+- `IndexStats.vectors_dim` —— 跨 provider 应稳定（voyage-4-large vs embedding-3 dim 不同，但同 provider 应不变）
+- `PipelineStats.specs_failed` 比例 —— 阈值 > 5% 必须人工排查
+- BM25 `meta.json.total_chunks` —— 应与 Qdrant collection count 一致（同 provider）
 
 ## 7. 风险与排雷
 
