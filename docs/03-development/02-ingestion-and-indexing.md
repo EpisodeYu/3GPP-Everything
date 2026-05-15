@@ -169,7 +169,7 @@ for spec in manifest.iter_specs():
 
 每个 spec 内 section 按 `clause` 解析层级（`"5.6.1"` → `("5","6","1")`），构造树形结构供"父子关系"使用。
 
-### 4.2 图片处理
+### 4.2 图片处理（Vision pipeline）
 
 GSMA `marked/` 中每个 spec 目录可包含图片文件：
 
@@ -181,90 +181,270 @@ GSMA `marked/` 中每个 spec 目录可包含图片文件：
 # └── d401d69d03672a3e96a1c73dd3af1ccd_img.jpg
 ```
 
-- 通过 `hf_hub_download` 把图片 cache 到本地，按 bytes 读取
-- 直接喂 `mimo-v2.5` 生成描述（Prompt 同主文档原 §3.4）
-- 缓存：`Redis tgpp:vision:{sha256(image_bytes)}`，TTL 永久
+GSMA 主库基线：按 Rel-19 覆盖重复 spec、保留 R18-only、TS + 5G 系列白名单后，共 `27,042` 个
+图片引用、约 `6,435` 个唯一图片 hash。
 
-**全量 Vision 作业策略**：
+#### 4.2.0 Vision 策略决策（2026-05-15 修订：方案 E）
 
-- 启动期跑 50 张人工抽检，确认 Vision 描述质量
-- 本期已确认保留集全量图片都做 Vision 描述，不提供跳过装饰图的默认策略
-- 当前 GSMA 主库基线：按 Rel-19 覆盖重复 spec、保留 R18-only，并过滤为 5G 相关系列 TS 后，共 `27,042` 个图片引用、约 `6,435` 个唯一图片 hash。单篇 `38.211` 只有 3-4 张图，但图密集 spec 会贡献数百张。
-- 可保留图片分类字段（`figure_kind=decorative|diagram|chart|table|unknown`），但分类只影响后续质量分析，不影响是否生成描述
-- 以图片 bytes hash 做 Redis + PG 双层缓存；重复图片不重复调用 Vision
-- 默认并发 1-2，按每日成本阈值和 LiteLLM 限流动态暂停；所有失败进入 retry queue
-- 每 500 张输出一次抽检样本，人工确认描述没有系统性错误后再继续
+> **决策来源**：`eval-results/source-audit/vision_strategy_benchmark_v2.md`。
+> 在 12 张跨 8 类真实 figure 上做了 2 轮 benchmark（v1 + v2 = 60 个 vision 生成 + 24 次 LLM judge），
+> 经过两轮反转最终锁定方案 E。**任何想改 vision pipeline 的人必须先读 benchmark 报告，
+> 不要凭直觉拍脑袋**。
 
-**当前 prompt（M1 第一阶段使用，位于 `ingestion/hf_loader/runner.py::hf-vision-smoke`）**：
+**三种候选方案演化**：
+
+| 方案 | 含义 | 结论 |
+|------|------|------|
+| A | 直接复用 GSMA raw.md 自带描述（image_alt + caption_text + spec_caption），不调 vision | ❌ 有 OCR 错误传染 + 元信息（postal address）污染；缺结构化字段 |
+| B | mimo-v2.5 free-text + v2 prompt（无 GSMA caption 注入） | ✅ v2 实测 **6/9 winner**；干净不被 GSMA 错误污染 |
+| C | mimo-v2.5 + GSMA caption 注入 + 结构化 JSON 输出（原方案 Y） | ❌ JSON schema 限制 description 长度；GSMA 错误会传染（实测 architecture-rp 把 N59 错传成 N58） |
+| **E** | **mimo-v2.5 + 完整改进 prompt + 同次输出 description + 结构化字段；不注入 GSMA caption** | ✅ **最终采用** |
+
+**方案 E 核心设计**：
+
+1. **description 主路**：mimo v2 free-text quality（自适应长度 + anti-hallucination + 字面 token 保留 +
+   强制枚举 visible labels），**不注入 GSMA caption / surrounding 当 hint**——避免传染 GSMA 错误
+2. **结构化字段**：同一次调用让 mimo 输出 JSON，含 `description / figure_kind / visible_labels /
+   visible_acronyms / spec_role / undescribable_reason`
+3. **GSMA 描述不进 embedding**，但进 `raw_extra.gsma_alt` / `gsma_caption_text` / `gsma_spec_caption`
+   备份 —— 前端可作为"原始 caption"显示
+4. **GSMA mermaid 块特殊保留**：38.413 / 24.501 / 23.502 这类 GSMA 已生成
+   ```mermaid sequenceDiagram / graph TD``` 的图，抽出存 `raw_extra.gsma_mermaid`，
+   前端按 mermaid 渲染。**这是 GSMA 唯一不可替代的资产**。
+
+#### 4.2.1 PROMPT_E_UNIFIED（vision.py 直接复用）
 
 ```text
 You are reading a figure extracted from a 3GPP technical specification.
-In 3-5 concise English sentences, describe:
-  (1) what the figure shows;
-  (2) key elements / entities / arrows / labels visible;
-  (3) likely role in the spec (architecture diagram, message flow,
-      frame structure, etc.).
-Do NOT speculate about content not visible. Output plain text only.
+
+Output STRICT JSON (no prose, no markdown fences):
+
+{
+  "figure_kind": "<one of: logo|architecture|message_flow|state_diagram|block_diagram|chart|formula|bit_format|classification|other|undescribable>",
+  "visible_labels": ["<every text label / box title / arrow label / axis name / legend item visible, verbatim>"],
+  "visible_acronyms": ["<every 3GPP acronym / identifier / function name visible (e.g., AMF, SMF, UPF, N1, AMR, TMGI, MAC-S, f1*, Nudm_SDM_Get), verbatim, deduplicated>"],
+  "description": "<see length guidance below>",
+  "spec_role": "<short phrase, e.g., 'reference architecture', 'registration message flow', 'state machine for 5GMM', 'authentication function definition'>",
+  "undescribable_reason": "<set only when figure_kind=='undescribable'; otherwise empty string.>"
+}
+
+Description length guidance (quality over brevity):
+- Match the figure's information density. 1-2 sentences for logos / trivial bit
+  formats; multiple paragraphs for dense architecture diagrams or long message
+  flows. Do NOT truncate substantive content. Do NOT pad with boilerplate.
+- Aim for the depth of a careful human caption by the spec author. As a rough
+  range, simple figures land near 50-100 tokens; dense architectures or full
+  message flows can legitimately reach 800-1500 tokens. Quality over brevity.
+
+Strict rules:
+- DO NOT invent labels or acronyms that are not actually visible in the figure.
+  If a label is truncated or unreadable, omit it; do NOT guess.
+- Preserve every acronym / identifier / function name verbatim. Do NOT expand
+  acronyms unless the figure itself spells them out.
+- For inferences beyond visible content (figure_kind, spec_role, why the figure
+  exists), use weak assertions: 'likely', 'appears to', 'probably represents'.
+  NEVER state 3GPP domain knowledge as fact unless it is visible in the figure.
+- If the figure is undescribable (corrupted, blank, pure decorative logo with no
+  technical info), set figure_kind="undescribable" and explain in
+  undescribable_reason. Description should be 1 sentence.
+- Output ONLY the JSON object. No surrounding text, no markdown fences.
 ```
 
-**Prompt 改进清单（M1 第二阶段 chunker / `ingestion/images/vision.py` 同步推进）**：
+**为什么不注入 GSMA caption**（v2 benchmark §7.1 实测）：23.501 architecture-rp 案例里 GSMA 描述
+本身错（"NSSAAF via N59" 写成 "via N58"），方案 C 注入后 mimo 受 hint 误导也输出错答案；
+方案 B（无注入）反而看图给出对的结果。**注入有风险，default 不注入；如未来想注入需先做 GSMA 描述
+质量分级。**
 
-> 现版 prompt 在 §4.0 门禁 10 张抽样上 10/10 描述合格（人审通过），
-> 但下列 7 处可继续优化以提高下游检索 / 索引质量。**做这些改动时必须
-> 跟金标准回归集对比指标，避免改坏。**
+#### 4.2.2 vision.py 接口契约
 
-1. **加 anti-hallucination 边界**：明确禁止补充图中读不到的 3GPP 领域知识；推断角色（spec_role）必须用 `likely` / `appears to` 等弱断言词。规避"模型常识泄漏到描述"污染 embedding 检索。
-2. **注入 caption + 邻近段落上下文**：从 raw.md 抽取 `Figure X.Y.Z-N: ...` caption + 前 1 段正文，作为 prompt 变量（`{caption}` / `{context_paragraph}`），锚定 figure 真实含义。由 chunker 阶段提供。
-3. **句数限制改自适应**：从"3-5 句"改为"按图复杂度，最长 1-8 句 / 最长 N tokens"。logo 类 1 句够，AMR 全链路图要 8-10 句。
-4. **强制保留字面 token**：明确要求 "Preserve every acronym, identifier, function name (e.g., AMR, TMGI, MAC-S, f1*, N1, AMF) verbatim as in the figure." 保证 BM25 检索能命中。
-5. **强制枚举 visible_labels**：要求列出"框内文字 / 箭头标签 / 坐标轴名 / 图例项"，避免模型只给概述而漏掉关键文本。
-6. **改用结构化 JSON 输出**：字段 `{figure_kind, visible_labels[], visible_acronyms[], description, spec_role}`。`description` 进 embedding，其他字段进 Qdrant payload 做过滤 + facet。下游解析远比正则可靠。
-7. **anti-hallucination 兜底**：明确说"图损坏 / 空白 / 仅 logo / 不可识别"时输出 `{figure_kind: 'undescribable', reason: '...'}`，避免模型硬编一段假描述。
+```python
+# ingestion/images/vision.py
 
-实施顺序：M1 第二阶段 38.331 端到端做 (1)(4)(5)(7) 的 free-text 微调（不动数据结构）；M2 二十篇双轨切换到 (2)(3)(6) 的结构化 JSON + caption 注入（同步 chunker、indexer）；M3 评测期用金标准回归集量化提升幅度。
+@dataclass(slots=True)
+class VisionResult:
+    description: str                # 进 chunk content 做 embedding
+    figure_kind: str                # 'logo' / 'architecture' / ... / 'undescribable'
+    visible_labels: list[str]
+    visible_acronyms: list[str]
+    spec_role: str
+    undescribable_reason: str       # 仅 figure_kind == 'undescribable' 时非空
+    model: str                      # 实际调用的模型（用于 audit）
+    completion_tokens: int
+    reasoning_tokens: int | None
+    cached: bool                    # 是否命中 Redis 缓存
+    raw_response: dict | None       # debug 用，可选不存
+
+class VisionResolver:
+    """符合 chunker `figure.py::vision_resolver` 接口签名的 callable。
+
+    chunker 调用方式：
+        resolver = VisionResolver(...)
+        result_dict = resolver(image_path: str, ctx: dict) -> dict | None
+    """
+    def __call__(self, image_path: str, ctx: dict) -> dict | None: ...
+```
+
+返回的 dict 字段名与 `VisionResult` 一致；chunker `figure.py::build_figure_content` 把 `description`
+注入 chunk content，其他字段进 `raw_extra["vision"]`。
+
+**ctx 输入**（chunker 提供，vision 用于 prompt 变量与 audit）：
+
+```python
+{
+    "spec_id": "23.501",
+    "clause": "4.2.3",
+    "section_title": "Non-roaming reference architecture",
+    "image_alt": "<GSMA alt text>",         # 仅供 audit / fallback，prompt 不注入
+    "spec_caption": "<Figure 4.2.3-2: ...>",  # 同上
+    "gsma_caption_text": "<GSMA 描述段>",     # 同上
+    "surrounding_paragraph": "<前一段 paragraph>",  # 同上
+}
+```
+
+#### 4.2.3 全量 Vision 作业策略
+
+- **缓存**：`Redis tgpp:vision:{sha256(image_bytes)}`，TTL 永久。重复图片（如 `5G Advanced logo`
+  在每个 spec 的 preamble 里都出现）只调一次。预期命中率 ≥ 70%（27k 引用 / 6.4k 唯一）。
+- **并发**：默认 1-2，按每日成本阈值和 LiteLLM 限流动态暂停。
+- **失败队列**：所有失败（HTTP 错 / JSON 解析失败 / `figure_kind=undescribable`）进 retry queue，
+  最多重试 3 次后落 dead-letter。
+- **抽检**：每 500 张输出抽检样本，人工确认描述没有系统性错误后再继续。
+- **预算监控**：单日成本上限 ≤ $5，超过暂停告警。全量预估 ~$18-20（6435 张 × ~1300 ct）。
+
+#### 4.2.4 上线前必须人审 + 独立验证（LLM-judge bias 提醒）
+
+mimo-as-judge 在 v2 benchmark 中给自家输出（B、C）几乎全 5.0，对 GSMA（A）打 1-2 分明显偏低。
+**方案 E 全量上线前必须**：
+
+1. **人审 5 张代表性图**：架构图（architecture-rp）/ 时序图（message-flow-long）/ 复杂 block diagram
+   （amr-architecture）/ 数据曲线（chart）/ logo。对比 v2 报告中 A、B、C 的实际描述，确认 E 的
+   选择正确
+2. **用独立 judge（如 Claude / GPT-4o）重跑 judge** 12 张，看 ranking 是否仍与 mimo-judge 一致
+3. **下游检索准确率回归**（M3 评测期）：把 A vs E 两种 description 各跑一遍 indexer + golden eval，
+   看哪个让 RAG faithfulness / context recall 更高—— **这是金标准**
+
+#### 4.2.5 待 vision.py 实施时验证 / 决策的开放项
+
+1. **PROMPT_E_UNIFIED 单调用同时输出 description + 结构化字段**——vision.py 实施时跑 12 图 mini
+   验证（成本 < $1），确认 JSON 解析成功率 ≥ 95% 且 description 长度仍能保持 v2 B 水准。
+2. **mimo-v2-omni（无 reasoning，便宜 3×）配 PROMPT_E_UNIFIED** 是否够用？v2 的 prompt 已强制
+   anti-hallucination 边界，omni 之前 vision_smoke 单跑会 hallucinate（TMGI → AMF 错），但加了完整
+   prompt 后未知。值得跑一次 12 图对比。如果 omni 够用，全量成本可降到 ~$7。
+3. **GSMA mermaid 抽取规则**：vision.py 写完后再补一个独立小函数 `extract_gsma_mermaid(alt, caption_text)`
+   用正则识别 ```` ```mermaid ```` 块；建议放在 `chunker/figure.py` 而不是 vision.py（与 vision API
+   调用解耦）。
+4. **A 路径完全弃用是否过激**？某些 spec 系列（如 38.413 时序图）GSMA 准确率可能 100%，
+   那些系列直接复用 A description 可省钱。但需要按系列做正确率统计才能判断——M3 评测期再说。
+5. **figure_kind=undescribable 的处理**：chunker 应识别此标记并在 `raw_extra` 中记录；考虑是否
+   把这类 figure 排除出 embedding（避免低质量 chunk 污染检索）。
 
 ### 4.3 Chunking 策略（两路径共用）
 
+> **2026-05-15 修订**：原 "500-800 tokens / 120 overlap" 单档策略被推翻。在真实 spec
+> （38.211 / 38.331 / 23.501）上实测后改为 **small2big 主路径**：~250 token 小检索
+> chunk + parent section 大召回。Vision 走方案 E（mimo-v2.5 单次调用同时输出 description
+> + 结构化字段，**不注入 GSMA caption**——见 §4.2）。详见
+> `docs/04-handoff/2026-05-15-m1-chunker.md`。
+
 ```python
 ingestion/chunker/
-├── section_aware.py     # 章节边界切分
-├── overlap.py           # 文本 chunk overlap
-└── builder.py           # 整合，产 Chunk 对象
+├── models.py            # Chunk / AtomicBlock 数据契约
+├── tokenize_utils.py    # Voyage tokenizer 封装（voyage-4-large 本地 HF tokenizer）
+├── garbage_filter.py    # section 级垃圾过滤（stop-list + 启发式）
+├── atomic_blocks.py     # body → list[AtomicBlock]（table / asn1 / formula / figure / action_list / paragraph）
+├── section_splitter.py  # 贪心 packing + 三级 fallback + overlap + 安全网
+├── merger.py            # 短 sibling 合并到 parent clause
+├── figure.py            # GSMA 描述抽取 + vision_resolver 接口（M2 接入方案 E vision.py）
+├── builder.py           # 主入口：SpecBundle → list[Chunk]
+└── runner.py            # CLI: ingestion chunk <spec_id>
 ```
 
-| 来源 block | chunk 单元 | 大小 / overlap |
-|-----------|----------|----------------|
-| section body（无图无大表格） | 整段或分块 | 500-800 tokens / 120 overlap，按 tokens 计（tiktoken `cl100k_base` 近似） |
-| section body 内的 markdown 表格 | 拆为独立 chunk | 不切分；附 caption + 前 1 段上下文 |
-| section body 内的公式块 | 拆为独立 chunk | 公式 + 前后各 2 句 |
-| 图片 | 1 张 = 1 chunk | mimo-v2.5 描述 + caption |
-| section 头（虚拟）| 1 个 chunk（不入 embedding） | 仅存 markdown 全章供阅读器 |
+**参数**（plan §0 锁定值；可通过 CLI / `ChunkParams` 覆盖）：
 
-**chunk 数据结构**（不变）：
+| 参数 | 值 | 说明 |
+|------|----|------|
+| target_tokens | 250 | 单 chunk 目标大小（Voyage tokenizer 计） |
+| max_tokens | 400 | 单 chunk 上限；超即触发原子内切片或 fallback |
+| overlap_tokens | 50 | 相邻 paragraph chunk 复制末尾 token 数 |
+| short_section_threshold | 200 | sibling 合并阈值；< 此值的 sibling 与同 parent clause 下连续短 section 合并 |
+
+**chunk 类型与切片策略**：
+
+| 来源 block | chunk_type | 切片策略 |
+|-----------|-----------|----------|
+| paragraph 文本 | `text` | 三级 fallback：双换行段落 → 句子 → 强切按 token；overlap 50 token |
+| markdown 表格 | `table` | 不切；超长按行切，每片重复 caption + 表头 + delim 行 |
+| `$$..$$` 公式块 | `formula` | 不切；天然原子 |
+| 图片 + GSMA 描述段 + Figure caption | `figure` | 整段抽出 → figure chunk；content = `[spec § clause title]` 头 + caption + description + visible_labels (vision JSON) + context |
+| `-- ASN1START` / `-- ASN1STOP` 区间 | `asn1` | 不切；超长按顶层定义 (`Identifier ::=`) 切 |
+| `- N>` 嵌套 RRC procedure | `action_list` | 找本块最浅 level 切；超长递归向更深 level；最深仍超用 split_by_tokens 强切 |
+
+**Tokenizer**：`voyageai.Client.tokenize(model="voyage-4-large")`。本地 HF tokenizer，
+首次跑会从 HF 拉 `voyageai/voyage-4-large` 的 `tokenizer.json` 缓存到 `~/.cache/huggingface`。
+不再用 tiktoken（Voyage 文档明确说 Voyage tokenizer 比 tiktoken 多 1.1-1.2×；用 Voyage 自己的可
+精确控制 chunk 大小，不会出 embedding 时超长被截断）。
+
+**chunk 数据结构**（vs 旧版的关键改动）：
+
+| 改动 | 旧 | 新 |
+|------|----|----|
+| `chunk_id` | `uuid5(spec_number + clause + offset_in_section)` | `uuid5(spec_id + clause + sha256(content)[:16])` —— 跨 dataset_revision 内容不变 → 同 ID，重跑真正幂等 |
+| `parent_section_id` | `str | None`（语义未明） | `str`，必填；`uuid5(spec_id + clause + section_title)`；small2big 召回 key |
+| `chunk_type` | `text/table/formula/figure/section_head` | `text/table/formula/figure/asn1/action_list/section_head` |
+| 新增 `parent_section_chars` | — | `int`，整段 section 字符数；召回时决定是否退化为相邻 chunk 拼接 |
+| 新增 `cross_refs` | — | `list[str]`；M1 留空，M2/M3 抽取 |
+| `content` 头部 | 仅 body | 强制注入 `[<spec_id> § <clause> <section_title>]\n\n`；BM25 命中标题词，embedding 获得上下文 |
 
 ```python
-@dataclass
+@dataclass(slots=True)
 class Chunk:
-    chunk_id: str                       # uuid5(spec_number + clause + offset_in_section)
-    spec_id: str                        # "38.331"（对外展示与 API 使用）
-    spec_uid: str | None                 # "38331"（内部紧凑编号，如有）
-    spec_number: str                    # 原始 spec_number 字段
-    spec_type: str                      # "TS" / "TR"
-    release: str                        # "Rel-18" / "Rel-19"
-    series: str                         # "38"
-    title: str                          # spec 全称
-    chunk_type: Literal["text","table","formula","figure","section_head"]
-    clause: str                         # "5.2.1"
-    section_path: tuple[str, ...]       # ("5","2","1")
+    chunk_id: str                  # uuid5(spec_id + clause + sha256(content)[:16])
+    spec_id: str
+    spec_uid: str | None
+    spec_number: str
+    spec_type: str                 # "TS" / "TR"
+    release: str                   # "Rel-18" / "Rel-19"
+    series: str                    # "38"
+    title: str                     # spec 全称
+    chunk_type: Literal["text","table","formula","figure","asn1","action_list","section_head"]
+    clause: str                    # "5.2.1"
+    section_path: tuple[str, ...]  # ("5","2","1")
     section_title: str
-    parent_section_id: str | None
-    content: str                        # 进入 embedding 的文本
-    raw_extra: dict                     # 表格 md / 图片 path / 原 latex
+    parent_section_id: str         # uuid5(spec_id + clause + section_title) —— small2big key
+    parent_section_chars: int
     document_order: int
+    content: str                   # 头部注入 [<spec_id> § <clause> <title>]
+    raw_extra: dict                # 表格 caption / 图片 path / vision 结构化 JSON / 原 latex
+    cross_refs: list[str]          # M1 留空
     source: Literal["gsma_hf","docling_fallback"]
-    source_version: str                 # GSMA dataset revision / docling parse ts
+    source_version: str            # GSMA dataset revision
     created_at: datetime
 ```
+
+**召回侧约定（small2big）**：
+
+- 检索：用小 chunk（target=250）embedding；BM25 用 `content`（已含标题词）
+- 召回：拿到命中 chunk 后，按 `parent_section_id` group by 取整段 section 给 reranker / LLM
+- 退化（M3 评测前起步配置，2026-05-15 确认）：
+  - LLM context 假设：**8k**（按当前 mimo / 主流 chat model 实际可用 context 起步；
+    避免一开始就吃满 32k）
+  - 退化触发阈值：`parent_section_chars > 50_000`
+  - 邻居窗口：**N=5**（按 `(spec_id, clause, document_order)` 取命中 chunk 前后各 5 个
+    sibling chunk 拼接，替代整段 section）
+  - 38.331 部分 IE 描述（如 `ChannelAccessConfig` 178k 字符）会触发退化
+  - M3 评测期按 RAG faithfulness / context recall 指标重新调
+- Vision：figure chunk 的 `raw_extra["vision"]` 含方案 E 结构化字段
+  （`description / figure_kind / visible_labels / visible_acronyms / spec_role /
+  undescribable_reason`，详见 §4.2.2）；M1 阶段 `vision_resolver=None`，content 用
+  GSMA 自带描述当 description（fallback）；M2 vision.py 写完后接入即升级
+
+**真实 spec 实测**（详见 handoff `2026-05-15-m1-chunker.md`）：
+
+| spec | sections (kept/dropped/merged) | chunks | 主要 chunk_type 分布 |
+|------|-------------------------------:|-------:|---------------------|
+| 38.211 | 186 / 91 / 37 | 308 | text=205, table=78, formula=23, figure=2 |
+| 38.331 | 2394 / 310 / 49 | 9042 | asn1=3180, text=2189, action_list=2005, table=1570, figure=64, formula=34 |
+| 23.501 | 960 / 260 / 57 | 2363 | text=2106, figure=161, table=93, formula=3 |
 
 ### 4.4 Embedding & Qdrant 索引
 
@@ -385,12 +565,26 @@ python -m ingestion.cli purge --spec 23.501 --provider voyage
 
 ## 6. 监控点
 
+**HF / 加载阶段**：
 - HF dataset load 耗时（按 spec）
+- HF dataset revision（每次 hf-pull 记录，便于回滚）
+
+**Chunker 健康指标**（M2 indexer 实施时统一采集）：
 - 每篇 spec chunk 数（异常值检测：< 5 或 > 5000 触发警告）
+- 每篇 spec sections kept / dropped / merged 数与 drop_reasons 分布
+- **`force_split_overflow` 触发率**（chunker 安全网强切比例）：
+  - 来源：`raw_extra["force_split_overflow"] == True` 的 chunk 占比
+  - 阈值：> 1% 触发警告，回头改 `_estimate_max_rows_for_table` / `split_action_list_text`
+    的估算逻辑
+  - 该字段由 `ingestion/chunker/section_splitter.py::_enforce_size_safety_net` 标记
+- chunk_type 分布（text / table / formula / figure / asn1 / action_list）
+
+**Vision / Embedding 阶段**：
 - 图片描述失败率 + 平均耗时
+- 图片 Vision 缓存命中率（hash 命中率，目标 ≥ 70%；27k 引用 / 6.4k 唯一）
+- `figure_kind == 'undescribable'` 的图片数（方案 E 兜底，应该极少）
 - Embedding API 调用次数 / 耗时 / 错误
 - 写入 Qdrant 失败次数
-- HF dataset revision（每次 hf-pull 记录，便于回滚）
 
 ## 7. 风险与排雷
 

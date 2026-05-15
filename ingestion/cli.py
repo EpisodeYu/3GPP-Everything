@@ -12,12 +12,15 @@ from __future__ import annotations
 
 import typer
 
+from .chunker import runner as chunker_runner
 from .hf_loader import runner as hf_runner
 
 app = typer.Typer(no_args_is_help=True, help="3GPP-Everything ingestion CLI")
 
-# 直接复用 hf_loader.runner 中已注册的子命令（保持 `ingestion hf-pull` 风格）
+# 直接复用各子模块 runner 中已注册的子命令（保持 `ingestion hf-pull` 风格）
 for command_info in hf_runner.app.registered_commands:
+    app.registered_commands.append(command_info)
+for command_info in chunker_runner.app.registered_commands:
     app.registered_commands.append(command_info)
 
 
