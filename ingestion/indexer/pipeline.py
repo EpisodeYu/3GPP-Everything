@@ -49,6 +49,9 @@ from .models import IndexStats, PipelineStats, Provider
 from .pg_writer import PgChunkMetaWriter
 from .qdrant_writer import QdrantWriter
 
+# 不在 import 时调 get_voyage_limiter：测试有 reset_singletons / fake 注入路径，
+# 真正用时再取，避免提前 freeze 单例。
+
 log = logging.getLogger(__name__)
 
 
@@ -163,6 +166,7 @@ def index_spec(
         log.exception("index_spec failed: spec=%s", bundle.spec_id)
     finally:
         stats.elapsed_s = round(time.time() - t0, 2)
+        _record_voyage_usage(stats)
     return stats
 
 
@@ -218,6 +222,12 @@ def index_specs(
             components.bm25.finalize()
         except Exception:
             log.exception("bm25 finalize failed (continuing)")
+
+    # 与 pipeline_concurrent 对齐：sync 路径也回填 voyage / mimo limiter snapshot，
+    # 让 PipelineStats.voyage_tokens_total / requests_total 反映真实 sync embed 速率
+    # （sync embed 不走 async limiter.with_rate_limit；index_spec 完成时 _record_voyage_usage
+    # 已把单 spec 用量累加到 limiter.usage 上，这里 snapshot 取累计值）。
+    _snapshot_limiters(pstats)
 
     pstats.elapsed_s = round(time.time() - t0, 2)
     return pstats
@@ -300,6 +310,7 @@ def index_spec_multidim(
         log.exception("index_spec_multidim failed: spec=%s", bundle.spec_id)
     finally:
         stats.elapsed_s = round(time.time() - t0, 2)
+        _record_voyage_usage(stats)
     return stats
 
 
@@ -444,7 +455,42 @@ async def pipeline_concurrent(
         except Exception:
             log.exception("bm25 finalize failed (continuing)")
 
-    # 限速器快照（mimo 实际有用；voyage sync embed 当前不走 limiter，留 0 占位）
+    # 限速器快照（mimo 通过 async limiter.with_rate_limit 真实计数；
+    # voyage sync embed 不走 async limiter，但 index_spec_multidim 完成时
+    # 已通过 _record_voyage_usage 手动把 token / 请求数累加到 limiter.usage，
+    # 这里 snapshot 拿到的就是累计真实速率，不再是 0）。
+    _snapshot_limiters(pstats)
+
+    pstats.elapsed_s = round(time.time() - t0, 2)
+    return pstats
+
+
+def _record_voyage_usage(stats: IndexStats) -> None:
+    """把单 spec sync embed 的 token / request 数累加到 voyage limiter usage。
+
+    sync `Embedder.embed_texts` 不走 async `limiter.with_rate_limit`，导致
+    `PipelineStats.voyage_tokens_total / voyage_requests_total` 始终为 0
+    （2026-05-16 M2 17 篇 POC handoff §3.4 P2 bug）。
+    这里在每 spec 完成时手动 += 到 limiter.usage，pipeline 末尾 snapshot 即可
+    拿到真实累计速率。
+
+    线程安全：CPython int += 受 GIL 保护，多 worker `asyncio.to_thread` 并发安全。
+    """
+    if stats.embedding_tokens <= 0 and stats.embedding_calls <= 0:
+        return
+    try:
+        usage = get_voyage_limiter().usage
+        usage.tokens_used += int(stats.embedding_tokens)
+        usage.requests_made += int(stats.embedding_calls)
+    except Exception:  # pragma: no cover - 单测 reset 路径下可能短暂无单例
+        log.debug("voyage usage backfill skipped", exc_info=True)
+
+
+def _snapshot_limiters(pstats: PipelineStats) -> None:
+    """从全局 voyage / mimo limiter 读快照回填到 PipelineStats。
+
+    sync `index_specs` / async `pipeline_concurrent` 公用，避免各处重复实现。
+    """
     try:
         mimo_snap = get_mimo_limiter().snapshot_usage()
         pstats.mimo_requests_total = mimo_snap.requests_made
@@ -456,9 +502,6 @@ async def pipeline_concurrent(
         pstats.voyage_requests_total = voyage_snap.requests_made
     except Exception:
         log.debug("voyage limiter snapshot failed", exc_info=True)
-
-    pstats.elapsed_s = round(time.time() - t0, 2)
-    return pstats
 
 
 def _resolve_dead_letter_dir(explicit: str | Path | None) -> Path | None:

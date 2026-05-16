@@ -412,3 +412,54 @@ def test_upsert_multidim_partial_dim_subset() -> None:
     out = w.upsert_multidim(chunks, {4: [[0.1, 0.2, 0.3, 0.4]] * 2})
     assert out == {4: 2}
     assert w.count_multidim() == {4: 2, 2: 0}
+
+
+def test_count_uses_main_dim_collection_in_multidim_mode() -> None:
+    """handoff §3.2 P1 回归：multidim 模式下 count() 必须自动用主 dim collection。
+
+    旧实现永远查 `self.collection_name`（无 _d 后缀），multidim 路径下
+    它从未被创建 → count 永远 0 → `--skip-indexed` 失效（POC 主跑期未触发只是因为
+    spec_ids 已显式排除）。
+    """
+    w = _md_writer("tcount_main")
+    # 默认 collection_name = "tcount_main_voyage"（无 dim 后缀，multidim 模式下不建）
+    base_name = w.collection_name
+    assert not base_name.endswith("_d4")
+    w.ensure_collections([4, 2])
+    chunks = _fake_chunks(3)
+    w.upsert_multidim(chunks, {4: [[0.1, 0.2, 0.3, 0.4]] * 3, 2: [[0.6, 0.8]] * 3})
+    # base 名（无 dim）从未创建
+    assert not w._client.collection_exists(base_name)
+    # count 应自动用主 dim（max=4）collection
+    assert w.count() == 3
+    assert w.count(spec_id="38.331") == 3
+    assert w.count(spec_id="other") == 0
+
+
+def test_count_explicit_collection_name_overrides() -> None:
+    """count(collection_name=...) 显式覆盖：可指定查任意 dim collection。"""
+    w = _md_writer("tcount_explicit")
+    w.ensure_collections([4, 2])
+    chunks = _fake_chunks(2)
+    w.upsert_multidim(chunks, {4: [[1.0, 0, 0, 0]] * 2, 2: [[1.0, 0]] * 2})
+    # 显式查 d2 collection
+    assert w.count(collection_name="tcount_explicit_voyage_d2") == 2
+    # 不存在的 collection_name 返回 0（不抛）
+    assert w.count(collection_name="never_created") == 0
+
+
+def test_count_falls_back_to_self_collection_name_in_single_dim_mode() -> None:
+    """单 dim 路径（ensure_collection，非 ensure_collections）保持原行为。"""
+    w = QdrantWriter(
+        client=QdrantClient(":memory:"),
+        provider="voyage",
+        dim=4,
+        collection_name="single_dim_test",
+    )
+    w.ensure_collection()
+    chunks = _fake_chunks(2)
+    w.upsert_chunks(chunks, [[0.1, 0.2, 0.3, 0.4]] * 2)
+    # _collections_by_dim 未被填充，count 仍走 self.collection_name 旧逻辑
+    assert w._collections_by_dim == {}
+    assert w.count() == 2
+    assert w.count(spec_id="38.331") == 2

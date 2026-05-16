@@ -99,6 +99,14 @@ class BM25Writer:
         """把 by_spec/*.jsonl 合并为 chunks.jsonl + 更新 meta.json。
 
         生产建议在 `pipeline-hf` 跑完所有 spec 后调一次；增量场景也可调。
+
+        幂等语义（多次执行）：
+        - `chunks.jsonl` 走 atomic `tmp.replace(target)` **truncate 重写**，
+          重复 finalize 不会 append 出 duplicate 行（M2 17 篇 POC §3.6 实测确认：
+          38.300 失败 → 重跑后再 finalize，行数仍 = sum(by_spec/*.jsonl)，无重复）
+        - `meta.json` 整体 overwrite；written_at 反映最后一次执行时间
+        - 任何在 `by_spec/` 之外的旧 `chunks.jsonl` 行会被清理：source-of-truth
+          只看 `by_spec/*.jsonl`
         """
         self._ensure_dirs()
         spec_files = sorted(self.by_spec_dir.glob("*.jsonl"))

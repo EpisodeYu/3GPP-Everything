@@ -50,7 +50,7 @@ from .pipeline import (
     pipeline_concurrent,
     pipeline_stats_to_json,
 )
-from .qdrant_writer import QdrantWriter, collection_name_for_provider
+from .qdrant_writer import QdrantWriter, collection_name_for_provider, iter_collections
 
 app = typer.Typer(no_args_is_help=True, help="3GPP-Everything indexer CLI")
 log = logging.getLogger(__name__)
@@ -397,12 +397,29 @@ def pipeline_hf_cmd(
 # -------------------- index-status --------------------
 
 
+def _list_provider_collections(qdrant: QdrantWriter, provider: Provider) -> list[str]:
+    """枚举所有匹配 `{prefix}_{provider}` 前缀的 collection（含 `_d{dim}` 多维度后缀）。
+
+    优先用 base 名（兼容老 single-dim 部署）+ 任何 `{base}_d{N}` 多维度 collection。
+    base 不存在时只返回 multidim 列表；都不存在时返回空。
+    """
+    base = collection_name_for_provider(provider)
+    md_prefix = f"{base}_d"
+    try:
+        names = list(iter_collections(qdrant._client))
+    except Exception as exc:
+        log.warning("qdrant get_collections failed: %s", exc)
+        return []
+    out = sorted(n for n in names if n == base or n.startswith(md_prefix))
+    return out
+
+
 @app.command("index-status")
 def index_status_cmd(
     provider: Provider = typer.Option("voyage"),
     spec_id: str | None = typer.Option(None, help="只看某 spec_id 的计数"),
 ) -> None:
-    """Qdrant + BM25 + PG 状态查询。"""
+    """Qdrant + BM25 + PG 状态查询（M2 起感知 multidim `_d{dim}` collection）。"""
     qdrant = QdrantWriter(provider=provider)
     bm25 = BM25Writer(provider=provider)
     pg: PgChunkMetaWriter | None = None
@@ -413,15 +430,24 @@ def index_status_cmd(
             typer.echo(f"[index-status] PG disabled: {exc}")
 
     typer.echo(f"[index-status] provider={provider}")
+    cols = _list_provider_collections(qdrant, provider)
+    if not cols:
+        typer.echo(
+            f"  qdrant: no collection matching prefix {collection_name_for_provider(provider)}"
+        )
+    for name in cols:
+        try:
+            n = qdrant.count(spec_id=spec_id, collection_name=name)
+        except Exception as exc:
+            typer.echo(f"  qdrant {name}: N/A ({exc})")
+            continue
+        suffix = f" (spec={spec_id})" if spec_id else " total"
+        typer.echo(f"  qdrant {name}:{suffix} {n} points")
+
     if spec_id:
-        typer.echo(f"  qdrant {qdrant.collection_name}: {qdrant.count(spec_id=spec_id)} points")
         if pg:
             typer.echo(f"  pg chunks_meta: {pg.count(spec_id=spec_id)} rows")
     else:
-        try:
-            typer.echo(f"  qdrant {qdrant.collection_name}: {qdrant.count()} total points")
-        except Exception as exc:
-            typer.echo(f"  qdrant N/A: {exc}")
         meta = bm25.read_meta()
         if meta:
             typer.echo(
@@ -432,7 +458,7 @@ def index_status_cmd(
             typer.echo(f"  bm25 dir={default_bm25_dir(provider)}（未 finalize）")
         if pg:
             typer.echo(f"  pg chunks_meta: {pg.count()} rows")
-    typer.echo(f"  collection name: {collection_name_for_provider(provider)}")
+    typer.echo(f"  base collection name: {collection_name_for_provider(provider)}")
 
 
 # -------------------- purge-spec --------------------
