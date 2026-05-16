@@ -29,13 +29,14 @@ M0 准备 ──> M1 数据接入 POC ──> M2 索引检索 POC ──> M3 评
   - HF loader：`GSMA/3GPP` 数据集加载器（manifest 缓存、release 过滤、`spec_id` 去重）+ 54 项单测 + 真实 HF 烟雾测试
   - chunker：section-tree 还原、原子块切分、garbage filter、figure / table 处理、token 预算合并
   - Vision pipeline：`mimo-v2.5` 多模态图片描述 + Redis hash 缓存 + dead-letter + retry，CLI 可独立运行
-  - Indexer pipeline：Voyage `voyage-4-large` (2048-dim) / 智谱 `embedding-3` 双轨 embedding → Qdrant + BM25 + PostgreSQL 元数据，CLI 一键索引
+  - Indexer pipeline：Voyage `voyage-4-large` 单轨 + M2-M3 维度 ablation（2048 vs 1024 通过 MRL truncate）→ Qdrant 多 collection + BM25 + PostgreSQL 元数据，CLI 一键索引
   - **端到端 POC (38.331)**：8853 unique chunks、figure vision 64/64=100%、Voyage embedding 1.66M tokens / 93.6s、Qdrant + BM25 + PG 三处写入一致；8 条 hard query retrieval smoke 5 EXCELLENT / 2 VERY GOOD / 1 GOOD
 
 **进行中 / 下一步**：
 
 - M1 §4.7 余下 POC 步骤（Docling 兜底路径 + 多 spec 抽样）
-- M2 20 spec 双轨索引（voyage / glm collection 各 ≥ 8000 chunks，hybrid retrieve baseline）
+- M2 并行 pipeline + 维度 ablation 实施（详见 [`docs/04-handoff/2026-05-16-m1-to-m2-decisions.md`](./docs/04-handoff/2026-05-16-m1-to-m2-decisions.md)）
+- M2 20 spec voyage 单轨 + 2048/1024 双维度 collection（≥ 30000 chunks/dim，hybrid retrieve baseline）
 
 里程碑按"完成度门禁"推进（**不绑定时间表**）：上一个里程碑的门禁未全绿，不进下一个。
 完整里程碑与每段的"必须自动化 / 必须人审"清单见 [`docs/03-development/00-overview.md`](./docs/03-development/00-overview.md)。
@@ -76,7 +77,7 @@ flowchart LR
 | **后端** | FastAPI + SQLAlchemy 2.0 (async) + Alembic + Pydantic v2 |
 | **前端** | Flutter 3.x (Web + Android 同码) + Riverpod 2.x + go_router + dio (SSE) |
 | **Agent LLM** | `mimo-v2.5-pro` (1M context) / `mimo-v2.5` (omni 多模态) - 本机 LiteLLM |
-| **Embedding** | Voyage `voyage-4-large` (2048-dim) 与智谱 `embedding-3` POC 双轨决胜（账号在 v4 系列各有 200M tokens 免费） |
+| **Embedding** | Voyage `voyage-4-large` **单轨** + M2-M3 维度 ablation（2048 vs 1024 通过 MRL truncate 同 API 调用产出）；智谱 `embedding-3` 仅留代码 fallback（账号 200M tokens 免费已加 payment） |
 | **Reranker** | Voyage `rerank-2.5`（200M tokens 免费） |
 | **向量库 / DB / 缓存** | Qdrant / PostgreSQL / Redis（**复用宿主已有实例**） |
 | **监控** | Langfuse Cloud Free Tier |

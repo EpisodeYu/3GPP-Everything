@@ -262,7 +262,7 @@ def pipeline_hf_cmd(
     out: Path = typer.Option(None, help="可选 JSON 输出 PipelineStats"),
     log_level: str = typer.Option("INFO"),
 ) -> None:
-    """多 spec 批跑（M2 双轨索引 / M6 全量入口）。
+    """多 spec 批跑（M2 维度 ablation / M6 全量入口）。
 
     典型用法：
 

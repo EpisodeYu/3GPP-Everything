@@ -191,7 +191,7 @@ class ChunkMeta(Base):
     char_offset_end: int
     parent_section_id: UUID | None   # 自引用，指向同表的 section 头 chunk
     raw_extra: JSON                  # 表格 md / 图片 uri / latex
-    provider: str                    # voyage / glm（用于双轨期分辨）
+    provider: str                    # voyage 主 / glm fallback；保留字段以支持切换
 
 class Glossary(Base):
     id: UUID = pk

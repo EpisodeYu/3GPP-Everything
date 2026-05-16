@@ -9,8 +9,8 @@
   - 兜底：`crawl` / `convert` / `parse` / `chunk` / `embed` / `index` / `parse-single`
   - 通用：`status` / `purge`
 - ✅ 全流程 idempotent：重跑同一篇 spec 不产生重复 chunk
-- ✅ POC（M2）：20 篇代表性 spec 完成 Voyage / 智谱双轨索引，存于 `tgpp_chunks_voyage` / `tgpp_chunks_glm`
-- ✅ 生产（M6）：GSMA Rel-18 + Rel-19 按 `spec_id` 去重保留最新、过滤为 5G 相关系列 TS 后的 `1296` 篇 specs 索引
+- ✅ POC（M2）：20 篇代表性 spec 完成 Voyage 单轨 + 维度 ablation 索引，存于 `tgpp_chunks_voyage_d2048` + `tgpp_chunks_voyage_d1024`（一次 API 调用同时写两 collection；MRL truncate 等价）
+- ✅ 生产（M6）：GSMA Rel-18 + Rel-19 按 `spec_id` 去重保留最新、过滤为 5G 相关系列 TS 后的 `1271` 篇 specs 索引（voyage × M3 胜出维度）；POC 20 篇通过 `--skip-indexed` 复用
 - ✅ BM25 稀疏索引（LlamaIndex 持久化到 `INGEST_DATA_DIR/bm25/`）
 - ✅ 进度日志可视、失败可续传
 
@@ -479,11 +479,12 @@ ingestion/indexer/
 
 **关键设计**：
 
-- Embedding：Voyage `voyage-4-large` 或智谱 `embedding-3`，batch 64 一次；统一通过本机 LiteLLM proxy 的 `/v1/embeddings` 调用，**不直接走 voyageai SDK**。tenacity 退避 + 5xx/网络异常重试 3 次；4xx 立即失败
-- 向量维度动态探测：首次成功调用后从 response 推断 `dim`；QdrantWriter 据此建 collection。**本项目标准向量维度 = 2048**（voyage-4-large 默认 1024，已在 LiteLLM `config.yaml` 显式配置 `output_dimension: 2048` 拉齐到 embedding-3 的 2048 维；voyage-3-large 1024 仅作对照）。切维度后 Qdrant collection 不可改 dim，需 drop 重建
-- 全量索引走 Voyage **Batch API**（33% 折扣、12h 完成窗口）；POC / 增量 / 重建走标准 endpoint。由 `.env` 中 `VOYAGE_USE_BATCH_API_FOR_FULL_INDEX` 控制（**M1 indexer 当前先实现标准 endpoint，Batch API 留 M6 全量再接**）
+- Embedding：voyage `voyage-4-large` 单轨（智谱 `embedding-3` 代码 fallback，不主动使用）；batch 64 一次；统一通过本机 LiteLLM proxy 的 `/v1/embeddings` 调用，**不直接走 voyageai SDK**。tenacity 退避 + 5xx/网络异常重试 3 次；4xx 立即失败
+- **维度策略（M2-M3 ablation 阶段）**：LiteLLM `config.yaml` 显式声明 `output_dimension: 2048`；indexer 调用后客户端**截前 1024 维 + L2 renormalize**，依赖 voyage-4-large MRL 性质等价于直接调 1024 维（M2 启动前 spike 验证 cosine 中位 ≥ 0.9995）。一次 API 调用同时产 2048 + 1024 双向量，分别写入 `tgpp_chunks_voyage_d2048` / `tgpp_chunks_voyage_d1024` 两 collection。Qdrant collection 维度不可改，要切维度只能 drop 重建
+- **M3 决胜后**：保留赢家 collection 进入 M6 全量；输者 drop。当前文档若标"项目标准 = 2048 维"应视为 `tentative`
+- 全量索引（M6）当前走标准 endpoint + 并发 pipeline（§4.8）；Batch API 33% 折扣在 200M 免费额度内不带来现金收益，留 M6 启动前再做决定。由 `.env` 中 `VOYAGE_USE_BATCH_API_FOR_FULL_INDEX` 控制
 - Reranker：Voyage `rerank-2.5`（同样走 LiteLLM proxy；M3 评测期接入）
-- Qdrant：collection per provider（`tgpp_chunks_voyage` / `tgpp_chunks_glm`），payload keyword 索引字段：`spec_id`, `spec_number`, `release`, `series`, `clause`, `chunk_type`, `parent_section_id`（M3 small2big 召回需要按 parent group）
+- Qdrant：collection per (provider, dim)，命名 `{prefix}_{provider}_d{dim}`，如 `tgpp_chunks_voyage_d2048` / `tgpp_chunks_voyage_d1024`。payload keyword 索引字段：`spec_id`, `spec_number`, `release`, `series`, `clause`, `chunk_type`, `parent_section_id`（M3 small2big 召回需要按 parent group）
 - BM25：**ingestion 端只持久化"BM25 检索源"**（`INGEST_DATA_DIR/bm25/{provider}/chunks.jsonl + by_spec/{spec_id}.jsonl + meta.json`），backend 加载时由 LlamaIndex `BM25Retriever` 现场构建（50k+ chunks < 60s）。理由：ingestion 不需要 llama-index 重依赖；spec 级 purge / 重建只需删 by_spec 文件
 - 元数据：PG `chunks_meta`（ingestion 维护）+ `documents` + `document_versions`（backend alembic 维护）
 
@@ -497,7 +498,7 @@ ingestion/indexer/
 
 - M1 阶段 backend alembic 未上线 → ingestion 端用 `CREATE TABLE IF NOT EXISTS` 维护 chunks_meta 一张表
 - 字段以 docs §3.1 + chunker 实际输出为最小子集；`char_offset_start` / `char_offset_end` 设 nullable（chunker small2big 策略不产生准确偏移）；`document_id` FK 暂不创建
-- 唯一约束改为 `UNIQUE (chunk_id, provider)`（支持双轨 voyage + glm 共存同 chunk_id）
+- 唯一约束 `UNIQUE (chunk_id, provider)`（即使 2026-05-16 决议改 voyage 单轨，仍保留：GLM fallback 切换期可能短期共存同 chunk_id）
 - backend alembic 上线后通过 `op.create_table_if_not_exists` 接管，不会冲突
 - 详见 `ingestion/indexer/pg_writer.py` 文件头注释 + handoff
 
@@ -536,11 +537,14 @@ python -m ingestion.cli hf-load 38.331                       # 加载并打印 r
 python -m ingestion.cli chunk 38.331 --inspect 5.2.1         # chunker 单 spec 调试
 python -m ingestion.cli vision-call <image_path>             # 单图 Vision 抽检
 python -m ingestion.cli embed 38.331 --provider voyage       # 单 spec embedding dry-run（不写）
-python -m ingestion.cli index 38.331 --provider voyage       # 单 spec 完整 indexer（写 Qdrant + BM25 + PG）
-python -m ingestion.cli pipeline-hf --provider voyage \      # 多 spec 批跑
-       --spec-ids 38.211,38.331 --no-vision                   #   POC：先 dry-run vision 跑通链路
+python -m ingestion.cli index 38.331 --provider voyage       # 单 spec 完整 indexer（写 Qdrant + BM25 + PG，串行版，单测 / 调试用）
+python -m ingestion.cli pipeline-hf --provider voyage \      # M2 起 - 并发版（推荐入口）
+       --spec-ids 38.211,38.331 \
+       --dimensions 2048,1024 \                                #   M2 ablation：同时写两 collection
+       --concurrent 3 --vision-concurrent 8                   #   spec 级 / vision fan-out 并发
 python -m ingestion.cli pipeline-hf --provider voyage \      # M6 全量入口
-       --only-whitelist
+       --only-whitelist --dimensions 2048 \                   #   M3 决胜后只写胜出维度
+       --concurrent 3 --vision-concurrent 8 --skip-indexed    #   复用 POC 20 篇
 python -m ingestion.cli index-status --provider voyage       # 状态查询（Qdrant + BM25 + PG）
 python -m ingestion.cli purge-spec 38.331 --provider voyage  # 清掉单 spec 的所有索引
 
@@ -553,6 +557,87 @@ python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
 
 - 主路径状态：依赖 chunk_id（uuid5 内容稳定）+ Qdrant upsert + `(chunk_id, provider)` UNIQUE + `purge_before` 强清理；无显式状态表。状态查询用 `index-status`
 - 兜底状态机（M1 后期）：`uploaded → docx → parsed → chunked → embedded → indexed`
+
+### 4.8 并发索引架构（M2 实施，2026-05-16 新增）
+
+> 本节是 §4.7 M2 / M6 的实施前置，由于历史 handoff 大量引用 §4.7，编号保留向后兼容，物理顺序排在 §4.7 之前；阅读顺序建议 §4.6 → §4.8 → §4.7。
+>
+> 实施位置：`ingestion/rate_limit.py` + `ingestion/images/vision.py`（异步增强）
+> + `ingestion/indexer/embedder.py`（异步 + 多维度 truncate）
+> + `ingestion/indexer/qdrant_writer.py`（多 collection 同写）
+> + `ingestion/indexer/pipeline.py`（新增 `pipeline_concurrent`）。
+> 与现有 sequential `index_spec` / `index_specs` **并存**（保留供单 spec 调试 / CI 用），CLI `pipeline-hf` 默认走并发版。
+
+**限速基线**（2026-05-16 用户提供 + POC 实测）：
+
+| 资源 | 限速 | 单次成本（估） | 瓶颈 |
+|---|---|---|---|
+| voyage `voyage-4-large` | 3M TPM / 2000 RPM | batch=64 → ~12k input tokens | TPM |
+| mimo-v2.5 vision | 10M TPM / 100 RPM | 单图 ~25k tokens（含 reasoning） | RPM |
+| 服务器 | 2 核 / 实际 RAM ~500MB / 8GB swap | chunker 峰值 ~80-150MB/spec | CPU + RAM |
+
+**并发架构**：
+
+```
+[spec queue (1271 specs)]
+        │
+   ┌────┴────┬────────┬────────┐
+   ▼         ▼        ▼
+ worker_1  worker_2  worker_3      ← spec 级并发 worker=3
+   │         │        │
+   ▼         ▼        ▼
+ chunker（CPU 同步部分 thread pool 化）
+   │  + 同 spec 内 vision fan-out: asyncio.gather, concurrent=8（受 100 RPM 限制）
+   ▼
+ embed（async batch=64，受 voyage TPM 限速）
+   │  + 客户端 truncate 2048 → 1024 + L2 renormalize
+   ▼
+ 同时 upsert Qdrant×2（_d2048 + _d1024）+ BM25 + PG
+
+全局速率限制器（跨所有 worker 共享）：
+  - voyage: TokenBucket(rate=3_000_000 tokens/min, burst=200_000)
+  - mimo:   TokenBucket(rate=100 calls/min, burst=10)
+```
+
+**默认参数**（CLI 可覆盖）：
+
+| 参数 | 默认 | 调参范围 |
+|---|---|---|
+| `--concurrent` (spec 级 worker) | 3 | 1-5；超过 5 在 2 核服务器上会上下文切换抖动 |
+| `--vision-concurrent` (单 spec 内 vision fan-out) | 8 | 4-16；受 mimo 100 RPM 限制，> 8 没收益 |
+| `--dimensions` | `2048,1024` | M3 决胜后改 `2048` 或 `1024` 单值 |
+| `voyage_tpm` | 3_000_000 | LiteLLM proxy 端共享，按账号实际 |
+| `voyage_rpm` | 2_000 | 同上 |
+| `mimo_tpm` | 10_000_000 | 同上 |
+| `mimo_rpm` | 100 | 同上 |
+
+**MRL truncate 实现要点**：
+
+```python
+# ingestion/indexer/embedder.py（伪代码）
+resp = await client.embed(
+    model="voyage-4-large",
+    inputs=batch,
+    output_dimension=2048,   # LiteLLM config.yaml 已声明，此处显式传冗余但显眼
+)
+vec_2048 = [list(v) for v in resp.vectors]
+# truncate + renormalize：MRL 性质保证等价于直接调 1024
+vec_1024 = [_l2_renormalize(v[:1024]) for v in vec_2048]
+return {2048: vec_2048, 1024: vec_1024}
+```
+
+**端到端预估**：
+
+- 单 spec 中位耗时 5-15 min（含 chunker + vision + embed + 写入）
+- 全量 1271 篇 / worker=3：~6-12h（含网络抖动、错误重试）
+- voyage TPM 视角：150M / 3M = 理论 49 min；mimo RPM 视角：6435 唯一图 / 100 RPM = 64 min（瓶颈 = chunker CPU）
+
+**监控点**（M2 实施时加进 `PipelineStats`）：
+
+- `voyage_tpm_used` / `mimo_rpm_used` 实时速率（每 spec 完成时回填）
+- `worker_load`：每 worker 当前处理的 spec_id + 用时
+- `embedding_dims`：本次 pipeline 跑出的维度集（用于审计 multidim 一致性）
+- 限速 throttle 命中次数（如果频繁说明限速参数估错或外部限速比 LiteLLM 给的低）
 
 ### 4.7 POC 验证步骤（修订）
 
@@ -574,7 +659,14 @@ python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
    - 10 张图片描述质量（实际亲审 64 张全样）
 4. 兜底链路：上传 1 个外部 `.doc` 走完整 Docling 流程 ⏳ M1 中后期
 
-**M2（开发周 3-4）**：20 篇双轨
+**M2（开发周 3-4）**：voyage 单轨 + 维度 ablation 20 篇
+
+> **2026-05-16 决议**：放弃原"voyage / glm 双轨"，改 voyage 单轨 + 2048/1024 双维度 ablation；GLM 仅保留代码 fallback。详见 [`docs/02-tech-selection.md §3.1`](../02-tech-selection.md#31-选型决策2026-05-16)。
+
+实施前置（并行 pipeline + ablation 架构）：
+
+1. **B0 spike**：100 chunk voyage 2048 维 vs 直接调 1024 API 的 cosine 等价性验证，门槛 median ≥ 0.9995。≤ 100k tokens。输出 `eval-results/m2-prep/voyage_mrl_equivalence.md`
+2. **B1-B4**：`ingestion/rate_limit.py` 全局 token bucket + `vision.py` 异步并发 + `embedder.py` 多维度 truncate + `pipeline_concurrent` 入口（详见 §4.8）
 
 挑 20 篇覆盖：
 
@@ -585,11 +677,22 @@ python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
 - 公式密集：38.214 / 36.213
 - 流程图密集：23.502 / 24.501
 
-两套 collection 完成索引供 M3 评测使用。
+（去重后 17 unique；docs 列表里 38.413/38.214/23.502/24.501 在"覆盖类别"重复列出。manifest 实测 raw.md 合计 ~31 MiB，按 38.331 实测密度推算 ~7-9M voyage tokens。）
 
-**M6（开发周 7-8）**：全量 1296 篇（R18/R19 去重保留最新 + TS-only + 5G 系列）
+两套 collection（`_d2048` + `_d1024`）完成索引供 M3 维度 ablation 使用。
 
-- 估算单 spec 索引耗时（M2 期可得）× 1296 - 并行度 → 总耗时
+**M3 → M6 过渡硬指标**（2026-05-16 新增）：
+
+- M3 评测期若改动 chunker（target_tokens / overlap / 注入头格式 / atomic_blocks 划分 / vision prompt），必须把改动后的 chunker 输出在 20 篇 POC 上重跑，与现有 Qdrant chunk_id 集合 diff
+- **chunk_id 漂移率 > 5%** 视为"chunker 未稳定"，禁止进入 M6 全量索引；先在 20 篇上 ablation 确认指标改善才能上 M6
+- 若漂移率 ≤ 5%，M6 可通过 `--skip-indexed` 跳过 POC 20 篇，省 ~8M voyage tokens
+
+**M6（开发周 7-8）**：全量 1271 篇（R18/R19 去重保留最新 + TS-only + 5G 系列）
+
+- 单 provider × 1 个胜出维度（M3 决出）
+- 估算 voyage 总 tokens ~150M ± 20M（38.331 实测密度推算）
+- POC 20 篇通过 `--skip-indexed` 复用；新增 ~1251 篇
+- 估算单 spec 索引耗时（M2 期可得）× 1251 / 并行度 → 端到端预估 6-12h
 - 控制单日并发与每日费用阈值（防 Vision 描述费用超 §15 估算）
 - 失败重试 + 续传
 
@@ -605,8 +708,8 @@ python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
 | `/data/tgpp/markdown/` | ~1-2GB | 主库 `raw.md` 当前约 621MiB，另含解析后的 section JSON |
 | `/data/tgpp/images/` | ~1-3GB | 主库图片引用约 27.0k、唯一图片 hash 约 6.4k，另含 Vision 结果与 manifest |
 | `/data/tgpp/bm25/` | ~1-2GB | 全量 chunk 重建后 |
-| Qdrant 生产 collection | ~5-10GB | 单 provider 稳态，约 25-35 万 chunks × **2048 维**（项目标准）+ payload index |
-| POC embedding 对比临时空间 | +3-5GB（峰值） | **默认串行**跑两个 provider、跑完即清；仅在 ≥ 50GB 自由空间时允许短期双轨并存 |
+| Qdrant 生产 collection | ~2.5-5GB | 单 provider × M3 决胜维度（1024 维 ~2.5GB / 2048 维 ~5GB）稳态，约 25-35 万 chunks + payload index |
+| Qdrant M2-M3 ablation 临时空间 | +5-8GB（峰值） | 2048 + 1024 双 collection 同时存在；M3 决胜后立即 drop 输者 |
 | snapshot / backup 暂存（zstd） | ~5-10GB | 本地短期备份，长期建议同步到远端；启用 zstd 后比裸 tar 小 50-70% |
 | Docker image / volume 余量 | ~5-10GB | 镜像层 + 临时 volume |
 
@@ -614,7 +717,7 @@ python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
 - **峰值（POC 期 + 短期备份 + 全量 Vision）**：~30-50GB
 - **稳态（POC 完成清理后）**：~15-25GB
 
-因此项目启动前要求 `/data` 可用空间 ≥ 50GB（推荐 +50GB）；最低 +30GB 时必须在 POC 期严格串行跑 embedding（跑完一个 provider→评测→删除→再跑下一个），不允许双轨并存；< 30GB 不进入全量索引。
+因此项目启动前要求 `/data` 可用空间 ≥ 50GB（推荐 +50GB）；最低 +30GB 时必须在 M2-M3 ablation 期就清理输者维度 collection（不允许 2048 + 1024 长期共存）；< 30GB 不进入全量索引。
 
 > 若紧张：(a) HF 仅 sparse-checkout `marked/`，不拉 `original/`；(b) 关闭 docling fallback raw/docx 缓存（用完即删）；(c) POC 串行而非并行，并立即删除失败 provider collection；(d) Qdrant 启用 scalar quantization；(e) snapshot 用 zstd 压缩并立即同步到远端后删除本地副本。
 
@@ -648,11 +751,16 @@ python -m ingestion.cli upload-and-index /path/to/xxx.doc --provider voyage
 - 写入 Qdrant 失败次数（来源：`pipeline-hf` 输出的 `PipelineStats.failures` 列表）
 
 **Indexer 健康指标**（M2 实施时统一采集）：
-- 每篇 spec `IndexStats.chunks_total / qdrant_upserted / pg_upserted / bm25_persisted` —— 四者应相等（除空 spec）
-- 每篇 spec `IndexStats.embedding_tokens` —— 用于 Voyage 计费回算 + 单价异常告警
-- `IndexStats.vectors_dim` —— 跨 provider 应稳定（voyage-4-large vs embedding-3 dim 不同，但同 provider 应不变）
+- 每篇 spec `IndexStats.chunks_total / qdrant_upserted_per_dim / pg_upserted / bm25_persisted` —— 同 spec 在 multidim 下每维度 Qdrant 计数都应等于 chunks_total
+- 每篇 spec `IndexStats.embedding_tokens` —— 用于 Voyage 计费回算 + 单价异常告警；multidim 下不翻倍（一次 API 调用产多向量）
+- `IndexStats.vectors_dims` —— 跨 spec 应稳定（M2 期 `{2048, 1024}`，M3 后单值）
 - `PipelineStats.specs_failed` 比例 —— 阈值 > 5% 必须人工排查
-- BM25 `meta.json.total_chunks` —— 应与 Qdrant collection count 一致（同 provider）
+- BM25 `meta.json.total_chunks` —— 应与 Qdrant collection count（任一维度）一致
+
+**并发限速指标**（§4.8）：
+- `voyage_tpm_used / mimo_rpm_used` 实时速率（每 spec 完成时回填）
+- 限速 throttle 命中次数：voyage / mimo 各自计数；命中率 > 30% 说明并发设过高或限速比预期低
+- `worker_load` 实时分布（哪个 worker 在跑哪个 spec / 用时）
 
 ## 7. 风险与排雷
 
@@ -674,15 +782,19 @@ POC 阶段（M1+M2）：
 
 - [ ] `[auto]` `hf-load` 能流式读 GSMA 全量并按 release 过滤（pytest 集成测覆盖）
 - [ ] `[human]` 单篇 spec（建议 `38.331`）从 HF 到 Qdrant 端到端跑通——**章节层级 vs 原 PDF 目录 ≥ 95% 一致** 与 **Vision 描述质量** 由人抽检
-- [ ] `[human]` 20 篇全部完成 voyage / glm 双轨索引（动用 Voyage 真实 API 配额 → 必须事先 approve；见 `CLAUDE.md §5.2`）
-- [ ] `[auto]` 两个 Qdrant collection 均 > 8000 chunks
+- [ ] `[auto]` **B0 MRL spike**：voyage 2048→1024 truncate+renorm 等价性验证（cosine median ≥ 0.9995 / min ≥ 0.998），输出 `eval-results/m2-prep/voyage_mrl_equivalence.md`
+- [ ] `[human]` 20 篇完成 voyage 单轨 + 2048/1024 双维度索引（动用 Voyage 真实 API 配额 → 必须事先 approve；见 `CLAUDE.md §5.2`）
+- [ ] `[auto]` 两个 Qdrant collection（`tgpp_chunks_voyage_d2048` + `_d1024`）每个均 > 30000 chunks，且同 chunk_id 集合一致
 - [ ] `[auto]` BM25 持久化目录可被 backend 加载（集成测覆盖：load + 简单 query 返回 ≥ 1 命中）
 - [ ] `[human]` 兜底 Docling 链路：手工上传 1 个 doc，完整流程跑通（抽检解析质量）
 - [ ] `[auto]` §4.0 数据源验证门禁 audit md 已生成且检查项齐备
+- [ ] `[auto]` 并发 pipeline 速率达标：voyage TPM 利用率 ≥ 60%、mimo RPM 利用率 ≥ 70%
 
 生产阶段（M6）：
 
-- [ ] `[human]` GSMA Rel-18 + Rel-19 去重保留最新、过滤为 5G 相关系列 TS 后的 1296 篇 specs 状态 = `indexed`（**全量动作必须由人 approve 预算/并发**；进度由 Agent 报告，达成由人确认）
+- [ ] `[human]` M3 决出胜出维度（2048 或 1024）；输者 Qdrant collection drop
+- [ ] `[human]` M3 → M6 chunker 漂移门禁通过：若 M3 改过 chunker，POC 20 篇 chunk_id 漂移率 ≤ 5%
+- [ ] `[human]` GSMA Rel-18 + Rel-19 去重保留最新、过滤为 5G 相关系列 TS 后的 1271 篇 specs 状态 = `indexed`（**全量动作必须由人 approve 预算/并发**；进度由 Agent 报告，达成由人确认）
 - [ ] `[auto]` 单篇 spec 重新索引（`--force`）不产生 Qdrant 重复 point（集成测覆盖）
 - [ ] `[auto]` 一篇 spec 删除（`purge`）后 Qdrant + PG + BM25 三处全清干净（集成测覆盖）
 - [ ] `[auto]` `status` CLI 输出含 source 列（gsma_hf / docling_fallback）
