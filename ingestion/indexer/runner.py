@@ -47,6 +47,7 @@ from .pipeline import (
     index_spec,
     index_specs,
     index_stats_to_json,
+    pipeline_concurrent,
     pipeline_stats_to_json,
 )
 from .qdrant_writer import QdrantWriter, collection_name_for_provider
@@ -133,7 +134,7 @@ def embed_cmd(
 
     typer.echo(
         f"[embed] spec={entry.spec_id} provider={provider} "
-        f"images={entry.image_count} raw_md={entry.raw_md_size/1024:.1f}KiB"
+        f"images={entry.image_count} raw_md={entry.raw_md_size / 1024:.1f}KiB"
     )
     loader = GsmaHfLoader(revision=revision, token=_hf_token())
     vision = _resolve_vision(no_vision)
@@ -192,7 +193,7 @@ def index_cmd(
 
     typer.echo(
         f"[index] spec={entry.spec_id} provider={provider} "
-        f"images={entry.image_count} raw_md={entry.raw_md_size/1024:.1f}KiB"
+        f"images={entry.image_count} raw_md={entry.raw_md_size / 1024:.1f}KiB"
     )
     loader = GsmaHfLoader(revision=revision, token=_hf_token())
     vision = _resolve_vision(no_vision)
@@ -259,6 +260,19 @@ def pipeline_hf_cmd(
         True, help="每篇 spec 写之前按 spec_id 清旧记录（plan §3 强幂等语义）"
     ),
     progress_every: int = typer.Option(1, help="每 N 篇打印一次进度（0 = 关闭）"),
+    concurrent: int = typer.Option(
+        0, help="并行 worker 数（0 = sequential 旧路径；>0 走 pipeline_concurrent + multidim）"
+    ),
+    vision_concurrent: int = typer.Option(
+        8, help="单 spec vision fan-out 并发（mimo RPM 100 时 8 是经验值）"
+    ),
+    dimensions: str = typer.Option(
+        "2048,1024",
+        help="逗号分隔的 multidim dim 列表（仅 --concurrent>0 生效；voyage-4-large 上限 2048）",
+    ),
+    dead_letter_dir: Path = typer.Option(
+        None, help="失败 spec 落盘目录；默认 INGEST_DATA_DIR/failed/"
+    ),
     out: Path = typer.Option(None, help="可选 JSON 输出 PipelineStats"),
     log_level: str = typer.Option("INFO"),
 ) -> None:
@@ -314,18 +328,42 @@ def pipeline_hf_cmd(
                 f"  [{seen[0]}/{len(picked)}] {s.spec_id} "  # type: ignore[attr-defined]
                 f"chunks={s.chunks_total} qdrant={s.qdrant_upserted} "  # type: ignore[attr-defined]
                 f"tokens={s.embedding_tokens} {s.elapsed_s}s "  # type: ignore[attr-defined]
-                f"{'OK' if s.succeeded else 'FAIL: '+(s.error or '')}"  # type: ignore[attr-defined]
+                f"{'OK' if s.succeeded else 'FAIL: ' + (s.error or '')}"  # type: ignore[attr-defined]
             )
 
     try:
         bundles = loader.iter_specs(picked)
-        pstats = index_specs(
-            bundles,
-            components,
-            skip_indexed=skip_indexed,
-            purge_before=purge_before,
-            progress_cb=_progress,
-        )
+        if concurrent > 0:
+            dims_parsed = [int(x) for x in dimensions.split(",") if x.strip()]
+            if not dims_parsed:
+                raise typer.BadParameter("--dimensions must contain at least one int")
+            typer.echo(
+                f"[pipeline-hf] mode=concurrent workers={concurrent} "
+                f"vision_concurrent={vision_concurrent} dims={dims_parsed}"
+            )
+            import asyncio as _aio
+
+            pstats = _aio.run(
+                pipeline_concurrent(
+                    list(bundles),
+                    components,
+                    workers=concurrent,
+                    vision_concurrent=vision_concurrent,
+                    dims=dims_parsed,
+                    purge_before=purge_before,
+                    skip_indexed=skip_indexed,
+                    progress_cb=_progress,
+                    dead_letter_dir=dead_letter_dir,
+                )
+            )
+        else:
+            pstats = index_specs(
+                bundles,
+                components,
+                skip_indexed=skip_indexed,
+                purge_before=purge_before,
+                progress_cb=_progress,
+            )
     finally:
         components.close()
 
@@ -336,6 +374,14 @@ def pipeline_hf_cmd(
         f"qdrant={pstats.qdrant_upserted} tokens={pstats.embedding_tokens} "
         f"elapsed={pstats.elapsed_s}s"
     )
+    if pstats.qdrant_upserted_by_dim:
+        typer.echo(f"[pipeline-hf] qdrant_by_dim={pstats.qdrant_upserted_by_dim}")
+    if pstats.mimo_requests_total or pstats.voyage_requests_total:
+        typer.echo(
+            f"[pipeline-hf] limiters: mimo_requests={pstats.mimo_requests_total} "
+            f"voyage_requests={pstats.voyage_requests_total} "
+            f"voyage_tokens={pstats.voyage_tokens_total}"
+        )
     if pstats.failures:
         typer.echo("[pipeline-hf] failures:")
         for spec_id, err in pstats.failures:
