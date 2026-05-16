@@ -335,12 +335,17 @@ async def test_golden_v1_full(api_client):
     assert mean(r.ragas_faithfulness for r in results) >= 0.85
 ```
 
-## 8. Embedding 维度决胜评测（2026-05-16 修订）
+## 8. Embedding 维度决胜评测（2026-05-16 修订 → ✅ 决胜完成）
 
 > **决策变更**：放弃原"voyage / 智谱 embedding-3 双轨决胜"，改为"voyage 单轨 + 2048/1024 维度 ablation"。
 > 详见 [`docs/02-tech-selection.md §3.1`](../02-tech-selection.md#31-选型决策2026-05-16) 与
 > [`docs/03-development/02-ingestion-and-indexing.md §4.7`](02-ingestion-and-indexing.md#47-poc-验证步骤修订)。
 > 智谱 `embedding-3` 仅保留代码层 fallback，不进入决胜评测。
+>
+> **✅ 决胜结果（2026-05-16）：`1024` 胜出**。所有指标差距 ≤ 2pp，触发 tie-fallback；
+> 1024 在 119 题金标准上全线略胜或持平（spec R@10 0.815 vs 0.798；R@10 0.647 vs 0.630；table_lookup 类 +8.4pp）。
+> 报告 + 签字记录：[`eval-results/m3-embedding-poc.md`](../../eval-results/m3-embedding-poc.md)。
+> 2048 collection 已 drop，生产维度固化为 1024。
 
 这是 M3 关键决策点。专用脚本 `eval/embedding_poc.py`：
 
@@ -372,7 +377,7 @@ async def main():
 - 否则比 MRR；MRR 差距 > 2% → 选高者
 - 否则差距不显著 → 选 **1024 维**（存储省一半、检索 latency 快 30-50%、HNSW 内存占用更友好）
 
-结果一并 push 到 Langfuse 与 git 一个 `eval-results/m3-embedding-poc.md` 记录决策。决胜后立即 drop 输者 Qdrant collection。
+结果一并 push 到 Langfuse 与 git 一个 `eval-results/m3-embedding-poc.md` 记录决策。决胜后立即 drop 输者 Qdrant collection（**已于 2026-05-16 完成：drop `tgpp_chunks_voyage_d2048`**）。
 
 **M3 → M6 过渡硬指标**（2026-05-16 新增）：
 
@@ -457,7 +462,7 @@ PRICING = {
 - [ ] `[human]` Langfuse Dataset 与 Run 在 Web UI 可见，evaluators 自动出分（外部账号，人确认看到）
 - [ ] `[auto]` CI eval 子集（10 题）耗时 < 10 分钟，全绿；分层抽样按 category 覆盖
 - [ ] `[auto]` Nightly eval 全集跑通；阈值未达自动开 GitHub issue
-- [ ] `[human]` M3 embedding POC 决胜**决策由人拍板**，结果与签字记录在 `eval-results/m3-embedding-poc.md`
+- [x] `[human]` M3 embedding POC 决胜**决策由人拍板**：✅ 1024 维（2026-05-16），结果与签字记录在 `eval-results/m3-embedding-poc.md`
 - [ ] `[auto]` 前端管理后台展示 today / month 成本（widget test 覆盖渲染）
 - [ ] `[auto]` 成本告警阈值触发后能写日志/发通知（mock webhook 验证）
 

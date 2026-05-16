@@ -16,7 +16,7 @@
 
 输入：
 - spec_ids（默认 17 篇 POC：M1 38.331 + M2 Task D 16 篇）
-- 旧 chunk_id 来源：Qdrant 主 dim collection（默认 `tgpp_chunks_voyage_d2048`），
+- 旧 chunk_id 来源：Qdrant 主 dim collection（默认 `tgpp_chunks_voyage_d1024`；M3 决胜后 2048 已 drop），
   按 spec_id 过滤 scroll
 - 新 chunk_id 来源：当前代码 + 当前 chunker 参数，调 `build_chunks`
   （vision_resolver=None，仅取内容字面，与 §3 决议口径一致 ——
@@ -39,7 +39,7 @@ PYTHONPATH=.. uv run python -m ingestion.scripts.m3_chunk_id_drift \\
 - `--threshold 0.05`           漂移阈值（默认 5%）
 - `--target-tokens 250`        chunker 参数（默认 plan §0 锁定值）
 - `--collection-prefix tgpp_chunks`
-- `--main-dim 2048`            从哪个 dim collection 读旧 ids（默认主 dim）
+- `--main-dim 1024`            从哪个 dim collection 读旧 ids（默认主 dim；M3 决胜后 2048 已 drop）
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ DEFAULT_THRESHOLD = 0.05
 DEFAULT_QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
 DEFAULT_COLLECTION_PREFIX = os.environ.get("QDRANT_COLLECTION_PREFIX", "tgpp_chunks")
 DEFAULT_PROVIDER = "voyage"
-DEFAULT_MAIN_DIM = 2048
+DEFAULT_MAIN_DIM = 1024  # M3 决胜后单值 1024（2048 collection 已 drop）
 
 
 @dataclass(slots=True)
@@ -350,7 +350,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--main-dim",
         type=int,
         default=DEFAULT_MAIN_DIM,
-        help="主 dim collection 后缀（默认 2048，从 `_d2048` 读旧 ids）",
+        help="主 dim collection 后缀（默认 1024，从 `_d1024` 读旧 ids；M3 决胜后 2048 已 drop）",
     )
     p.add_argument("--target-tokens", type=int, default=ChunkParams().target_tokens)
     p.add_argument("--max-tokens", type=int, default=ChunkParams().max_tokens)

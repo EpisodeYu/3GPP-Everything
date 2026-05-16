@@ -22,7 +22,7 @@
   /etc/docker/daemon.json:
   { "data-root": "/data/docker" }
   ```
-- 验收：`df -h` 显示 `/data`（或承载 Docker/Qdrant/项目数据的挂载点）可用 ≥ 50GB；< 50GB 时 M2-M3 ablation 期必须及早 drop 输者维度 collection（不允许 2048+1024 长期共存）
+- 验收：`df -h` 显示 `/data`（或承载 Docker/Qdrant/项目数据的挂载点）可用 ≥ 50GB；M3 决胜（2026-05-16）后已 drop 2048 collection，稳态生产 collection ~2.5GB
 
 ### 2.2 共享服务专属命名空间
 
@@ -103,9 +103,9 @@ VOYAGE_EMBEDDING_MODEL=voyage-4-large   # 200M tokens 免费已加 payment，限
 VOYAGE_RERANK_MODEL=rerank-2.5          # 200M tokens 免费，单价 $0.05/M
 GLM_EMBEDDING_MODEL=embedding-3          # 智谱代码 fallback，默认不主动使用
 
-# M2-M3 维度 ablation：MRL truncate+renorm 一次 API 调用同时产 2048/1024 两 collection
-EMBEDDING_DIMENSIONS=2048,1024
-VOYAGE_OUTPUT_DIMENSION=2048      # LiteLLM `config.yaml` 也已显式声明
+# Embedding 维度：1024（M3 决胜 2026-05-16，2048 collection 已 drop）
+EMBEDDING_DIMENSIONS=1024
+VOYAGE_OUTPUT_DIMENSION=1024      # 与 LiteLLM `config.yaml` 一致
 
 # 全量索引可选启用 Voyage Batch API（标准 endpoint 33% 折扣，12h 完成窗口）
 VOYAGE_USE_BATCH_API_FOR_FULL_INDEX=false
@@ -395,7 +395,7 @@ def health():
 
 > 标注：`[auto]` = Agent 自跑命令即可判定；`[human]` = 需要人介入（涉及账号/扩容/外部 secret/产品口径）。
 
-- [ ] `[human]` `df -h` 显示 `/data` 可用空间 ≥ 50GB（扩容动作必须由人完成；< 50GB 时人须 approve "不进入全量索引 / M2-M3 ablation 期必须及早 drop 输者维度 collection"的偏离）
+- [ ] `[human]` `df -h` 显示 `/data` 可用空间 ≥ 50GB（扩容动作必须由人完成；< 50GB 时人须 approve "不进入全量索引"的偏离；M3 决胜 2026-05-16 后 2048 collection 已 drop，POC 期不再有双 collection 占用）
 - [ ] `[auto]` `psql -h 127.0.0.1 -U tgpp_app -d tgpp_everything -c '\dx'` 列出 `uuid-ossp`、`pgcrypto`
 - [ ] `[auto]` `curl 127.0.0.1:6333/collections` 仍可访问、且本项目所有 collection 都以 `tgpp_chunks_` 开头
 - [ ] `[auto]` `redis-cli -n 5 ping` 返回 PONG

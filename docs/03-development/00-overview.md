@@ -63,11 +63,11 @@ graph TB
 |--------|----------|
 | 本期范围 | 完整生产级交付：GSMA Rel-18+Rel-19 按 `spec_id` 去重保留最新，仅收录 5G 相关系列 TS（约 1271 篇，不收录 TR）、保留集全量图片 Vision、多用户基础能力、Web+Android、CI/CD、HTTPS、备份恢复 |
 | 用户模型 | 小规模多用户低并发；实现 admin/user RBAC，不做组织/租户级复杂权限矩阵 |
-| 磁盘门槛 | `/data` 可用空间 ≥ 50GB（推荐 +50GB）；低于 30GB 不进入全量索引；M3 ablation 期间 Qdrant 双 collection 临时占用约 ~7-8GB，M3 决胜后清理输者降至 ~5GB / 2.5GB |
+| 磁盘门槛 | `/data` 可用空间 ≥ 50GB（推荐 +50GB）；低于 30GB 不进入全量索引；M3 决胜（2026-05-16）后已 drop 2048 collection，POC 期 Qdrant 占用降至 ~2.5GB |
 | HyDE 模型 | `mimo-v2.5-pro`，质量优先；路由/改写/multi-query 用 `mimo-v2.5` |
 | **Embedding provider** | `voyage-4-large` **单轨**（2026-05-16 决议放弃 GLM 双轨评测）。智谱 `embedding-3` 保留代码 fallback，不主动建索引；voyage 海外不可达 / 额度耗尽时再切 |
-| **Embedding 维度** | M2 同时建 `dim=2048` + `dim=1024` 双 collection，**M3 ablation 决胜**（差距 < 2% 选 1024）；当前文档若标"2048 标准"应视为 **tentative** |
-| Qdrant collection | M1: `tgpp_chunks_{provider}`（38.331 老 1024 维实验，M2 drop 重建）。M2 起：`tgpp_chunks_{provider}_d{dim}`，如 `tgpp_chunks_voyage_d2048` / `tgpp_chunks_voyage_d1024`。M3 决胜后保留赢家 |
+| **Embedding 维度** | **1024 维**（M3 决胜 2026-05-16：所有指标差距 ≤ 2pp，触发 tie-fallback → 选 1024）。详见 [`eval-results/m3-embedding-poc.md`](../../eval-results/m3-embedding-poc.md)。2048 collection 已 drop |
+| Qdrant collection | M1: `tgpp_chunks_{provider}`（38.331 老 1024 维实验，M2 drop 重建）。M2 起：`tgpp_chunks_{provider}_d{dim}`；**M3 决胜后保留 `tgpp_chunks_voyage_d1024`，2048 已 drop**（2026-05-16） |
 | Voyage 限速 | payment 已加，3M TPM / 2000 RPM（POC 实测有效） |
 | mimo-v2.5 限速 | 10M TPM / 100 RPM；索引期 vision 调用按 100 RPM 全局 token bucket 限流 |
 | 索引并行 | spec 级并发 worker=3（受 2 核服务器约束）；spec 内 vision fan-out 并发=8；全局 token bucket 共享 voyage / mimo 速率配额 |
@@ -84,7 +84,7 @@ graph TB
 graph LR
     M0["M0 准备<br/>infra"] --> M1["M1 数据接入 POC<br/>HF + Docling"]
     M1 --> M2["M2 索引检索 POC<br/>20 spec voyage 单轨 + 2048/1024 双维度 + 并行 pipeline"]
-    M2 --> M3["M3 评测集 + Embedding 维度决胜"]
+    M2 --> M3["M3 评测集 + Embedding 维度决胜 ✅ (1024)"]
     M3 --> M4["M4 Agent + 后端"]
     M4 --> M5["M5 前端"]
     M3 --> M6["M6 全量索引"]
@@ -99,7 +99,7 @@ graph LR
 | **M0** 准备 | `/data` 扩容、共享服务命名空间、项目骨架、`.env.example`、dev Compose、Makefile | `01-infrastructure.md §3` 全部勾选；`make lint` + `curl /health` 通过 | 磁盘是否达 50GB 推荐线 |
 | **M1** 数据接入 POC | HF loader、单 spec 端到端 chunk + Vision、Docling 兜底 | `02-ingestion-and-indexing.md §4.0 数据源验证门禁` 输出 audit md；至少 1 篇 spec（建议 38.331）走完整链路 | mimo-v2.5 Vision 图片描述质量；GSMA markdown section 树还原一致性（≥ 95%）|
 | **M2** 索引检索 POC | (a) 并行 pipeline + voyage MRL 维度 ablation 架构实施；(b) 20 spec voyage 单轨 + 2048/1024 双维度 collection；(c) Hybrid retrieve baseline | `02-...md §8` POC 子清单全勾；每维度 collection 各 > 30000 chunks（20 篇 × 平均 1500-3000 chunks）；MRL truncate 等价性 spike 通过（B0） | retrieve baseline 在抽测查询上"看起来合理"；并发架构稳定（速率达 voyage 80% TPM、mimo 80% RPM） |
-| **M3** 评测集 + Embedding 维度决胜 | TeleQnA 抽取 + 转化 100 题 + 人审；金标准 v1.yaml ≥ 120 题；voyage 2048 vs 1024 维度评测出结果 | `06-...md §12` 与 `eval-results/m3-embedding-poc.md` 都齐备 | **维度选型决策由人拍板（基于 §8 决胜规则）**；M3 → M6 过渡硬指标：chunker 参数若改动，必须先在 20 篇 POC 上确认 chunk_id 漂移率 ≤ 5% 才允许进 M6 |
+| **M3** 评测集 + Embedding 维度决胜 ✅ | TeleQnA 抽取 + 转化 119 题；金标准 v1.yaml；voyage 2048 vs 1024 维度决胜 → **1024 胜出**（2026-05-16，差距 ≤ 2pp 触发 tie-fallback） | `06-...md §12` 与 `eval-results/m3-embedding-poc.md` 齐备；2048 collection 已 drop | ✅ 人已签字（2026-05-16）；M3 → M6 过渡硬指标：chunker 参数若改动，必须先在 20 篇 POC 上确认 chunk_id 漂移率 ≤ 5% 才允许进 M6 |
 | **M4** Agent + 后端 | LangGraph 主干 + self-RAG + 工具节点；FastAPI + SSE + Auth + DB；Alembic migration | `03-agent.md §14` + `04-backend-api.md §12` 全绿；CI 集成测全过 | self-RAG retry 是否过激；鉴权 / RBAC 边界 |
 | **M5** 前端 | Flutter chat + SSE 客户端、阅读器、管理后台、checkpoint UI 闭环 | `05-frontend.md §14` 全绿 | **UX 体验由人主审**（流式动效、引用 chip、checkpoint 闭环易用度）|
 | **M6** 全量索引 | GSMA R18+R19 TS-only 5G 系列 1271 篇全部 indexed（voyage × 胜出维度）；BM25 持久化；全量图片 Vision 命中 hash 缓存；POC 20 篇通过 `--skip-indexed` 复用 | `02-...md §8` 生产清单全勾；磁盘占用与成本符合 `02-tech-selection.md §15` 预算（~150M voyage tokens；占 200M 额度 75%） | 全量跑前**必须由人 approve 预算与并发策略**；M3 chunker 漂移率门禁必须先过 |

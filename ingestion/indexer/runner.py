@@ -267,8 +267,8 @@ def pipeline_hf_cmd(
         8, help="单 spec vision fan-out 并发（mimo RPM 100 时 8 是经验值）"
     ),
     dimensions: str = typer.Option(
-        "2048,1024",
-        help="逗号分隔的 multidim dim 列表（仅 --concurrent>0 生效；voyage-4-large 上限 2048）",
+        "1024",
+        help="逗号分隔的 dim 列表（仅 --concurrent>0 生效；M3 决胜后单值 1024；voyage-4-large 上限 2048）",
     ),
     dead_letter_dir: Path = typer.Option(
         None, help="失败 spec 落盘目录；默认 INGEST_DATA_DIR/failed/"
