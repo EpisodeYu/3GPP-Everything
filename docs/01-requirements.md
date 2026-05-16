@@ -169,7 +169,7 @@ LangGraph 编排，节点包含：
 
 - **Docker Compose** 全栈编排
 - 公网暴露 + 域名 + Let's Encrypt HTTPS + Nginx 反代 + 多用户鉴权
-- 服务器 `/dev/vda2` 当前仅剩 5.4GB，**项目启动前需要准备 `/data` 可用空间 ≥ 50GB**（推荐扩容 +50GB；最低不低于 +30GB，且 POC 期需串行跑两个 embedding provider 而非双轨并存）
+- 服务器 `/dev/vda2` 当前仅剩 5.4GB，**项目启动前需要准备 `/data` 可用空间 ≥ 50GB**（推荐扩容 +50GB；最低不低于 +30GB；M2-M3 维度 ablation 期 voyage 2048+1024 双 collection 临时占 ~7-8GB，M3 决胜后清理输者）
 
 ### 4.5 数据持久化
 

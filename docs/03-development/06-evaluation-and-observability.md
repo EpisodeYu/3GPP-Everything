@@ -335,34 +335,50 @@ async def test_golden_v1_full(api_client):
     assert mean(r.ragas_faithfulness for r in results) >= 0.85
 ```
 
-## 8. Embedding POC 决胜评测
+## 8. Embedding 维度决胜评测（2026-05-16 修订）
+
+> **决策变更**：放弃原"voyage / 智谱 embedding-3 双轨决胜"，改为"voyage 单轨 + 2048/1024 维度 ablation"。
+> 详见 [`docs/02-tech-selection.md §3.1`](../02-tech-selection.md#31-选型决策2026-05-16) 与
+> [`docs/03-development/02-ingestion-and-indexing.md §4.7`](02-ingestion-and-indexing.md#47-poc-验证步骤修订)。
+> 智谱 `embedding-3` 仅保留代码层 fallback，不进入决胜评测。
 
 这是 M3 关键决策点。专用脚本 `eval/embedding_poc.py`：
 
 ```python
 async def main():
-    # 1. 两套 collection 已就绪 (M2 完成): tgpp_chunks_voyage / tgpp_chunks_glm
+    # 1. 两个 collection 已就绪 (M2 完成):
+    #    tgpp_chunks_voyage_d2048 / tgpp_chunks_voyage_d1024
+    #    （voyage MRL 性质让一次 API 调用同时产 2048 + 1024 维向量）
     # 2. 关掉 Agent 上层，仅评 retrieval-only
     items = load_golden("eval/golden/v1.yaml")
-    for provider in ["voyage", "glm"]:
+    for dim in [2048, 1024]:
         recall_at_5, recall_at_10, recall_at_20, mrr = [], [], [], []
         for it in items:
-            hits = await retrieve_only(it.question, provider=provider, top_k=20)
+            hits = await retrieve_only(
+                it.question, provider="voyage", dim=dim, top_k=20
+            )
             r5 = compute_section_recall(hits[:5], it.expected_specs)
             r10 = compute_section_recall(hits[:10], it.expected_specs)
             r20 = compute_section_recall(hits[:20], it.expected_specs)
             mrr.append(compute_mrr(hits, it.expected_specs))
             ...
-        print(f"{provider} | R@5={mean(r5):.2f} R@10={mean(r10):.2f} R@20={mean(r20):.2f} MRR={mean(mrr):.2f}")
+        print(f"voyage_d{dim} | R@5={mean(r5):.2f} R@10={mean(r10):.2f} "
+              f"R@20={mean(r20):.2f} MRR={mean(mrr):.2f}")
 ```
 
 **决胜规则**（写在文档与 README）：
 
-- R@10 差距 > 5% → 选 R@10 高者
-- 否则比 MRR；MRR 差距 > 5% → 选高者
-- 否则差距不显著 → 选**智谱 embedding-3**（成本低、零依赖）
+- R@10 差距 > 2% → 选 R@10 高者
+- 否则比 MRR；MRR 差距 > 2% → 选高者
+- 否则差距不显著 → 选 **1024 维**（存储省一半、检索 latency 快 30-50%、HNSW 内存占用更友好）
 
-结果一并 push 到 Langfuse 与 git 一个 `eval-results/m3-embedding-poc.md` 记录决策。
+结果一并 push 到 Langfuse 与 git 一个 `eval-results/m3-embedding-poc.md` 记录决策。决胜后立即 drop 输者 Qdrant collection。
+
+**M3 → M6 过渡硬指标**（2026-05-16 新增）：
+
+- 决胜后若任何 chunker / vision 改动会让 content 变化（影响 chunk_id），必须在 20 篇 POC 上重跑改动后的 chunker → diff chunk_id 集合
+- **漂移率 > 5% 视为"chunker 未稳定"**，禁止进入 M6 全量索引；先在 20 篇上 ablation 确认指标改善才能上 M6
+- 漂移率 ≤ 5% 时 M6 可通过 `--skip-indexed` 跳过 POC 20 篇，省 ~8M voyage tokens
 
 ## 9. 成本与用量监控
 

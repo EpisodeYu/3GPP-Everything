@@ -4,7 +4,7 @@
 - ensure_schema 建表 idempotent
 - upsert_chunks 写入 + count
 - 同 chunk_id + provider 重写覆盖（不重复）
-- 同 chunk_id 不同 provider 共存（双轨）
+- 同 chunk_id 不同 provider 共存（voyage 主轨 + GLM fallback 切换期）
 - purge_spec 按 spec_id + provider 删
 - _to_sync_psycopg 把 asyncpg dsn 转为 psycopg dsn
 - chunks_to_rows 辅助 round-trip
