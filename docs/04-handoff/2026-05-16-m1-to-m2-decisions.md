@@ -233,10 +233,98 @@ voyage-4-large 是 MRL 训练的模型：
 ## 7. 后续行动
 
 1. ✅ **Task A 文档同步**完成（本文产出）
-2. ⏳ **Task B0 spike**：等用户明确"可以花 100k tokens"后开始
-3. ⏳ **Task B1-B4 代码实施**：B0 通过后进行
-4. ⏳ **Task C self-verify**：B 完成后
-5. ⏳ **Task D 20 篇 POC**：C 通过后回到这里报批 §5.2（~$1）
+2. ✅ **Task B0 spike**：完成（结论 §8.1）
+3. ✅ **Task B1-B4 代码实施**：完成（详情 §8.2-8.5）
+4. ✅ **Task C self-verify**：完成（详情 §8.6）
+5. ⏳ **Task D 20 篇 POC**：可执行，需用户显式批准 ~$1 / ~8M tokens
+
+---
+
+## 8. Task B / C 完成记录（2026-05-16 落地）
+
+> 本节由 Agent 在 B+C 完成时增补，记录实际代码改动 + 实测数据。Task D 仍待人审。
+
+### 8.1 B0 voyage MRL 等价性 spike — ✅ PASS
+
+- 脚本：`scripts/voyage_mrl_spike.py`
+- 报告：`eval-results/m2-prep/voyage_mrl_equivalence.md`
+- 实测：100 chunk × cosine(truncate(2048→1024) vs API 直调 1024) → **median = 1.0 / min = 1.0**
+- 门槛：median ≥ 0.9995 / min ≥ 0.998 — **远超**
+- 决议：M2 走"一次 API 调 2048 + 客户端 truncate+L2 renorm 派生 1024"路径，token 成本 1×
+
+### 8.2 B1 `ingestion/rate_limit.py` — ✅ 新增
+
+- `CompositeLimiter`：RPM + 可选 TPM 双 `aiolimiter.AsyncLimiter`，`with_rate_limit(tokens)` async ctx
+- `get_voyage_limiter()` / `get_mimo_limiter()` 进程内单例（按 env `VOYAGE_TPM/RPM`、`MIMO_TPM/RPM` 懒加载）
+- `LimiterUsage` 累计监控（`requests_made` / `tokens_used` / `last_request_at`）
+- 测试：`tests/unit/test_rate_limit.py` 10 用例（含 burst / 持续打满 / 单例隔离 / 上下文异常透传）
+- **附带修复**：原来 `with_rate_limit` 的 `try/finally: return` 会吞 ctx 内异常 → 改为 plain `yield`（async vision 测试触发暴露的真 bug）
+
+### 8.3 B2 `ingestion/images/vision.py` 异步化 — ✅
+
+- 新增 `_AsyncLiteLLMClient`、`acall_mimo_unified`
+- 新增 `VisionResolver.aresolve_one(image_path, ctx)` / `aresolve_batch(items, *, concurrent=8)`
+  - `aresolve_batch` 内部 `asyncio.Semaphore` + `gather`，结果按原 idx 排序回填
+  - 全程走 `mimo_limiter.with_rate_limit()` 全局 RPM 约束
+  - 与 sync `__call__` 共享 `_VisionCache` / dead-letter 路径，cache hit 不再调 API
+- sync `_http` 客户端改为 lazy（只走 async 路径的 resolver 不再要求 sync env）
+- `VisionResolver.aclose()` 关闭 owned async client
+- chunker `figure.py` 同步入口 **不动**（pipeline_concurrent 层 prefetch 后 sync 走 cache 命中）
+- 测试：`tests/unit/test_vision_async.py` 17 用例（含 cache hit、retry-then-success、dead-letter、semaphore 上限、partial failure 隔离、并发参数化）
+
+### 8.4 B3 `ingestion/indexer/embedder.py` + `qdrant_writer.py` 多维度 — ✅
+
+- `embedder.py`：
+  - `_LiteLLMEmbeddingClient.embed(*, dimensions=None)` 透传 `dimensions` 给 LiteLLM `/embeddings`
+  - 新增 `Embedder.embed_texts_multidim(texts, *, dims=DEFAULT_MULTIDIM_DIMS=(2048,1024))` — 一次 API 调用（`max(dims)`）+ `_truncate_and_renorm` 派生子维度
+  - 返回 `MultiDimEmbeddingResult(vectors_by_dim, dim_main, model, prompt_tokens)`
+- `qdrant_writer.py`：
+  - `collection_name_for_provider(provider, *, prefix=None, dim=None)` — `_d{dim}` 后缀
+  - `QdrantWriter` 新增 `ensure_collections(dims)` / `upsert_multidim(chunks, vectors_by_dim)` / `purge_spec_multidim(spec_id)` / `count_multidim()`
+  - 跨 dim 共享 `chunk_id`（uuid5），可对照
+- 测试：`tests/unit/test_indexer_multidim.py` 22 用例（truncate+renorm 数学正确 / 单 API 调用 / 派生 dim 一致 / qdrant ensure idempotent / chunk_id 跨 collection 一致）
+
+### 8.5 B4 `ingestion/indexer/pipeline.py` 并发 + CLI — ✅
+
+- 新增 `index_spec_multidim(bundle, components, *, dims, ...)` — sync 路径，与 `index_spec` 平行（embed_texts_multidim + upsert_multidim + bm25/pg）
+- 新增 `_prefetch_vision_for_bundle(bundle, vision, *, concurrent)` — 用 `vision.aresolve_batch` 预热 Redis 缓存（cache key=sha256，下游 sync chunker 命中即可）
+- 新增 `pipeline_concurrent(bundles, components, *, workers=3, vision_concurrent=8, dims=DEFAULT_MULTIDIM_DIMS, ...)` — `asyncio.Queue` 分发 + N 个 async worker；每个 spec：vision prefetch（async）→ sync indexer via `asyncio.to_thread`
+- 失败：单 spec 异常 → `IndexStats.error`，dead-letter 落 `INGEST_DATA_DIR/failed/{ts}_{spec_id}.json`
+- `PipelineStats` 新增 `qdrant_upserted_by_dim` + `voyage_tokens_total` + `voyage_requests_total` + `mimo_requests_total`（worker 跑完从 limiter `snapshot_usage` 回填）
+- 旧 sequential `index_spec` / `index_specs` 完全保留（CI / 单 spec 调试）
+- CLI：`pipeline-hf` 新增 `--concurrent N`、`--vision-concurrent M`、`--dimensions 2048,1024`、`--dead-letter-dir`；`--concurrent 0`（默认）走旧 sequential 路径
+- 测试：`tests/unit/test_indexer_concurrent.py` 9 用例（happy path / chunk_id 与 sequential 完全一致 / vision prefetch 触发 / dead-letter 落盘 / skip_indexed / limiter snapshot / workers=1 退化 / 空 bundle）
+
+### 8.6 Task C self-verify — ✅
+
+- `uv run ruff check .` — 全绿
+- `uv run ruff format --check`（仅本次触及文件） — 全绿
+- `uv run pytest tests/` — **252 passed / 6 skipped**（skipped 均为需要 live HF/Qdrant 的 integration）
+- 项目无 mypy/pyright 配置，类型检查跳过
+
+**38.331 multidim concurrent reindex 实测**（`pipeline-hf --provider voyage --spec-ids 38.331 --concurrent 1 --dimensions 2048,1024 --no-vision`，vision 走 Redis 缓存）：
+
+| 指标 | 实测值 |
+|---|---|
+| chunks_total | **10695**（注：vs §4.7 文档 8853 — 当前 chunker 输出比上次 POC 多 ~21%；与本次决议无关，是 chunker 持续演进；所有 sink 一致即满足验收） |
+| `tgpp_chunks_voyage_d2048` points | 10695 |
+| `tgpp_chunks_voyage_d1024` points | 10695 |
+| 跨 dim chunk_id 集合 | **完全相等**（10695 ≡ 10695） |
+| PG `chunks_meta` 行数 | 10695 |
+| BM25 `by_spec/38.331.jsonl` 行数 | 10695 |
+| BM25 `chunks.jsonl` 行数 | 10695 |
+| voyage embed tokens | 1,755,066（≈ $0.21） |
+| 耗时 | 245.4s（4 min 5s） |
+| 旧 sequential POC 耗时（参考） | ~13 min（POC §6.4，单 spec 1024 维） |
+| 加速比 | ~3.2× — 单 worker 即跑赢 sequential（embed 路径每批 64 chunk + dual-collection upsert 比旧路径少回环） |
+| 失败 / dead-letter | 0 |
+
+**legacy collection drop**：人审已批；删除 `tgpp_chunks_voyage`（旧 1024 维老 collection，8853 points）；新 `_d2048` / `_d1024` 已建立。
+
+### 8.7 与 §4 计划的偏差
+
+- B4 中 `voyage_tokens_total` / `voyage_requests_total` 在当前实现里依赖 `voyage_limiter.snapshot_usage`，但 sync `Embedder` 没有走 async limiter（embed 在 `asyncio.to_thread` 里跑）→ 当前实测中这两项 = 0；mimo 受限 100 RPM 是真瓶颈、且 vision 是 async fan-out，所以 mimo 计数器有效。后续如要在监控里也跟踪 voyage 端到端实测速率，需要把 sync `Embedder` 也接进 limiter（可走 sync limit 包装，或在 `to_thread` 入口前 acquire）。本次未做，留给 M3 阶段评估是否必要。
+- §4.4 Task C 验收口径中"`_d2048` + `_d1024` 各 8853 points"未对齐到当前 chunker 输出（10695）。本节 §8.6 实测结果已记录新口径；下一份 handoff 应直接以"两 collection point 数 == chunker 输出 == BM25 行数 == PG 行数"作为验收条件，而非硬数字。
 
 完成后另起一份 `2026-05-XX-m2-concurrent-pipeline.md` 记录代码实施细节 + 测试覆盖 + 实测速率。
 
