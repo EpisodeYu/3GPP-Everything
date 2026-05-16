@@ -21,6 +21,12 @@ frontend/android/.gradle/
 data/
 eval-results/
 
+# eval 中间产物（v1.yaml 入库，draft / spike / 失败 / 跳过 jsonl 不入库）
+eval/golden/*.draft.yaml
+eval/golden/*.failed.jsonl
+eval/golden/*.skipped.jsonl
+eval/teleqna/data/
+
 # IDE
 .vscode/
 .idea/

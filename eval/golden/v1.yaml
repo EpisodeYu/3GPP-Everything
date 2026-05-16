@@ -1,0 +1,2252 @@
+version: 1
+created_at: '2026-05-16'
+total: 119
+sources:
+- teleqna_transformed
+categories:
+- definition
+- formula
+- multi_section
+- negative
+- procedure
+- table_lookup
+items:
+- category: definition
+  language: en
+  question: How is the UE's access to network exposure information controlled in 5G networks?
+  expected_specs:
+  - spec_id: '29.503'
+    sections: []
+  expected_facts:
+  - UE subscription record stored in UDM
+  - Network Exposure Access permission
+  - Operator controls access
+  - Part of UE subscription data
+  forbidden:
+  - AF's request to NEF
+  - SMF subscription record
+  - UE PDU Session ID
+  notes: Based on UDM subscription data for network exposure
+  source: teleqna_transformed
+  teleqna_origin_id: question 1054
+  id: def-001
+- category: definition
+  language: en
+  question: Describe the F1AP message in which the gNB-DU includes the low layer configuration for the UE during initial connection
+    setup.
+  expected_specs:
+  - spec_id: '38.473'
+    sections:
+    - 8.2.3
+  expected_facts:
+  - gNB-DU includes low layer configuration in INITIAL UL RRC MESSAGE TRANSFER.
+  - Message is sent from gNB-DU to gNB-CU.
+  - Carries low layer configuration for UE setup.
+  - Part of F1AP protocol for initial UE context.
+  - Used during initial RRC connection establishment.
+  forbidden: []
+  notes: Defined in 3GPP TS 38.473 F1AP messages.
+  source: teleqna_transformed
+  teleqna_origin_id: question 1287
+  id: def-002
+- category: definition
+  language: en
+  question: What information does the H-SMF provide to the V-SMF in the Nsmf_PDUSession_Create Response according to 3GPP
+    specifications?
+  expected_specs:
+  - spec_id: '29.502'
+    sections: []
+  expected_facts:
+  - H-SMF provides VPLMN Specific Offloading Information
+  - Information is sent to V-SMF in Nsmf_PDUSession_Create Response
+  - Offloading information is specific to VPLMN
+  - Content defined in 3GPP 29.502
+  - Part of H-SMF to V-SMF interaction
+  forbidden:
+  - V-EASDF IP address
+  - DNS server address provided by HPLMN
+  - HR-SBO authorization result
+  notes: Relates to Nsmf_PDUSession_Create service operation in 3GPP 29.502
+  source: teleqna_transformed
+  teleqna_origin_id: question 1822
+  id: def-003
+- category: definition
+  language: en
+  question: Describe the purpose of the Binding Indication in the context of NF service discovery procedures in 5G systems.
+  expected_specs:
+  - spec_id: '29.500'
+    sections: []
+  expected_facts:
+  - Indicates target for subsequent requests
+  - From NF service consumer
+  - Regarding data context or resource
+  - Used in NF service discovery procedure
+  - Part of 5G Service Based Architecture
+  forbidden:
+  - To authorize the request from the NF service consumer
+  - To select the NF service producer instance
+  - To notify of newly registered NF instances
+  notes: Concept related to service discovery in 5G SBI per 3GPP 29.500.
+  source: teleqna_transformed
+  teleqna_origin_id: question 1881
+  id: def-004
+- category: definition
+  language: en
+  question: In LTE's Licensed Spectrum Access (LAA), what determines the maximum transmission duration for the Physical Downlink
+    Shared Channel (PDSCH)?
+  expected_specs:
+  - spec_id: '36.213'
+    sections: []
+  expected_facts:
+  - Maximum PDSCH transmission duration in LAA is 2-10 ms.
+  - Determined by the channel access priority class.
+  - Specific to LTE Licensed Spectrum Access (LAA).
+  forbidden:
+  - channel bandwidth
+  - device's power level
+  - number of connected devices
+  source: teleqna_transformed
+  teleqna_origin_id: question 2128
+  id: def-005
+- category: definition
+  language: en
+  question: What is the function of the Service Communication Proxy (SCP) in the indirect communication model when delegated
+    discovery is not used in the 5G Service Based Architecture?
+  expected_specs:
+  - spec_id: '29.500'
+    sections:
+    - '7.3'
+  expected_facts:
+  - SCP routes NF service requests
+  - In indirect communication model
+  - Without delegated discovery
+  - From NF service consumer to producer
+  - To a selected NF service producer instance
+  forbidden:
+  - SCP selects the NF service producer instance
+  source: teleqna_transformed
+  teleqna_origin_id: question 216
+  id: def-006
+- category: definition
+  language: en
+  question: What is the purpose of providing potential TRS/CSI-RS occasions to idle or inactive UEs in New Radio?
+  expected_specs:
+  - spec_id: '38.214'
+    sections: []
+  expected_facts:
+  - Provision of TRS/CSI-RS occasions to idle/inactive UEs
+  - Reduces UE power consumption for synchronization
+  - Aims to lower energy use in tracking or beam management
+  - Part of NR power saving mechanisms
+  - For UEs not in connected mode
+  forbidden: []
+  notes: Relevant to NR idle/inactive mode power saving for synchronization.
+  source: teleqna_transformed
+  teleqna_origin_id: question 2210
+  id: def-007
+- category: definition
+  language: en
+  question: In the Non-Standalone (NSA) architecture, what type of bearer is used for IMS Signalling and IMS voice?
+  expected_specs:
+  - spec_id: '38.300'
+    sections: []
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - Secondary Cell Group bearer
+  - Bearer for IMS Signalling in NSA
+  - Bearer for IMS voice in NSA
+  - Non-Standalone architecture
+  - 5G NR bearer type
+  forbidden:
+  - Master Cell Group bearer
+  - Split bearer
+  - Primary Cell Group bearer
+  notes: Bearer type defined in 3GPP specifications for NSA architecture.
+  source: teleqna_transformed
+  teleqna_origin_id: question 2278
+  id: def-008
+- category: definition
+  language: en
+  question: Describe the purpose and function of the NG-C interface in the NG-RAN architecture.
+  expected_specs:
+  - spec_id: '38.401'
+    sections: []
+  - spec_id: '38.413'
+    sections: []
+  expected_facts:
+  - NG-C interface connects NG-RAN node and AMF
+  - It transports control plane information
+  - Information is directed towards the AMF
+  - Supports control plane functions in NG-RAN
+  forbidden:
+  - Transport of user plane data
+  - Transport of NAS messages
+  source: teleqna_transformed
+  teleqna_origin_id: question 2477
+  id: def-009
+- category: definition
+  language: en
+  question: Explain the role and function of the Open Distributed Unit (O-DU) in the 5G RAN architecture.
+  expected_specs:
+  - spec_id: '38.401'
+    sections: []
+  expected_facts:
+  - O-DU stands for Open Distributed Unit.
+  - It is a distributed unit in the NG-RAN.
+  - It is positioned close to the radio unit.
+  - It implements RLC, MAC, and partial PHY layer functions.
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 2820
+  id: def-010
+- category: definition
+  language: en
+  question: What is the purpose of User Plane Security Enforcement information in 5G systems?
+  expected_specs:
+  - spec_id: '38.413'
+    sections: []
+  expected_facts:
+  - Provides NG-RAN with User Plane security policies.
+  - Used for enforcing security in PDU sessions.
+  - Policies include confidentiality and integrity protection.
+  - Information is communicated via NG-AP protocol.
+  forbidden:
+  - maximum UP integrity protection data rate
+  - determine User Plane Security Policy locally
+  - communicate maximum supported data rate for integrity protection
+  notes: User Plane Security Enforcement is an Information Element in NG-AP messages for PDU session security.
+  source: teleqna_transformed
+  teleqna_origin_id: question 2936
+  id: def-011
+- category: definition
+  language: en
+  question: What is the control mechanism for the additional behavior of the SMF related to 3GPP PS Data Off?
+  expected_specs:
+  - spec_id: '23.503'
+    sections: []
+  expected_facts:
+  - Local configuration from the PCF
+  - PCF policy controls SMF behavior
+  - SMF additional behavior for 3GPP PS Data Off
+  - Controlled by PCF configuration
+  forbidden:
+  - UE provisioned list of exempt services
+  - ATSSS feature
+  - IMS domain policy
+  notes: Related to 3GPP Release 18 for PS Data Off feature.
+  source: teleqna_transformed
+  teleqna_origin_id: question 3236
+  id: def-012
+- category: definition
+  language: en
+  question: What is the power saving scheme in NR that reduces UE power consumption by decreasing the number of PDCCH blind
+    decoding operations?
+  expected_specs:
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - PDCCH skipping is a power saving mechanism.
+  - It reduces the number of PDCCH blind decodings.
+  - This leads to lower UE power consumption.
+  - Introduced in 3GPP Release 16 for NR.
+  - Configured via RRC to limit PDCCH monitoring.
+  forbidden:
+  - Triggering of PDCCH monitoring
+  - Go-to-sleep signaling
+  - Dynamic DRX configuration
+  source: teleqna_transformed
+  teleqna_origin_id: question 3389
+  id: def-013
+- category: definition
+  language: en
+  question: Define DL RS power in the context of 3GPP standards.
+  expected_specs:
+  - spec_id: '36.213'
+    sections: []
+  - spec_id: '38.214'
+    sections: []
+  expected_facts:
+  - DL RS power is the resource element power of the Downlink Reference Symbol.
+  - It measures power per resource element for downlink reference signals.
+  - Associated with power control procedures in LTE and NR.
+  - Used to indicate signal strength for reference symbols.
+  - Stands for Downlink Reference Symbol power.
+  forbidden: []
+  notes: Commonly defined in PHY layer specifications for power control.
+  source: teleqna_transformed
+  teleqna_origin_id: question 3642
+  id: def-014
+- category: definition
+  language: en
+  question: What enhancements were specified for the 3GPP Northbound APIs in Release 16?
+  expected_specs:
+  - spec_id: '29.500'
+    sections: []
+  - spec_id: '29.501'
+    sections: []
+  expected_facts:
+  - Optimization of APIs
+  - Handling communication failure cases
+  - HTTP-based protocol or OpenAPI file improvements
+  - Additional deployment models
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 368
+  id: def-015
+- category: definition
+  language: en
+  question: What RNTI is responsible for controlling the transmit power of Sounding Reference Signals (SRS)?
+  expected_specs:
+  - spec_id: '38.214'
+    sections:
+    - '7'
+  expected_facts:
+  - TPC-SRS-RNTI is used for SRS power control.
+  - SRS transmit power is adjusted via DCI with TPC-SRS-RNTI.
+  - TPC-SRS-RNTI is a type of RNTI for uplink power control.
+  - Power commands for SRS are sent using TPC-SRS-RNTI.
+  forbidden:
+  - TPC-PUCCH-RNTI
+  - TPC-PUSCH-RNTI
+  notes: Relevant for NR uplink power control as per 3GPP TS 38.214.
+  source: teleqna_transformed
+  teleqna_origin_id: question 3794
+  id: def-016
+- category: definition
+  language: en
+  question: What does a UE configured for bandwidth part (BWP) operation receive from higher layers?
+  expected_specs:
+  - spec_id: '38.331'
+    sections:
+    - '5.3'
+  expected_facts:
+  - BWP parameter configurations
+  - For downlink and uplink BWPs
+  - Received via RRC configuration
+  - UE configured for BWP operation
+  forbidden:
+  - Frequency domain resource allocation
+  - Scheduling cell information
+  - PDCCH and PDSCH transmissions
+  source: teleqna_transformed
+  teleqna_origin_id: question 3822
+  id: def-017
+- category: definition
+  language: en
+  question: What is the intended purpose of EAS Relocation as specified in the 3GPP Release 16 capabilities for edge computing?
+  expected_specs:
+  - spec_id: '23.502'
+    sections:
+    - F
+  expected_facts:
+  - EAS Relocation is described in Annex F of TS 23.502
+  - Provides example procedures for EAS Relocation
+  - Pertains to Release 16 capabilities
+  - Illustrates scenarios for edge application server relocation
+  forbidden:
+  - enable roaming PDU Sessions
+  - provide low packet loss
+  - support Edge Relocation involving AF change
+  notes: Refer to TS 23.502 Annex F for EAS Relocation procedures.
+  source: teleqna_transformed
+  teleqna_origin_id: question 3853
+  id: def-018
+- category: definition
+  language: en
+  question: List the service types supported for QoE Measurement Collection in 3GPP Release 18.
+  expected_specs:
+  - spec_id: '23.502'
+    sections: []
+  expected_facts:
+  - QoE Measurement Collection supports DASH streaming services.
+  - QoE Measurement Collection supports MTSI services.
+  - QoE Measurement Collection supports VR services.
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 3954
+  id: def-019
+- category: definition
+  language: en
+  question: What is the role of VarMeasConfig in 3GPP NR specifications regarding UE measurements?
+  expected_specs:
+  - spec_id: '38.331'
+    sections:
+    - 5.3.5
+  expected_facts:
+  - VarMeasConfig accumulates measurement configuration
+  - Configures intra-frequency measurements
+  - Configures inter-frequency measurements
+  - Configures inter-RAT measurements
+  - Covers mobility-related measurements
+  forbidden:
+  - configure mobility behavior
+  - configure measurement reporting
+  - configure random-access procedure
+  notes: VarMeasConfig is specified in 38.331 for UE measurement configuration.
+  source: teleqna_transformed
+  teleqna_origin_id: question 3987
+  id: def-020
+- category: definition
+  language: en
+  question: Describe the charging architecture utilized by the 5G Data Connectivity domain in the context of 3GPP Release
+    15.
+  expected_specs:
+  - spec_id: '23.503'
+    sections: []
+  expected_facts:
+  - Generic converged charging architecture
+  - 5G Data Connectivity domain charging
+  - Converged charging framework
+  - Charging in 5G systems
+  forbidden:
+  - Unified charging architecture
+  - Distributed charging architecture
+  - Separate charging architecture
+  notes: References 3GPP Release 15 charging architecture specifications.
+  source: teleqna_transformed
+  teleqna_origin_id: question 4079
+  id: def-021
+- category: definition
+  language: en
+  question: What are the components of the NAS protocol used on the N1 interface in 5G systems?
+  expected_specs:
+  - spec_id: '24.501'
+    sections:
+    - '4'
+  expected_facts:
+  - NAS protocol on N1 interface
+  - Comprises NAS-MM and NAS-SM
+  - NAS-MM stands for Mobility Management
+  - NAS-SM stands for Session Management
+  - Used for UE-AMF communication
+  forbidden:
+  - NAS-LTE
+  - NAS-RAN
+  - NAS-UPF
+  notes: As defined in 3GPP TS 24.501
+  source: teleqna_transformed
+  teleqna_origin_id: question 4333
+  id: def-022
+- category: definition
+  language: en
+  question: What is the purpose of the UE-assistance indication in load-balancing steering mode according to 3GPP specifications?
+  expected_specs:
+  - spec_id: '24.501'
+    sections: []
+  expected_facts:
+  - UE decides split percentages based on internal state
+  - Used for UL traffic distribution
+  - UE informs UPF of its decision
+  - Applicable to data flows without strong steering requirements
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 4680
+  id: def-023
+- category: definition
+  language: en
+  question: What is the responsibility of the network slice broker in a 5G network slicing environment?
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - '5.15'
+  expected_facts:
+  - Enables tenant to dynamically request network resources
+  - Facilitates resource leasing from operator
+  - Based on US-NSI service requirements
+  - Part of network slice management functions
+  forbidden:
+  - orchestrate US-NSIs
+  - securely expose services to every US-NSI
+  - translate tenant requirements to US-NSIs' requirements
+  notes: Defined in network slicing context
+  source: teleqna_transformed
+  teleqna_origin_id: question 4772
+  id: def-024
+- category: definition
+  language: en
+  question: What type of inter-slice switching allows the UE to make the final decision to switch slices after the successful
+    completion of the Registration process?
+  expected_specs:
+  - spec_id: '23.502'
+    sections: []
+  expected_facts:
+  - UE-Initiated inter-slice switching
+  - UE makes final decision for slice switching
+  - Decision occurs after successful Registration
+  - UE has authority to initiate slice switch
+  forbidden:
+  - Network-Triggered inter-slice switching
+  notes: Inter-slice switching types described in 3GPP specifications
+  source: teleqna_transformed
+  teleqna_origin_id: question 5154
+  id: def-025
+- category: definition
+  language: en
+  question: What is UE-Assisted Location Calculation based upon in 3GPP 5G specifications?
+  expected_specs:
+  - spec_id: '29.518'
+    sections: []
+  expected_facts:
+  - Network resources perform the location calculation
+  - Based on radio ranging measurements
+  - Measurements are provided by the UE
+  forbidden:
+  - Wi-Fi signal strength
+  - GPS measurements
+  - cellular tower triangulation
+  source: teleqna_transformed
+  teleqna_origin_id: question 5259
+  id: def-026
+- category: definition
+  language: en
+  question: Describe the information included in the request for PDU Session traffic analytics as specified in 3GPP Release
+    18.
+  expected_specs:
+  - spec_id: '29.502'
+    sections: []
+  expected_facts:
+  - SUPI or a list of SUPIs or Internal-Group-Id or any UE
+  - Application Identifier
+  - IP Descriptions or Domain Descriptors
+  - Area of Interest
+  - S-NSSAI
+  - DNN
+  forbidden: []
+  notes: Information pertains to Nsmf service-based interface for analytics.
+  source: teleqna_transformed
+  teleqna_origin_id: question 5317
+  id: def-027
+- category: definition
+  language: en
+  question: What is the purpose of the NR Coverage and Capacity Optimization (CCO) function?
+  expected_specs:
+  - spec_id: '38.300'
+    sections: []
+  expected_facts:
+  - Detect coverage issues
+  - Mitigate coverage issues
+  - Detect cell edge interference issues
+  - Mitigate cell edge interference issues
+  - Optimize network coverage and capacity
+  forbidden:
+  - enable inter-system load balancing
+  - optimize 2-step RACH procedure
+  - enhance mobility optimization
+  source: teleqna_transformed
+  teleqna_origin_id: question 5736
+  id: def-028
+- category: definition
+  language: en
+  question: Describe the types of information stored in the Home Subscriber Server (HSS).
+  expected_specs:
+  - spec_id: '23.401'
+    sections:
+    - '4.3'
+  expected_facts:
+  - HSS holds user identification information.
+  - HSS holds user numbering information.
+  - HSS holds user security information.
+  - HSS holds user location information.
+  - HSS holds user profile information.
+  forbidden: []
+  notes: HSS is a key network element in the EPS architecture.
+  source: teleqna_transformed
+  teleqna_origin_id: question 5825
+  id: def-029
+- category: definition
+  language: en
+  question: What types of services can be included in a subscription in 3GPP systems?
+  expected_specs:
+  - spec_id: '29.503'
+    sections: []
+  expected_facts:
+  - Basic Services can be part of a subscription
+  - PS services are included in subscriptions
+  - IM-Services are types of subscription services
+  - Subscriptions define services provided by network operators
+  forbidden:
+  - Teleservices
+  - Bearer services
+  - Value added services
+  notes: Subscription service types are defined in the context of UDM services.
+  source: teleqna_transformed
+  teleqna_origin_id: question 589
+  id: def-030
+- category: definition
+  language: en
+  question: What charging architecture is specified for 5G data connectivity in Phase 1 of the 5G System Architecture according
+    to 3GPP Release 18?
+  expected_specs:
+  - spec_id: '23.503'
+    sections: []
+  expected_facts:
+  - Nchf is the charging architecture used
+  - for 5G data connectivity
+  - in Phase 1 of the 5G System Architecture
+  - as per 3GPP Release 18
+  - defined in the 5G charging framework
+  forbidden:
+  - NG-RAN charging architecture
+  - CHF charging architecture
+  - SMF charging architecture
+  notes: Charging architecture specified in 3GPP 23.503
+  source: teleqna_transformed
+  teleqna_origin_id: question 6115
+  id: def-031
+- category: definition
+  language: en
+  question: What physical channel is used to carry Hybrid ARQ ACK/NAKs in response to uplink transmissions?
+  expected_specs:
+  - spec_id: '36.213'
+    sections:
+    - '6.9'
+  expected_facts:
+  - PHICH carries Hybrid ARQ ACK/NAKs
+  - PHICH is for uplink HARQ feedback
+  - Physical Hybrid ARQ Indicator Channel
+  - HARQ feedback in LTE for uplink
+  - PHICH provides ACK/NAK indication
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 6187
+  id: def-032
+- category: definition
+  language: en
+  question: What is the purpose of the scheduler in the MAC layer of a gNB?
+  expected_specs:
+  - spec_id: '38.300'
+    sections:
+    - 5.3.5
+  expected_facts:
+  - Allocates physical layer resources
+  - For uplink transmission
+  - For downlink transmission
+  - Scheduler operates in MAC layer
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 6432
+  id: def-033
+- category: definition
+  language: en
+  question: What is the intended purpose of Application Specific Congestion control for Data Communication (ACDC) as defined
+    in 3GPP?
+  expected_specs:
+  - spec_id: '24.501'
+    sections: []
+  expected_facts:
+  - ACDC allows or prevents new access attempts.
+  - Control is based on particular applications.
+  - Purpose is application-specific congestion control.
+  - Differentiates access attempts by application type.
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 6452
+  id: def-034
+- category: definition
+  language: en
+  question: What is the primary purpose of the Random Access Channel (RACH) in 5G NR systems?
+  expected_specs:
+  - spec_id: '38.300'
+    sections: []
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - RACH carries scheduling requests
+  - RACH has limited control information
+  - RACH is used for random access procedure
+  forbidden:
+  - Transmit data themselves
+  - Carry ACK/NAK feedback
+  - Indicate resource and other transmission parameters
+  notes: RACH purpose defined in NR specifications for initial access and scheduling requests.
+  source: teleqna_transformed
+  teleqna_origin_id: question 6602
+  id: def-035
+- category: definition
+  language: en
+  question: What is the primary objective of the MINT feature as defined in 3GPP Release 17?
+  expected_specs:
+  - spec_id: '23.502'
+    sections: []
+  expected_facts:
+  - MINT enables UEs to obtain service from PLMNs offering Disaster Roaming
+  - Aim is to provide connectivity during disasters via Disaster Roaming
+  - Specific to PLMNs that support Disaster Roaming service
+  - Part of 3GPP Release 17 for crisis management scenarios
+  forbidden:
+  - any PLMN
+  - without Disaster Roaming service
+  - from 4G or 3G networks specifically
+  notes: MINT is associated with Disaster Roaming features in 3GPP Release 17.
+  source: teleqna_transformed
+  teleqna_origin_id: question 6777
+  id: def-036
+- category: definition
+  language: en
+  question: What service operation does the UDM use to update session management subscriber data that is stored in the SMF?
+  expected_specs:
+  - spec_id: '29.503'
+    sections: []
+  expected_facts:
+  - UDM invokes Nudm_SDM_Notification service operation.
+  - It updates session management subscriber data.
+  - The data is stored in the SMF.
+  - The operation is part of Nudm SDM services.
+  forbidden:
+  - Nudr_DM_Unsubscribe
+  - Nudm_UECM_Deregistration
+  - Nudr_DM_Update
+  notes: Service operation defined in 3GPP 29.503
+  source: teleqna_transformed
+  teleqna_origin_id: question 681
+  id: def-037
+- category: definition
+  language: en
+  question: What identifier is used to uniquely identify the UE within the AMF in the 5G System?
+  expected_specs:
+  - spec_id: '38.413'
+    sections: []
+  expected_facts:
+  - AMF UE NGAP ID identifies UE within AMF
+  - Unique per AMF set
+  - Used on N2 reference point
+  - Part of NGAP protocol
+  - Uniquely identifies UE in AMF context
+  forbidden:
+  - SUPI
+  - 5G-GUTI
+  - GUAMI
+  notes: Identifier defined in NGAP protocol for N2 interface.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7005
+  id: def-038
+- category: definition
+  language: en
+  question: What measurement is agreed to be introduced for sidelink positioning using sidelink PRS measurements in 3GPP Release
+    18?
+  expected_specs:
+  - spec_id: '38.214'
+    sections: []
+  expected_facts:
+  - SL RSRP measurement
+  - for SL Positioning
+  - using SL PRS measurements
+  - agreed in 3GPP Release 18
+  forbidden:
+  - SL RSRQ measurement
+  - SL RTOA measurement
+  - SL RSSI measurement
+  notes: SL RSRP measurement is specified for sidelink positioning in NR PHY procedures.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7267
+  id: def-039
+- category: definition
+  language: en
+  question: What type of data is provided by the EAS address and DNAI Mapping Information record in the UDR within a 5G network?
+  expected_specs:
+  - spec_id: '29.503'
+    sections: []
+  expected_facts:
+  - Provides DNAI mapping information
+  - Stored in Unified Data Repository
+  - Used for edge computing in 5G
+  - Part of 5G core network data
+  forbidden:
+  - EAS address information
+  - DNN and S-NSSAI
+  - AF Identifier
+  notes: Concept related to 5G edge computing and UDR data in Release 18
+  source: teleqna_transformed
+  teleqna_origin_id: question 7315
+  id: def-040
+- category: definition
+  language: en
+  question: Explain the role of the gNB-CU in the NG-RAN architecture as defined in 3GPP standards.
+  expected_specs:
+  - spec_id: '38.401'
+    sections: []
+  expected_facts:
+  - gNB-CU connects gNBs to the 5GC
+  - It provides an interface to the 5G Core Network
+  - Facilitates connectivity between gNBs and core NFs like AMF
+  forbidden:
+  - gNB-CU interconnects gNBs via Xn interface
+  - gNB-CU consists of CU-CP and CU-UPs
+  notes: Refers to 3GPP Release 17 NG-RAN architecture.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7330
+  id: def-041
+- category: definition
+  language: en
+  question: What is the finest granularity of QoS differentiation at the NAS level in a PDU session?
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - '5.7'
+  expected_facts:
+  - QoS flows are the finest granularity for QoS differentiation.
+  - This granularity operates at the NAS level.
+  - QoS flows are part of PDU sessions.
+  forbidden: []
+  notes: QoS model details in 23.501 clause 5.7.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7534
+  id: def-042
+- category: definition
+  language: en
+  question: Describe the mechanism for determining the contention window size in the listen-before-talk algorithm used for
+    transmitting the Physical Downlink Shared Channel in Licensed Assisted Access.
+  expected_specs:
+  - spec_id: '36.213'
+    sections:
+    - '15.2'
+  expected_facts:
+  - Contention window size is variable and not fixed.
+  - Determined by the channel access priority class.
+  - Channel access priority class defines the contention window.
+  - Used in LBT procedure for LAA PDSCH transmission.
+  - The contention window size is selected based on priority class.
+  forbidden:
+  - fixed for all devices
+  - based on channel frequency
+  - determined randomly
+  notes: Refers to LBT channel access in LAA for downlink shared channel.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7641
+  id: def-043
+- category: definition
+  language: en
+  question: Describe the purpose of an MRB context in a gNB-DU as specified in 3GPP standards.
+  expected_specs:
+  - spec_id: '38.473'
+    sections: []
+  expected_facts:
+  - MRB context controls F1-U tunnels
+  - associated with MBS sessions
+  - operates in gNB-DU
+  - part of F1AP protocol
+  - for multicast/broadcast traffic
+  forbidden: []
+  notes: Concept defined in 3GPP TS 38.473 for F1AP MBS procedures.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7828
+  id: def-044
+- category: definition
+  language: en
+  question: What is the reference point for mobility management and paging procedures between EPS and CS domain?
+  expected_specs:
+  - spec_id: '23.401'
+    sections: []
+  expected_facts:
+  - SGs-interface is the reference point
+  - between EPS and CS domain
+  - handles mobility management
+  - handles paging procedures
+  forbidden:
+  - Gs-interface
+  - S6a-interface
+  - Gr-interface
+  source: teleqna_transformed
+  teleqna_origin_id: question 7839
+  id: def-045
+- category: definition
+  language: en
+  question: What symbols are included in the last slots of a slot configuration period in NR?
+  expected_specs:
+  - spec_id: '38.214'
+    sections: []
+  expected_facts:
+  - Last slots contain only uplink symbols.
+  - Slot configuration period defines uplink and downlink slots.
+  - Uplink symbols are present in the final slots.
+  forbidden:
+  - downlink symbols in last slots
+  - flexible symbols in last slots
+  - no symbols in last slots
+  notes: Concept related to TDD frame structure and scheduling.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7866
+  id: def-046
+- category: definition
+  language: en
+  question: What does the acronym NG-RAN stand for in the context of 3GPP standards?
+  expected_specs:
+  - spec_id: '38.401'
+    sections: []
+  expected_facts:
+  - NG-RAN stands for Next Generation Radio Access Network.
+  - It refers to the radio access network for 5G systems.
+  - The term is defined in 3GPP specifications.
+  forbidden:
+  - Non-Geographical Radio Access Network
+  - New Generation Radio Antenna Node
+  - Network Gateway Radio Access Node
+  source: teleqna_transformed
+  teleqna_origin_id: question 7935
+  id: def-047
+- category: definition
+  language: en
+  question: What is the purpose of the Control Plane Protocol Stack for service-based interfaces in the 5G Core Network?
+  expected_specs:
+  - spec_id: '29.500'
+    sections: []
+  expected_facts:
+  - Manages service-based interfaces in the 5GC
+  - Control plane protocol stack handles SBI management
+  - Service-based interfaces connect network functions in 5GC
+  - Purpose is interface management in the control plane
+  - Applies to 5G Core Network architecture
+  forbidden:
+  - Manages NAS transport procedures
+  - Establishes secure connection between UPF and SMF
+  - Manages user plane PDU Session establishment
+  source: teleqna_transformed
+  teleqna_origin_id: question 8168
+  id: def-048
+- category: definition
+  language: en
+  question: What is the purpose of the Service Capability Exposure Function (SCEF)?
+  expected_specs:
+  - spec_id: '23.401'
+    sections: []
+  expected_facts:
+  - SCEF securely exposes services and capabilities
+  - Exposure is to every US-NSI
+  - US-NSI refers to network slice instances
+  - Enables interaction between operator and tenant
+  - SCEF facilitates service exposure in telecom networks
+  forbidden:
+  - orchestrate and manage US-NSIs
+  - dynamically allocate network resources
+  - translate tenant requirements
+  source: teleqna_transformed
+  teleqna_origin_id: question 8171
+  id: def-049
+- category: definition
+  language: en
+  question: According to 3GPP 5G specifications, what charging principle should be possible to apply during an active session?
+  expected_specs:
+  - spec_id: '23.503'
+    sections: []
+  expected_facts:
+  - Calling Party Pays charging principle
+  - Applicable during active sessions
+  - Charging principle specified in standards
+  forbidden:
+  - Charge a 3rd party
+  - Split charging
+  notes: Charging principle for active sessions in PCC framework
+  source: teleqna_transformed
+  teleqna_origin_id: question 8266
+  id: def-050
+- category: definition
+  language: en
+  question: What is the function responsible for routing User Plane data towards the Serving Gateway?
+  expected_specs:
+  - spec_id: '23.401'
+    sections:
+    - '4.5'
+  expected_facts:
+  - eNB routes User Plane data to Serving Gateway
+  - Routing function is in eNB
+  - User Plane data is forwarded towards S-GW
+  - eNB handles data routing in EPS
+  forbidden:
+  - 5G
+  - AMF
+  - UPF
+  notes: Function related to eNB in LTE/EPS architecture.
+  source: teleqna_transformed
+  teleqna_origin_id: question 8389
+  id: def-051
+- category: definition
+  language: en
+  question: What information is included in the Location Reporting Control message sent by the AMF to the NG-RAN?
+  expected_specs:
+  - spec_id: '38.413'
+    sections:
+    - '8.1'
+  expected_facts:
+  - UE Location
+  - UE Presence in Area Of Interest
+  - Request Reference ID
+  forbidden: []
+  notes: Message defined in NG-AP protocol.
+  source: teleqna_transformed
+  teleqna_origin_id: question 8508
+  id: def-052
+- category: definition
+  language: en
+  question: What specific capability does the LCS feature provide for a Target UE regarding its positioning and Quality of
+    Service requirements?
+  expected_specs:
+  - spec_id: '29.518'
+    sections: []
+  expected_facts:
+  - Positioning within a specified Quality of Service
+  - LCS feature enables location positioning for Target UE
+  - Quality of Service parameters are defined for positioning
+  - Target UE can be positioned with QoS specifications
+  forbidden: []
+  notes: Based on 3GPP Release 17
+  source: teleqna_transformed
+  teleqna_origin_id: question 9112
+  id: def-053
+- category: definition
+  language: en
+  question: What identity is used to identify an Access and Mobility Management Function (AMF) in the NG-RAN architecture?
+  expected_specs:
+  - spec_id: '38.413'
+    sections:
+    - '8.2'
+  expected_facts:
+  - AMF Name identifies the AMF in NG-RAN
+  - Used in NG-AP protocol for AMF identification
+  - Unique identifier for Access and Mobility Management Function
+  - Referenced in NG Setup procedures
+  - Ensures correct routing to AMF
+  forbidden:
+  - NSAG
+  - NID
+  - gNB ID
+  notes: AMF Name is defined in 3GPP TS 38.413 for NG-AP procedures, such as NG Setup.
+  source: teleqna_transformed
+  teleqna_origin_id: question 9118
+  id: def-054
+- category: definition
+  language: en
+  question: What is the term used to describe the 5G Access Network when it is connected to a 5G Core Network?
+  expected_specs:
+  - spec_id: '23.501'
+    sections: []
+  expected_facts:
+  - Stand-Alone (SA)
+  - SA architecture
+  - 5G AN connected to 5G CN
+  forbidden:
+  - Non-Stand Alone
+  - NSA
+  notes: Concept defined in 3GPP TS 23.501 architecture specifications
+  source: teleqna_transformed
+  teleqna_origin_id: question 9243
+  id: def-055
+- category: definition
+  language: en
+  question: What is the definition of non-public networks according to 3GPP standards?
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - '5.30'
+  expected_facts:
+  - Networks intended for sole use of a private entity
+  - Specifically for enterprises or similar organizations
+  - Not available for general public use
+  - Defined in 5G System architecture for private networks
+  forbidden: []
+  notes: Concept defined in 3GPP 23.501 section 5.30
+  source: teleqna_transformed
+  teleqna_origin_id: question 9269
+  id: def-056
+- category: definition
+  language: en
+  question: What is the Mobile Originating Location capability in the context of LCS (Location Services)?
+  expected_specs:
+  - spec_id: '29.518'
+    sections: []
+  expected_facts:
+  - Mobile Originating Location is a UE capability.
+  - It allows the UE to obtain its own geographical location.
+  - It allows the UE to transfer its location to an LCS client.
+  - LCS client is an entity that receives location information.
+  - The location is defined geographically.
+  forbidden:
+  - obtaining location of another mobile station
+  - third-party location acquisition
+  - transferring location to another mobile station
+  notes: Concept related to Location Services in 5G systems
+  source: teleqna_transformed
+  teleqna_origin_id: question 9308
+  id: def-057
+- category: definition
+  language: en
+  question: What does the acronym SI represent in the context of the RRC protocol for NR?
+  expected_specs:
+  - spec_id: '38.331'
+    sections:
+    - 5.2.1
+  expected_facts:
+  - SI stands for System Information
+  - Used in RRC protocol context
+  - Defined in NR RRC specification
+  - Related to 3GPP Release 18
+  - Abbreviation for system information broadcasts
+  forbidden:
+  - Signal Integrity
+  - Service Interface
+  notes: Abbreviation defined in NR RRC, 38.331
+  source: teleqna_transformed
+  teleqna_origin_id: question 9653
+  id: def-058
+- category: definition
+  language: en
+  question: What is the definition of an acceptable cell in 3GPP standards?
+  expected_specs:
+  - spec_id: '24.501'
+    sections: []
+  expected_facts:
+  - An acceptable cell allows the UE to camp for limited service
+  - It supports emergency calls
+  - It enables receiving ETWS notifications
+  - It enables receiving CMAS notifications
+  forbidden:
+  - provides normal service
+  - not barred and fulfills cell selection criteria
+  - reserved for operator use
+  notes: Definition related to emergency services in NAS context.
+  source: teleqna_transformed
+  teleqna_origin_id: question 976
+  id: def-059
+- category: definition
+  language: en
+  question: What is the intended purpose of Fleet and Asset Management services in 3GPP specifications?
+  expected_specs:
+  - spec_id: '29.518'
+    sections: []
+  expected_facts:
+  - Track location and status of specific service group users
+  - Monitor vehicles, employees, children, animals, and assets
+  - Enable fleet management and asset tracking operations
+  - Part of location-based services for enterprise use cases
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 9926
+  id: def-060
+- category: formula
+  language: en
+  question: What is the mathematical formula used to compute the angle between the unit vectors of the Global Coordinate System
+    (GCS) and the Local Coordinate System (LCS) in 5G NR?
+  expected_specs:
+  - spec_id: '38.214'
+    sections: []
+  expected_facts:
+  - Angle is calculated using the inverse cosine function (acos)
+  - Formula involves the dot product of unit vector components
+  - Unit vectors are defined by components u, v, w for GCS and LCS
+  - The dot product is u1*u2 + v1*v2 + w1*w2
+  - Angle = acos(u1*u2 + v1*v2 + w1*w2)
+  forbidden:
+  - atan2 function
+  - asin function
+  notes: Formula for computing angle between coordinate system unit vectors
+  source: teleqna_transformed
+  teleqna_origin_id: question 3931
+  id: form-001
+- category: multi_section
+  language: en
+  question: What are the key functionalities that the RRC sublayer provides for sidelink communication in 3GPP Release 18?
+  expected_specs:
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - Configuration of sidelink resource allocation
+  - Reporting of UE sidelink information
+  - Measurement configuration and reporting for sidelink
+  - Reporting of UE assistance information for SL traffic patterns
+  forbidden: []
+  notes: Functionalities are defined across multiple sections in 38.331, such as sidelink configuration and reporting.
+  source: teleqna_transformed
+  teleqna_origin_id: question 1078
+  id: multi-001
+- category: multi_section
+  language: en
+  question: Identify the 3GPP system entities that are affected by the MUSIM feature in Release 17.
+  expected_specs:
+  - spec_id: '23.401'
+    sections: []
+  - spec_id: '23.501'
+    sections: []
+  - spec_id: '24.501'
+    sections: []
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - UE is impacted by MUSIM
+  - MME and AMF are impacted by MUSIM
+  - RAN and NG-RAN are impacted by MUSIM
+  - SGW-C and SMF are impacted by MUSIM
+  forbidden: []
+  notes: MUSIM impact in Release 17
+  source: teleqna_transformed
+  teleqna_origin_id: question 3920
+  id: multi-002
+- category: multi_section
+  language: en
+  question: What are the main functionalities of the Enhancement of support for Edge Computing feature in the 5G Core network
+    as specified in 3GPP Release 17?
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - '5.13'
+  - spec_id: '23.502'
+    sections:
+    - 5.2.8
+  - spec_id: '23.503'
+    sections:
+    - '6.1'
+  expected_facts:
+  - Discovery and re-discovery of Edge Application Server
+  - Edge relocation
+  - Network exposure to EAS
+  - Support of 3GPP application layer architecture
+  - AF guidance to PCF determination of URSP rules
+  forbidden: []
+  notes: Edge Computing enhancements in 3GPP Release 17
+  source: teleqna_transformed
+  teleqna_origin_id: question 5156
+  id: multi-003
+- category: negative
+  language: en
+  question: What is the specified behavior of a UE upon receiving an RRC message on DCCH or CCCH that lacks a mandatory field
+    according to 3GPP specifications?
+  expected_specs:
+  - spec_id: '38.331'
+    sections:
+    - '10'
+  expected_facts:
+  - The behavior is unspecified in 3GPP specifications.
+  - Involves RRC messages on DCCH or CCCH channels.
+  - Missing mandatory field in the RRC message.
+  - No specific error handling procedure defined.
+  - UE may choose to ignore the message, but it is not mandated.
+  forbidden:
+  - Treat the list as if the entry was absent
+  - Consider the 'parent' field to be set to a not comprehended value
+  - Apply the generic error handling to the subsequent 'parent' field(s)
+  must_say_not_found: true
+  source: teleqna_transformed
+  teleqna_origin_id: question 2507
+  id: neg-001
+- category: negative
+  language: en
+  question: What is the support for deploying a NAT between EASDF and PSA UPF in 3GPP Release 18?
+  expected_specs:
+  - spec_id: '23.501'
+    sections: []
+  expected_facts:
+  - NAT is not supported between EASDF and PSA UPF
+  - Deployment of NAT is prohibited
+  - No NAT allowed in EASDF-PSA UPF data path
+  - 3GPP Release 18 does not support this configuration
+  - Specification defines non-support for NAT
+  forbidden:
+  - NAT is supported
+  - deployment depends on configuration
+  - depends on UE type
+  must_say_not_found: true
+  source: teleqna_transformed
+  teleqna_origin_id: question 5920
+  id: neg-002
+- category: negative
+  language: en
+  question: What aspect is not part of the flexible network operations defined in the 5G system architecture?
+  expected_specs:
+  - spec_id: '23.501'
+    sections: []
+  expected_facts:
+  - Efficient content delivery is not covered by flexible network operations in 5G.
+  - Network slicing is an aspect of flexible network operations.
+  - Network capability exposure is part of flexible network operations.
+  - Migration and interworking are included in flexible network operations.
+  - Scalability and diverse mobility are aspects of flexible network operations.
+  forbidden:
+  - Efficient content delivery is covered by flexible network operations.
+  must_say_not_found: true
+  source: teleqna_transformed
+  teleqna_origin_id: question 6080
+  id: neg-003
+- category: procedure
+  language: en
+  question: How can power saving be enabled during active-time in 3GPP Release 18?
+  expected_specs:
+  - spec_id: '38.214'
+    sections:
+    - 5.1.2
+    - 5.4.1
+  expected_facts:
+  - Cross-slot scheduling enables power saving in active-time.
+  - Involves minimum scheduling offsets K0 and K2.
+  - UE delays PDSCH reception until K0 offset after PDCCH.
+  - A-CSI and PUSCH scheduling deferred until K2 offset.
+  - Assumes UE won't be scheduled immediately for power saving.
+  forbidden:
+  - PDCCH monitoring enables power saving
+  - eDRX configuration for active-time
+  - adapting scheduling offsets alone
+  notes: Power saving mechanism via scheduling offsets in NR PHY procedures.
+  source: teleqna_transformed
+  teleqna_origin_id: question 1066
+  id: proc-001
+- category: procedure
+  language: en
+  question: In the NR random-access procedure, how is the indication of reduced capabilities communicated?
+  expected_specs:
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - Indication provided in Message 3 of random access
+  - Also in Message A for 2-step random access
+  - Carried in an RRC message such as RRCSetupRequest
+  - Allows network to adjust for reduced UE capabilities
+  forbidden:
+  - Message 2
+  - Message 4
+  - PUCCH
+  notes: Specific to NR random-access message procedures
+  source: teleqna_transformed
+  teleqna_origin_id: question 1097
+  id: proc-002
+- category: procedure
+  language: en
+  question: How is 5G VN group configuration information communicated to the UE in the context of 3GPP Release 18?
+  expected_specs:
+  - spec_id: '23.503'
+    sections: []
+  - spec_id: '24.501'
+    sections: []
+  expected_facts:
+  - PCF delivers 5G VN group configuration
+  - Uses UE Route Selection Policy (URSP)
+  - Via UE Configuration Update procedure
+  - Involves NAS protocol between UE and AMF
+  - Part of 5G policy control framework
+  forbidden:
+  - delivered via UDM
+  - delivered via SMF
+  notes: 'Key components: PCF, URSP, UE Configuration Update procedure in 3GPP Release 18.'
+  source: teleqna_transformed
+  teleqna_origin_id: question 1099
+  id: proc-003
+- category: procedure
+  language: en
+  question: Describe the contents of the Location Report message sent by the NG-RAN to the AMF when the UE moves out of or
+    into multiple areas of interest.
+  expected_specs:
+  - spec_id: '38.413'
+    sections: []
+  expected_facts:
+  - UE Location data
+  - UE Presence in Area Of Interest indicators
+  - Request Reference ID
+  - Multiple pairs for multiple areas of interest
+  forbidden: []
+  notes: Based on NG-AP protocol for Location Report message in location reporting procedure.
+  source: teleqna_transformed
+  teleqna_origin_id: question 1189
+  id: proc-004
+- category: procedure
+  language: en
+  question: When the SMF receives an enabling request for analytics information exposure from a UE, what is its initial action
+    concerning Analytics ID subscriptions?
+  expected_specs:
+  - spec_id: '29.502'
+    sections: []
+  expected_facts:
+  - SMF checks if already subscribed to Analytics ID
+  - Verifies subscriptions from other UEs
+  - Initial check before new subscription for the UE
+  - Action to prevent duplicate subscriptions
+  forbidden:
+  - Subscribes to the Analytics ID for the UE
+  - Requests analytics information from NWDAF
+  - Unsubscribes from the Analytics ID
+  notes: Procedure based on Nsmf services for analytics exposure handling.
+  source: teleqna_transformed
+  teleqna_origin_id: question 1226
+  id: proc-005
+- category: procedure
+  language: en
+  question: Under what condition does the V-SMF delete the DNS context from the selected V-EASDF in the context of HR-SBO?
+  expected_specs:
+  - spec_id: '23.502'
+    sections: []
+  expected_facts:
+  - V-SMF deletes DNS context
+  - HR-SBO request not authorized
+  - DNS context had been created
+  - Deletion from selected V-EASDF
+  - Authorization check by V-SMF
+  forbidden:
+  - When V-SMF selects a new V-EASDF
+  - When UE initiates Mobility Registration Update
+  - When AF triggers EAS rediscovery
+  notes: Refer to HR-SBO authorization in SMF procedures
+  source: teleqna_transformed
+  teleqna_origin_id: question 123
+  id: proc-006
+- category: procedure
+  language: en
+  question: What additional functions does an eNB support in the case of SIPTO@LN with a collocated L-GW?
+  expected_specs:
+  - spec_id: '23.401'
+    sections: []
+  expected_facts:
+  - First packet sending
+  - Buffering of subsequent packets
+  - Internal direct L-GW-eNB user path management
+  forbidden:
+  - Transfer of S-GW IP address
+  - MME-triggered S-GW relocation
+  - Notification of uplink TEID(s)
+  source: teleqna_transformed
+  teleqna_origin_id: question 1855
+  id: proc-007
+- category: procedure
+  language: en
+  question: What procedure in the 5G NAS protocol is used to update certain configurations at the User Equipment, such as
+    the Allowed NSSAI?
+  expected_specs:
+  - spec_id: '24.501'
+    sections: []
+  expected_facts:
+  - UE Configuration Update procedure
+  - Updates configurations at UE side
+  - Includes Allowed NSSAI
+  - NAS procedure for configuration update
+  - Performed between UE and AMF
+  forbidden: []
+  notes: Procedure defined in 24.501 for UE configuration updates.
+  source: teleqna_transformed
+  teleqna_origin_id: question 2032
+  id: proc-008
+- category: procedure
+  language: en
+  question: In LTE, when is a UE allowed to transmit new data upon new data arrival?
+  expected_specs:
+  - spec_id: '36.213'
+    sections: []
+  expected_facts:
+  - New data is transmitted in the next first TTI of the transmission window
+  - UE must wait for the next eligible TTI upon data arrival
+  - Transmission window determines when data can be sent
+  - TTI is the Transmission Time Interval in LTE
+  forbidden:
+  - immediately in the same TTI
+  - after random time period
+  - after predefined number of TTIs
+  notes: Refers to LTE PHY procedures for transmission timing.
+  source: teleqna_transformed
+  teleqna_origin_id: question 2728
+  id: proc-009
+- category: procedure
+  language: en
+  question: In 5G Systems, how does a Multi-USIM UE adjust the timing of its paging occasions?
+  expected_specs:
+  - spec_id: '24.501'
+    sections: []
+  expected_facts:
+  - Multi-USIM UE triggers 5G-GUTI reallocation.
+  - Paging occasion timing is modified.
+  - Reallocation occurs without specific indication.
+  - Operates in 5GS context.
+  - Involves NAS signaling.
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 2782
+  id: proc-010
+- category: procedure
+  language: en
+  question: Describe the mechanism by which the UDM informs the AMF when a user profile change in the UDM/UDR affects the
+    AMF's user profile.
+  expected_specs:
+  - spec_id: '29.503'
+    sections:
+    - '5.2'
+  expected_facts:
+  - UDM invokes Nudm_SDM_Notification to notify AMF
+  - Notification is triggered by user profile change in UDM/UDR
+  - Change impacts the user profile in AMF
+  - Nudm_SDM_Notification is a service operation
+  - Part of Nudm SDM service
+  forbidden:
+  - Nudm_SDM_Info
+  - UE Configuration Update procedure
+  - UE Parameters Update via UDM Control Plane Procedure
+  notes: Service operation defined in 3GPP TS 29.503
+  source: teleqna_transformed
+  teleqna_origin_id: question 2995
+  id: proc-011
+- category: procedure
+  language: en
+  question: What is the outcome when a location request fails due to breaking in 3GPP Release 17 location services?
+  expected_specs:
+  - spec_id: '29.518'
+    sections: []
+  expected_facts:
+  - Error cause returned to LCS Requestor
+  - Location request failure due to breaking
+  - LCS Requestor receives error indication
+  forbidden:
+  - request is postponed
+  - request is cancelled
+  - request is forwarded
+  notes: Relates to LCS barring handling in AMF services
+  source: teleqna_transformed
+  teleqna_origin_id: question 3562
+  id: proc-012
+- category: procedure
+  language: en
+  question: What HARQ-ACK information does the UE generate when it correctly decodes a transport block?
+  expected_specs:
+  - spec_id: '36.213'
+    sections:
+    - '10.1'
+  - spec_id: '38.214'
+    sections:
+    - '5.3'
+  expected_facts:
+  - UE generates ACK value for correctly decoded TB
+  - HARQ-ACK feedback is ACK upon successful decoding
+  - Positive acknowledgement in HARQ-ACK information
+  - ACK indicates no errors in transport block
+  - HARQ-ACK includes ACK for correct reception
+  forbidden: []
+  notes: HARQ-ACK is defined in PHY layer procedures
+  source: teleqna_transformed
+  teleqna_origin_id: question 3657
+  id: proc-013
+- category: procedure
+  language: en
+  question: Explain what the I-SMF Context Transfer procedure involves in 5G systems according to 3GPP specifications.
+  expected_specs:
+  - spec_id: '29.502'
+    sections: []
+  expected_facts:
+  - Old I-SMF initiates the procedure
+  - Triggered by O&M procedure
+  - Sends Nsmf_PDUSession_SMContextStatusNotify indication
+  - Indication sent to AMF
+  forbidden:
+  - AMF sends indication to New SMF
+  - New service transaction triggered
+  - I-SMF selected from SMF set
+  notes: Procedure defined in 3GPP Release 18 for 5G service-based interfaces.
+  source: teleqna_transformed
+  teleqna_origin_id: question 3836
+  id: proc-014
+- category: procedure
+  language: en
+  question: In the F1AP protocol, what message does the SN-DU send to the SN-CU as a response after receiving a UE CONTEXT
+    RELEASE command?
+  expected_specs:
+  - spec_id: '38.473'
+    sections:
+    - '8.3'
+  expected_facts:
+  - SN-DU sends UE CONTEXT RELEASE COMPLETE to SN-CU
+  - Response to UE CONTEXT RELEASE command from SN-CU
+  - Acknowledgment of UE context release in F1AP
+  - Part of UE Context Release procedure for DU-CU
+  forbidden: []
+  notes: UE Context Release procedure defined in F1AP for gNB-DU to gNB-CU interaction.
+  source: teleqna_transformed
+  teleqna_origin_id: question 4241
+  id: proc-015
+- category: procedure
+  language: en
+  question: In LTE/EPS, what is the purpose of the selected core network information used by the eNodeB for handover operations?
+  expected_specs:
+  - spec_id: '23.401'
+    sections:
+    - '5.10'
+  expected_facts:
+  - eNodeB uses selected core network information
+  - to select target cells
+  - for handover procedures
+  - in LTE/EPS architecture
+  - for future handover decisions
+  forbidden:
+  - To indicate the PLMN-index to the SGSN
+  - To transmit in broadcast system information
+  - To select the GERAN/UTRAN target network
+  notes: Section 5.10 of TS 23.401 covers handover procedures in EPS.
+  source: teleqna_transformed
+  teleqna_origin_id: question 4401
+  id: proc-016
+- category: procedure
+  language: en
+  question: What synchronization signals does a UE receive to perform cell search in 5G NR?
+  expected_specs:
+  - spec_id: '38.300'
+    sections: []
+  expected_facts:
+  - UE receives primary synchronization signal (PSS)
+  - UE receives secondary synchronization signal (SSS)
+  - Both PSS and SSS are required for cell search
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 5542
+  id: proc-017
+- category: procedure
+  language: en
+  question: Describe the mechanism for exchanging analytics between the Home PLMN and Visited PLMN in a 5G roaming architecture.
+  expected_specs:
+  - spec_id: '23.501'
+    sections: []
+  - spec_id: '23.502'
+    sections: []
+  expected_facts:
+  - Analytics are exchanged via H-RE-NWDAF and V-RE-NWDAF.
+  - H-RE-NWDAF is located in the Home PLMN.
+  - V-RE-NWDAF is located in the Visited PLMN.
+  - This is part of the 5G roaming architecture.
+  - Involves Network Data Analytics Functions (NWDAF).
+  forbidden:
+  - Via SEPPs
+  - Via Nnwdaf interface
+  notes: Based on 3GPP Release 18 for analytics exchange in roaming scenarios.
+  source: teleqna_transformed
+  teleqna_origin_id: question 5706
+  id: proc-018
+- category: procedure
+  language: en
+  question: What actions should a UE perform if a cell is indicated as barred for cell selection or reselection in a 5G NR
+    system?
+  expected_specs:
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - Exclude barred cell as candidate for 300 seconds
+  - Select another cell on same frequency if selection criteria met
+  - Select same cell in normal coverage if possible
+  - Select same cell in enhanced coverage if possible
+  forbidden: []
+  notes: Actions defined in NR RRC specifications for cell barring procedures.
+  source: teleqna_transformed
+  teleqna_origin_id: question 5725
+  id: proc-019
+- category: procedure
+  language: en
+  question: Under what conditions does the NG-RAN report PSCell information?
+  expected_specs:
+  - spec_id: '38.413'
+    sections: []
+  expected_facts:
+  - PSCell information is reported only when requested by the AMF.
+  - NG-RAN does not report PSCell info without AMF request.
+  - Reporting is conditional on explicit AMF request.
+  - PSCell info reporting is not automatic or always-on.
+  - This is part of NG-AP protocol procedures.
+  forbidden:
+  - always reported
+  - only when Dual Connectivity is activated
+  - never reported
+  notes: Inferred from NG-AP context for information reporting.
+  source: teleqna_transformed
+  teleqna_origin_id: question 5802
+  id: proc-020
+- category: procedure
+  language: en
+  question: What information element is included in the UE CONTEXT SETUP REQUEST message when sent to the candidate gNB-DU
+    during the Intra-CU topology adaptation procedure in Standalone mode?
+  expected_specs:
+  - spec_id: '38.401'
+    sections:
+    - '8.9'
+  - spec_id: '38.473'
+    sections:
+    - 8.4.1
+  expected_facts:
+  - UE CONTEXT SETUP REQUEST is sent to the candidate gNB-DU
+  - CG-ConfigInfo is included in the message
+  - This occurs in the Intra-CU topology adaptation procedure
+  - The procedure applies to SA (Standalone) mode
+  - Step 5 of the procedure describes this message transfer
+  forbidden: []
+  notes: Intra-CU topology adaptation procedure defined in 38.401 §8.9; UE CONTEXT SETUP REQUEST message defined in 38.473
+  source: teleqna_transformed
+  teleqna_origin_id: question 6206
+  id: proc-021
+- category: procedure
+  language: en
+  question: In 3GPP Release 17, how are user-plane resources over a 3GPP access established when supporting an MA PDU Session?
+  expected_specs:
+  - spec_id: '23.501'
+    sections: []
+  - spec_id: '23.502'
+    sections: []
+  expected_facts:
+  - User-plane resources over 3GPP access may be established in EPC
+  - EPC is connected to 5GC for MA PDU Session support
+  - Simultaneous traffic over 3GPP and non-3GPP accesses is allowed
+  - This is a Rel-17 enhancement for multi-access PDU Sessions
+  forbidden:
+  - always established in 5G core
+  - only established over NG-RAN access
+  notes: Rel-17 MA PDU Session feature enabling EPC involvement
+  source: teleqna_transformed
+  teleqna_origin_id: question 6377
+  id: proc-022
+- category: procedure
+  language: en
+  question: Which network entities are involved in the PDU Session establishment procedure when HR-SBO is supported in VPLMN?
+  expected_specs:
+  - spec_id: '23.502'
+    sections: []
+  expected_facts:
+  - AMF selects a V-SMF supporting HR-SBO
+  - AMF sends HR-SBO allowed indication to V-SMF
+  - V-SMF participates in PDU Session establishment
+  - Procedure involves AMF and V-SMF for VPLMN
+  - HR-SBO support requires AMF and V-SMF interaction
+  forbidden:
+  - UE and H-SMF
+  - H-SMF involved in HR-SBO
+  notes: HR-SBO is a Release 18 feature for VPLMN support
+  source: teleqna_transformed
+  teleqna_origin_id: question 6612
+  id: proc-023
+- category: procedure
+  language: en
+  question: What does a RedCap UE expect regarding the initial DL BWP when it monitors PDCCH according to the Type1-PDCCH
+    CSS set and does not monitor PDCCH according to the Type2-PDCCH CSS set?
+  expected_specs:
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - RedCap UE monitors PDCCH via Type1-PDCCH CSS set
+  - RedCap UE does not monitor PDCCH via Type2-PDCCH CSS set
+  - Initial DL BWP excludes SS/PBCH blocks
+  - Initial DL BWP excludes CORESET with index 0
+  forbidden:
+  - Initial DL BWP includes SS/PBCH blocks
+  - Initial DL BWP includes CORESET with index 0
+  notes: RedCap UE behavior related to PDCCH monitoring and BWP configuration
+  source: teleqna_transformed
+  teleqna_origin_id: question 669
+  id: proc-024
+- category: procedure
+  language: en
+  question: Under what circumstances does the PCF include the Duplicated notification indication in a PCC rule?
+  expected_specs:
+  - spec_id: '23.503'
+    sections: []
+  expected_facts:
+  - PCF includes Duplicated notification indication
+  - In PCC rule
+  - When PCF makes policy decision
+  - Duplicated notification indication is part of policy decision by PCF
+  forbidden:
+  - When AF initiates AF session
+  - When L-PSA UPF detects QoS monitoring event
+  - When AF revokes AF session
+  notes: Based on 3GPP Release 18, related to PCC rules in 5G policy framework
+  source: teleqna_transformed
+  teleqna_origin_id: question 6741
+  id: proc-025
+- category: procedure
+  language: en
+  question: Describe the action performed by a UE on a BWP inactivity timer for a cell when the timer is running.
+  expected_specs:
+  - spec_id: '38.214'
+    sections: []
+  expected_facts:
+  - UE decrements the BWP inactivity timer when it is running
+  - Decrement happens at the end of a subframe for FR1
+  - Decrement happens at the end of a half subframe for FR2
+  - The timer is associated with a cell
+  forbidden:
+  - Increments the timer
+  - Suspends the timer
+  - Resets the timer
+  source: teleqna_transformed
+  teleqna_origin_id: question 6828
+  id: proc-026
+- category: procedure
+  language: en
+  question: What is the essential action for a UE to access network services while in idle mode according to 3GPP specifications?
+  expected_specs:
+  - spec_id: '38.300'
+    sections: []
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - Camping on a cell is necessary to access services in idle mode.
+  - UEs must camp on a cell in idle mode to receive services.
+  - Access to idle mode services requires cell camping.
+  forbidden:
+  - location registration
+  - CN type selection
+  - RNA update
+  source: teleqna_transformed
+  teleqna_origin_id: question 74
+  id: proc-027
+- category: procedure
+  language: en
+  question: What is the primary purpose of the SMF Service Context Transfer procedures in the 5G System?
+  expected_specs:
+  - spec_id: '29.502'
+    sections: []
+  expected_facts:
+  - Transfer context-specific information between SMF Sets.
+  - SMF Sets must support the same DNN and S-NSSAI pair.
+  - Involves SM (Session Management) contexts.
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 7509
+  id: proc-028
+- category: procedure
+  language: en
+  question: In the F1AP procedure, what message does the gNB-DU send after receiving the RRCRelease message?
+  expected_specs:
+  - spec_id: '38.473'
+    sections: []
+  expected_facts:
+  - UE CONTEXT RELEASE COMPLETE message
+  - sent by gNB-DU
+  - after receiving RRCRelease
+  - part of UE context release procedure
+  - in F1AP protocol
+  forbidden:
+  - RRCResumeRequest message
+  - PAGING message
+  - UE CONTEXT SETUP RESPONSE message
+  source: teleqna_transformed
+  teleqna_origin_id: question 7511
+  id: proc-029
+- category: procedure
+  language: en
+  question: What criteria are considered for periodic network selection attempts according to 3GPP?
+  expected_specs:
+  - spec_id: '24.501'
+    sections: []
+  expected_facts:
+  - Priority of PLMNs
+  - Availability of PLMNs
+  - Criteria for periodic network selection attempts
+  forbidden:
+  - Signal quality
+  - User preferences
+  source: teleqna_transformed
+  teleqna_origin_id: question 7614
+  id: proc-030
+- category: procedure
+  language: en
+  question: Describe scenarios where a network operator can minimize network traffic while maintaining Quality of Service
+    (QoS).
+  expected_specs:
+  - spec_id: '23.503'
+    sections: []
+  expected_facts:
+  - Event-based decision process by application
+  - Time-based decision process by application
+  - Reduces network traffic
+  - Maintains QoS
+  - Application responsibility for decision
+  forbidden:
+  - Asset management services
+  - Privacy Exception List
+  notes: Concept related to policy control for QoS optimization in 5G systems.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7622
+  id: proc-031
+- category: procedure
+  language: en
+  question: Under what conditions does the gNB-CU trigger the UE Context Setup procedure in 5G NR architecture?
+  expected_specs:
+  - spec_id: '38.473'
+    sections:
+    - '8.3'
+  expected_facts:
+  - gNB-CU initiates UE Context Setup
+  - for inactive to active transitions
+  - excluding transitions for signalling only
+  - relevant to RRC_INACTIVE to RRC_CONNECTED
+  - defined in F1AP protocol procedures
+  forbidden:
+  - active to inactive transitions
+  - idle to inactive transitions
+  notes: Procedure specified in 3GPP TS 38.473 for F1AP between gNB-CU and gNB-DU.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7640
+  id: proc-032
+- category: procedure
+  language: en
+  question: What is the purpose of the handover to NR procedure in 3GPP Release 17?
+  expected_specs:
+  - spec_id: '23.502'
+    sections: []
+  expected_facts:
+  - Transfers a UE connection from another RAN to NR.
+  - Involves inter-RAT handover to 5G New Radio.
+  - Part of 5G mobility procedures for RAT change.
+  - Enables UE move from E-UTRAN or other RAT to NR.
+  - Connection transfer ensures continuity during handover.
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 7662
+  id: proc-033
+- category: procedure
+  language: en
+  question: Describe the outcome when a PDU Session configured with UP confidentiality protection set to Required is handed
+    over to EPS.
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - '5.6'
+  - spec_id: '23.502'
+    sections:
+    - '4.2'
+  expected_facts:
+  - PDU Session is released during handover to EPS.
+  - UP confidentiality protection is set to Required.
+  - Handover to EPS triggers the release.
+  - No modification to confidentiality protection occurs.
+  - Session continuity is not maintained in EPS.
+  forbidden:
+  - modified to Not Needed
+  - disabled
+  - modified to Preferred
+  source: teleqna_transformed
+  teleqna_origin_id: question 7929
+  id: proc-034
+- category: procedure
+  language: en
+  question: Describe the purpose of the Intra-CU Backhaul RLF recovery procedure for IAB-nodes operating in standalone mode.
+  expected_specs:
+  - spec_id: '38.300'
+    sections: []
+  - spec_id: '38.331'
+    sections: []
+  expected_facts:
+  - Recovers from backhaul RLF in IAB-node
+  - Enables migration of IAB-node to another parent node
+  - Migration occurs under the same IAB-donor-CU
+  - Triggered by backhaul RLF declaration from IAB-MT
+  - Applies to IAB-nodes in SA mode
+  - Intra-CU procedure for IAB backhaul recovery
+  forbidden:
+  - establishing new RRC connection for UE
+  - configuring data bearers in source gNB-DU
+  notes: IAB procedure for backhaul RLF recovery in 3GPP Release 17
+  source: teleqna_transformed
+  teleqna_origin_id: question 7984
+  id: proc-035
+- category: procedure
+  language: en
+  question: Identify the message sent by the AMF to the NG-RAN during procedures such as mobility registration, AM policy
+    modification, and handover.
+  expected_specs:
+  - spec_id: '38.413'
+    sections: []
+  expected_facts:
+  - UE Context Modification Request is sent by the AMF to the NG-RAN
+  - Used in mobility registration
+  - Used in AM policy modification
+  - Used in handover procedures
+  - Provides 5G access stratum time distribution information
+  forbidden:
+  - 5G access stratum time distribution indication
+  - Uu time synchronization error budget
+  - Clock quality detail level
+  notes: Message defined in 3GPP TS 38.413 for NGAP protocol
+  source: teleqna_transformed
+  teleqna_origin_id: question 8200
+  id: proc-036
+- category: procedure
+  language: en
+  question: What physical layer procedure is involved in cell search in LTE and NR?
+  expected_specs:
+  - spec_id: '36.213'
+    sections:
+    - '6'
+  - spec_id: '38.214'
+    sections:
+    - '8'
+  expected_facts:
+  - Random access procedure is involved in cell search.
+  - Cell search includes random access related procedures.
+  - In LTE, random access is a physical layer procedure for initial access.
+  - NR specifies random access procedures in the PHY layer.
+  forbidden:
+  - Channel Access procedures
+  - HARQ related procedures
+  notes: Cell search is part of initial access and involves synchronization and random access.
+  source: teleqna_transformed
+  teleqna_origin_id: question 8213
+  id: proc-037
+- category: procedure
+  language: en
+  question: When a UE cancels a PUSCH or SRS transmission based on a DCI format, what scheduling expectation does it have
+    for subsequent transmissions?
+  expected_specs:
+  - spec_id: '38.214'
+    sections: []
+  expected_facts:
+  - UE cancels PUSCH or SRS transmission
+  - Expects scheduling by a second DCI format
+  - Transmission over symbols that include cancelled symbols
+  forbidden: []
+  notes: Refers to behavior after DCI format 2_4 cancellation as per 3GPP Release 17.
+  source: teleqna_transformed
+  teleqna_origin_id: question 8703
+  id: proc-038
+- category: procedure
+  language: en
+  question: What specific action does the AMF take after purging subscriber data and MM context for a deregistered UE?
+  expected_specs:
+  - spec_id: '29.503'
+    sections: []
+  expected_facts:
+  - AMF unsubscribes from subscription data changes
+  - Nudm_SDM_Unsubscribe request operation is used
+  - Action occurs after purging subscriber data and MM context
+  - Context is for a deregistered UE
+  forbidden:
+  - Initiates AMF initiated Deregistration
+  - Updates UE context in UDR via Nudr_DM_Update
+  - Sets UE Purged flag
+  notes: Operation defined in Nudm service interface
+  source: teleqna_transformed
+  teleqna_origin_id: question 8770
+  id: proc-039
+- category: procedure
+  language: en
+  question: What additional function does the eNB perform when supporting SIPTO@LN with a stand-alone gateway?
+  expected_specs:
+  - spec_id: '23.401'
+    sections: []
+  expected_facts:
+  - eNB signals its LHN ID to the MME
+  - LHN ID stands for Local Home Network ID
+  - Function is for SIPTO@LN with stand-alone gateway
+  - It is an additional function supported by eNB
+  - Signaling occurs in certain messages
+  forbidden: []
+  source: teleqna_transformed
+  teleqna_origin_id: question 9547
+  id: proc-040
+- category: table_lookup
+  language: en
+  question: What is the maximum number of PDU Sessions as per 3GPP Release 17 specifications?
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - '5.6'
+  expected_facts:
+  - Maximum PDU Sessions per UE is 256
+  - 3GPP Release 17 defines the limit as 256
+  - PDU Session count up to 256
+  forbidden: []
+  notes: Value typically found in 3GPP 23.501 PDU Session definitions.
+  source: teleqna_transformed
+  teleqna_origin_id: question 108
+  id: table-001
+- category: table_lookup
+  language: en
+  question: According to NR specifications, what identity is used to indicate pre-emption in the downlink?
+  expected_specs:
+  - spec_id: '38.331'
+    sections:
+    - '7.1'
+  expected_facts:
+  - INT-RNTI is used for downlink pre-emption indication
+  - It is a Radio Network Temporary Identifier defined in NR
+  - Pre-emption indication specifically uses INT-RNTI
+  - The identity is specified in 3GPP 38.331 for NR RRC
+  - INT-RNTI signals pre-emption in downlink transmissions
+  forbidden:
+  - C-RNTI indicates pre-emption
+  - CI-RNTI is used for downlink pre-emption
+  - CS-RNTI indicates pre-emption in downlink
+  notes: INT-RNTI defined in 38.331 section 7.1 for RNTI values
+  source: teleqna_transformed
+  teleqna_origin_id: question 111
+  id: table-002
+- category: table_lookup
+  language: en
+  question: In 3GPP Release 18 specifications for NR physical layer procedures, what SNR target is defined for higher Channel
+    Bandwidths (CBWs) based on the assumption of 16 dB?
+  expected_specs:
+  - spec_id: '38.214'
+    sections: []
+  expected_facts:
+  - SNR target for higher CBWs is 16 dB.
+  - Specified in 3GPP TS 38.214.
+  - Assumes 16 dB for higher Channel Bandwidths.
+  - Applicable to 5G NR physical layer procedures.
+  forbidden:
+  - 14.4 dB
+  - 18.6 dB
+  - 20 dB
+  notes: Value related to SNR assumptions in NR specifications for higher bandwidths.
+  source: teleqna_transformed
+  teleqna_origin_id: question 1274
+  id: table-003
+- category: table_lookup
+  language: en
+  question: What are the new QoS Class Identifiers introduced in 5G Release 18 for Ultra Low Latency GBR services?
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - '5.7'
+  expected_facts:
+  - QCI 84 is a new QoS Class Identifier for Ultra Low Latency GBR
+  - QCI 85 is a new QoS Class Identifier for Ultra Low Latency GBR
+  - These QCIs are added in 5G Release 18 for Ultra Low Latency GBR
+  forbidden:
+  - QCI 80 and QCI 81
+  - QCI 82 and QCI 83
+  - QCI 86 and QCI 87
+  notes: QCI definitions are specified in the QoS model clause of 23.501
+  source: teleqna_transformed
+  teleqna_origin_id: question 1524
+  id: table-004
+- category: table_lookup
+  language: en
+  question: What is the number of downlink HARQ processes specified for UEs supporting full-duplex FDD operation in LTE?
+  expected_specs:
+  - spec_id: '36.213'
+    sections: []
+  expected_facts:
+  - DL HARQ processes increased to 10 for full-duplex FDD UEs
+  - Full-duplex FDD enables 10 DL HARQ processes
+  - Increase from 8 to 10 DL HARQ processes
+  - DL peak rate improvement of 25%
+  - 3GPP Release 14 specification for full-duplex FDD
+  forbidden:
+  - 6 DL HARQ processes
+  - 12 DL HARQ processes
+  notes: Based on 3GPP Release 14 enhancements for E-UTRA full-duplex FDD.
+  source: teleqna_transformed
+  teleqna_origin_id: question 3722
+  id: table-005
+- category: table_lookup
+  language: en
+  question: How are the modulation order (Qm) and target code rate (R) determined for PSSCH transmission in NR sidelink?
+  expected_specs:
+  - spec_id: '38.214'
+    sections:
+    - '8.1'
+  expected_facts:
+  - MCS table determines modulation order Qm and target code rate R
+  - MCS field in SCI format 1-A provides the modulation and coding index
+  - UE uses the MCS table for PSSCH scheduling
+  - SCI format 1-A carries the MCS field for sidelink transmission
+  - Modulation and coding scheme is indexed in the MCS table
+  forbidden:
+  - DM-RS configuration determines modulation order and code rate
+  - Number of REs in the slot determines modulation and coding
+  - Redundancy version determines modulation order
+  notes: Determination as per sidelink procedures in 38.214, using MCS table and SCI format 1-A.
+  source: teleqna_transformed
+  teleqna_origin_id: question 388
+  id: table-006
+- category: table_lookup
+  language: en
+  question: What is the minimum number of grid points required for the TRP Measurement Grid with constant density?
+  expected_specs:
+  - spec_id: '38.214'
+    sections: []
+  expected_facts:
+  - Minimum grid points for TRP Measurement Grid with constant density is 62.
+  - Constant density TRP grid requires 62 points.
+  - 62 is the specified minimum number of grid points.
+  forbidden: []
+  notes: Value likely from a table or definition in 3GPP TS 38.214.
+  source: teleqna_transformed
+  teleqna_origin_id: question 5821
+  id: table-007
+- category: table_lookup
+  language: en
+  question: What is the NAS error response that indicates the requested service option is not authorized in the PLMN?
+  expected_specs:
+  - spec_id: '24.501'
+    sections:
+    - 9.11.3.2.1
+  expected_facts:
+  - Requested service option not authorized in this PLMN
+  - 5GMM cause value for service authorization
+  - NAS error related to PLMN service authorization
+  - Defined in 3GPP 24.501
+  forbidden:
+  - PLMN not allowed
+  - Serving network not authorized
+  - Temporarily not authorized for this SNPN
+  source: teleqna_transformed
+  teleqna_origin_id: question 6007
+  id: table-008
+- category: table_lookup
+  language: en
+  question: What is the maximum rank supported for slot or subslot PDSCH repetition in LTE according to 3GPP Release 18?
+  expected_specs:
+  - spec_id: '36.213'
+    sections: []
+  expected_facts:
+  - Maximum rank for PDSCH repetition is 2
+  - Slot/subslot repetition supports rank 2
+  - LTE PDSCH repetition rank limit is 2
+  forbidden: []
+  notes: Numerical value from LTE PHY procedures in 36.213.
+  source: teleqna_transformed
+  teleqna_origin_id: question 7028
+  id: table-009
+- category: table_lookup
+  language: en
+  question: What is the reference point between the Session Management Function (SMF) and the Charging Function (CHF) within
+    the same PLMN in 5G systems?
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - '4.3'
+  expected_facts:
+  - N40 is the reference point connecting SMF and CHF
+  - N40 interface is within the same PLMN
+  - SMF stands for Session Management Function
+  - CHF stands for Charging Function
+  - Reference point defined in 3GPP Release 18
+  forbidden:
+  - N28
+  - N41
+  - N42
+  notes: Reference point defined in 3GPP TS 23.501
+  source: teleqna_transformed
+  teleqna_origin_id: question 731
+  id: table-010
+- category: table_lookup
+  language: en
+  question: What modulation schemes are used for narrowband transmissions such as NPUSCH and sub-PRB PUSCH in LTE and NR?
+  expected_specs:
+  - spec_id: '36.213'
+    sections:
+    - '10.1'
+  - spec_id: '38.214'
+    sections:
+    - '6.1'
+  expected_facts:
+  - π/2-BPSK is used for single-tone NPUSCH transmission
+  - QPSK is used for single-tone NPUSCH transmission
+  - π/2-BPSK is used for sub-PRB PUSCH transmission
+  - QPSK is used for sub-PRB PUSCH transmission
+  - NB-IoT NPUSCH supports π/2-BPSK and QPSK modulation
+  forbidden: []
+  notes: NPUSCH modulation defined in 36.213 §10.1; NR sub-PRB modulation in 38.214 §6.1
+  source: teleqna_transformed
+  teleqna_origin_id: question 8531
+  id: table-011
+- category: table_lookup
+  language: en
+  question: Which industrial scenario in 3GPP Release 17 is characterized by high communication service availability requirements?
+  expected_specs:
+  - spec_id: '23.501'
+    sections: []
+  expected_facts:
+  - Automation for electricity distribution and smart grid
+  - High communication service availability
+  - 3GPP Release 17 industrial use case
+  - Stringent availability requirements
+  forbidden: []
+  notes: Scenario based on 3GPP Release 17 service requirements
+  source: teleqna_transformed
+  teleqna_origin_id: question 9894
+  id: table-012
