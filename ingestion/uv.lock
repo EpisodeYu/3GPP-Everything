@@ -3830,6 +3830,7 @@ name = "tgpp-ingestion"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "aiolimiter" },
     { name = "docling" },
     { name = "httpx" },
     { name = "huggingface-hub" },
@@ -3862,6 +3863,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiolimiter", specifier = ">=1.2" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.8" },
     { name = "docling", specifier = ">=2.5" },
     { name = "fakeredis", marker = "extra == 'dev'", specifier = ">=2.23" },
