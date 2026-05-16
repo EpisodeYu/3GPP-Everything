@@ -197,22 +197,33 @@ class Embedder:
         result = self.embed_texts(["warmup"])
         return result.dim
 
-    def embed_texts(self, texts: Sequence[str]) -> EmbeddingBatchResult:
+    def embed_texts(
+        self,
+        texts: Sequence[str],
+        *,
+        dimensions: int | None = None,
+    ) -> EmbeddingBatchResult:
         """对一批文本生成 embedding。
 
         - 文本数量 > batch_size 时自动切片，按顺序拼回单个 EmbeddingBatchResult
         - 任一 batch 内的 5xx / 网络异常 retry max_retries 次
         - 任一 batch 失败到放弃 → 整体抛 EmbeddingError，调用方自行决定 spec 级回滚
+
+        `dimensions` 显式指定本次调用的输出维度（优先级 > `self.dimensions`），
+        线程/异步并发场景下必须用 method 参数显式传，不能依赖 mutate self.dimensions
+        （后者在多 worker 共享 Embedder 时会引发 race）。
         """
         if not texts:
             return EmbeddingBatchResult(vectors=[], dim=self._dim or 0, model=self.model)
+
+        target_dim = dimensions if dimensions is not None else self.dimensions
 
         vectors: list[list[float]] = []
         prompt_tokens = 0
         for start in range(0, len(texts), self.batch_size):
             batch = list(texts[start : start + self.batch_size])
             try:
-                payload = self._embed_with_retry(batch)
+                payload = self._embed_with_retry(batch, dimensions=target_dim)
             except RetryError as exc:
                 last = exc.last_attempt.exception()
                 raise EmbeddingError(
@@ -235,13 +246,16 @@ class Embedder:
         dim = len(vectors[0])
         if any(len(v) != dim for v in vectors):
             raise EmbeddingError("inconsistent embedding dim within single batch result")
-        if self._dim is None:
-            self._dim = dim
-            log.info("embedder dim detected: %d (model=%s)", dim, self.model)
-        elif self._dim != dim:
-            raise EmbeddingError(
-                f"embedding dim drift: cached={self._dim} got={dim} (model changed?)"
-            )
+        # 当 caller 显式传 dimensions 时不写 self._dim 缓存（避免多 worker 跨维度互覆盖）；
+        # 单维度默认路径（dimensions=None 且 self.dimensions=None）才缓存
+        if target_dim is None:
+            if self._dim is None:
+                self._dim = dim
+                log.info("embedder dim detected: %d (model=%s)", dim, self.model)
+            elif self._dim != dim:
+                raise EmbeddingError(
+                    f"embedding dim drift: cached={self._dim} got={dim} (model changed?)"
+                )
 
         return EmbeddingBatchResult(
             vectors=vectors,
@@ -258,13 +272,15 @@ class Embedder:
     ) -> MultiDimEmbeddingResult:
         """一次 API 调用 + 客户端 truncate+L2 renorm 派生其他维度（M2 §4.7 / B0 等价性）。
 
-        - 调用 API 时强制 `dimensions=max(dims)`（暂存 self.dimensions，调用后恢复）
+        - 调用 API 时显式传 `dimensions=max(dims)` 给 `embed_texts`，
+          **不** mutate `self.dimensions`，因此可被多个 worker 安全并发调用
+          （这点是 2026-05-16 M2 16 篇 POC 跑出 race 后的修复，见 handoff §8.x）
         - 其他档：取前 N 维 + L2 renormalize
         - B0 spike 已验证 cosine(truncate, direct_call) median=1.0 / min=1.0
 
         约束：
           - dims 必须全部 ≤ self.model 支持的最大维度（voyage-4-large=2048）
-          - dims 须严格递减或递增不重要，方法内部按降序处理
+          - dims 顺序无关，方法内部按降序处理
         """
         if not texts:
             return MultiDimEmbeddingResult(
@@ -277,12 +293,7 @@ class Embedder:
             raise EmbeddingError(f"dims must be positive, got {dims}")
         dim_main = unique_sorted[0]
 
-        prev_dimensions = self.dimensions
-        self.dimensions = dim_main
-        try:
-            base = self.embed_texts(texts)
-        finally:
-            self.dimensions = prev_dimensions
+        base = self.embed_texts(texts, dimensions=dim_main)
 
         if base.dim != dim_main:
             raise EmbeddingError(f"multidim main call returned dim={base.dim}, expected {dim_main}")
@@ -298,7 +309,12 @@ class Embedder:
             prompt_tokens=base.prompt_tokens,
         )
 
-    def _embed_with_retry(self, batch: list[str]) -> dict:
+    def _embed_with_retry(
+        self,
+        batch: list[str],
+        *,
+        dimensions: int | None = None,
+    ) -> dict:
         retrying = retry(
             reraise=False,
             stop=stop_after_attempt(self.max_retries + 1),
@@ -309,10 +325,12 @@ class Embedder:
             before_sleep=_log_retry,
         )
 
+        target_dim = dimensions if dimensions is not None else self.dimensions
+
         @retrying
         def _call() -> dict:
             try:
-                return self._http.embed(model=self.model, inputs=batch, dimensions=self.dimensions)
+                return self._http.embed(model=self.model, inputs=batch, dimensions=target_dim)
             except httpx.HTTPStatusError as exc:
                 if not _is_retryable_http(exc):
                     raise EmbeddingError(
