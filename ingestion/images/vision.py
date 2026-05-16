@@ -15,12 +15,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from typing import Any
 import httpx
 
 from ingestion.hf_loader.image_resolver import hash_bytes, resolve_image
+from ingestion.rate_limit import CompositeLimiter, get_mimo_limiter
 
 from .prompts import PROMPT_E_UNIFIED, normalize_vision_payload, parse_vision_json
 
@@ -120,6 +122,42 @@ class _LiteLLMClient:
 
     def chat(self, body: dict) -> dict:
         resp = self._client.post(
+            f"{self.base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+            json=body,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+class _AsyncLiteLLMClient:
+    """异步薄封装；与 _LiteLLMClient 平行。
+
+    单例 client 跨多个 fan-out 调用复用（HTTP/2 + keepalive）。
+    """
+
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        api_key: str,
+        timeout_s: float = DEFAULT_HTTP_TIMEOUT_S,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(timeout=httpx.Timeout(timeout_s))
+
+    async def aclose(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
+
+    async def chat(self, body: dict) -> dict:
+        resp = await self._client.post(
             f"{self.base_url}/chat/completions",
             headers={
                 "Authorization": f"Bearer {self.api_key}",
@@ -279,17 +317,9 @@ class _VisionCache:
 # -------------------- 单次 mimo 调用 --------------------
 
 
-def call_mimo_unified(
-    client: _LiteLLMClient,
-    *,
-    image_bytes: bytes,
-    model: str,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
-    image_mime: str = "image/jpeg",
-) -> tuple[dict, dict]:
-    """调一次 mimo（PROMPT_E_UNIFIED）。返回 (raw_payload, usage_meta)。"""
+def _build_mimo_body(image_bytes: bytes, *, model: str, max_tokens: int, image_mime: str) -> dict:
     b64 = base64.b64encode(image_bytes).decode("ascii")
-    body = {
+    return {
         "model": model,
         "max_tokens": max_tokens,
         "messages": [
@@ -305,20 +335,49 @@ def call_mimo_unified(
             }
         ],
     }
-    payload = client.chat(body)
+
+
+def _extract_meta(payload: dict, model: str) -> dict:
     choice = payload["choices"][0]
     msg = choice["message"]
     text = (msg.get("content") or "").strip()
     finish_reason = choice.get("finish_reason")
     usage = payload.get("usage") or {}
-    meta = {
+    return {
         "model": payload.get("model", model),
         "completion_tokens": usage.get("completion_tokens", 0),
         "reasoning_tokens": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens"),
         "finish_reason": finish_reason,
         "raw_text": text,
     }
-    return payload, meta
+
+
+def call_mimo_unified(
+    client: _LiteLLMClient,
+    *,
+    image_bytes: bytes,
+    model: str,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+    image_mime: str = "image/jpeg",
+) -> tuple[dict, dict]:
+    """调一次 mimo（PROMPT_E_UNIFIED）。返回 (raw_payload, usage_meta)。"""
+    body = _build_mimo_body(image_bytes, model=model, max_tokens=max_tokens, image_mime=image_mime)
+    payload = client.chat(body)
+    return payload, _extract_meta(payload, model)
+
+
+async def acall_mimo_unified(
+    client: _AsyncLiteLLMClient,
+    *,
+    image_bytes: bytes,
+    model: str,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+    image_mime: str = "image/jpeg",
+) -> tuple[dict, dict]:
+    """async 版 call_mimo_unified。返回 (raw_payload, usage_meta)。"""
+    body = _build_mimo_body(image_bytes, model=model, max_tokens=max_tokens, image_mime=image_mime)
+    payload = await client.chat(body)
+    return payload, _extract_meta(payload, model)
 
 
 # -------------------- VisionResolver（chunker 接入点） --------------------
@@ -353,6 +412,7 @@ class VisionResolver:
         self,
         *,
         http_client: _LiteLLMClient | None = None,
+        async_http_client: _AsyncLiteLLMClient | None = None,
         cache: _VisionCache | None = None,
         image_loader: ImageBytesLoader | None = None,
         model: str | None = None,
@@ -361,9 +421,13 @@ class VisionResolver:
         undescribable_retries: int = DEFAULT_UNDESCRIBABLE_RETRIES,
         image_mime: str = "image/jpeg",
         on_dead_letter: Callable[[str, dict, str], None] | None = None,
+        rate_limiter: CompositeLimiter | None = None,
     ) -> None:
-        self._http = http_client or self._build_default_http_client()
-        self._owns_http = http_client is None
+        # sync / async client 都 lazy 构造：只走 async 入口的 resolver 不需要 sync env
+        self._http: _LiteLLMClient | None = http_client
+        self._owns_http = False
+        self._async_http = async_http_client
+        self._owns_async_http = False
         self._cache = cache if cache is not None else _VisionCache()
         self._image_loader = image_loader or make_default_image_loader(
             token=os.environ.get("HF_TOKEN") or None,
@@ -374,6 +438,8 @@ class VisionResolver:
         self._undescribable_retries = max(0, int(undescribable_retries))
         self._image_mime = image_mime
         self._on_dead_letter = on_dead_letter
+        # async fan-out 用的 mimo 限速器；测试可注入；prod 走 get_mimo_limiter() 单例
+        self._rate_limiter = rate_limiter
 
     @staticmethod
     def _build_default_http_client() -> _LiteLLMClient:
@@ -386,9 +452,40 @@ class VisionResolver:
             )
         return _LiteLLMClient(base_url=base_url, api_key=api_key)
 
+    @staticmethod
+    def _build_default_async_http_client() -> _AsyncLiteLLMClient:
+        base_url = os.environ.get("LITELLM_BASE_URL")
+        api_key = os.environ.get("LITELLM_API_KEY")
+        if not base_url or not api_key:
+            raise VisionError(
+                "LITELLM_BASE_URL / LITELLM_API_KEY missing; "
+                "either configure .env or pass async_http_client= explicitly"
+            )
+        return _AsyncLiteLLMClient(base_url=base_url, api_key=api_key)
+
+    def _ensure_sync_client(self) -> _LiteLLMClient:
+        if self._http is None:
+            self._http = self._build_default_http_client()
+            self._owns_http = True
+        return self._http
+
+    def _ensure_async_client(self) -> _AsyncLiteLLMClient:
+        if self._async_http is None:
+            self._async_http = self._build_default_async_http_client()
+            self._owns_async_http = True
+        return self._async_http
+
     def close(self) -> None:
-        if self._owns_http:
+        if self._owns_http and self._http is not None:
             self._http.close()
+
+    async def aclose(self) -> None:
+        """关闭可能持有的 async client。生产 pipeline 在 worker 退出时调一次即可。"""
+        self.close()
+        if self._owns_async_http and self._async_http is not None:
+            await self._async_http.aclose()
+            self._async_http = None
+            self._owns_async_http = False
 
     def __enter__(self) -> VisionResolver:
         return self
@@ -440,12 +537,13 @@ class VisionResolver:
         # 总尝试次数硬上限，防退化为死循环
         max_total_attempts = (self._max_retries + 1) + self._undescribable_retries
         attempt_idx = 0
+        client = self._ensure_sync_client()
 
         while attempt_idx < max_total_attempts:
             attempt_idx += 1
             try:
                 payload, meta = call_mimo_unified(
-                    self._http,
+                    client,
                     image_bytes=image_bytes,
                     model=self._model,
                     max_tokens=self._max_tokens,
@@ -552,6 +650,168 @@ class VisionResolver:
             try:
                 self._on_dead_letter(image_path, ctx, last_error)
             except Exception:  # pragma: no cover - 监控回调不应炸主流程
+                log.exception("on_dead_letter callback failed")
+        raise VisionDeadLetterError(last_error)
+
+    # -------------------- async 入口（M2 §4.8） --------------------
+
+    async def aresolve_one(self, image_path: str, ctx: dict) -> dict | None:
+        """async 版 `__call__`：含 cache hit / dead-letter 跳过 / mimo 限速。
+
+        `pipeline_concurrent` 层调，`figure.py` chunker 同步入口不变。
+        """
+        try:
+            image_bytes, sha256 = self._image_loader(image_path)
+        except Exception as exc:
+            log.warning("vision(async): image load failed for %s: %s", image_path, exc)
+            return None
+
+        if self._cache.is_dead(sha256):
+            log.info("vision(async): skip dead-letter %s (%s)", image_path, sha256[:8])
+            return None
+
+        cached = self._cache.get(sha256)
+        if cached is not None:
+            cached = dict(cached)
+            cached["cached"] = True
+            return cached
+
+        try:
+            result = await self._acall_with_retry(
+                image_path=image_path, image_bytes=image_bytes, sha256=sha256, ctx=ctx
+            )
+        except VisionDeadLetterError:
+            return None
+        out = result.to_chunker_dict()
+        self._cache.set(sha256, out)
+        return out
+
+    async def aresolve_batch(
+        self,
+        items: Sequence[tuple[str, dict]],
+        *,
+        concurrent: int = 8,
+    ) -> list[dict | None]:
+        """fan-out N 张 figure：semaphore 限并发 + mimo 全局限速。
+
+        返回顺序与 `items` 一致；失败 / dead-letter 项返回 None（与 sync `__call__` 保持一致）。
+        """
+        if not items:
+            return []
+        sem = asyncio.Semaphore(max(1, concurrent))
+
+        async def _one(idx: int, image_path: str, ctx: dict) -> tuple[int, dict | None]:
+            async with sem:
+                try:
+                    out = await self.aresolve_one(image_path, ctx)
+                except Exception as exc:  # 兜底：单图未捕获异常不应炸 batch
+                    log.exception("vision(async) unexpected error for %s: %s", image_path, exc)
+                    out = None
+                return idx, out
+
+        tasks = [_one(i, p, c) for i, (p, c) in enumerate(items)]
+        gathered = await asyncio.gather(*tasks)
+        # 已按 idx 收集；按 idx 排序回原顺序
+        gathered.sort(key=lambda x: x[0])
+        return [out for _, out in gathered]
+
+    async def _acall_with_retry(
+        self, *, image_path: str, image_bytes: bytes, sha256: str, ctx: dict
+    ) -> VisionResult:
+        """async 版 _call_with_retry；与 sync 同语义，仅 IO 不同。"""
+        last_error: str = ""
+        hard_failures = 0
+        undescribable_attempts = 0
+        last_undescribable: VisionResult | None = None
+        max_total_attempts = (self._max_retries + 1) + self._undescribable_retries
+        attempt_idx = 0
+        client = self._ensure_async_client()
+        limiter = self._rate_limiter or get_mimo_limiter()
+
+        while attempt_idx < max_total_attempts:
+            attempt_idx += 1
+            try:
+                async with limiter.with_rate_limit():
+                    payload, meta = await acall_mimo_unified(
+                        client,
+                        image_bytes=image_bytes,
+                        model=self._model,
+                        max_tokens=self._max_tokens,
+                        image_mime=self._image_mime,
+                    )
+            except Exception as exc:
+                last_error = f"http_error: {type(exc).__name__}: {exc}"
+                hard_failures += 1
+                log.warning(
+                    "vision(async): HTTP fail (hard %d/%d) for %s: %s",
+                    hard_failures,
+                    self._max_retries + 1,
+                    image_path,
+                    last_error,
+                )
+                self._cache.bump_retry(sha256, error=last_error, ctx=_prune_ctx(ctx))
+                if hard_failures > self._max_retries:
+                    break
+                continue
+
+            if meta["finish_reason"] == "length":
+                last_error = (
+                    f"finish_reason=length completion_tokens={meta['completion_tokens']} "
+                    f"reasoning_tokens={meta['reasoning_tokens']}"
+                )
+                hard_failures += 1
+                self._cache.bump_retry(sha256, error=last_error, ctx=_prune_ctx(ctx))
+                if hard_failures > self._max_retries:
+                    break
+                continue
+
+            parsed = parse_vision_json(meta["raw_text"])
+            norm = normalize_vision_payload(parsed) if parsed is not None else None
+            if norm is None:
+                snippet = (meta["raw_text"] or "")[:200]
+                last_error = f"json_parse_or_schema_fail: {snippet!r}"
+                hard_failures += 1
+                self._cache.bump_retry(sha256, error=last_error, ctx=_prune_ctx(ctx))
+                if hard_failures > self._max_retries:
+                    break
+                continue
+
+            result = VisionResult(
+                description=norm["description"],
+                figure_kind=norm["figure_kind"],
+                visible_labels=norm["visible_labels"],
+                visible_acronyms=norm["visible_acronyms"],
+                spec_role=norm["spec_role"],
+                undescribable_reason=norm["undescribable_reason"],
+                model=meta["model"],
+                completion_tokens=meta["completion_tokens"],
+                reasoning_tokens=meta["reasoning_tokens"],
+                cached=False,
+                raw_response=payload,
+            )
+            if (
+                norm["figure_kind"] == "undescribable"
+                and undescribable_attempts < self._undescribable_retries
+            ):
+                undescribable_attempts += 1
+                last_undescribable = result
+                continue
+            return result
+
+        if last_undescribable is not None:
+            return last_undescribable
+
+        log.error(
+            "vision(async): dead-letter image=%s sha256=%s error=%s",
+            image_path,
+            sha256[:8],
+            last_error,
+        )
+        self._cache.move_to_dead(sha256, error=last_error, ctx=_prune_ctx(ctx))
+        if self._on_dead_letter is not None:
+            try:
+                self._on_dead_letter(image_path, ctx, last_error)
+            except Exception:  # pragma: no cover
                 log.exception("on_dead_letter callback failed")
         raise VisionDeadLetterError(last_error)
 
