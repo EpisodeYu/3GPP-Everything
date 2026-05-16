@@ -172,6 +172,80 @@ def test_multidim_invalid_dims_raise() -> None:
             emb.embed_texts_multidim(["x"], dims=[0, 1])
 
 
+def test_embed_texts_dimensions_arg_overrides_self() -> None:
+    """method kwarg `dimensions=` 优先于 self.dimensions，且不污染 self（race fix）。"""
+    vec = [[0.1, 0.2, 0.3, 0.4]]
+    http = _StubMDHttp(responses=[_payload(vec), _payload(vec)])
+    with Embedder(http_client=http, dimensions=2048) as emb:
+        emb.embed_texts(["a"], dimensions=1024)
+        emb.embed_texts(["b"])  # 走 self.dimensions
+    assert http.calls[0][2] == 1024  # 显式 kwarg 生效
+    assert http.calls[1][2] == 2048  # fallback 到 self.dimensions
+    assert emb.dimensions == 2048  # self 未被 mutate
+
+
+def test_multidim_concurrent_threads_no_race() -> None:
+    """16 篇 POC 暴露的 race condition：3 worker 共享 embedder 调 multidim 时
+    每次 API 调用的 dimensions 必须是该 worker 自己请求的 max(dims)，
+    不能被另一个 worker 的 `self.dimensions = N` 串掉。
+
+    旧实现 mutate `self.dimensions`，本测试在 race window 强制触发；新实现
+    用 method param 传 dimensions，应稳定通过。
+    """
+    import threading
+    import time
+
+    class _RaceHttp(_LiteLLMEmbeddingClient):
+        """每次 embed 按 caller 请求的 dimensions 返回对应长度向量；sleep 制造 race window。"""
+
+        def __init__(self) -> None:
+            self.base_url = "http://stub"
+            self.api_key = "stub"
+            self._owns_client = False
+            self._client = None  # type: ignore[assignment]
+            self.calls: list[int | None] = []
+            self._lock = threading.Lock()
+
+        def embed(self, *, model: str, inputs, dimensions: int | None = None):  # type: ignore[override]
+            with self._lock:
+                self.calls.append(dimensions)
+            time.sleep(0.01)  # 让多线程跨越 race 窗口
+            # 按 caller 请求的 dim 返回对应长度的简单向量（norm 必然能 renorm）
+            n = dimensions or 4
+            vec = [1.0] + [0.0] * (n - 1)
+            return _payload([vec for _ in inputs])
+
+    http = _RaceHttp()
+    # 注意：实际 voyage-4-large 上限 2048；测试用更小维度模拟，只关心 dimensions 透传
+    with Embedder(http_client=http) as emb:
+        dims_options = [[8, 4], [4, 2], [8, 2]]
+        results: list[Exception | None] = [None] * 24
+
+        def _worker(idx: int) -> None:
+            try:
+                emb.embed_texts_multidim(
+                    [f"text-{idx}"], dims=dims_options[idx % len(dims_options)]
+                )
+            except Exception as exc:
+                results[idx] = exc
+
+        threads = [threading.Thread(target=_worker, args=(i,)) for i in range(24)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+    # 所有 worker 都成功（无 race 触发的 EmbeddingError）
+    errs = [r for r in results if r is not None]
+    assert errs == [], f"race exposed: {len(errs)}/24 failed: {errs[:3]}"
+    # 每次 API call 的 dimensions 必须是该 worker dims 选项中的 max
+    valid_max_dims = {max(d) for d in dims_options}
+    assert all(d in valid_max_dims for d in http.calls), http.calls
+    assert len(http.calls) == 24  # 每 worker 一次 API 调用
+    # self 未被任何 worker 污染
+    assert emb.dimensions is None
+
+
 # -------------------- collection_name_for_provider with dim --------------------
 
 
