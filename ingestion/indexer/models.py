@@ -29,6 +29,26 @@ class EmbeddingBatchResult:
 
 
 @dataclass(slots=True)
+class MultiDimEmbeddingResult:
+    """单次 multidim embed 的结果（M2 §4.7）。
+
+    `vectors_by_dim[dim][i]` = 第 i 个 chunk 在 dim 维度下的向量。
+    `dim_main` = embedding API 实际请求的维度（最大那一档；其他档由 truncate+L2 renorm 派生）。
+    """
+
+    vectors_by_dim: dict[int, list[list[float]]]
+    dim_main: int
+    model: str
+    prompt_tokens: int = 0
+
+    @property
+    def n(self) -> int:
+        if not self.vectors_by_dim:
+            return 0
+        return len(next(iter(self.vectors_by_dim.values())))
+
+
+@dataclass(slots=True)
 class IndexStats:
     """单 spec 端到端 indexer 的统计，供 CLI / runner / 监控输出。"""
 
@@ -40,6 +60,7 @@ class IndexStats:
     embedding_calls: int = 0
     embedding_tokens: int = 0
     qdrant_upserted: int = 0
+    qdrant_upserted_by_dim: dict[int, int] = field(default_factory=dict)
     bm25_persisted: int = 0
     pg_upserted: int = 0
     chunks_by_type: dict[str, int] = field(default_factory=dict)
@@ -61,6 +82,11 @@ class PipelineStats:
     specs_failed: int = 0
     chunks_total: int = 0
     qdrant_upserted: int = 0
+    qdrant_upserted_by_dim: dict[int, int] = field(default_factory=dict)
     embedding_tokens: int = 0
     elapsed_s: float = 0.0
     failures: list[tuple[str, str]] = field(default_factory=list)
+    # M2 §4.8 limiter 快照（pipeline_concurrent 跑完后回填；sequential 路径保持 0）
+    voyage_tokens_total: int = 0
+    voyage_requests_total: int = 0
+    mimo_requests_total: int = 0

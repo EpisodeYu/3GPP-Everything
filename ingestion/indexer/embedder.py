@@ -41,13 +41,14 @@ from tenacity import (
     wait_exponential,
 )
 
-from .models import EmbeddingBatchResult, Provider
+from .models import EmbeddingBatchResult, MultiDimEmbeddingResult, Provider
 
 log = logging.getLogger(__name__)
 
 DEFAULT_BATCH_SIZE = 64
 DEFAULT_TIMEOUT_S = 120.0
 DEFAULT_MAX_RETRIES = 3
+DEFAULT_MULTIDIM_DIMS: tuple[int, ...] = (2048, 1024)
 
 
 # 子项目用得到的 provider → env key 映射（与 .env.example §EMBEDDING / docs §4.4 对齐）
@@ -96,15 +97,21 @@ class _LiteLLMEmbeddingClient:
     def __exit__(self, *exc_info: object) -> None:
         self.close()
 
-    def embed(self, *, model: str, inputs: Sequence[str]) -> dict:
-        """单次 POST。返回原始 LiteLLM/OpenAI 兼容 payload。"""
+    def embed(self, *, model: str, inputs: Sequence[str], dimensions: int | None = None) -> dict:
+        """单次 POST。返回原始 LiteLLM/OpenAI 兼容 payload。
+
+        `dimensions` 透传给 voyage（MRL 模型按此截维返回）；None = 服务端默认。
+        """
+        body: dict = {"model": model, "input": list(inputs)}
+        if dimensions is not None:
+            body["dimensions"] = dimensions
         resp = self._client.post(
             f"{self.base_url}/embeddings",
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             },
-            json={"model": model, "input": list(inputs)},
+            json=body,
         )
         resp.raise_for_status()
         return resp.json()
@@ -138,6 +145,7 @@ class Embedder:
         model: str | None = None,
         batch_size: int = DEFAULT_BATCH_SIZE,
         max_retries: int = DEFAULT_MAX_RETRIES,
+        dimensions: int | None = None,
     ) -> None:
         self._http = http_client or self._build_default_http_client()
         self._owns_http = http_client is None
@@ -145,6 +153,9 @@ class Embedder:
         self.model = model or _resolve_model(provider)
         self.batch_size = batch_size
         self.max_retries = max_retries
+        # `dimensions` 透传给 LiteLLM /embeddings（voyage MRL 模型支持按维度截断）。
+        # None = 用上游默认（LiteLLM proxy 的 config.yaml 已声明 voyage-4-large=2048）
+        self.dimensions = dimensions
         self._dim: int | None = None
 
     @staticmethod
@@ -239,6 +250,54 @@ class Embedder:
             prompt_tokens=prompt_tokens,
         )
 
+    def embed_texts_multidim(
+        self,
+        texts: Sequence[str],
+        *,
+        dims: Sequence[int] = DEFAULT_MULTIDIM_DIMS,
+    ) -> MultiDimEmbeddingResult:
+        """一次 API 调用 + 客户端 truncate+L2 renorm 派生其他维度（M2 §4.7 / B0 等价性）。
+
+        - 调用 API 时强制 `dimensions=max(dims)`（暂存 self.dimensions，调用后恢复）
+        - 其他档：取前 N 维 + L2 renormalize
+        - B0 spike 已验证 cosine(truncate, direct_call) median=1.0 / min=1.0
+
+        约束：
+          - dims 必须全部 ≤ self.model 支持的最大维度（voyage-4-large=2048）
+          - dims 须严格递减或递增不重要，方法内部按降序处理
+        """
+        if not texts:
+            return MultiDimEmbeddingResult(
+                vectors_by_dim={d: [] for d in dims}, dim_main=max(dims), model=self.model
+            )
+        if not dims:
+            raise EmbeddingError("dims must be non-empty")
+        unique_sorted = sorted({int(d) for d in dims}, reverse=True)
+        if any(d <= 0 for d in unique_sorted):
+            raise EmbeddingError(f"dims must be positive, got {dims}")
+        dim_main = unique_sorted[0]
+
+        prev_dimensions = self.dimensions
+        self.dimensions = dim_main
+        try:
+            base = self.embed_texts(texts)
+        finally:
+            self.dimensions = prev_dimensions
+
+        if base.dim != dim_main:
+            raise EmbeddingError(f"multidim main call returned dim={base.dim}, expected {dim_main}")
+        out: dict[int, list[list[float]]] = {dim_main: base.vectors}
+        for sub in unique_sorted[1:]:
+            if sub > dim_main:
+                raise EmbeddingError(f"sub dim {sub} > main dim {dim_main}")
+            out[sub] = [_truncate_and_renorm(v, sub) for v in base.vectors]
+        return MultiDimEmbeddingResult(
+            vectors_by_dim=out,
+            dim_main=dim_main,
+            model=base.model,
+            prompt_tokens=base.prompt_tokens,
+        )
+
     def _embed_with_retry(self, batch: list[str]) -> dict:
         retrying = retry(
             reraise=False,
@@ -253,11 +312,11 @@ class Embedder:
         @retrying
         def _call() -> dict:
             try:
-                return self._http.embed(model=self.model, inputs=batch)
+                return self._http.embed(model=self.model, inputs=batch, dimensions=self.dimensions)
             except httpx.HTTPStatusError as exc:
                 if not _is_retryable_http(exc):
                     raise EmbeddingError(
-                        f"embedding HTTP {exc.response.status_code}: " f"{exc.response.text[:300]}"
+                        f"embedding HTTP {exc.response.status_code}: {exc.response.text[:300]}"
                     ) from exc
                 raise
 
@@ -277,6 +336,22 @@ def _log_retry(retry_state: Any) -> None:
         retry_state.attempt_number,
         retry_state.outcome.exception() if retry_state.outcome else None,
     )
+
+
+# -------------------- 辅助：truncate + L2 renormalize（MRL） --------------------
+
+
+def _truncate_and_renorm(vec: Sequence[float], dim: int) -> list[float]:
+    """取前 dim 维 + L2 renormalize（matryoshka 派生）。"""
+    if dim > len(vec):
+        raise EmbeddingError(
+            f"truncate target dim {dim} > source len {len(vec)}; can't matryoshka-up"
+        )
+    head = list(vec[:dim])
+    norm = sum(x * x for x in head) ** 0.5
+    if norm == 0.0:
+        return head
+    return [x / norm for x in head]
 
 
 # -------------------- 辅助：批量 embed Chunk 列表 --------------------
@@ -306,6 +381,7 @@ def embed_chunks(
 __all__ = [
     "DEFAULT_BATCH_SIZE",
     "DEFAULT_MAX_RETRIES",
+    "DEFAULT_MULTIDIM_DIMS",
     "DEFAULT_TIMEOUT_S",
     "PROVIDER_DEFAULT_MODEL",
     "PROVIDER_MODEL_ENV",

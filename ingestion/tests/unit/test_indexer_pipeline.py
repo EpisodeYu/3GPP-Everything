@@ -43,7 +43,7 @@ class _StubHttp(_LiteLLMEmbeddingClient):
         self._fail = fail
         self.calls: list[list[str]] = []
 
-    def embed(self, *, model: str, inputs):  # type: ignore[override]
+    def embed(self, *, model: str, inputs, dimensions: int | None = None):  # type: ignore[override]
         self.calls.append(list(inputs))
         if self._fail:
             raise RuntimeError("simulated embed failure")
@@ -182,7 +182,7 @@ def test_index_specs_continues_on_single_failure(tmp_path: Path) -> None:
             self._client = None  # type: ignore[assignment]
             self._call_count = 0
 
-        def embed(self, *, model: str, inputs):  # type: ignore[override]
+        def embed(self, *, model: str, inputs, dimensions: int | None = None):  # type: ignore[override]
             self._call_count += 1
             # 第一篇（包含 1-2 个 batch）的 embed 调用让其失败，第二篇成功
             if self._call_count == 1:

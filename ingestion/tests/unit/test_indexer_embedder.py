@@ -34,8 +34,10 @@ class _StubHttp(_LiteLLMEmbeddingClient):
         self._responses = list(responses)
         self.calls: list[tuple[str, list[str]]] = []
 
-    def embed(self, *, model: str, inputs):  # type: ignore[override]
+    def embed(self, *, model: str, inputs, dimensions: int | None = None):  # type: ignore[override]
         self.calls.append((model, list(inputs)))
+        # 测试可在调用后 inspect self.last_dimensions 校验 multidim 路径透传
+        self.last_dimensions = dimensions
         if not self._responses:
             raise AssertionError("StubHttp out of responses")
         item = self._responses.pop(0)
