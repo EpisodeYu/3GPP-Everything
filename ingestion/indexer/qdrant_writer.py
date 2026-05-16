@@ -332,23 +332,38 @@ class QdrantWriter:
         log.info("qdrant upsert done: %d points → %s", upserted, self.collection_name)
         return upserted
 
-    def purge_spec(self, spec_id: str) -> int:
-        """按 spec_id 删除该 collection 中所有 point。
+    def purge_spec(self, spec_id: str, *, collection_name: str | None = None) -> int:
+        """按 spec_id 删除某个 collection 中该 spec 的所有 point。
+
+        target 选择优先级（与 `count` 对齐）：
+          1. 显式 `collection_name=` 参数
+          2. 已 ensure 的 multidim collection（取主 dim = max dim）→ M2 §4.7 起的默认路径
+          3. self.collection_name（兼容旧 single-dim 部署）
 
         返回被删 point 数（best-effort：先 count，再 delete）。
         重建一篇 spec 前调一次，避免旧 chunk_id（内容变了）残留。
+
+        想跨"所有 dim collection"清，请用 `purge_spec_multidim`，或由 caller 枚举
+        Qdrant 中现存的 `{prefix}_{provider}` / `_d{N}` collection 逐个调本方法
+        （见 `runner._list_provider_collections` + `purge_spec_cmd`）。
         """
-        if not self._client.collection_exists(self.collection_name):
+        target = collection_name
+        if target is None:
+            if self._collections_by_dim:
+                target = self._collections_by_dim[max(self._collections_by_dim)]
+            else:
+                target = self.collection_name
+        if not self._client.collection_exists(target):
             return 0
         flt = qmodels.Filter(
             must=[qmodels.FieldCondition(key="spec_id", match=qmodels.MatchValue(value=spec_id))]
         )
-        before = self.count(spec_id=spec_id)
+        before = self.count(spec_id=spec_id, collection_name=target)
         self._client.delete(
-            collection_name=self.collection_name,
+            collection_name=target,
             points_selector=qmodels.FilterSelector(filter=flt),
         )
-        log.info("qdrant purge_spec: %s removed %d points", spec_id, before)
+        log.info("qdrant purge_spec: %s removed %d points from %s", spec_id, before, target)
         return before
 
     def count(self, *, spec_id: str | None = None, collection_name: str | None = None) -> int:

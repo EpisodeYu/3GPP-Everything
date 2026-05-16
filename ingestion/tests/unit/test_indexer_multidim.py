@@ -463,3 +463,60 @@ def test_count_falls_back_to_self_collection_name_in_single_dim_mode() -> None:
     assert w._collections_by_dim == {}
     assert w.count() == 2
     assert w.count(spec_id="38.331") == 2
+
+
+# -------------------- purge_spec multidim fix（与 count fix 同源 §3.2） --------------------
+
+
+def test_purge_spec_uses_main_dim_collection_in_multidim_mode() -> None:
+    """multidim 模式下 purge_spec() 默认应走主 dim collection。
+
+    旧实现永远 short-circuit `self.collection_name`（无 _d 后缀）→ 不存在 → return 0
+    → 静默 no-op。回归保证 M3→M6 之间 `ingestion purge-spec` CLI 能清干净。
+    """
+    w = _md_writer("tpurge_main")
+    base_name = w.collection_name
+    w.ensure_collections([4, 2])
+    chunks = _fake_chunks(3, spec_id="38.401")
+    w.upsert_multidim(chunks, {4: [[0.1, 0.2, 0.3, 0.4]] * 3, 2: [[0.6, 0.8]] * 3})
+    # base 名（无 dim）未建
+    assert not w._client.collection_exists(base_name)
+    # 默认 purge 走主 dim（max=4）collection
+    removed = w.purge_spec("38.401")
+    assert removed == 3
+    assert w.count(spec_id="38.401") == 0
+    # 副 dim collection 没被动（caller 用 _list_provider_collections 自行遍历）
+    assert w.count(spec_id="38.401", collection_name="tpurge_main_voyage_d2") == 3
+
+
+def test_purge_spec_explicit_collection_name_overrides() -> None:
+    """purge_spec(collection_name=...) 显式覆盖：可指定清任意 dim collection。"""
+    w = _md_writer("tpurge_explicit")
+    w.ensure_collections([4, 2])
+    chunks = _fake_chunks(2, spec_id="38.331")
+    w.upsert_multidim(chunks, {4: [[1.0, 0, 0, 0]] * 2, 2: [[1.0, 0]] * 2})
+    # 显式清 d2 collection
+    removed = w.purge_spec("38.331", collection_name="tpurge_explicit_voyage_d2")
+    assert removed == 2
+    assert w.count(spec_id="38.331", collection_name="tpurge_explicit_voyage_d2") == 0
+    # d4 没被动
+    assert w.count(spec_id="38.331", collection_name="tpurge_explicit_voyage_d4") == 2
+    # 不存在的 collection_name 返回 0 不抛
+    assert w.purge_spec("38.331", collection_name="never_created") == 0
+
+
+def test_purge_spec_falls_back_to_self_collection_name_in_single_dim_mode() -> None:
+    """单 dim 路径保持原行为：purge 走 self.collection_name。"""
+    w = QdrantWriter(
+        client=QdrantClient(":memory:"),
+        provider="voyage",
+        dim=4,
+        collection_name="single_dim_purge_test",
+    )
+    w.ensure_collection()
+    chunks = _fake_chunks(2, spec_id="29.503")
+    w.upsert_chunks(chunks, [[0.1, 0.2, 0.3, 0.4]] * 2)
+    assert w._collections_by_dim == {}
+    removed = w.purge_spec("29.503")
+    assert removed == 2
+    assert w.count(spec_id="29.503") == 0
