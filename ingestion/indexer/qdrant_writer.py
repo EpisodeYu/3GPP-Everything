@@ -42,12 +42,19 @@ DEFAULT_UPSERT_BATCH_SIZE = 128
 DEFAULT_DISTANCE = qmodels.Distance.COSINE
 
 
-def collection_name_for_provider(provider: str, *, prefix: str | None = None) -> str:
-    """`{prefix}_{provider}`；prefix 缺省读 `QDRANT_COLLECTION_PREFIX` 或默认 `tgpp_chunks`。"""
+def collection_name_for_provider(
+    provider: str, *, prefix: str | None = None, dim: int | None = None
+) -> str:
+    """`{prefix}_{provider}` 或 `{prefix}_{provider}_d{dim}`（M2 multidim）。
+
+    prefix 缺省读 `QDRANT_COLLECTION_PREFIX` 或默认 `tgpp_chunks`。
+    `dim` 非空时追加 `_d{dim}` 后缀，用于多维度 collection 命名。
+    """
     import os
 
     pre = prefix or os.environ.get("QDRANT_COLLECTION_PREFIX") or "tgpp_chunks"
-    return f"{pre}_{provider}"
+    base = f"{pre}_{provider}"
+    return f"{base}_d{dim}" if dim is not None else base
 
 
 class QdrantWriter:
@@ -74,6 +81,7 @@ class QdrantWriter:
         dim: int | None = None,
         distance: qmodels.Distance = DEFAULT_DISTANCE,
         collection_name: str | None = None,
+        collection_prefix: str | None = None,
         payload_indexed_fields: Sequence[str] = DEFAULT_PAYLOAD_INDEXED_FIELDS,
         upsert_batch_size: int = DEFAULT_UPSERT_BATCH_SIZE,
     ) -> None:
@@ -82,9 +90,14 @@ class QdrantWriter:
         self.dim = dim
         self.distance = distance
         self.collection_name = collection_name or collection_name_for_provider(provider)
+        # 多维度模式（ensure_collections / upsert_multidim）共用同一 prefix；
+        # explicit collection_name 仍优先用于单维度兼容路径。
+        self._collection_prefix = collection_prefix
         self._payload_indexed_fields = tuple(payload_indexed_fields)
         self._upsert_batch_size = upsert_batch_size
         self._collection_ready = False
+        # dim → collection_name 映射；ensure_collections 后填充
+        self._collections_by_dim: dict[int, str] = {}
 
     @staticmethod
     def _build_default_client() -> QdrantClient:
@@ -137,11 +150,12 @@ class QdrantWriter:
         self.dim = target_dim
         self._collection_ready = True
 
-    def _create_payload_indexes(self) -> None:
+    def _create_payload_indexes(self, *, collection_name: str | None = None) -> None:
+        target = collection_name or self.collection_name
         for field_name in self._payload_indexed_fields:
             try:
                 self._client.create_payload_index(
-                    collection_name=self.collection_name,
+                    collection_name=target,
                     field_name=field_name,
                     field_schema=qmodels.PayloadSchemaType.KEYWORD,
                 )
@@ -151,6 +165,132 @@ class QdrantWriter:
                     continue
                 # 多数 qdrant-client 版本对重复索引返回 200，少数抛；安全起见 log + skip
                 log.debug("payload index create skipped (%s): %s", field_name, msg)
+
+    # -------------------- 多维度 collection（M2 §4.7） --------------------
+
+    def ensure_collections(self, dims: Sequence[int]) -> dict[int, str]:
+        """为每个 dim 建一个 `{prefix}_{provider}_d{dim}` collection（idempotent）。
+
+        返回 dim → collection_name 映射；后续 `upsert_multidim` 直接消费此映射。
+        """
+        if not dims:
+            raise RuntimeError("ensure_collections: dims must be non-empty")
+        out: dict[int, str] = {}
+        for d in sorted({int(x) for x in dims}, reverse=True):
+            name = collection_name_for_provider(
+                self.provider, prefix=self._collection_prefix, dim=d
+            )
+            if not self._client.collection_exists(name):
+                log.info(
+                    "creating qdrant collection: %s (dim=%d, distance=%s)",
+                    name,
+                    d,
+                    self.distance,
+                )
+                self._client.create_collection(
+                    collection_name=name,
+                    vectors_config=qmodels.VectorParams(size=d, distance=self.distance),
+                )
+            else:
+                log.info("qdrant collection exists: %s", name)
+            self._create_payload_indexes(collection_name=name)
+            out[d] = name
+        self._collections_by_dim = out
+        self._collection_ready = True
+        return dict(out)
+
+    def upsert_multidim(
+        self,
+        chunks: Sequence[Any],
+        vectors_by_dim: dict[int, Sequence[Sequence[float]]],
+    ) -> dict[int, int]:
+        """同一批 chunks，每个 dim 写入对应 `_d{dim}` collection；返回 dim → upserted。
+
+        - 共用同一 chunk_id（uuid5）→ 跨 collection 可对照
+        - vectors_by_dim 的每个 list 长度必须 == len(chunks)
+        - 必须先调 ensure_collections(dims)；否则抛
+        """
+        if not self._collections_by_dim:
+            raise RuntimeError("call ensure_collections(dims) before upsert_multidim()")
+        missing = [d for d in vectors_by_dim if d not in self._collections_by_dim]
+        if missing:
+            raise RuntimeError(
+                f"upsert_multidim: dim(s) {missing} not in ensure_collections; "
+                f"have {sorted(self._collections_by_dim)}"
+            )
+        if not chunks:
+            return {d: 0 for d in vectors_by_dim}
+
+        out: dict[int, int] = {}
+        for dim, name in sorted(self._collections_by_dim.items(), reverse=True):
+            if dim not in vectors_by_dim:
+                continue  # caller 可能只 upsert 部分 dim
+            vecs = vectors_by_dim[dim]
+            if len(chunks) != len(vecs):
+                raise ValueError(
+                    f"upsert_multidim dim={dim}: chunks/vectors length mismatch "
+                    f"({len(chunks)} vs {len(vecs)})"
+                )
+            upserted = 0
+            for start in range(0, len(chunks), self._upsert_batch_size):
+                batch_chunks = chunks[start : start + self._upsert_batch_size]
+                batch_vecs = vecs[start : start + self._upsert_batch_size]
+                points = [
+                    qmodels.PointStruct(
+                        id=_ensure_qdrant_point_id(c.chunk_id),
+                        vector=list(v),
+                        payload=_chunk_to_payload(c),
+                    )
+                    for c, v in zip(batch_chunks, batch_vecs, strict=True)
+                ]
+                self._client.upsert(collection_name=name, points=points)
+                upserted += len(points)
+            log.info("qdrant multidim upsert: %d → %s", upserted, name)
+            out[dim] = upserted
+        return out
+
+    def purge_spec_multidim(self, spec_id: str) -> dict[int, int]:
+        """跨所有已 ensure 的 multidim collection 按 spec_id 删（重建 spec 前调）。"""
+        if not self._collections_by_dim:
+            return {}
+        out: dict[int, int] = {}
+        for dim, name in self._collections_by_dim.items():
+            if not self._client.collection_exists(name):
+                out[dim] = 0
+                continue
+            flt = qmodels.Filter(
+                must=[
+                    qmodels.FieldCondition(key="spec_id", match=qmodels.MatchValue(value=spec_id))
+                ]
+            )
+            before = int(self._client.count(name, count_filter=flt, exact=True).count)
+            self._client.delete(
+                collection_name=name,
+                points_selector=qmodels.FilterSelector(filter=flt),
+            )
+            log.info("qdrant purge_spec_multidim: %s removed %d from %s", spec_id, before, name)
+            out[dim] = before
+        return out
+
+    def count_multidim(self, *, spec_id: str | None = None) -> dict[int, int]:
+        """返回每个 dim collection 的 point 数（按 spec_id 过滤可选）。"""
+        out: dict[int, int] = {}
+        for dim, name in self._collections_by_dim.items():
+            if not self._client.collection_exists(name):
+                out[dim] = 0
+                continue
+            if spec_id is None:
+                out[dim] = int(self._client.count(name, exact=True).count)
+            else:
+                flt = qmodels.Filter(
+                    must=[
+                        qmodels.FieldCondition(
+                            key="spec_id", match=qmodels.MatchValue(value=spec_id)
+                        )
+                    ]
+                )
+                out[dim] = int(self._client.count(name, count_filter=flt, exact=True).count)
+        return out
 
     # -------------------- 写入 / 删除 --------------------
 
