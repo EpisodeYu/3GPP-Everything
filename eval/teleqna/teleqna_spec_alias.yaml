@@ -1,0 +1,11 @@
+# TeleQnA spec_id 别名映射（M3 evaluation）
+#
+# 用途：TeleQnA 数据集发布于 2023，部分题目引用 spec 时用旧编号 / 同含义不同代号。
+# 此文件让 filter 能把别名映射到 17 篇 POC 的 canonical spec_id。
+#
+# 维护原则：
+# - 仅在过滤阶段发现"显然是同一份 spec 但编号略不同"时新增条目
+# - 不引入语义级映射（如 "AS 协议 → 38.331"），避免假阳性
+#
+# 当前为空 — 后续 filter 跑出 out_of_scope 候选时再人工增补
+aliases: {}

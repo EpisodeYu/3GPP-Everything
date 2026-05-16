@@ -1,0 +1,63 @@
+[project]
+name = "tgpp-eval"
+version = "0.1.0"
+description = "M3 评测脚手架：retrieval-only 评估 + TeleQnA 转化 + 维度决胜"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27",
+  "qdrant-client>=1.11",
+  "pyyaml>=6.0",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.4",
+  "tenacity>=9.0",
+  "typer>=0.12",
+  "structlog>=24.1",
+  # TeleQnA.zip 用 WinZip AES (method 99)，Python stdlib zipfile 与系统 unzip 都不支持；
+  # pyzipper 是 pure-Python AES zip 实现（zipfile API drop-in）
+  "pyzipper>=0.3.6",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.6",
+  "black>=24.8",
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=5.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+# 与 ingestion 同口径：中文标点 RUF001/2/3 关掉。
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+# scripts 里 prompt 字符串 / 表格输出会过 100 列，符合现有 ingestion 项目惯例
+"scripts/*.py" = ["E501"]
+# typer.Option 默认值
+"cli.py" = ["B008", "E501"]
+"teleqna/runner.py" = ["B008", "E501"]
+"retrieval/runner.py" = ["B008", "E501"]
+"builder/runner.py" = ["B008", "E501"]
+# prompt 模板字符串本身就长（ingestion images/prompts.py 同口径）
+"teleqna/prompts.py" = ["E501"]
+"builder/prompts.py" = ["E501"]
+# runner 里 markdown 表头列宽不可避免
+"runner_retrieval.py" = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "unit: 纯函数 / 不依赖外部服务",
+  "integration: 需要 live Qdrant / LiteLLM",
+  "slow: 较慢的端到端检索调用",
+]
+asyncio_mode = "auto"
