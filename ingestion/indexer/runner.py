@@ -470,7 +470,11 @@ def purge_spec_cmd(
     provider: Provider = typer.Option("voyage"),
     skip_pg: bool = typer.Option(False),
 ) -> None:
-    """清掉 Qdrant + BM25 + PG 中该 spec 的所有写入（重建前的清理）。"""
+    """清掉 Qdrant + BM25 + PG 中该 spec 的所有写入（重建前的清理）。
+
+    Qdrant 侧自动感知 multidim：枚举所有匹配 `{prefix}_{provider}` 与
+    `{prefix}_{provider}_d{N}` 的 collection 逐个 delete（M2 §3.2 同源 fix 范围）。
+    """
     qdrant = QdrantWriter(provider=provider)
     bm25 = BM25Writer(provider=provider)
     pg: PgChunkMetaWriter | None = None
@@ -480,12 +484,24 @@ def purge_spec_cmd(
         except Exception as exc:
             typer.echo(f"[purge-spec] PG disabled: {exc}")
 
-    qd = qdrant.purge_spec(spec_id)
+    cols = _list_provider_collections(qdrant, provider)
+    qd_total = 0
+    qd_per_col: dict[str, int] = {}
+    if not cols:
+        typer.echo(
+            f"[purge-spec] qdrant: no collection matching prefix "
+            f"{collection_name_for_provider(provider)}"
+        )
+    for name in cols:
+        removed = qdrant.purge_spec(spec_id, collection_name=name)
+        qd_per_col[name] = removed
+        qd_total += removed
+        typer.echo(f"[purge-spec] qdrant {name}: removed {removed}")
     bm = bm25.purge_spec(spec_id)
     pgn = pg.purge_spec(spec_id) if pg else 0
     typer.echo(
         f"[purge-spec] spec={spec_id} provider={provider} "
-        f"qdrant={qd} bm25={'yes' if bm else 'no'} pg={pgn}"
+        f"qdrant_total={qd_total} bm25={'yes' if bm else 'no'} pg={pgn}"
     )
 
 
