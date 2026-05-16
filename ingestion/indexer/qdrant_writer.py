@@ -351,16 +351,31 @@ class QdrantWriter:
         log.info("qdrant purge_spec: %s removed %d points", spec_id, before)
         return before
 
-    def count(self, *, spec_id: str | None = None) -> int:
-        """collection 总数或按 spec_id 过滤计数。"""
-        if not self._client.collection_exists(self.collection_name):
+    def count(self, *, spec_id: str | None = None, collection_name: str | None = None) -> int:
+        """collection 总数或按 spec_id 过滤计数。
+
+        target 选择优先级：
+          1. 显式 `collection_name=` 参数
+          2. 已 ensure 的 multidim collection（取主 dim = max dim）→ M2 §4.7 起的默认路径
+          3. self.collection_name（兼容旧 single-dim 路径）
+
+        这样 `pipeline_concurrent` 在 ensure_collections 之后调 `count(spec_id=...)`
+        能拿到主 dim collection 的真实计数，`--skip-indexed` 不再永远命中 0。
+        """
+        target = collection_name
+        if target is None:
+            if self._collections_by_dim:
+                target = self._collections_by_dim[max(self._collections_by_dim)]
+            else:
+                target = self.collection_name
+        if not self._client.collection_exists(target):
             return 0
         if spec_id is None:
-            return int(self._client.count(self.collection_name, exact=True).count)
+            return int(self._client.count(target, exact=True).count)
         flt = qmodels.Filter(
             must=[qmodels.FieldCondition(key="spec_id", match=qmodels.MatchValue(value=spec_id))]
         )
-        return int(self._client.count(self.collection_name, count_filter=flt, exact=True).count)
+        return int(self._client.count(target, count_filter=flt, exact=True).count)
 
 
 # -------------------- 辅助 --------------------

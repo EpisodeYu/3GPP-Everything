@@ -285,23 +285,25 @@ def test_pipeline_concurrent_failure_isolated_and_dead_letter(tmp_path: Path) ->
 
 
 def test_pipeline_concurrent_skip_indexed(tmp_path: Path) -> None:
-    """skip_indexed=True 时，已有 single-collection point 的 spec 应跳过。
+    """skip_indexed=True 时，multidim 模式下已索引 spec 应被正确跳过。
 
-    注：QdrantWriter.count() 用的是 single-collection (self.collection_name)；
-    我们用 sequential index_spec_multidim 先写一遍 + 触发 ensure_collections，
-    再用 ensure_collection（single）显式写一份判定 collection。
+    回归 17 篇 POC handoff §3.2 P1 bug：旧实现 `QdrantWriter.count(spec_id=...)`
+    永远查 `self.collection_name`（老 single-dim 名），multidim 路径下该 collection
+    不存在 → count 永远 0 → skip_indexed 完全失效。
+    修复后：count 自动用主 dim collection（max dim），不再需要任何 hack。
     """
     _isolated_limiters()
     bundle = _mk_bundle("38.211")
     comps, http = _components(tmp_path, dim_main=8)
 
-    # 先跑 sequential 一次
+    # 先跑 sequential 一次写入 multidim collection（同时 ensure_collections）
     s = index_spec_multidim(bundle, comps, dims=[8, 4])
     assert s.succeeded
     embed_calls_before = len(http.calls)
 
-    # 用 single-collection 逻辑伪装 "已索引"
-    comps.qdrant.collection_name = comps.qdrant._collections_by_dim[8]
+    # ⚠️ 不再需要 hack 把 collection_name 改成主 dim collection；
+    # QdrantWriter.count 应自动感知 _collections_by_dim 并查主 dim
+    assert comps.qdrant.count(spec_id="38.211") > 0, "multidim count 应感知主 dim collection"
 
     async def _go():
         return await pipeline_concurrent(
@@ -311,14 +313,44 @@ def test_pipeline_concurrent_skip_indexed(tmp_path: Path) -> None:
     pstats = asyncio.run(_go())
     assert pstats.specs_attempted == 1
     assert pstats.specs_succeeded == 1
-    # embed 没再被调（skip 起作用）
+    # embed 没再被调（skip 起作用 → 不浪费 token）
     assert len(http.calls) == embed_calls_before
 
 
-def test_pipeline_concurrent_limiter_snapshot(tmp_path: Path) -> None:
-    """跑完后 PipelineStats 回填了 mimo / voyage 限速器快照。"""
+def test_pipeline_concurrent_skip_indexed_no_collection_name_hack(tmp_path: Path) -> None:
+    """multidim 模式下 QdrantWriter.count 应在 ensure_collections 后自动用主 dim。
+
+    针对 handoff §3.2 P1 的最小回归：`QdrantWriter` 默认构造的 collection_name
+    形如 `tgpp_chunks_voyage`（无 _d 后缀），multidim 路径下从来不写它。
+    fix 后 `count(spec_id=...)` 必须命中 `_d{max(dims)}` 的真实点数。
+    """
     _isolated_limiters()
-    # 注入一个已经"用过"的 mimo 限速器，模拟 vision fan-out 后的状态
+    bundle = _mk_bundle("38.211")
+    comps, _ = _components(tmp_path, dim_main=8)
+    # 写入 multidim 双 collection
+    index_spec_multidim(bundle, comps, dims=[8, 4])
+
+    # 默认 collection_name = "tgpp_chunks_voyage"（无 dim 后缀，multidim 模式下不存在）
+    assert comps.qdrant.collection_name not in comps.qdrant._collections_by_dim.values()
+    # fix 前：count 查不存在的 self.collection_name → 永远 0
+    # fix 后：count 自动用 _collections_by_dim[max dim] → > 0
+    assert comps.qdrant.count(spec_id="38.211") > 0
+    # 也接受显式 collection_name 覆盖
+    explicit_main = comps.qdrant._collections_by_dim[8]
+    assert comps.qdrant.count(
+        spec_id="38.211", collection_name=explicit_main
+    ) == comps.qdrant.count(spec_id="38.211")
+
+
+def test_pipeline_concurrent_limiter_snapshot(tmp_path: Path) -> None:
+    """跑完后 PipelineStats 回填了 mimo / voyage 限速器快照。
+
+    handoff §3.4 P2 fix：sync `embed_texts` 不走 async limiter，但
+    `index_spec_multidim` 完成时 `_record_voyage_usage` 会把 token / 请求数
+    手动累加到 voyage limiter usage。所以这里的 voyage_tokens_total /
+    voyage_requests_total 应该是 (注入的 fake initial) + (sync embed 累加)。
+    """
+    _isolated_limiters()
     fake_mimo = CompositeLimiter(rpm=10000, tpm=None, name="snap_mimo")
     fake_mimo.usage.requests_made = 7
     fake_mimo.usage.tokens_used = 0
@@ -335,9 +367,15 @@ def test_pipeline_concurrent_limiter_snapshot(tmp_path: Path) -> None:
         return await pipeline_concurrent([bundle], comps, workers=1, dims=[8, 4])
 
     pstats = asyncio.run(_go())
+    # mimo：sync embed 不影响 mimo，仍 = fake initial（vision_resolver=None 不走 fan-out）
     assert pstats.mimo_requests_total == 7
-    assert pstats.voyage_requests_total == 3
-    assert pstats.voyage_tokens_total == 12345
+    # voyage：fix §3.4 后会累加 sync embed 真实用量
+    assert pstats.voyage_requests_total > 3, "sync embed 应累加 requests_made"
+    assert pstats.voyage_tokens_total > 12345, "sync embed 应累加 tokens_used"
+    # 累加值应等于本次 spec 的 embedding_tokens + embedding_calls
+    assert (
+        pstats.voyage_tokens_total - 12345 == pstats.embedding_tokens
+    ), "voyage tokens 增量应等于 PipelineStats.embedding_tokens"
 
 
 def test_pipeline_concurrent_workers_one_equals_sequential(tmp_path: Path) -> None:
