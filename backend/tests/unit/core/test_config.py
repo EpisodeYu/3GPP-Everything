@@ -32,3 +32,26 @@ def test_env_var_override(monkeypatch) -> None:
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert s.EMBEDDING_DIMENSIONS == 2048
     assert s.qdrant_collection == "tgpp_chunks_glm_d2048"
+
+
+def test_allowed_origins_csv_string(monkeypatch) -> None:
+    """运维 .env 习惯用逗号分隔，必须能解析。"""
+    monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:8082,http://127.0.0.1:8082")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.ALLOWED_ORIGINS == ["http://localhost:8082", "http://127.0.0.1:8082"]
+
+
+def test_allowed_origins_single_value() -> None:
+    s = Settings(_env_file=None, ALLOWED_ORIGINS="https://tgpp.example.com")  # type: ignore[call-arg]
+    assert s.ALLOWED_ORIGINS == ["https://tgpp.example.com"]
+
+
+def test_allowed_origins_json_array(monkeypatch) -> None:
+    monkeypatch.setenv("ALLOWED_ORIGINS", '["https://a.com", "https://b.com"]')
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.ALLOWED_ORIGINS == ["https://a.com", "https://b.com"]
+
+
+def test_allowed_origins_empty_string() -> None:
+    s = Settings(_env_file=None, ALLOWED_ORIGINS="")  # type: ignore[call-arg]
+    assert s.ALLOWED_ORIGINS == []
