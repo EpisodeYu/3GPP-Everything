@@ -2,16 +2,40 @@
 
 > 把 LangGraph Agent 包成 HTTP/SSE 接口；管理用户/会话/文档/反馈数据；做鉴权与限流。
 
+## 0. M4 执行顺序（后端侧）
+
+> 2026-05-17 拆解。M4 拆 11 段：M4.0 与 M4.1 是 agent 与 backend 共享底座（详见 [`03-agent.md §0`](03-agent.md)），M4.2–M4.5 是 agent 内部建设，M4.6–M4.10 是后端建设。按下表顺序推进，每段门禁全绿才能进下一段；同一段子项可并行。
+
+| 子里程碑 | 主要交付物 | 完成度门禁 |
+|---|---|---|
+| **M4.0** 共享底座 | 见 [`03-agent.md §0`](03-agent.md)。后端侧涉及 `core/{config,logging,errors}` + `llm/litellm_client` + `db/` SQLAlchemy 全表 + `alembic` 初始迁移 + `retrieval/*` | `alembic upgrade head` 在干净 PG 通过；retrieval 包能拿真实 top-50 |
+| **M4.2 – M4.5** Agent 建设 | 见 [`03-agent.md §0`](03-agent.md) | 同上 |
+| **M4.6** FastAPI 鉴权与基础 | `core/{auth,ratelimit,audit}` + `api/v1/{auth,users}.py` | RBAC（普通用户访问 admin → 403）；限流 429；logout 后 refresh 失效；停用用户无法 refresh |
+| **M4.7** 会话与 SSE Chat（核心交付） | `api/v1/sessions.py` + `api/v1/chat.py`（包 LangGraph `astream_events` + DB 落 message/citations）+ 取消接口 | SSE 集成测覆盖 9 类 event（run_start / node_start / node_end / chunks_hit / token / final / end / cancelled / error）；fake LangGraph fixture 端到端 |
+| **M4.8** Checkpoint API | `api/v1/checkpoint.py`：pause / resume / list_checkpoints / fork / rollback 5 个路由，分别包 [`03-agent.md §12`](03-agent.md) 的 5 个纯函数 | §12 checkpoint 相关集成测全绿；rollback 与跑中 run 冲突返回 409 |
+| **M4.9** Reader / Tools / Favorites / Notes / Feedback | `api/v1/{docs,tools,favorites,notes,feedback}.py` | 每个路由 CRUD 集成测；Reader 在 M6 全量数据上能正常返回章节树 |
+| **M4.10** Admin 最小集 + 健康检查 + 最终回归 | `api/v1/admin.py`（stats / tasks / index/rebuild）+ `/health` + `/ready` + OpenAPI 覆盖度校验 + 全套回归 | §12 [auto] 项全部绿；[human] 项标注待审；交付 `docs/04-handoff/2026-XX-XX-m4-complete.md` |
+
+**M4 范围内主动推迟的功能**（在 §2 路由总表与 §9 异步任务进一步说明）：
+
+- `POST /api/v1/admin/upload-doc`（Docling 兜底链路）→ 推迟到 M8 上线前
+- `POST /api/v1/admin/crawl`（FTP 爬虫 trigger）→ 推迟到 M8 上线前（M4 期间走 CLI 即可）
+- 独立 worker 进程（Redis Streams + consumer group）→ M4 用 `asyncio.create_task` 简化，M8 上线前换正式 worker
+
+> 各段完成后按 [`../00-vibe-coding-protocol.md §4`](../00-vibe-coding-protocol.md) 输出完成报告。
+
 ## 1. 交付物
 
-- ✅ FastAPI 应用 `backend/app/main.py`，所有路由按资源拆分到 `app/api/v1/*`
-- ✅ Pydantic v2 请求/响应 schema 全套
-- ✅ SQLAlchemy 2.0 async ORM + Alembic 迁移（PG schema）
-- ✅ SSE 流式 `/chat` 接口，与 §3 SSE 事件表一致
-- ✅ 多用户鉴权：JWT access token + refresh token + RBAC（admin/user）+ 审计日志
-- ✅ OpenAPI / Swagger UI（`/docs`）覆盖所有路由
-- ✅ 健康检查 `/health`、就绪检查 `/ready`
-- ✅ 集成测覆盖核心路由
+> 每条标 `[M4.x]` 关联 §0 子里程碑。完成后把 `[ ]` 替换为 `[x]`。
+
+- [ ] `[M4.6/M4.7/M4.8/M4.9/M4.10]` FastAPI 应用 `backend/app/main.py`，所有路由按资源拆分到 `app/api/v1/*`
+- [ ] `[M4.6 — M4.10]` Pydantic v2 请求/响应 schema 全套
+- [ ] `[M4.0]` SQLAlchemy 2.0 async ORM + Alembic 迁移（PG schema）
+- [ ] `[M4.7]` SSE 流式 `/chat` 接口，与 §3 SSE 事件表一致
+- [ ] `[M4.6]` 多用户鉴权：JWT access token + refresh token + RBAC（admin/user）+ 审计日志
+- [ ] `[M4.10]` OpenAPI / Swagger UI（`/docs`）覆盖所有路由
+- [ ] `[M4.10]` 健康检查 `/health`、就绪检查 `/ready`
+- [ ] `[M4.6 — M4.10]` 集成测覆盖核心路由
 
 ## 2. 路由总表
 
@@ -43,11 +67,12 @@
 |  | GET | `/api/v1/docs/{spec_id}/sections/{path}` | 取某章节完整 markdown + chunks |
 |  | GET | `/api/v1/docs/{spec_id}/search` | spec 内 BM25 搜索（阅读器搜索框） |
 |  | GET | `/api/v1/chunks/{chunk_id}` | 单 chunk 详情 + 上下文展开 |
-| **Admin** | POST | `/api/v1/admin/crawl` | 触发 FTP 爬虫（异步任务） |
-|  | POST | `/api/v1/admin/upload-doc` | 上传单个 doc/docx 走 Docling 兜底链路 |
-|  | POST | `/api/v1/admin/index/rebuild` | 重建索引（异步任务，可指定 spec） |
-|  | GET | `/api/v1/admin/tasks/{tid}` | 异步任务状态 |
-|  | GET | `/api/v1/admin/stats` | 索引数 / chunk 数 / API 用量统计 |
+| **Admin** | POST | `/api/v1/admin/crawl` | 触发 FTP 爬虫（异步任务） — **M4 不实现，推迟到 M8 上线前**；期间走 CLI |
+|  | POST | `/api/v1/admin/upload-doc` | 上传单个 doc/docx 走 Docling 兜底链路 — **M4 不实现，推迟到 M8 上线前** |
+|  | POST | `/api/v1/admin/index/rebuild` | 重建索引（异步任务，可指定 spec）— **M4 最小实现**：`asyncio.create_task` 包现有 `ingestion.cli`，M8 上线前换独立 worker |
+|  | GET | `/api/v1/admin/tasks/{tid}` | 异步任务状态 — **M4 实现** |
+|  | GET | `/api/v1/admin/tasks` | 当前用户可见的任务列表 — **M4 实现**（原表未列，本次补齐） |
+|  | GET | `/api/v1/admin/stats` | 索引数 / chunk 数 / API 用量统计 — **M4 实现** |
 | **Favorites / Notes / Feedback** | POST/GET/DELETE | `/api/v1/favorites` | 收藏 chunk/消息 |
 |  | POST/GET/PATCH/DELETE | `/api/v1/notes` | 笔记 CRUD |
 |  | POST | `/api/v1/messages/{mid}/feedback` | thumb up/down + 原因 |
@@ -429,6 +454,17 @@ async def app_error_handler(req, exc): ...
 
 ## 9. 异步任务
 
+> **M4 决议（2026-05-17，Q4=B）**：M4 期间用 `asyncio.create_task` 简化版（dev/POC 形态），仅暴露 `index/rebuild`；upload-doc / crawl trigger 在 M4 不实现（详见 §2 admin 路由备注）。**M8 上线前**换成下方"目标方案"（Redis Streams + 独立 worker），同时把 upload-doc / crawl trigger 路由补齐。
+
+### 9.1 M4 简化版（当前形态）
+
+- `Task` 表（PG）记录任务状态
+- `POST /api/v1/admin/index/rebuild` 接收请求 → 写 task → `asyncio.create_task(run_in_background(...))` 包 `ingestion.cli` 现有命令
+- 局限：API 进程重启 → in-flight task 丢失；不能跨进程横向扩展
+- 集成测：触发 task → 轮询 `GET /tasks/{tid}` 状态从 `queued` → `running` → `done`
+
+### 9.2 M8 目标版（上线前换）
+
 简化方案（不引入 Celery）：
 
 - `Task` 表 + `Redis Streams`（`tgpp:tasks`）
@@ -462,16 +498,46 @@ async def app_error_handler(req, exc): ...
 
 ## 12. 验收清单
 
-> 标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人介入（密钥、SSE 实际体验、首个 admin 凭证）。
+> 按 §0 子里程碑分组。标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人介入（密钥、SSE 实际体验、首个 admin 凭证）。同一段全绿才能进下一段。
 
-- [ ] `[auto]` `pytest -m unit backend/tests/unit/api/` 全绿
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/` 全绿
-- [ ] `[auto]` `curl /docs` 可访问 Swagger UI，所有路由有 `summary` + `description`（pytest 检查 OpenAPI schema 覆盖度）
-- [ ] `[auto]` `curl /health` 200；`curl /ready` 检测每个依赖（集成测覆盖各依赖断连时降级行为）
-- [ ] `[human]` Postman 或脚本跑通端到端：bootstrap admin → 登录 → 创建普通用户 → 创建会话 → 发消息（SSE） → 看引用 → 取消 → 删除会话 —— **bootstrap admin invite code、SSE 体验、checkpoint 链路由人确认**
+### M4.0 共享底座（与 [`03-agent.md §14 M4.0`](03-agent.md) 共用门禁）
+
 - [ ] `[auto]` Alembic：`alembic upgrade head` 在干净 PG 上成功；`alembic downgrade -1` 也可（CI 跑）
+
+### M4.6 FastAPI 鉴权与基础
+
+- [ ] `[auto]` `pytest -m unit backend/tests/unit/{api/auth,api/users,core/auth,core/ratelimit,core/audit}/` 全绿
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_auth.py` 全绿
 - [ ] `[auto]` RBAC 验证：普通用户无法访问 admin 路由；停用用户无法 refresh；logout 后 refresh token 失效（集成测覆盖）
 - [ ] `[auto]` 限流：超过 `chat` / `tools_websearch` / `admin_crawl` bucket 阈值返回 429（集成测覆盖）
+- [ ] `[auto]` 审计：用户创建/停用 / 角色变更 / index_rebuild 触发 → `audit_logs` 表有对应行
+
+### M4.7 会话与 SSE Chat
+
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_sessions.py` 全绿（CRUD）
+- [ ] `[auto]` SSE 集成测覆盖 9 类 event（run_start / node_start / node_end / chunks_hit / token / final / end / cancelled / error），fake LangGraph fixture 灌入断言事件顺序与字段
+- [ ] `[auto]` DB 落盘：assistant message 完成后 `messages.langgraph_run_id` / `langgraph_checkpoint_id` / `langfuse_trace_id` 非空，`message_citations` 行数与回答中 `[xx §xx]` 个数一致
+- [ ] `[auto]` 取消：`DELETE /sessions/{sid}/runs/{rid}` → SSE 收到 `cancelled` event → graph 不再写后续 token
+
+### M4.8 Checkpoint API
+
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_checkpoint.py` 全绿（5 个路由各一个用例）
+- [ ] `[auto]` rollback 与跑中 run 冲突返回 409 Conflict
+- [ ] `[auto]` fork 出新会话后，原会话 `status=archived_branch` 且新会话 `forked_from_session_id` 指向原会话
+
+### M4.9 Reader / Tools / Favorites / Notes / Feedback
+
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_docs.py` 全绿，Reader 能在 M6 全量数据上返回章节树与单 chunk 详情
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_tools.py` 全绿（glossary search / toc 单独查询）
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_{favorites,notes,feedback}.py` 全绿（CRUD）
+
+### M4.10 Admin 最小集 + 健康检查 + 最终回归
+
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_admin.py` 覆盖 stats / tasks list / index_rebuild trigger 三条路径；upload-doc / crawl trigger 路由不存在（404）
+- [ ] `[auto]` `curl /health` 200；`curl /ready` 检测每个依赖（集成测覆盖各依赖断连时降级行为）
+- [ ] `[auto]` `curl /docs` 可访问 Swagger UI，所有路由有 `summary` + `description`（pytest 检查 OpenAPI schema 覆盖度）
+- [ ] `[auto]` 最终回归：`make lint` + `pytest -m unit` + `pytest -m integration`（backend + ingestion 全套）全绿；ReadLints 无新增 error/warning
+- [ ] `[human]` Postman 或脚本跑通端到端：bootstrap admin → 登录 → 创建普通用户 → 创建会话 → 发消息（SSE） → 看引用 → 取消 → 删除会话 —— **bootstrap admin invite code、SSE 体验、checkpoint 链路由人确认**
 
 ## 13. 完成后下一步
 

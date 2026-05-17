@@ -2,15 +2,32 @@
 
 > 把"检索 + 推理"组装成可控、可流式、可观测的 Agent。最终被后端 SSE 接口消费。
 
+## 0. M4 执行顺序（Agent 侧）
+
+> 2026-05-17 拆解：M6 全量索引已完成（1270 specs / 394,859 chunks 在 `tgpp_chunks_voyage_d1024`；BM25 在 `/data/tgpp/bm25/voyage/by_spec/`），M4 直接消费。Agent 侧落 5 段，后端侧落 6 段（见 [`04-backend-api.md §0`](04-backend-api.md)）。按下表顺序推进，每段门禁全绿才能进下一段。
+
+| 子里程碑 | 主要交付物 | 完成度门禁 |
+|---|---|---|
+| **M4.0** 共享底座 | `core/{config,logging,errors}` + `llm/litellm_client` + `db/` SQLAlchemy 全表 + `alembic` 初始迁移 + `retrieval/{dense,sparse,hybrid,rerank,cache}`（agent 与 backend 都依赖）| lint 全绿；`alembic upgrade head` 在干净 PG 通过；`test_retrieval_smoke.py` 用 3 个真实 query 能从 `tgpp_chunks_voyage_d1024` + BM25 拿回 top-50 |
+| **M4.1** glossary 抽取 | 补 [`02-ingestion-and-indexing.md`](02-ingestion-and-indexing.md) 漏项：`ingestion/glossary/extractor.py` + `glossary-extract` CLI；从 `21.905` + 各 TS Definitions 章节抽 term 入 PG `glossary` | `glossary-extract --all` 跑完，PG `glossary` row 数 ≥ 1000；5 个高频术语（PDU Session / AMF / SMF / UPF / N1）能精确命中 |
+| **M4.2** Agent 主干（simple fast path） | `agent/state.py` + 6 个 prompt md + 6 个节点（classify / rewrite / retrieve / rerank / generate / self_rag，grounding-only）+ `graph.py` simple 分支 | `pytest -m unit backend/tests/unit/agent/` 全绿；5/5 simple QA 端到端跑通；retrieve 节点 P50 ≤ 800ms |
+| **M4.3** Agent 完整链路 | `nodes/hyde.py` + `nodes/multi_query.py` + complex 分支 + raw_lookup 分支 + self-RAG retry loop（`retry_count >= 2` 强制 accept） | simple / complex / raw_lookup 三路集成测全绿；构造低置信度场景验证不死循环 |
+| **M4.4** 工具节点 | `tools/{web_search,glossary,toc,params}.py` + `graph.py` tool_dispatch 分支 | 4 工具均能命中真实数据；非 `explicit_tools` 场景不会触发 |
+| **M4.5** Checkpoint + 取消/暂停 + Langfuse | `AsyncPostgresSaver` 接入 + `agent/checkpoint.py` 5 个纯函数 + AgentState 加 `paused`/`run_id` + 节点边界 `NodeInterrupt` + Langfuse `CallbackHandler` | §14 5 个 checkpoint 相关集成测全绿；Langfuse 本地能看到节点 span（人审一次）|
+
+> 各段交付物完成后按 [`../00-vibe-coding-protocol.md §4`](../00-vibe-coding-protocol.md) 输出完成报告；触达 [`../../CLAUDE.md §5`](../../CLAUDE.md) 上报条件时停下问人。
+
 ## 1. 交付物
 
-- ✅ `backend/app/agent/graph.py`：导出编译好的 `tgpp_agent` (CompiledStateGraph) 与状态类型
-- ✅ 完整节点集（路由 / 改写 / 检索 / rerank / 生成 / self-RAG 校验 / 工具调用）
-- ✅ PostgresSaver checkpointer：会话级持久化、可中断恢复
-- ✅ 流式 API：`astream_events` 输出节点状态 + token 增量 + 中间结果（hit chunks）
-- ✅ 4 个工具节点：`web_search` / `glossary` / `toc` / `params`
-- ✅ 中途取消：thread cancel 机制
-- ✅ Langfuse 集成（CallbackHandler 在 graph invoke 时注入）
+> 每条标 `[M4.x]` 关联 §0 子里程碑。完成后把 `[ ]` 替换为 `[x]`。
+
+- [ ] `[M4.2]` `backend/app/agent/graph.py`：导出编译好的 `tgpp_agent` (CompiledStateGraph) 与状态类型（simple fast path）；`[M4.3]` 扩展 complex / raw_lookup 分支
+- [ ] `[M4.2]` 简单链路节点（classify / rewrite / retrieve / rerank / generate / self_rag grounding-only）；`[M4.3]` 完整节点集（+ hyde / multi_query / self_rag retry）；`[M4.4]` 工具节点（web_search / glossary / toc / params）
+- [ ] `[M4.5]` PostgresSaver checkpointer：会话级持久化、可中断恢复
+- [ ] `[M4.2/M4.3]` 流式 API：`astream_events` 输出节点状态 + token 增量 + 中间结果（hit chunks）
+- [ ] `[M4.4]` 4 个工具节点：`web_search` / `glossary`（依赖 M4.1 数据） / `toc` / `params`
+- [ ] `[M4.5]` 中途取消：thread cancel 机制
+- [ ] `[M4.5]` Langfuse 集成（CallbackHandler 在 graph invoke 时注入）
 
 ## 2. State Schema
 
@@ -152,6 +169,8 @@ class ClassifyOutput(BaseModel):
 
 ### 4.5 `retrieve_node` — Hybrid 检索
 
+> **M4 决议（2026-05-17，Q2=A）**：M4 主干一开始即接 dense + BM25 sparse + RRF。M6 已落 BM25 持久化到 `/data/tgpp/bm25/voyage/by_spec/*.jsonl`，data 已 ready；不再走"先 dense-only、再增量加 sparse"的两步走方案。M6 dense-only baseline（spec R@10=0.580 / MRR=0.236）作为 ablation 对照存档，参见 [`../../eval-results/m6-retrieval-baseline.md`](../../eval-results/m6-retrieval-baseline.md)。
+
 ```python
 async def retrieve_node(state: AgentState) -> AgentState:
     queries = state.rewritten_queries or [state.user_input]
@@ -167,13 +186,15 @@ async def retrieve_node(state: AgentState) -> AgentState:
     return state.model_copy(update={"candidates": unique})
 ```
 
-- `dense_retriever`：`backend/app/retrieval/dense.py` 包 LlamaIndex VectorStoreIndex（Qdrant backend）
-- `sparse_retriever`：BM25 from persist dir
+- `dense_retriever`：`backend/app/retrieval/dense.py` 包 LlamaIndex VectorStoreIndex（Qdrant backend，复用 `tgpp_chunks_voyage_d1024`）
+- `sparse_retriever`：`backend/app/retrieval/sparse.py` 包 LlamaIndex BM25 from `/data/tgpp/bm25/voyage/by_spec/` 持久化目录（如 LlamaIndex 不直接支持 per-spec jsonl 加载，M4.0.4 期间增加一层 loader 适配）
 - RRF 融合：`score = sum(1 / (60 + rank_i))`
 - 过滤：根据 `query_class` 选 `spec_id` 限定
 - 缓存：`Redis tgpp:cache:retrieve:{sha256(query+filter)}` TTL 1h
 
 ### 4.6 `rerank_node`
+
+> **M4 决议（2026-05-17，Q1=A）**：M4 主干 simple fast path 一开始就接 voyage `rerank-2.5`，与本节设计一致。M6 dense-only baseline 是 retrieval-only 的对照存档，rerank 接入后跑同一份 `eval/golden/v1.yaml` 做 ablation，预期 MRR / spec R@10 显著回升。M6 baseline 的 0.580 / 0.236 不作为 M4 验收阈值（端到端阈值由 M7 nightly eval 校验，见 [`06-evaluation-and-observability.md §7`](06-evaluation-and-observability.md)）。
 
 ```python
 async def rerank_node(state: AgentState) -> AgentState:
@@ -188,7 +209,7 @@ async def rerank_node(state: AgentState) -> AgentState:
     return state.model_copy(update={"reranked": reranked})
 ```
 
-- 缓存：同 retrieve
+- 缓存：同 retrieve（`Redis tgpp:cache:rerank:{sha256(query+top_chunk_ids)}` TTL 1h）
 
 ### 4.7 `generate_node` — 最终生成
 
@@ -237,8 +258,9 @@ class SelfRagOutput(BaseModel):
 - 答案前缀强制加："以下内容来自 Web 搜索，未经 3GPP 验证："
 
 #### `glossary`
-- 查"缩写/术语表"：从 PG `glossary` 表（M2 期间从 21.905 / 各 TS Definitions 章节抽取构建）
+- 查"缩写/术语表"：从 PG `glossary` 表（**M4.1 ingestion 子任务**从 `21.905` + 各 TS Definitions 章节抽取构建——这是补 [`02-ingestion-and-indexing.md`](02-ingestion-and-indexing.md) 漏项，原 plan 写"M2 期间抽取"但 M2 实际未做）
 - 命中后短答 + 给所在 spec 引用
+- 工具节点本身在 M4.4 实现；若 M4.1 尚未交付，工具节点先返回空结果并打 warning，不阻塞 M4.4 集成测的"工具被正确调用"断言
 
 #### `toc`
 - 章节目录查询（"列出 38.331 §5.3 所有子节"）
@@ -419,21 +441,47 @@ if state.paused:    raise NodeInterrupt("paused by user")  # 区别：paused 不
 
 ## 14. 验收清单
 
-> 标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人审（外部 trace 可视化、回答质量）。
+> 按 §0 子里程碑分组。标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人审（外部 trace 可视化、回答质量）。同一段全绿才能进下一段。
 
-- [ ] `[auto]` `pytest -m unit backend/tests/unit/agent/` 全绿
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/agent/` 覆盖：
-  - simple QA 端到端
-  - complex QA 端到端
-  - raw_lookup 模式
+### M4.0 共享底座
+
+- [ ] `[auto]` `pytest -m unit backend/tests/unit/{core,llm,db,retrieval}/` 全绿
+- [ ] `[auto]` `alembic upgrade head` 在干净 PG 通过；`alembic downgrade -1` 也可
+- [ ] `[auto]` `test_retrieval_smoke.py`：3 个真实 query 能从 `tgpp_chunks_voyage_d1024` + BM25 拿回 top-50 合并结果
+
+### M4.1 glossary 抽取
+
+- [ ] `[auto]` `pytest -m unit ingestion/tests/unit/test_glossary_extractor.py` 全绿
+- [ ] `[auto]` `ingestion glossary-extract --all` 跑完，PG `glossary` 表 row 数 ≥ 1000
+- [ ] `[auto]` 5 个高频术语（PDU Session / AMF / SMF / UPF / N1）`normalized_term` 精确命中
+
+### M4.2 Agent 主干（simple fast path）
+
+- [ ] `[auto]` `pytest -m unit backend/tests/unit/agent/` 全绿（每节点独立 mock LLM + retriever）
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/agent/test_simple_qa.py`：金标准 5 题 simple QA 端到端
+- [ ] `[auto]` retrieve_node P50 latency ≤ 800ms（dense + sparse + RRF）
+
+### M4.3 Agent 完整链路
+
+- [ ] `[auto]` complex QA 端到端（金标准 5 题）
+- [ ] `[auto]` raw_lookup 模式不调用生成 LLM（断言 LLM mock 调用次数 = 0）
+- [ ] `[auto]` self-RAG retry 上限：构造低置信度场景，验证不会死循环（`retry_count >= 2` 强制收敛）
+- [ ] `[auto]` 流式 SSE event 序列符合 §7 表（集成测断言事件顺序与字段）
+
+### M4.4 工具节点
+
+- [ ] `[auto]` 4 工具节点显式触发集成测（web_search / glossary / toc / params 各一个用例）
+- [ ] `[auto]` glossary 工具节点能命中真实数据（依赖 M4.1，断言至少 1 个高频术语返回非空）
+- [ ] `[auto]` 非 `explicit_tools` 场景下工具节点不会被调用（prompt 守约 + 路由守约双保险）
+
+### M4.5 Checkpoint + 取消/暂停 + Langfuse
+
+- [ ] `[auto]` `pytest -m integration backend/tests/integration/agent/` 补齐：
   - 中途取消
   - **暂停 → 关进程 → 重启 → 恢复续跑**
-  - **从历史 checkpoint fork 出新会话 + 老会话变只读**
+  - **从历史 checkpoint fork 出新会话 + 老会话变只读（status=archived_branch）**
   - **rollback 最后 N 轮 messages + checkpoints 一致性**
-  - 工具节点显式触发（web_search、glossary、toc、params）
 - [ ] `[human]` Langfuse 中能看到完整 trace（每个节点 span + token stream）—— Langfuse Cloud 账号由人创建，trace 实际效果由人确认
-- [ ] `[auto]` 流式 SSE event 序列符合 §7 表（集成测断言事件顺序与字段）
-- [ ] `[auto]` self-RAG retry 上限：构造低置信度场景，验证不会死循环（`retry_count >= 2` 强制收敛）
 
 ## 15. 完成后下一步
 
