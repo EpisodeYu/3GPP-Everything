@@ -21,7 +21,7 @@ from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
-import bm25s
+import bm25s  # type: ignore[import-untyped]
 
 from app.core.config import Settings, get_settings
 from app.core.errors import RetrievalError
