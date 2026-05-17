@@ -11,6 +11,8 @@
 
 from .classify import classify_node
 from .generate import generate_node, parse_citations
+from .hyde import hyde_node
+from .multi_query import multi_query_node
 from .rerank import rerank_node
 from .retrieve import retrieve_node
 from .rewrite import rewrite_node
@@ -19,6 +21,8 @@ from .self_rag import self_rag_node
 __all__ = [
     "classify_node",
     "generate_node",
+    "hyde_node",
+    "multi_query_node",
     "parse_citations",
     "rerank_node",
     "retrieve_node",

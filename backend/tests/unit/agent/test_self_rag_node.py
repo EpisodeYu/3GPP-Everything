@@ -90,6 +90,55 @@ async def test_retry_preserved_when_allow_retry_true() -> None:
     assert out["self_rag_missing"] == ["x"]
 
 
+async def test_retry_increments_count_and_appends_missing_to_queries() -> None:
+    llm = StubLLM(
+        responses=[
+            json.dumps(
+                {
+                    "faithful": False,
+                    "coverage": 0.3,
+                    "confidence": 0.4,
+                    "verdict": "retry",
+                    "missing_aspects": ["AMF restart procedure", "N1 retransmission"],
+                }
+            )
+        ]
+    )
+    deps = make_deps(llm=llm)
+    state = _state_with_answer()
+    state = state.model_copy(update={"rewritten_queries": ["AMF role"], "retry_count": 0})
+    out = await self_rag_node(state, deps=deps, allow_retry=True)
+    assert out["self_rag_verdict"] == "retry"
+    assert out["retry_count"] == 1
+    assert out["rewritten_queries"] == [
+        "AMF role",
+        "AMF restart procedure",
+        "N1 retransmission",
+    ]
+
+
+async def test_accept_under_allow_retry_does_not_touch_queries() -> None:
+    llm = StubLLM(
+        responses=[
+            json.dumps(
+                {
+                    "faithful": True,
+                    "coverage": 0.9,
+                    "confidence": 0.9,
+                    "verdict": "accept",
+                    "missing_aspects": [],
+                }
+            )
+        ]
+    )
+    deps = make_deps(llm=llm)
+    state = _state_with_answer().model_copy(update={"rewritten_queries": ["q1"]})
+    out = await self_rag_node(state, deps=deps, allow_retry=True)
+    assert out["self_rag_verdict"] == "accept"
+    assert "retry_count" not in out
+    assert "rewritten_queries" not in out
+
+
 async def test_no_answer_short_circuits() -> None:
     deps = make_deps(llm=StubLLM(responses=["should not be called"]))
     state = AgentState(user_input="x", final_answer="")

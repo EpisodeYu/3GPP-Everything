@@ -8,7 +8,7 @@ self_rag grounding-only）+ AgentState + AgentDeps + 编译好的 `tgpp_agent`
 from typing import TYPE_CHECKING, Any
 
 from .deps import AgentDeps
-from .graph import build_simple_graph
+from .graph import build_graph, build_simple_graph
 from .state import AgentState, RetrievedChunk
 
 if TYPE_CHECKING:
@@ -20,6 +20,7 @@ __all__ = [
     "AgentDeps",
     "AgentState",
     "RetrievedChunk",
+    "build_graph",
     "build_simple_graph",
     "tgpp_agent",
 ]
