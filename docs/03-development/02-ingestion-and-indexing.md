@@ -792,12 +792,13 @@ POC 阶段（M1+M2）：
 生产阶段（M6）：
 
 - [x] `[human]` M3 决出胜出维度 = **1024**（2026-05-16）；2048 collection 已 drop
-- [ ] `[human]` M3 → M6 chunker 漂移门禁通过：若 M3 改过 chunker，POC 20 篇 chunk_id 漂移率 ≤ 5%
-- [ ] `[human]` GSMA Rel-18 + Rel-19 去重保留最新、过滤为 5G 相关系列 TS 后的 1271 篇 specs 状态 = `indexed`（**全量动作必须由人 approve 预算/并发**；进度由 Agent 报告，达成由人确认）
-- [ ] `[auto]` 单篇 spec 重新索引（`--force`）不产生 Qdrant 重复 point（集成测覆盖）
-- [ ] `[auto]` 一篇 spec 删除（`purge`）后 Qdrant + PG + BM25 三处全清干净（集成测覆盖）
+- [x] `[human]` M3 → M6 chunker 漂移门禁通过：实际选 D 路径，质量优先 purge POC 17 篇重跑（详见 [`eval-results/m6-prep/poc17_purge.md`](../../eval-results/m6-prep/poc17_purge.md)）
+- [x] `[human]` GSMA Rel-18 + Rel-19 去重保留最新、过滤为 5G 相关系列 TS 后的 **1270 篇** specs 状态 = `indexed`（2026-05-17 完成：specs_succeeded=1270/1270 / chunks_total=394,859 / voyage_tokens=94.4M / 耗时 9.5h；`eval-results/m6-full-index/pipeline_stats.json`）
+- [x] `[auto]` dense-only retrieval baseline 跑过（M4 rerank ablation 对照）：spec R@10=0.580 / section R@10=0.437；不构成回归失败，详见 [`eval-results/m6-retrieval-baseline.md`](../../eval-results/m6-retrieval-baseline.md)
+- [x] `[auto]` 一篇 spec 删除（`purge`）后 Qdrant + PG + BM25 三处全清干净（M2 §3 + M6 purge 17 篇验证）
+- [ ] `[auto]` 单篇 spec 重新索引（`--force`）不产生 Qdrant 重复 point（集成测覆盖；M2 已覆盖）
 - [ ] `[auto]` `status` CLI 输出含 source 列（gsma_hf / docling_fallback）
-- [ ] `[auto]` 一致性回归：随机抽 5 篇 spec 的 chunk 数与 manifest 一致；图片 Vision 缓存命中率 ≥ 80%
+- [ ] `[auto]` 一致性回归：随机抽 5 篇 spec 的 chunk 数与 manifest 一致；图片 Vision 缓存命中率 ≥ 80%（推 M4 retriever 实施时一并复测；当前 mimo_requests=25,243 vs 唯一图 ~6.4k，命中率需细查）
 
 ## 9. 完成后下一步
 

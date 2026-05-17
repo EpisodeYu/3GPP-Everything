@@ -87,7 +87,7 @@ graph LR
     M2 --> M3["M3 评测集 + Embedding 维度决胜 ✅ (1024)"]
     M3 --> M4["M4 Agent + 后端"]
     M4 --> M5["M5 前端"]
-    M3 --> M6["M6 全量索引"]
+    M3 --> M6["M6 全量索引 ✅"]
     M4 --> M6
     M6 --> M7["M7 评测扩展 + 监控"]
     M5 --> M8["M8 上线"]
@@ -102,7 +102,7 @@ graph LR
 | **M3** 评测集 + Embedding 维度决胜 ✅ | TeleQnA 抽取 + 转化 119 题；金标准 v1.yaml；voyage 2048 vs 1024 维度决胜 → **1024 胜出**（2026-05-16，差距 ≤ 2pp 触发 tie-fallback） | `06-...md §12` 与 `eval-results/m3-embedding-poc.md` 齐备；2048 collection 已 drop | ✅ 人已签字（2026-05-16）；M3 → M6 过渡硬指标：chunker 参数若改动，必须先在 20 篇 POC 上确认 chunk_id 漂移率 ≤ 5% 才允许进 M6 |
 | **M4** Agent + 后端 | LangGraph 主干 + self-RAG + 工具节点；FastAPI + SSE + Auth + DB；Alembic migration | `03-agent.md §14` + `04-backend-api.md §12` 全绿；CI 集成测全过 | self-RAG retry 是否过激；鉴权 / RBAC 边界 |
 | **M5** 前端 | Flutter chat + SSE 客户端、阅读器、管理后台、checkpoint UI 闭环 | `05-frontend.md §14` 全绿 | **UX 体验由人主审**（流式动效、引用 chip、checkpoint 闭环易用度）|
-| **M6** 全量索引 | GSMA R18+R19 TS-only 5G 系列 1271 篇全部 indexed（voyage × 胜出维度）；BM25 持久化；全量图片 Vision 命中 hash 缓存；POC 20 篇通过 `--skip-indexed` 复用 | `02-...md §8` 生产清单全勾；磁盘占用与成本符合 `02-tech-selection.md §15` 预算（~150M voyage tokens；占 200M 额度 75%） | 全量跑前**必须由人 approve 预算与并发策略**；M3 chunker 漂移率门禁必须先过 |
+| **M6** 全量索引 ✅ | GSMA R18+R19 TS-only 5G 系列 1270 篇全部 indexed（voyage × 1024 维）；BM25 持久化；全量图片 Vision 命中 hash 缓存；POC 17 篇质量优先 purge 重跑 | ✅ 全量完成（2026-05-17）：specs_succeeded=1270/1270 / chunks_total=394,859 / voyage_tokens=94.4M（< 估算 150M）/ 耗时 9.5h。dense-only retrieval baseline 详见 [`eval-results/m6-retrieval-baseline.md`](../../eval-results/m6-retrieval-baseline.md)（**不构成回归失败**，留给 M4 rerank ablation 做对照基线）| ✅ 人已 approve 预算与并发策略；漂移率门禁通过（POC 17 篇质量优先 purge，详见 [`eval-results/m6-prep/poc17_purge.md`](../../eval-results/m6-prep/poc17_purge.md)）|
 | **M7** 评测扩展 + 监控 | 手工补 20-30 题；Langfuse Dataset + 自动 eval；成本告警 | `06-...md §12` 全绿 + nightly eval 连跑 2 次 ≥ 阈值 | 评测阈值是否符合验收（faithfulness ≥ 0.85、context recall ≥ 0.80）|
 | **M8** 上线 | 生产 Compose、Nginx + Let's Encrypt、CI 全套、Runbook、备份/回滚演练 | `07-cicd-and-deployment.md §10` 全绿；`https://<域名>/health` 200 | 首次上线、域名 DNS、首个 admin 账号、对外可访问 |
 
@@ -110,8 +110,9 @@ graph LR
 
 - **M1**：HF loader 走通、section 树还原 ≥ 95%、Vision 描述质量过关——决定主路径策略
 - **M3**：voyage 2048 vs 1024 维度的 retrieval 指标 → 决定全量索引用哪个维度
-- **M3 → M6 过渡硬指标**：chunker 参数若改动，必须先在 20 篇 POC 上 ablation；chunk_id 漂移率 > 5% 视为"chunker 未稳定"，禁止进入 M6 全量索引
+- **M3 → M6 过渡硬指标**：chunker 参数若改动，必须先在 20 篇 POC 上 ablation；chunk_id 漂移率 > 5% 视为"chunker 未稳定"，禁止进入 M6 全量索引（2026-05-16 实际选 D 路径，质量优先 purge 17 篇 POC 重跑，无漂移）
 - **M6 完成前**不进入 M7 全量评测：避免在错误维度上浪费评测
+- **M6 dense-only retrieval baseline**（2026-05-17 接受）：spec R@10=0.580 / section R@10=0.437 / MRR=0.236（vs M3 17-spec baseline -23/-21pp，**是草垛扩 75× 的预期稀释，不视作回归失败**）。docs/06 §7 的 0.80/0.85 是 end-to-end 阈值，由 M7 nightly eval 校验；retrieval-only 真正的"提升验证"在 M4 接 voyage-rerank-2.5 后做 ablation。详见 [`eval-results/m6-retrieval-baseline.md`](../../eval-results/m6-retrieval-baseline.md)
 - **M8 上线前**：CI 全绿、回滚演练做过一次
 
 **Agent 行为提示**：
