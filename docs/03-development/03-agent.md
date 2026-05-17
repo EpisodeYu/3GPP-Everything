@@ -23,11 +23,11 @@
 
 - [x] `[M4.2]` `backend/app/agent/graph.py`：导出编译好的 `tgpp_agent` (CompiledStateGraph) 与状态类型（simple fast path）；`[M4.3]` 扩展 complex / raw_lookup 分支
 - [x] `[M4.2]` 简单链路节点（classify / rewrite / retrieve / rerank / generate / self_rag grounding-only）；`[M4.3]` 完整节点集（+ hyde / multi_query / self_rag retry）；`[M4.4]` 工具节点（web_search / glossary / toc / params）
-- [ ] `[M4.5]` PostgresSaver checkpointer：会话级持久化、可中断恢复
+- [x] `[M4.5]` PostgresSaver checkpointer：会话级持久化、可中断恢复
 - [ ] `[M4.2/M4.3]` 流式 API：`astream_events` 输出节点状态 + token 增量 + 中间结果（hit chunks）
 - [ ] `[M4.4]` 4 个工具节点：`web_search` / `glossary`（依赖 M4.1 数据） / `toc` / `params`
-- [ ] `[M4.5]` 中途取消：thread cancel 机制
-- [ ] `[M4.5]` Langfuse 集成（CallbackHandler 在 graph invoke 时注入）
+- [x] `[M4.5]` 中途取消：thread cancel 机制
+- [x] `[M4.5]` Langfuse 集成（CallbackHandler 在 graph invoke 时注入）
 
 ## 2. State Schema
 
@@ -510,12 +510,20 @@ if state.paused:    raise NodeInterrupt("paused by user")  # 区别：paused 不
 
 ### M4.5 Checkpoint + 取消/暂停 + Langfuse
 
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/agent/` 补齐：
+- [x] `[auto]` `pytest -m integration backend/tests/integration/agent/` 补齐：
   - 中途取消
   - **暂停 → 关进程 → 重启 → 恢复续跑**
   - **从历史 checkpoint fork 出新会话 + 老会话变只读（status=archived_branch）**
   - **rollback 最后 N 轮 messages + checkpoints 一致性**
 - [ ] `[human]` Langfuse 中能看到完整 trace（每个节点 span + token stream）—— Langfuse Cloud 账号由人创建，trace 实际效果由人确认
+
+> **2026-05-17 完成 M4.5**
+> - 交付：`agent/checkpoint.py`（list/pause/cancel/resume/fork/rollback 5 个纯函数 + `CheckpointSummary` dataclass）；`agent/langfuse_handler.py`（懒单例 `init_langfuse` + `build_callback_handler` + `build_trace_metadata`，缺 key 全返 None）；`build_graph(deps, *, checkpointer=...)` 接受可选 saver，生产 `AsyncPostgresSaver`、测试 `InMemorySaver`；`AgentState` 早已带 paused/run_id，9 个节点开头都已检测 cancelled/paused → NodeInterrupt
+> - 依赖：新增 `psycopg[binary,pool]>=3.2` 满足 langgraph-checkpoint-postgres 运行时 libpq 需求
+> - 测试：unit 16（checkpoint 操作 + langfuse 工厂兜底）+ integration 5（cancel / pause→重启→resume / fork / rollback 一致性 / rollback 超界 wipe）；全部用 InMemorySaver 自包含跑，不要 PG。`make lint` 全绿，全量 148 测试通过
+> - 自主决策记录（CLAUDE.md §4.3）：(1) §8 文档 Langfuse 例子停留在 v2 API（`langfuse.callback.CallbackHandler(public_key=...,session_id=...)`），实际 langfuse 4.6.1 把 session/user 移到 RunnableConfig.metadata（`langfuse_session_id` 等），handler 不再吃这些参数 —— 实现按 v4 API 走，文档示例已陈旧（保留注释）；(2) LangGraph v1+ 把 `NodeInterrupt` 改为不抛异常、把 `__interrupt__` 注入返回字典 + snap.next 指向被打断节点，测试断言据此调整；旧的 `raise NodeInterrupt(...)` 仍然 work（带 DeprecationWarning），暂保留以避免改 9 个节点；(3) rollback 用 `adelete_thread` + `aupdate_state` 重落最后一个 checkpoint，符合"不可逆"语义；不做单 checkpoint 精细删除（saver 未暴露公共 API）
+> - 留给人审：`[human]` Langfuse trace 验证；fork 时原会话 `status=archived_branch` 的写入由 backend API 层（M5）做，本层只动 LangGraph state 隔离
+> - 剩余风险：(1) `psycopg[binary]` ~10MB wheel，CI 缓存命中即可；(2) `NodeInterrupt` 在 LangGraph V2 会移除，届时迁到 `langgraph.types.interrupt`；(3) 真实 AsyncPostgresSaver 在 PG 上要先 `await saver.setup()` 建 `langgraph_*` schema，由 M5 backend lifespan 负责
 
 ## 15. 完成后下一步
 

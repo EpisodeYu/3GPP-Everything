@@ -7,8 +7,14 @@ self_rag grounding-only）+ AgentState + AgentDeps + 编译好的 `tgpp_agent`
 
 from typing import TYPE_CHECKING, Any
 
+from . import checkpoint as checkpoint
 from .deps import AgentDeps
 from .graph import build_graph, build_simple_graph
+from .langfuse_handler import (
+    build_callback_handler,
+    build_trace_metadata,
+    init_langfuse,
+)
 from .state import AgentState, RetrievedChunk
 
 if TYPE_CHECKING:
@@ -20,8 +26,12 @@ __all__ = [
     "AgentDeps",
     "AgentState",
     "RetrievedChunk",
+    "build_callback_handler",
     "build_graph",
     "build_simple_graph",
+    "build_trace_metadata",
+    "checkpoint",
+    "init_langfuse",
     "tgpp_agent",
 ]
 
