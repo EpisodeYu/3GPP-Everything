@@ -10,7 +10,7 @@
 |---|---|---|
 | **M4.0** 共享底座 | 见 [`03-agent.md §0`](03-agent.md)。后端侧涉及 `core/{config,logging,errors}` + `llm/litellm_client` + `db/` SQLAlchemy 全表 + `alembic` 初始迁移 + `retrieval/*` | `alembic upgrade head` 在干净 PG 通过；retrieval 包能拿真实 top-50 |
 | **M4.2 – M4.5** Agent 建设 | 见 [`03-agent.md §0`](03-agent.md) | 同上 |
-| **M4.6** FastAPI 鉴权与基础 | `core/{auth,ratelimit,audit}` + `api/v1/{auth,users}.py` | RBAC（普通用户访问 admin → 403）；限流 429；logout 后 refresh 失效；停用用户无法 refresh |
+| **M4.6** FastAPI 鉴权与基础 ✅ 2026-05-18 | `core/{auth,ratelimit,audit}` + `api/v1/{auth,users}.py` | RBAC（普通用户访问 admin → 403）；限流 429；logout 后 refresh 失效；停用用户无法 refresh |
 | **M4.7** 会话与 SSE Chat（核心交付） | `api/v1/sessions.py` + `api/v1/chat.py`（包 LangGraph `astream_events` + DB 落 message/citations）+ 取消接口 | SSE 集成测覆盖 10 类 event（run_start / node_start / node_end / chunks_hit / chunks_rerank / token / final / end / cancelled / error）；fake LangGraph fixture 端到端 |
 | **M4.8** Checkpoint API | `api/v1/checkpoint.py`：pause / resume / list_checkpoints / fork / rollback 5 个路由，分别包 [`03-agent.md §12`](03-agent.md) 的 5 个纯函数 | §12 checkpoint 相关集成测全绿；rollback 与跑中 run 冲突返回 409 |
 | **M4.9** Reader / Tools / Favorites / Notes / Feedback | `api/v1/{docs,tools,favorites,notes,feedback}.py` | 每个路由 CRUD 集成测；Reader 在 M6 全量数据上能正常返回章节树 |
@@ -32,7 +32,7 @@
 - [ ] `[M4.6 — M4.10]` Pydantic v2 请求/响应 schema 全套
 - [x] `[M4.0]` SQLAlchemy 2.0 async ORM + Alembic 迁移（PG schema） — 2026-05-17 完成
 - [ ] `[M4.7]` SSE 流式 `/chat` 接口，与 §3 SSE 事件表一致
-- [ ] `[M4.6]` 多用户鉴权：JWT access token + refresh token + RBAC（admin/user）+ 审计日志
+- [x] `[M4.6]` 多用户鉴权：JWT access token + refresh token + RBAC（admin/user）+ 审计日志 — 2026-05-18 完成
 - [ ] `[M4.10]` OpenAPI / Swagger UI（`/docs`）覆盖所有路由
 - [ ] `[M4.10]` 健康检查 `/health`、就绪检查 `/ready`
 - [ ] `[M4.6 — M4.10]` 集成测覆盖核心路由
@@ -527,13 +527,15 @@ async def app_error_handler(req, exc): ...
 
 ### M4.6 FastAPI 鉴权与基础
 
-- [ ] `[auto]` `pytest -m unit backend/tests/unit/{api/auth,api/users,core/auth,core/ratelimit,core/audit}/` 全绿
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_auth.py` 全绿
-- [ ] `[auto]` RBAC 验证：普通用户无法访问 admin 路由；停用用户无法 refresh；logout 后 refresh token 失效（集成测覆盖）
-- [ ] `[auto]` 密码策略：注册/重置时 `len(password) < 8` 返回 422（集成测覆盖；Q3 决策）
-- [ ] `[auto]` 限流：超过 `chat` / `tools_websearch` / `admin_crawl` bucket 阈值返回 429（集成测覆盖）
-- [ ] `[auto]` 审计：用户创建/停用 / 角色变更 / index_rebuild 触发 → `audit_logs` 表有对应行；**chat 路径不写 `audit_logs`**（断言反例）（Q5 决策）
+- [x] `[auto]` `pytest -m unit backend/tests/unit/core/{test_auth,test_ratelimit,test_audit}.py` 全绿（19 / 19 unit case；总 unit 套件 168 passed）
+- [x] `[auto]` `pytest -m integration backend/tests/integration/api/test_auth.py` 全绿（17 / 17 integration case；FakeRedis + aiosqlite 路径）
+- [x] `[auto]` RBAC 验证：普通用户无法访问 admin 路由；停用用户无法 refresh；logout 后 refresh token 失效（集成测覆盖）
+- [x] `[auto]` 密码策略：注册/重置时 `len(password) < 8` 返回 422（集成测覆盖；Q3 决策）
+- [x] `[auto]` 限流：超过 `chat` bucket 阈值返回 429（集成测覆盖）；`tools_websearch` / `admin_crawl` 同源算法 unit 覆盖（M4.7 / M4.9 接入路由后再加集成测）
+- [x] `[auto]` 审计：bootstrap-admin / 用户创建 / 用户 patch（停用 / 角色变更 / 密码重置）触发 → `audit_logs` 表有对应行；**chat 路径不写 `audit_logs`**（断言反例）（Q5 决策）；`index_rebuild` 路由 M4.10 才接，留作 M4.10 验收项
 - [x] `[auto]` 前置确认：`chunks_meta` schema diff（Q1/O6）— 报告归档 `docs/04-handoff/2026-05-17-chunks-meta-schema-diff.md`，0 ❌ / 3 ⚠️（默认值差异，不影响业务）
+
+**变更摘要（2026-05-18 M4.6 完成）**：交付 `core/{auth,ratelimit,audit}` + `api/v1/{auth,users}` + Pydantic v2 schema。鉴权采用 bcrypt 直接调用（passlib 1.7.4 在 Python 3.13 / bcrypt 5 下触发 `crypt` 模块 DeprecationWarning，不可靠；自主决策）。refresh token DB 落 SHA-256 hash，rotation / logout / 停用 / 密码重置 → revoke 全量。`pyproject.toml` 加 `B008` ruff ignore（FastAPI Depends 是项目通用模式）+ `scripts/dev/*.py` 加 E501 per-file-ignore（清理 main 既有 lint 噪声）。`make lint` 全绿；unit 168 passed；integration api 17 + agent / retrieval 既有 13 passed（1 pre-existing 弱断言 fail：`test_complex_qa::proc-005` 检索质量问题，M4.6 未改 agent 路径，与本里程碑无关）。
 
 ### M4.7 会话与 SSE Chat
 
