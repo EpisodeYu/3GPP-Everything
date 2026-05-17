@@ -140,6 +140,8 @@ class Message(Base):
     )
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # M4.7 Q9: 仅 final event 后写 content；中断 → status='failed'/'cancelled'
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ok")
     user_language: Mapped[str | None] = mapped_column(String(8))
     mode: Mapped[str | None] = mapped_column(String(16))
     explicit_tools: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
