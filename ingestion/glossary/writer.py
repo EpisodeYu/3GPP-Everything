@@ -123,9 +123,7 @@ class PgGlossaryWriter:
 
     def purge_spec(self, spec_id: str) -> int:
         with self._engine.begin() as conn:
-            result = conn.execute(
-                delete(glossary_table).where(glossary_table.c.spec_id == spec_id)
-            )
+            result = conn.execute(delete(glossary_table).where(glossary_table.c.spec_id == spec_id))
             return int(result.rowcount or 0)
 
     def count(self, *, spec_id: str | None = None) -> int:
@@ -138,9 +136,7 @@ class PgGlossaryWriter:
     def find_by_normalized(self, normalized_term: str) -> list[dict[str, Any]]:
         """按 ``normalized_term`` 精确匹配，跨 spec 返回所有命中。"""
         with self._engine.connect() as conn:
-            stmt = select(glossary_table).where(
-                glossary_table.c.normalized_term == normalized_term
-            )
+            stmt = select(glossary_table).where(glossary_table.c.normalized_term == normalized_term)
             return [dict(row._mapping) for row in conn.execute(stmt).fetchall()]
 
     # -------------------- 内部 --------------------

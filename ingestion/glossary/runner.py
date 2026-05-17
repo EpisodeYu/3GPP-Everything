@@ -52,9 +52,7 @@ def _hf_token() -> str | None:
 
 def _load_manifest_entries(manifest_path: Path) -> list[SpecManifestEntry]:
     if not manifest_path.exists():
-        raise typer.BadParameter(
-            f"manifest not found: {manifest_path}. 先跑 `ingestion hf-pull`。"
-        )
+        raise typer.BadParameter(f"manifest not found: {manifest_path}. 先跑 `ingestion hf-pull`。")
     with manifest_session(manifest_path) as conn:
         return read_entries(conn)
 
@@ -73,9 +71,7 @@ def _select_entries(
     primary = filter_ts_5g(deduped, whitelist=TS_5G_SERIES_WHITELIST)
     primary_ids = {e.spec_id for e in primary}
     extras = [
-        e
-        for e in deduped
-        if e.spec_id in _ALWAYS_INCLUDE_SPEC_IDS and e.spec_id not in primary_ids
+        e for e in deduped if e.spec_id in _ALWAYS_INCLUDE_SPEC_IDS and e.spec_id not in primary_ids
     ]
     return primary + extras
 
@@ -90,14 +86,17 @@ def glossary_extract(
     ),
     limit: int | None = typer.Option(None, "--limit", help="最多处理 N 篇（debug）"),
     dry_run: bool = typer.Option(False, "--dry-run", help="只解析不写 PG"),
-    database_url: str | None = typer.Option(
-        None, "--database-url", help="覆盖 .env DATABASE_URL"
-    ),
+    database_url: str | None = typer.Option(None, "--database-url", help="覆盖 .env DATABASE_URL"),
     manifest: Path | None = typer.Option(
-        None, "--manifest", help="SQLite manifest 路径，默认 $INGEST_DATA_DIR/markdown/gsma_manifest.sqlite"
+        None,
+        "--manifest",
+        help="SQLite manifest 路径，默认 $INGEST_DATA_DIR/markdown/gsma_manifest.sqlite",
     ),
     revision: str | None = typer.Option(
-        None, "--revision", envvar="GSMA_REVISION", help="HF revision，默认取 manifest 中已 pull 的最新"
+        None,
+        "--revision",
+        envvar="GSMA_REVISION",
+        help="HF revision，默认取 manifest 中已 pull 的最新",
     ),
     log_level: str = typer.Option("INFO", "--log-level"),
 ) -> None:
