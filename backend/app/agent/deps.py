@@ -14,7 +14,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from app.core.config import Settings, get_settings
+from app.db.base import get_sessionmaker
 from app.llm.litellm_client import LiteLLMClient
 from app.retrieval.cache import RetrievalCache
 from app.retrieval.dense import DenseRetriever
@@ -48,6 +51,7 @@ class AgentDeps:
     sparse: _SparseRetrieverProto | None = None
     reranker: _RerankerProto | None = None
     cache: RetrievalCache | None = None
+    db_sessionmaker: async_sessionmaker[AsyncSession] | None = None
     settings: Settings = field(default_factory=get_settings)
 
     @classmethod
@@ -65,6 +69,7 @@ class AgentDeps:
             sparse=sparse,
             reranker=reranker,
             cache=cache,
+            db_sessionmaker=get_sessionmaker(),
             settings=s,
         )
 

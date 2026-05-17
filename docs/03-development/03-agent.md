@@ -496,9 +496,17 @@ if state.paused:    raise NodeInterrupt("paused by user")  # 区别：paused 不
 
 ### M4.4 工具节点
 
-- [ ] `[auto]` 4 工具节点显式触发集成测（web_search / glossary / toc / params 各一个用例）
-- [ ] `[auto]` glossary 工具节点能命中真实数据（依赖 M4.1，断言至少 1 个高频术语返回非空）
-- [ ] `[auto]` 非 `explicit_tools` 场景下工具节点不会被调用（prompt 守约 + 路由守约双保险）
+- [x] `[auto]` 4 工具节点显式触发集成测（web_search / glossary / toc / params 各一个用例）
+- [x] `[auto]` glossary 工具节点能命中真实数据（依赖 M4.1，断言至少 1 个高频术语返回非空）
+- [x] `[auto]` 非 `explicit_tools` 场景下工具节点不会被调用（prompt 守约 + 路由守约双保险）
+
+> **2026-05-17 完成 M4.4**：
+> - 交付物：`app/tools/{web_search,glossary,toc,params}.py` 四个工具（统一签名 `async def(state, *, deps) -> dict`）+ `TOOL_REGISTRY` 注册表；`app/agent/nodes/tool_dispatch.py` 节点按 `state.explicit_tools` 并发跑工具（`asyncio.gather`），异常隔离；`graph.py` 加 `query_class=="tool"` 路由 `classify → tool_dispatch → generate → self_rag → END`（不走 retrieve/rerank）；`generate.py` 增 `_render_tool_results()` 把 4 类工具结果落地到 `final_answer`（web_search 强制带 §4.9 安全前缀）；`AgentDeps` 加 `db_sessionmaker` 字段供 glossary/toc 用
+> - prompt：`prompts/classify.md` 扩 `needs_explicit_tools` 允许值至 4 类工具 + 中英文意图映射规则（query_class=tool 时**强制**至少填 1 项）
+> - 测试：unit 127 / mock integration 11（含 4 工具显式触发 + 工具异常隔离 + 非 explicit 不触发）；真实环境 PG glossary 单独跑通（AMF 命中 203 行，normalized_term 已 lowercase）；make lint 全绿
+> - 自主决策记录（CLAUDE.md §4.3）：(1) tool 路径不走 retrieve/rerank，由 generate_node 直接渲染 tool_results；该路径 LLM 调用数 = classify+self_rag（generate 不再调 LLM，保持成本可预测）；(2) 工具调度并发跑（`asyncio.gather`），任一工具异常吞成 warning 不阻塞其它工具；(3) glossary `normalized_term` 对齐 ingestion 端 `lower()` 约定，候选 term 用 `_TOKEN_RE` 抽 + stopwords 过滤，避免 "What/is/the" 等噪音匹配
+> - 留给人审：tool 路径下 generate_node 渲染是模板化的（非 LLM 综合），如需更自然的回答可在 M4.5+ 加 prompt template；非 explicit_tools+query_class!=tool 但用户其实需要工具的场景（如 procedure 查询附带搜网）走完整 retrieve 路径，工具不触发——符合"显式触发"硬规
+> - 剩余风险：classify 的 `needs_explicit_tools` 4 类映射依赖 LLM 严格遵守 prompt 规则；如出现 LLM 误分类把 definition/procedure 标成 tool 会跳过 retrieve；M7 nightly eval 加路由分类 confusion matrix 监控
 
 ### M4.5 Checkpoint + 取消/暂停 + Langfuse
 
