@@ -12,15 +12,32 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from pathlib import Path
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+def _find_env_file() -> tuple[str, ...]:
+    """从当前 cwd 向上找 `.env`，优先 cwd 内、其次项目根。
+
+    pytest 经常在 `backend/` 启动；运维 / IDE 可能在项目根启动。把候选路径都给
+    pydantic-settings，它会按顺序加载（后面的覆盖前面的）。
+    """
+    candidates: list[str] = [".env"]
+    here = Path(__file__).resolve()
+    for parent in here.parents[:6]:  # backend/app/core -> root 不会超过 6 级
+        env_path = parent / ".env"
+        rel_or_abs = str(env_path)
+        if rel_or_abs not in candidates:
+            candidates.append(rel_or_abs)
+    return tuple(candidates)
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_find_env_file(),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -79,7 +96,36 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     BOOTSTRAP_ADMIN_INVITE_CODE: SecretStr = SecretStr("")
-    ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
+    # NoDecode 关掉 pydantic-settings 默认的 JSON 解析（默认会把 list 字段当 JSON
+    # 解，运维 .env 写 CSV 直接抛 JSONDecodeError）。下面 field_validator 兜底处理
+    # CSV / 单 origin / JSON 三种写法。
+    ALLOWED_ORIGINS: Annotated[list[str], NoDecode] = Field(default_factory=list)
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def _split_allowed_origins(cls, v: Any) -> Any:
+        """允许 `.env` 写 CSV 或 JSON list 或单 origin；空字符串视作空 list。
+
+        历史背景：pydantic-settings v2 默认对 list 字段走 JSON 解析，导致 `.env`
+        里的 `https://a.com,https://b.com` 直接报错。`NoDecode` 关掉默认 JSON
+        decode 后，本 validator 把字符串归一化为 `list[str]`：
+        - JSON array (`["a","b"]`) → json.loads
+        - CSV (`a,b`) → split + strip
+        - 单值 (`a`) → `[a]`
+        - 空 / None → `[]`
+        """
+        if v is None:
+            return []
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return []
+            if s.startswith("["):
+                import json
+
+                return json.loads(s)
+            return [item.strip() for item in s.split(",") if item.strip()]
+        return v
 
     # === ingestion 数据目录（retrieval/sparse 需要读 BM25 jsonl）===
     INGEST_DATA_DIR: str = "/data/tgpp"
