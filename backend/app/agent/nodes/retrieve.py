@@ -7,14 +7,20 @@
 - 多个 query 串行检索（M4.2 simple 路径只 1 条；M4.3 multi_query 时再考虑并发）
 - 用 RRF 融合并排重，截断到 settings.RETRIEVAL_FINAL_TOP_K（默认 50）
 - 缓存：`{prefix}:retrieve:{sha256(queries+spec_filter)}` TTL 1h；命中直接还原
+- 节点产出后通过 `get_stream_writer()` 发自定义事件 `chunks_hit`，供
+  backend 在 `astream_events`/`astream(stream_mode="custom")` 里转成 SSE 事件
+  （口径见 `docs/03-development/03-agent.md §7`）
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import Any
 
+from langchain_core.callbacks.manager import adispatch_custom_event
+from langgraph.config import get_stream_writer
 from langgraph.errors import NodeInterrupt
 
 from app.agent.deps import AgentDeps
@@ -92,4 +98,39 @@ async def retrieve_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
         except Exception as exc:
             log.warning("retrieve_node cache.set failed: %s", exc)
 
+    await _emit_chunks_hit(state_chunks)
     return {"candidates": state_chunks}
+
+
+async def _emit_chunks_hit(chunks: list[StateChunk]) -> None:
+    """节点边界 emit `chunks_hit` 自定义事件。
+
+    通过两条通道一起 emit（口径 §7）：
+    - `get_stream_writer()` → 落入 `astream(stream_mode="custom")` 流，backend SSE
+      路径主要走这条
+    - `adispatch_custom_event` → 落入 `astream_events(v="v2")` 流的
+      `on_custom_event`，给 backend 在统一 `astream_events` 通道里也能拿到
+
+    任一通道在当前 graph 上下文里不可用（单测直接 `await retrieve_node(...)`）抛
+    RuntimeError 吞掉，不影响主路径。Payload 截 top-10 + preview 240 字，避免 SSE 帧过大。
+    """
+    payload = [
+        {
+            "chunk_id": c.chunk_id,
+            "spec_id": c.spec_id,
+            "section_path": ".".join(c.section_path),
+            "section_title": c.section_title,
+            "score": c.fused_score,
+            "preview": (c.content or "")[:240],
+        }
+        for c in chunks[:10]
+    ]
+    event = {"type": "chunks_hit", "chunks": payload}
+
+    with contextlib.suppress(RuntimeError):
+        writer = get_stream_writer()
+        writer(event)
+
+    with contextlib.suppress(RuntimeError):
+        # 不在 callback 上下文里（单测直接 await retrieve_node(...)）时抛 RuntimeError
+        await adispatch_custom_event("chunks_hit", event)

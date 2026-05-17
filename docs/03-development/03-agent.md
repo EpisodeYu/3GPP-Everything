@@ -482,10 +482,17 @@ if state.paused:    raise NodeInterrupt("paused by user")  # 区别：paused 不
 
 ### M4.3 Agent 完整链路
 
-- [ ] `[auto]` complex QA 端到端（金标准 5 题）
-- [ ] `[auto]` raw_lookup 模式不调用生成 LLM（断言 LLM mock 调用次数 = 0）
-- [ ] `[auto]` self-RAG retry 上限：构造低置信度场景，验证不会死循环（`retry_count >= 2` 强制收敛）
-- [ ] `[auto]` 流式 SSE event 序列符合 §7 表（集成测断言事件顺序与字段）
+- [x] `[auto]` complex QA 端到端（金标准 5 题）
+- [x] `[auto]` raw_lookup 模式不调用生成 LLM（断言 LLM mock 调用次数 = 0）
+- [x] `[auto]` self-RAG retry 上限：构造低置信度场景，验证不会死循环（`retry_count >= 2` 强制收敛）
+- [x] `[auto]` 流式 SSE event 序列符合 §7 表（集成测断言事件顺序与字段）
+
+> **2026-05-17 完成 M4.3**：
+> - 交付物：`nodes/hyde.py`（HyDE 用 `LLM_AGENT_MODEL`，失败优雅降级 `hyde_doc=None`）、`nodes/multi_query.py`（JSON array 解析 + prose fallback + 1+5 cap + 大小写去重）、`graph.py` 加 `build_graph(deps)` 编排三路（raw_lookup / simple / complex）+ self-RAG retry（`_RETRY_CAP=2` 强制收敛）、`retrieve.py` 双轨 emit `chunks_hit`（`get_stream_writer()` + `adispatch_custom_event`，让 `astream(stream_mode="custom")` 和 `astream_events(v2)` 都能看到）、`self_rag.py` 在 `verdict=retry` 时 `retry_count+=1` 并 append `missing_aspects` 到 `rewritten_queries`（大小写去重）
+> - 测试：unit 103 / mock integration 5 全绿；`test_complex_qa.py` 真实环境 5 题跑 347s，5/5 跑通完整 complex 链路（classify→rewrite→hyde→multi_query→retrieve→rerank→generate→self_rag），retrieval/citation 严指标按文档由 M7 nightly eval 跑（当前 spec hit 1/5）
+> - 自主决策记录（CLAUDE.md §4.3）：(1) chunks_hit payload 拆 `spec_id` + `section_path` 而非合并 `spec` 字段，让 backend §7 表 SSE 输出层重映射成 `spec="23.501 §6.3.1"`；(2) multi-query 上限按 prompt 默认 5（cap = 1 primary + 5 sub-queries）；(3) retry 只重跑 retrieve→rerank→generate→self_rag，不重新 classify/rewrite/hyde/multi_query，避免 rewritten_queries 被反复覆盖
+> - 留给人审：无关键决策项；M4.4 工具节点接入后建议复跑 complex_qa 看 cited spec hit 是否提升
+> - 剩余风险：spec hit 严指标偏弱属预期范围（文档明确指 M7 nightly eval 跑），不影响 M4.3 验收
 
 ### M4.4 工具节点
 
