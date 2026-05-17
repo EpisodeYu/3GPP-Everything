@@ -25,6 +25,7 @@ from __future__ import annotations
 from functools import partial
 from typing import Any, Literal
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -77,8 +78,16 @@ def build_simple_graph(deps: AgentDeps) -> CompiledStateGraph:
 # ---------- M4.3 完整图 ----------
 
 
-def build_graph(deps: AgentDeps) -> CompiledStateGraph:
-    """M4.3 完整链路：raw_lookup / simple / complex 三路 + self-RAG retry。"""
+def build_graph(
+    deps: AgentDeps,
+    *,
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
+) -> CompiledStateGraph:
+    """M4.3 完整链路：raw_lookup / simple / complex 三路 + self-RAG retry。
+
+    M4.5：`checkpointer` 可选；生产传入 `AsyncPostgresSaver`（thread_id=session_id），
+    测试传 `InMemorySaver` 即可。不传 → 无持久化，单次 invoke 跑完不留 checkpoint。
+    """
     builder: StateGraph[AgentState, Any, AgentState, AgentState] = StateGraph(AgentState)
 
     builder.add_node("classify", partial(classify_node, deps=deps))
@@ -147,7 +156,7 @@ def build_graph(deps: AgentDeps) -> CompiledStateGraph:
         },
     )
 
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)
 
 
 # ---------- 路由判定（纯函数，便于单测） ----------
