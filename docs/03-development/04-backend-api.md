@@ -81,6 +81,8 @@
 | **Health** | GET | `/health` | liveness |
 |  | GET | `/ready` | readiness（检 PG/Qdrant/Redis/LiteLLM 连通） |
 
+> **本期不开放自助注册**：路由表中没有 `POST /api/v1/auth/register`；用户一律由 admin 通过 `POST /api/v1/users` 创建（Q2 决策，详见 [`../04-handoff/2026-05-17-m4.6-m4.9-decisions.md`](../04-handoff/2026-05-17-m4.6-m4.9-decisions.md) §一 Q2）。
+
 ## 3. DB Schema
 
 ```mermaid
@@ -384,7 +386,8 @@ def require_role(*roles: str):
 - 登录：用户名/密码校验后签发 access token（15min）与 refresh token（7d）。
 - refresh token：只在 DB 中保存 hash；logout、用户停用、密码重置时撤销。
 - RBAC：`admin` 可访问用户管理、索引管理、上传、任务与用量；`user` 只能访问自己的会话、收藏、笔记、反馈与只读文档。
-- 审计：用户创建/停用、角色变更、索引重建、上传文档、删除会话等写 `audit_logs`。
+- 密码策略：`min_length=8`，不强制字符复杂度 / 黑名单（Q3 决策；小规模多用户场景够用）。校验在 Pydantic 请求 schema 层做，bcrypt cost 沿用 passlib 默认。
+- 审计：用户创建/停用、角色变更、索引重建、上传文档、删除会话等写 `audit_logs`；**chat 消息内容不入 `audit_logs`**（Q5 决策）。
 - 安全：密码用 `passlib[bcrypt]`；JWT signing key 来自 `APP_SECRET_KEY`；生产要求 HTTPS，禁止在日志中输出 token。
 
 ## 6. 限流与配额（最小实现）
@@ -437,6 +440,7 @@ log.info("agent.node.end", node="retrieve", duration_ms=650, chunks=50)
 - dev 输出 pretty console
 - 包含 `trace_id`（与 Langfuse trace 对齐）
 - 认证、管理与上传类操作必须写 `audit_logs`，日志中只记录 token hash 前缀或 request id，不记录 secret 原文
+- **`audit_logs` 不记 chat 消息正文 / SSE token 流**（Q5 决策）：chat 路径仅在 `messages` 表里持久化最终 assistant content（M4.7 Q9：仅 `final` event 落盘），`audit_logs` 只登记 `session_id` / `message_id` / `run_id` / 元数据，避免表膨胀和隐私问题
 
 ### 7.3 错误统一处理
 
@@ -513,8 +517,10 @@ async def app_error_handler(req, exc): ...
 - [ ] `[auto]` `pytest -m unit backend/tests/unit/{api/auth,api/users,core/auth,core/ratelimit,core/audit}/` 全绿
 - [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_auth.py` 全绿
 - [ ] `[auto]` RBAC 验证：普通用户无法访问 admin 路由；停用用户无法 refresh；logout 后 refresh token 失效（集成测覆盖）
+- [ ] `[auto]` 密码策略：注册/重置时 `len(password) < 8` 返回 422（集成测覆盖；Q3 决策）
 - [ ] `[auto]` 限流：超过 `chat` / `tools_websearch` / `admin_crawl` bucket 阈值返回 429（集成测覆盖）
-- [ ] `[auto]` 审计：用户创建/停用 / 角色变更 / index_rebuild 触发 → `audit_logs` 表有对应行
+- [ ] `[auto]` 审计：用户创建/停用 / 角色变更 / index_rebuild 触发 → `audit_logs` 表有对应行；**chat 路径不写 `audit_logs`**（断言反例）（Q5 决策）
+- [x] `[auto]` 前置确认：`chunks_meta` schema diff（Q1/O6）— 报告归档 `docs/04-handoff/2026-05-17-chunks-meta-schema-diff.md`，0 ❌ / 3 ⚠️（默认值差异，不影响业务）
 
 ### M4.7 会话与 SSE Chat
 
