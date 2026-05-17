@@ -445,9 +445,11 @@ if state.paused:    raise NodeInterrupt("paused by user")  # 区别：paused 不
 
 ### M4.0 共享底座
 
-- [ ] `[auto]` `pytest -m unit backend/tests/unit/{core,llm,db,retrieval}/` 全绿
-- [ ] `[auto]` `alembic upgrade head` 在干净 PG 通过；`alembic downgrade -1` 也可
-- [ ] `[auto]` `test_retrieval_smoke.py`：3 个真实 query 能从 `tgpp_chunks_voyage_d1024` + BM25 拿回 top-50 合并结果
+- [x] `[auto]` `pytest -m unit backend/tests/unit/{core,llm,db,retrieval}/` 全绿 — 2026-05-17，47 passed
+- [x] `[auto]` `alembic upgrade head` 在干净 PG 通过；`alembic downgrade -1` 也可 — 2026-05-17 通过
+- [x] `[auto]` `test_retrieval_smoke.py`：3 个真实 query 能从 `tgpp_chunks_voyage_d1024` + BM25 拿回 top-50 合并结果 — 2026-05-17 通过（88.7s，394k chunks）
+
+> 2026-05-17 完成。详见 [`04-backend-api.md §12 M4.0`](04-backend-api.md)。
 
 ### M4.1 glossary 抽取
 

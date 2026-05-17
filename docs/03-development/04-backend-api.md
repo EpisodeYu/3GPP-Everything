@@ -30,7 +30,7 @@
 
 - [ ] `[M4.6/M4.7/M4.8/M4.9/M4.10]` FastAPI 应用 `backend/app/main.py`，所有路由按资源拆分到 `app/api/v1/*`
 - [ ] `[M4.6 — M4.10]` Pydantic v2 请求/响应 schema 全套
-- [ ] `[M4.0]` SQLAlchemy 2.0 async ORM + Alembic 迁移（PG schema）
+- [x] `[M4.0]` SQLAlchemy 2.0 async ORM + Alembic 迁移（PG schema） — 2026-05-17 完成
 - [ ] `[M4.7]` SSE 流式 `/chat` 接口，与 §3 SSE 事件表一致
 - [ ] `[M4.6]` 多用户鉴权：JWT access token + refresh token + RBAC（admin/user）+ 审计日志
 - [ ] `[M4.10]` OpenAPI / Swagger UI（`/docs`）覆盖所有路由
@@ -169,7 +169,7 @@ class Message(Base):
 class MessageCitation(Base):
     id: UUID = pk
     message_id: UUID = FK
-    chunk_meta_id: UUID = FK(chunks_meta.id)
+    chunk_meta_id: int = FK(chunks_meta.id)   # M4.0：与 ingestion chunks_meta.id (Integer) 对齐
     chunk_id: str                       # Qdrant point id / API 展示 id
     rank: int                       # 在答案中第几次出现
     rerank_score: float | None
@@ -205,9 +205,11 @@ class DocumentVersion(Base):
     indexed_for_providers: ARRAY(text) = []   # ["voyage","glm"]
 
 class ChunkMeta(Base):
-    id: UUID = pk
+    # M4.0：PK 用 Integer（autoincrement）与 ingestion/indexer/pg_writer 对齐；
+    # 历史 docs 写的 UUID 计划未落地，ingestion 与 backend 现在统一 Integer。
+    id: int = pk                     # autoincrement
     chunk_id: str = unique           # 与 Qdrant point id 一致
-    document_id: UUID = FK
+    document_id: UUID | None = FK    # M4.0：ingestion 暂未写入 documents 表，可空
     spec_id: str
     section_path: ARRAY(text)        # ["5","6","1","2"]
     section_title: str
@@ -225,7 +227,7 @@ class Glossary(Base):
     definition: text
     spec_id: str
     section_path: ARRAY(text)
-    source_chunk_meta_id: UUID | None = FK(chunks_meta.id)
+    source_chunk_meta_id: int | None = FK(chunks_meta.id)   # M4.0：Integer 对齐
     source_revision: str | None
     created_at, updated_at: timestamps
 
@@ -502,7 +504,9 @@ async def app_error_handler(req, exc): ...
 
 ### M4.0 共享底座（与 [`03-agent.md §14 M4.0`](03-agent.md) 共用门禁）
 
-- [ ] `[auto]` Alembic：`alembic upgrade head` 在干净 PG 上成功；`alembic downgrade -1` 也可（CI 跑）
+- [x] `[auto]` Alembic：`alembic upgrade head` 在干净 PG 上成功；`alembic downgrade -1` 也可（CI 跑） — 2026-05-17 通过
+
+> 2026-05-17 M4.0 完成。差异点：`chunks_meta.id` 改用 Integer（与 ingestion/indexer/pg_writer 对齐），相应 `message_citations.chunk_meta_id` 与 `glossary.source_chunk_meta_id` 改为 Integer FK；`chunks_meta.document_id` 设为可空（ingestion 暂未写入 documents）。
 
 ### M4.6 FastAPI 鉴权与基础
 
