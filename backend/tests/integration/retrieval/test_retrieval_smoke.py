@@ -58,9 +58,7 @@ async def test_smoke_three_real_queries(sparse_retriever: SparseRetriever) -> No
         try:
             for query in QUERIES:
                 dense_hits = await dense.retrieve(query, top_k=s.RETRIEVAL_DENSE_TOP_K)
-                sparse_hits = sparse_retriever.retrieve(
-                    query, top_k=s.RETRIEVAL_SPARSE_TOP_K
-                )
+                sparse_hits = sparse_retriever.retrieve(query, top_k=s.RETRIEVAL_SPARSE_TOP_K)
                 merged = rrf_merge(
                     dense_hits, sparse_hits, k=s.RETRIEVAL_RRF_K, top_n=s.RETRIEVAL_FINAL_TOP_K
                 )
@@ -69,9 +67,9 @@ async def test_smoke_three_real_queries(sparse_retriever: SparseRetriever) -> No
                 assert sparse_hits, f"sparse returned 0 hits for {query!r}"
                 assert merged, f"merged returned 0 hits for {query!r}"
                 # M4.0 验收：top-50 至少能拿到 ≥ 30 条（dense 与 sparse 几乎不会全重复）
-                assert len(merged) >= 30, (
-                    f"merged unique chunks < 30 for {query!r}: got {len(merged)}"
-                )
+                assert (
+                    len(merged) >= 30
+                ), f"merged unique chunks < 30 for {query!r}: got {len(merged)}"
                 # 抽 top-1 检查必要字段
                 top = merged[0]
                 assert top.chunk_id

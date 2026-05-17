@@ -86,9 +86,7 @@ class DenseRetriever:
         vector = list(data[0].get("embedding") or [])
         if not vector:
             raise RetrievalError("dense embed returned empty vector")
-        return await self.retrieve_by_vector(
-            vector, top_k=top_k, filter_spec_ids=filter_spec_ids
-        )
+        return await self.retrieve_by_vector(vector, top_k=top_k, filter_spec_ids=filter_spec_ids)
 
     async def retrieve_by_vector(
         self,
@@ -116,11 +114,7 @@ def _build_filter(spec_ids: Sequence[str] | None) -> qmodels.Filter | None:
     if not spec_ids:
         return None
     return qmodels.Filter(
-        must=[
-            qmodels.FieldCondition(
-                key="spec_id", match=qmodels.MatchAny(any=list(spec_ids))
-            )
-        ]
+        must=[qmodels.FieldCondition(key="spec_id", match=qmodels.MatchAny(any=list(spec_ids)))]
     )
 
 
@@ -138,7 +132,8 @@ def _point_to_chunk(point: Any) -> RetrievedChunk:
         extra={
             k: v
             for k, v in payload.items()
-            if k not in {
+            if k
+            not in {
                 "chunk_id",
                 "spec_id",
                 "section_path",
