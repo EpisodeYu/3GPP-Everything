@@ -82,9 +82,7 @@ def test_missing_directory_raises(tmp_path: Path) -> None:
 
 
 def test_empty_query_returns_empty(tmp_path: Path) -> None:
-    _write_spec_jsonl(
-        tmp_path, "x", [{"chunk_id": "a", "spec_id": "x", "content": "anything"}]
-    )
+    _write_spec_jsonl(tmp_path, "x", [{"chunk_id": "a", "spec_id": "x", "content": "anything"}])
     r = SparseRetriever.from_directory(tmp_path)
     assert r.retrieve("", top_k=5) == []
     assert r.retrieve("   ", top_k=5) == []
