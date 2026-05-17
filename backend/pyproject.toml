@@ -52,6 +52,10 @@ select = ["E","F","I","B","UP","SIM","RUF"]
 # 项目文档与注释采用中文；ruff RUF001/2/3 对中文标点会产生大量噪声，统一关掉。
 ignore = ["RUF001", "RUF002", "RUF003"]
 
+[tool.ruff.lint.per-file-ignores]
+# Alembic 自动生成的 migration 行宽不可控；不强行折行避免再生成时反复 churn。
+"alembic/versions/*.py" = ["E501"]
+
 [tool.black]
 line-length = 100
 target-version = ["py311"]
