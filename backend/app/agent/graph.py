@@ -3,6 +3,9 @@
 M4.2：`build_simple_graph(deps)` — simple fast path 五节点串成一条线。
 M4.3：`build_graph(deps)` — 完整链路：
   - mode = raw_lookup → retrieve → rerank → END（不调 LLM 生成）
+  - mode = qa, query_class = tool → classify → tool_dispatch → generate → self_rag → END
+        （`tool_dispatch` 按 `state.explicit_tools` 跑 glossary/toc/params/web_search；
+        非 tool 类查询不走这条边，工具节点不会被触发——M4.4 验收第 3 条）
   - mode = qa, complexity = simple → classify → retrieve → rerank → generate → self_rag → END
   - mode = qa, complexity = complex → classify → rewrite → hyde → multi_query →
         retrieve → rerank → generate → self_rag → (retry → retrieve | END)
@@ -35,6 +38,7 @@ from .nodes import (
     retrieve_node,
     rewrite_node,
     self_rag_node,
+    tool_dispatch_node,
 )
 from .state import AgentState
 
@@ -81,6 +85,7 @@ def build_graph(deps: AgentDeps) -> CompiledStateGraph:
     builder.add_node("rewrite", partial(rewrite_node, deps=deps))
     builder.add_node("hyde", partial(hyde_node, deps=deps))
     builder.add_node("multi_query", partial(multi_query_node, deps=deps))
+    builder.add_node("tool_dispatch", partial(tool_dispatch_node, deps=deps))
     builder.add_node("retrieve", partial(retrieve_node, deps=deps))
     builder.add_node("rerank", partial(rerank_node, deps=deps))
     builder.add_node("generate", partial(generate_node, deps=deps))
@@ -96,15 +101,22 @@ def build_graph(deps: AgentDeps) -> CompiledStateGraph:
         },
     )
 
-    # classify → 按 complexity 分流
+    # classify → 按 query_class / complexity 分流
+    #   query_class=tool → tool_dispatch → generate（不走 retrieve；§3 状态图）
+    #   complexity=complex → rewrite → hyde → multi_query → retrieve
+    #   simple → retrieve
     builder.add_conditional_edges(
         "classify",
         _after_classify,
         {
+            "tool": "tool_dispatch",
             "complex": "rewrite",
             "simple": "retrieve",
         },
     )
+
+    # tool_dispatch → generate（工具结果由 generate_node 在 prompt 里消费）
+    builder.add_edge("tool_dispatch", "generate")
 
     # complex 链路：rewrite → hyde → multi_query → retrieve
     builder.add_edge("rewrite", "hyde")
@@ -145,7 +157,9 @@ def _entry_router(state: AgentState) -> Literal["raw_lookup", "qa"]:
     return "raw_lookup" if state.mode == "raw_lookup" else "qa"
 
 
-def _after_classify(state: AgentState) -> Literal["complex", "simple"]:
+def _after_classify(state: AgentState) -> Literal["tool", "complex", "simple"]:
+    if state.query_class == "tool":
+        return "tool"
     return "complex" if state.complexity == "complex" else "simple"
 
 

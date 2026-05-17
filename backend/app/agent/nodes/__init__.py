@@ -17,6 +17,7 @@ from .rerank import rerank_node
 from .retrieve import retrieve_node
 from .rewrite import rewrite_node
 from .self_rag import self_rag_node
+from .tool_dispatch import tool_dispatch_node
 
 __all__ = [
     "classify_node",
@@ -28,4 +29,5 @@ __all__ = [
     "retrieve_node",
     "rewrite_node",
     "self_rag_node",
+    "tool_dispatch_node",
 ]

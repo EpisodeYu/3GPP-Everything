@@ -45,6 +45,16 @@ async def generate_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
 
     chunks = state.reranked
     if not chunks:
+        # tool 路径：没有 reranked chunks 但 tool_dispatch 写了 tool_results，
+        # 直接把工具结果渲染成结构化短答，不走 LLM（保持成本可预测；同时为
+        # M4.4 验收"工具结果能到达 final_answer"留口子）
+        tool_text = _render_tool_results(state)
+        if tool_text:
+            return {
+                "final_answer": tool_text,
+                "citations": [],
+                "confidence": 0.5,
+            }
         msg = _FALLBACK_ZH if state.user_language == "zh" else _FALLBACK_EN
         return {
             "final_answer": msg,
@@ -131,6 +141,44 @@ def _match_chunk(spec: str, sect: str, chunks: list[StateChunk]) -> StateChunk |
         if c.spec_id == spec:
             return c
     return None
+
+
+def _render_tool_results(state: AgentState) -> str:
+    """tool 路径专用：把 tool_results 渲染成简洁文本（不调 LLM）。
+
+    M4.4 落最小可读形态；M4.5+ 可接入更精细的 prompt 渲染。每段以工具名分组，
+    web_search 强制带 §4.9 安全前缀。
+    """
+    results = state.tool_results or {}
+    if not results:
+        return ""
+    parts: list[str] = []
+    glossary = results.get("glossary") or {}
+    for m in (glossary.get("matches") or [])[:6]:
+        parts.append(
+            f"- **{m.get('term')}** ({m.get('spec_id')} "
+            f"§{'.'.join(m.get('section_path') or [])}): {m.get('definition')}"
+        )
+    toc = results.get("toc") or {}
+    if toc.get("items"):
+        prefix = ".".join(toc.get("section_prefix") or [])
+        header = f"### {toc.get('spec_id')} §{prefix}" if prefix else f"### {toc.get('spec_id')}"
+        parts.append(header)
+        for it in (toc.get("items") or [])[:30]:
+            sp = ".".join(it.get("section_path") or [])
+            parts.append(f"- §{sp} {it.get('section_title')}")
+    params = results.get("params") or {}
+    if params.get("hits"):
+        parts.append("### Parameter / IE hits")
+        for h in (params.get("hits") or [])[:10]:
+            sp = ".".join(h.get("section_path") or [])
+            parts.append(f"- {h.get('spec_id')} §{sp}: {h.get('preview')}")
+    web = results.get("web_search") or {}
+    if web.get("results"):
+        parts.append(web.get("prefix") or "")
+        for r in (web.get("results") or [])[:5]:
+            parts.append(f"- [{r.get('title')}]({r.get('url')}): {r.get('snippet')}")
+    return "\n".join(p for p in parts if p).strip()
 
 
 def _chunk_view(c: StateChunk) -> dict[str, Any]:

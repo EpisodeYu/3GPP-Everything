@@ -31,8 +31,17 @@ Rules:
   with Y". Otherwise `simple`.
 - `rewritten_query` MUST be in English regardless of input language; resolve common
   abbreviations once (e.g. `5GS` -> `5G System`); keep proper nouns; <= 30 words.
-- `needs_explicit_tools` is non-empty only if user explicitly requests a tool, e.g.
-  "search the web", "查一下最新消息" -> `["web_search"]`.
+- `needs_explicit_tools` is non-empty ONLY if the user explicitly requests a tool.
+  Allowed values: `"web_search"`, `"glossary"`, `"toc"`, `"params"`.
+  Map intent → tool:
+  - "search the web", "查一下最新消息", "google ..." → `["web_search"]`
+  - "list abbreviations", "缩写", "术语表", "glossary of ..." → `["glossary"]`
+  - "list sections of 38.331 §5.3", "列出 ... 子节", "table of contents" → `["toc"]`
+  - "in which spec does field X appear", "字段 X 在哪些 spec" → `["params"]`
+  When `query_class` = `"tool"`, you MUST emit at least one of the above 4 tool
+  names (excluding `web_search` unless the user explicitly asks for web search).
+  When `query_class` ≠ `"tool"`, leave empty UNLESS the user explicitly invoked
+  `web_search`.
 - `reason` is a brief justification for downstream debugging.
 
 Output: ONLY the JSON object. No additional text.
