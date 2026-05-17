@@ -49,6 +49,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "chunker/runner.py" = ["B008", "E501"]
 "images/runner.py" = ["B008", "E501"]
 "indexer/runner.py" = ["B008", "E501"]
+"glossary/runner.py" = ["B008", "E501"]
 "cli.py" = ["B008", "E501"]
 # scripts/ 是评测/一次性脚本，prompt 字符串长是正常情况
 "scripts/*.py" = ["E501"]

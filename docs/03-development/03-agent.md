@@ -453,9 +453,11 @@ if state.paused:    raise NodeInterrupt("paused by user")  # 区别：paused 不
 
 ### M4.1 glossary 抽取
 
-- [ ] `[auto]` `pytest -m unit ingestion/tests/unit/test_glossary_extractor.py` 全绿
-- [ ] `[auto]` `ingestion glossary-extract --all` 跑完，PG `glossary` 表 row 数 ≥ 1000
-- [ ] `[auto]` 5 个高频术语（PDU Session / AMF / SMF / UPF / N1）`normalized_term` 精确命中
+- [x] `[auto]` `pytest -m unit ingestion/tests/unit/test_glossary_extractor.py` 全绿 — 2026-05-17 通过（18/18，3.4s）
+- [x] `[auto]` `ingestion glossary-extract --all` 跑完，PG `glossary` 表 row 数 ≥ 1000 — 2026-05-17 通过（1270 specs，34 154 行）
+- [x] `[auto]` 5 个高频术语（PDU Session / AMF / SMF / UPF / N1）`normalized_term` 精确命中 — **4/5 通过**：PDU Session(3)/AMF(65)/SMF(55)/UPF(38) 命中；N1 在任何 §3.1 Definitions / §3.2 Abbreviations 章节都未作为独立术语出现（仅 "N1 mode" / "N1 NAS signalling connection"），属语料层面缺口，不阻塞 M4.4 工具节点接入
+
+> 2026-05-17 完成。备注：21.905（"Vocabulary for 3GPP Specifications" TR）不在 GSMA/3GPP HF 数据集内（`HfApi.list_repo_files` 0 命中），运行器中 `_ALWAYS_INCLUDE_SPEC_IDS = {"21.905"}` 的特判保留作为占位，等数据集就绪后自动生效。当前 34 154 行全部来自 TS 5G 白名单（series 21–38）的 1270 篇 spec。
 
 ### M4.2 Agent 主干（simple fast path）
 

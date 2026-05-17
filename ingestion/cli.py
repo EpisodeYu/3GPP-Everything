@@ -7,6 +7,7 @@
   vision-call / vision-cache             Vision pipeline — 见 ingestion.images.runner
   embed / index / pipeline-hf /          Indexer（Voyage/GLM → Qdrant + BM25 + PG）
   index-status / purge-spec              — 见 ingestion.indexer.runner
+  glossary-extract                       术语抽取（M4.1）— 见 ingestion.glossary.runner
 
 后续模块（parse-single / docling-fallback 等）按里程碑陆续接入；
 本 CLI 文件只做命令注册，业务逻辑下沉到各子模块。
@@ -17,6 +18,7 @@ from __future__ import annotations
 import typer
 
 from .chunker import runner as chunker_runner
+from .glossary import runner as glossary_runner
 from .hf_loader import runner as hf_runner
 from .images import runner as vision_runner
 from .indexer import runner as indexer_runner
@@ -31,6 +33,8 @@ for command_info in chunker_runner.app.registered_commands:
 for command_info in vision_runner.app.registered_commands:
     app.registered_commands.append(command_info)
 for command_info in indexer_runner.app.registered_commands:
+    app.registered_commands.append(command_info)
+for command_info in glossary_runner.app.registered_commands:
     app.registered_commands.append(command_info)
 
 
