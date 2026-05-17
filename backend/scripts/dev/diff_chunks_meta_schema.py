@@ -33,11 +33,7 @@ from sqlalchemy import Column, Index, MetaData, Table
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 INGESTION_PG_WRITER = PROJECT_ROOT / "ingestion" / "indexer" / "pg_writer.py"
 ALEMBIC_INIT = (
-    PROJECT_ROOT
-    / "backend"
-    / "alembic"
-    / "versions"
-    / "20260517_0737_9cf40059f3b1_init_schema.py"
+    PROJECT_ROOT / "backend" / "alembic" / "versions" / "20260517_0737_9cf40059f3b1_init_schema.py"
 )
 
 
@@ -84,9 +80,7 @@ def load_alembic_table() -> Table:
                 captured_table_kwargs.update(kwargs)
 
         @staticmethod
-        def create_index(
-            name: str, table_name: str, columns: list[str], **kwargs: Any
-        ) -> None:
+        def create_index(name: str, table_name: str, columns: list[str], **kwargs: Any) -> None:
             if table_name == "chunks_meta":
                 captured_indexes.append(
                     {
@@ -126,15 +120,11 @@ def describe_column(c: Column) -> dict[str, Any]:
         "type": str(c.type),
         "nullable": bool(c.nullable),
         "primary_key": bool(c.primary_key),
-        "autoincrement": (
-            c.autoincrement if c.autoincrement is not True else "auto"
-        ),
+        "autoincrement": (c.autoincrement if c.autoincrement is not True else "auto"),
         "index": bool(c.index),
         "unique": bool(c.unique),
         "client_default": (
-            str(getattr(c.default, "arg", c.default))
-            if c.default is not None
-            else None
+            str(getattr(c.default, "arg", c.default)) if c.default is not None else None
         ),
         "server_default": (
             str(c.server_default.arg) if c.server_default is not None else None  # type: ignore[union-attr]
@@ -193,15 +183,11 @@ def diff_tables(
         b_desc = b_cols[col]
         for key in hard_keys:
             if a_desc[key] != b_desc[key]:
-                col_diffs.append(
-                    f"| `{col}` | {key} | `{a_desc[key]}` | `{b_desc[key]}` | ❌ |"
-                )
+                col_diffs.append(f"| `{col}` | {key} | `{a_desc[key]}` | `{b_desc[key]}` | ❌ |")
                 errors += 1
         for key in soft_keys:
             if a_desc[key] != b_desc[key]:
-                col_diffs.append(
-                    f"| `{col}` | {key} | `{a_desc[key]}` | `{b_desc[key]}` | ⚠️ |"
-                )
+                col_diffs.append(f"| `{col}` | {key} | `{a_desc[key]}` | `{b_desc[key]}` | ⚠️ |")
                 warnings += 1
 
     if col_diffs:
@@ -224,8 +210,7 @@ def diff_tables(
     lines.append("## 3. 约束（PK / UNIQUE / FK）\n")
     if only_a_cons or only_b_cons:
         has_fk_or_uq_diff = any(
-            ("FOREIGN KEY" in x or "UNIQUE" in x)
-            for x in only_a_cons + only_b_cons
+            ("FOREIGN KEY" in x or "UNIQUE" in x) for x in only_a_cons + only_b_cons
         )
         if has_fk_or_uq_diff:
             errors += 1
@@ -241,12 +226,10 @@ def diff_tables(
     lines.append("")
 
     a_idx_by_cols = {
-        tuple(sorted(c.name for c in idx.columns)): (idx.name, idx.unique)
-        for idx in a.indexes
+        tuple(sorted(c.name for c in idx.columns)): (idx.name, idx.unique) for idx in a.indexes
     }
     b_idx_by_cols = {
-        tuple(sorted(c.name for c in idx.columns)): (idx.name, idx.unique)
-        for idx in b.indexes
+        tuple(sorted(c.name for c in idx.columns)): (idx.name, idx.unique) for idx in b.indexes
     }
     only_a_cov = sorted(set(a_idx_by_cols) - set(b_idx_by_cols))
     only_b_cov = sorted(set(b_idx_by_cols) - set(a_idx_by_cols))
@@ -263,20 +246,14 @@ def diff_tables(
             an, _ = a_idx_by_cols[cols]
             bn, _ = b_idx_by_cols[cols]
             if an != bn:
-                name_diffs.append(
-                    f"`({','.join(cols)})`：{a_name}={an} vs {b_name}={bn}"
-                )
+                name_diffs.append(f"`({','.join(cols)})`：{a_name}={an} vs {b_name}={bn}")
         if name_diffs:
             warnings += len(name_diffs)
-            lines.append(
-                "- ⚠️ 列覆盖一致，仅索引名差异（PG 上不影响查询计划）："
-            )
+            lines.append("- ⚠️ 列覆盖一致，仅索引名差异（PG 上不影响查询计划）：")
             for d in name_diffs:
                 lines.append(f"  - {d}")
         else:
-            lines.append(
-                f"- ✅ 双方索引（列覆盖 + 名字）完全一致（共 {len(a_idx_by_cols)} 个）"
-            )
+            lines.append(f"- ✅ 双方索引（列覆盖 + 名字）完全一致（共 {len(a_idx_by_cols)} 个）")
     lines.append("")
 
     return lines, {"errors": errors, "warnings": warnings}
@@ -298,17 +275,13 @@ def main() -> int:
     lines: list[str] = []
     lines.append("# `chunks_meta` schema diff 报告（一次性，不入 CI）")
     lines.append("")
-    lines.append(
-        "- **A = `ingestion.indexer.pg_writer.chunks_meta_table`**（运行时写入侧；"
-    )
+    lines.append("- **A = `ingestion.indexer.pg_writer.chunks_meta_table`**（运行时写入侧；")
     lines.append("  生产 PG 中现有 394,859 行数据均按这套 schema 入库）")
     lines.append(f"- **B = `backend/alembic/versions/{ALEMBIC_INIT.name}`**")
     lines.append("  （alembic init 期望侧；仅在干净 PG 上跑过 upgrade head）")
     lines.append("")
     lines.append("差异分级：")
-    lines.append(
-        "- ❌ 硬差异：影响业务 / 数据兼容 → 触发 CLAUDE.md §5.1 上报，不进 M4.6"
-    )
+    lines.append("- ❌ 硬差异：影响业务 / 数据兼容 → 触发 CLAUDE.md §5.1 上报，不进 M4.6")
     lines.append(
         "- ⚠️ 软差异：默认值 / PK 名 / 索引名 / autoincrement 元数据 → 不影响业务，登记即可"
     )
@@ -322,21 +295,13 @@ def main() -> int:
     lines.append("## 结论")
     lines.append("")
     if stats["errors"] == 0:
-        lines.append(
-            f"- ✅ 关键 schema 一致（0 ❌，{stats['warnings']} ⚠️）"
-        )
-        lines.append(
-            "- 已有 ingestion 数据的 PG 上沿用 alembic 接管**不会丢字段、不会改类型**"
-        )
+        lines.append(f"- ✅ 关键 schema 一致（0 ❌，{stats['warnings']} ⚠️）")
+        lines.append("- 已有 ingestion 数据的 PG 上沿用 alembic 接管**不会丢字段、不会改类型**")
         lines.append("- 软差异（如有）仅影响首次写入的默认值或元数据命名，不动业务")
         lines.append("- 归档完毕；M4.6 可以放心启动")
     else:
-        lines.append(
-            f"- ❌ 发现 {stats['errors']} 项硬差异，{stats['warnings']} 项软差异"
-        )
-        lines.append(
-            "- **停下！按 CLAUDE.md §5.1 上报；M4.6 不要启动**"
-        )
+        lines.append(f"- ❌ 发现 {stats['errors']} 项硬差异，{stats['warnings']} 项软差异")
+        lines.append("- **停下！按 CLAUDE.md §5.1 上报；M4.6 不要启动**")
 
     text = "\n".join(lines) + "\n"
     print(text)
