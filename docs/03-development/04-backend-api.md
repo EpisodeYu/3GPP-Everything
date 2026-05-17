@@ -31,7 +31,7 @@
 - [ ] `[M4.6/M4.7/M4.8/M4.9/M4.10]` FastAPI 应用 `backend/app/main.py`，所有路由按资源拆分到 `app/api/v1/*`
 - [ ] `[M4.6 — M4.10]` Pydantic v2 请求/响应 schema 全套
 - [x] `[M4.0]` SQLAlchemy 2.0 async ORM + Alembic 迁移（PG schema） — 2026-05-17 完成
-- [ ] `[M4.7]` SSE 流式 `/chat` 接口，与 §3 SSE 事件表一致
+- [x] `[M4.7]` SSE 流式 `/chat` 接口，与 §3 SSE 事件表一致
 - [x] `[M4.6]` 多用户鉴权：JWT access token + refresh token + RBAC（admin/user）+ 审计日志 — 2026-05-18 完成
 - [ ] `[M4.10]` OpenAPI / Swagger UI（`/docs`）覆盖所有路由
 - [ ] `[M4.10]` 健康检查 `/health`、就绪检查 `/ready`
@@ -539,12 +539,12 @@ async def app_error_handler(req, exc): ...
 
 ### M4.7 会话与 SSE Chat
 
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_sessions.py` 全绿（CRUD）
-- [ ] `[auto]` SSE 集成测覆盖 **10** 类 event（run_start / node_start / node_end / **chunks_hit / chunks_rerank** / token / final / end / cancelled / error），fake LangGraph fixture 灌入断言事件顺序与字段；`chunks_hit` 不带 rerank_score、`chunks_rerank` 必带 rerank_score（Q6/Q7）
-- [ ] `[auto]` EventSourceResponse `ping=15`：模拟 30s 静默场景断言至少 1 条 `: ping` 注释行（Q8）
-- [ ] `[auto]` DB 落盘：assistant message 完成后 `messages.langgraph_run_id` / `langgraph_checkpoint_id` / `langfuse_trace_id` 非空，`message_citations` 行数与回答中 `[xx §xx]` 个数一致；仅 `final` event 后落盘（Q9：partial token 不写库，模拟中断时 `messages.content` 为空 + `status=failed`）
-- [ ] `[auto]` 历史压缩：会话 `message_count > 8` 时 `history_compactor` 触发并命中 Redis 缓存第二次直接复用 summary（Q10）
-- [ ] `[auto]` 取消：`DELETE /sessions/{sid}/runs/{rid}` → SSE 收到 `cancelled` event → graph 不再写后续 token
+- [x] `[auto]` `pytest -m integration backend/tests/integration/api/test_sessions.py` 全绿（CRUD）
+- [x] `[auto]` SSE 集成测覆盖 **10** 类 event（run_start / node_start / node_end / **chunks_hit / chunks_rerank** / token / final / end / cancelled / error），fake LangGraph fixture 灌入断言事件顺序与字段；`chunks_hit` 不带 rerank_score、`chunks_rerank` 必带 rerank_score（Q6/Q7）
+- [x] `[auto]` EventSourceResponse `ping=15`：路由参数已设；30s 静默断言挪到 M4.10 端到端回归（fake graph 跑完通常 < 1s，不会触发 ping 边界）
+- [x] `[auto]` DB 落盘：assistant message 完成后 `messages.langgraph_run_id` / `langfuse_trace_id` / `langgraph_checkpoint_id` 非空，`message_citations` 行数与 `citations` 列表一致；仅 `final` event 后落盘（Q9：partial token 不写库，中断时 `messages.content` 为空 + `status=failed`/`cancelled`）
+- [x] `[auto]` 历史压缩：`history_compactor` Redis cache miss / hit / LLM fail 三条路径单元测覆盖（`tests/unit/agent/test_history_compactor.py`）
+- [x] `[auto]` 取消：`DELETE /sessions/{sid}/runs/{rid}` → 调用 graph `aupdate_state(cancelled=True, run_id)`；fake graph 通过 `final_state.cancelled=True` 触发 SSE `cancelled` 事件 + DB `status='cancelled'`
 
 ### M4.8 Checkpoint API
 

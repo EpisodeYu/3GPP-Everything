@@ -32,11 +32,13 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 
 class FakeRedis:
-    """app.core.ratelimit.consume 用的最小 stub。"""
+    """app.core.ratelimit.consume + history_compactor.compact_history 用的最小 stub。"""
 
     def __init__(self) -> None:
         self.store: dict[str, int] = {}
         self.expires: dict[str, int] = {}
+        self.kv: dict[str, str] = {}
+        self.kv_ttls: dict[str, int] = {}
 
     async def incr(self, key: str) -> int:
         self.store[key] = self.store.get(key, 0) + 1
@@ -44,6 +46,14 @@ class FakeRedis:
 
     async def expire(self, key: str, ttl: int) -> bool:
         self.expires[key] = ttl
+        return True
+
+    async def get(self, key: str) -> str | None:
+        return self.kv.get(key)
+
+    async def setex(self, key: str, ttl: int, value: str) -> bool:
+        self.kv[key] = value
+        self.kv_ttls[key] = ttl
         return True
 
 

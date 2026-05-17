@@ -5224,6 +5224,19 @@ asyncio = [
 ]
 
 [[package]]
+name = "sse-starlette"
+version = "3.4.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "starlette" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f7/2b/58abc2d1fd397e7dde08e947e05c884d8ef2f78d5e2588c17a12d42d6994/sse_starlette-3.4.4.tar.gz", hash = "sha256:07e0fa0460138baf25cdd5fb28683472c3995dc1642225191b3832d62526bcb0", size = 31819, upload-time = "2026-05-12T17:37:17.019Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dc/67/805710444ea8cc75fbf70b920ed431a560c4bf9c57f7d5a3117213189399/sse_starlette-3.4.4-py3-none-any.whl", hash = "sha256:3f4dd50d8aed2771a091f3a83000323fc3844541c16b4fe585ae2420cc6df973", size = 16514, upload-time = "2026-05-12T17:37:15.601Z" },
+]
+
+[[package]]
 name = "starlette"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -5315,6 +5328,7 @@ dependencies = [
     { name = "qdrant-client" },
     { name = "redis" },
     { name = "sqlalchemy" },
+    { name = "sse-starlette" },
     { name = "structlog" },
     { name = "tavily-python" },
     { name = "tenacity" },
@@ -5368,6 +5382,7 @@ requires-dist = [
     { name = "redis", specifier = ">=5.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "sse-starlette", specifier = ">=2.1" },
     { name = "structlog", specifier = ">=24.1" },
     { name = "tavily-python", specifier = ">=0.5" },
     { name = "tenacity", specifier = ">=9.0" },

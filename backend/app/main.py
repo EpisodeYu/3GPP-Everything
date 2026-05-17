@@ -4,6 +4,8 @@ M4.6 起：
 - 注册 `/api/v1/auth` + `/api/v1/users` 路由
 - 统一 `AppError` exception handler → JSON 4xx/5xx
 - CORS 允许 origins 来自 `settings.ALLOWED_ORIGINS`
+
+M4.7：加上 `/api/v1/sessions`（含 SSE chat + cancel）。
 """
 
 from __future__ import annotations
@@ -13,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1 import auth as auth_routes
+from app.api.v1 import chat as chat_routes
+from app.api.v1 import sessions as sessions_routes
 from app.api.v1 import users as users_routes
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -41,6 +45,8 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_routes.router, prefix="/api/v1")
     app.include_router(users_routes.router, prefix="/api/v1")
+    app.include_router(sessions_routes.router, prefix="/api/v1")
+    app.include_router(chat_routes.router, prefix="/api/v1")
 
     return app
 
