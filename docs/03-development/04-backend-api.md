@@ -11,7 +11,7 @@
 | **M4.0** 共享底座 | 见 [`03-agent.md §0`](03-agent.md)。后端侧涉及 `core/{config,logging,errors}` + `llm/litellm_client` + `db/` SQLAlchemy 全表 + `alembic` 初始迁移 + `retrieval/*` | `alembic upgrade head` 在干净 PG 通过；retrieval 包能拿真实 top-50 |
 | **M4.2 – M4.5** Agent 建设 | 见 [`03-agent.md §0`](03-agent.md) | 同上 |
 | **M4.6** FastAPI 鉴权与基础 | `core/{auth,ratelimit,audit}` + `api/v1/{auth,users}.py` | RBAC（普通用户访问 admin → 403）；限流 429；logout 后 refresh 失效；停用用户无法 refresh |
-| **M4.7** 会话与 SSE Chat（核心交付） | `api/v1/sessions.py` + `api/v1/chat.py`（包 LangGraph `astream_events` + DB 落 message/citations）+ 取消接口 | SSE 集成测覆盖 9 类 event（run_start / node_start / node_end / chunks_hit / token / final / end / cancelled / error）；fake LangGraph fixture 端到端 |
+| **M4.7** 会话与 SSE Chat（核心交付） | `api/v1/sessions.py` + `api/v1/chat.py`（包 LangGraph `astream_events` + DB 落 message/citations）+ 取消接口 | SSE 集成测覆盖 10 类 event（run_start / node_start / node_end / chunks_hit / chunks_rerank / token / final / end / cancelled / error）；fake LangGraph fixture 端到端 |
 | **M4.8** Checkpoint API | `api/v1/checkpoint.py`：pause / resume / list_checkpoints / fork / rollback 5 个路由，分别包 [`03-agent.md §12`](03-agent.md) 的 5 个纯函数 | §12 checkpoint 相关集成测全绿；rollback 与跑中 run 冲突返回 409 |
 | **M4.9** Reader / Tools / Favorites / Notes / Feedback | `api/v1/{docs,tools,favorites,notes,feedback}.py` | 每个路由 CRUD 集成测；Reader 在 M6 全量数据上能正常返回章节树 |
 | **M4.10** Admin 最小集 + 健康检查 + 最终回归 | `api/v1/admin.py`（stats / tasks / index/rebuild）+ `/health` + `/ready` + OpenAPI 覆盖度校验 + 全套回归 | §12 [auto] 项全部绿；[human] 项标注待审；交付 `docs/04-handoff/2026-XX-XX-m4-complete.md` |
@@ -151,7 +151,8 @@ class Message(Base):
     id: UUID = pk
     session_id: UUID = FK(sessions.id, ondelete="CASCADE")
     role: Literal["user","assistant","system"]
-    content: text
+    content: text                              # M4.7 Q9：仅 final event 后一次性写入；中断 → content="" + status="failed"
+    status: Literal["ok","failed","cancelled"] = "ok"   # M4.7 新增（需独立 alembic revision），默认 "ok"
     user_language: Literal["zh","en"] | None
     mode: Literal["qa","raw_lookup"] | None
     explicit_tools: ARRAY(text) = []
@@ -298,8 +299,11 @@ async def send_message(
     return EventSourceResponse(
         stream_chat(sid, body, user, db),
         media_type="text/event-stream",
+        ping=15,   # M4.7 Q8 决策：每 15s 发 `: ping` 注释行，防 Nginx 缓冲断流
     )
 ```
+
+> M4.7 Q9 决策：assistant message 的正文仅在收到 LangGraph `final` 事件后**一次性** `UPDATE messages SET content=?, ...` 落盘；run 中断（取消 / 异常）→ 该 message 标 `failed`，让前端引导用户重发，不持久化半成品（详见 [`../04-handoff/2026-05-17-m4.6-m4.9-decisions.md`](../04-handoff/2026-05-17-m4.6-m4.9-decisions.md) §一 Q9）。
 
 ### 4.2 SSE 事件序列
 
@@ -319,10 +323,19 @@ event: node_start
 data: {"node":"retrieve"}
 
 event: chunks_hit
-data: {"chunks":[{"chunk_id":"...","spec":"23.501","section":"5.6.1","preview":"..."},...]}
+data: {"chunks":[{"chunk_id":"...","spec_id":"23.501","section_path":"5.6.1","preview":"..."},...]}
 
 event: node_end
 data: {"node":"retrieve","duration_ms":650}
+
+event: node_start
+data: {"node":"rerank"}
+
+event: chunks_rerank
+data: {"chunks":[{"chunk_id":"...","spec_id":"23.501","section_path":"5.6.1","preview":"...","rerank_score":0.87}, ...]}
+
+event: node_end
+data: {"node":"rerank","duration_ms":420}
 
 event: token
 data: {"delta":"PDU "}
@@ -493,10 +506,10 @@ async def app_error_handler(req, exc): ...
 
 | 风险 | 触发 | 应对 |
 |------|------|------|
-| SSE 在 Nginx 后被缓冲 | 生产部署 | Nginx `proxy_buffering off` 仅作用于该 location；EventSourceResponse 加 `ping` keepalive |
+| SSE 在 Nginx 后被缓冲 | 生产部署 | EventSourceResponse `ping=15` + Nginx `proxy_buffering off` + `proxy_read_timeout 600s`（M4.7 Q8 决策；Nginx 配置详见 `07-cicd-and-deployment.md §4`） |
 | 取消时 LangGraph 已写一半 PG checkpoint | 并发写 | LangGraph 的 PG checkpointer 用事务，无锁竞争隐患；前端等 `cancelled` event 再 close |
 | Pydantic v2 与 LangChain v0.3 兼容 | 升级抖动 | 锁定 minor 版本，CI 跑兼容性测试 |
-| 大量历史消息撑爆 messages context | 长会话 | 取最近 N 条 + summary 注入 system prompt（v2 优化） |
+| 大量历史消息撑爆 messages context | 长会话 | M4.7 Q10 决策：最近 N=6 条原文 + 更早消息 `mimo-v2.5` summary 注入 system prompt + Redis 缓存 24h；实现见 `03-agent.md §6.1` |
 | LiteLLM 共享实例临时挂 | 共享服务 | tenacity 重试 + `/ready` 检测 + 降级"503 模型暂不可用" |
 | 暂停的 run 长期堆积 checkpoint | 用户暂停后忘了 | 后台任务每天清理 `paused` 状态超过 N 天的 run；`sessions` 表 status=paused 时前端展示标记 |
 | Fork 后用户分不清主线/历史 | UX 不清晰 | 会话列表分组：active / archived_branch；archived_branch 加视觉灰度，仅可读 |
@@ -525,8 +538,10 @@ async def app_error_handler(req, exc): ...
 ### M4.7 会话与 SSE Chat
 
 - [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_sessions.py` 全绿（CRUD）
-- [ ] `[auto]` SSE 集成测覆盖 9 类 event（run_start / node_start / node_end / chunks_hit / token / final / end / cancelled / error），fake LangGraph fixture 灌入断言事件顺序与字段
-- [ ] `[auto]` DB 落盘：assistant message 完成后 `messages.langgraph_run_id` / `langgraph_checkpoint_id` / `langfuse_trace_id` 非空，`message_citations` 行数与回答中 `[xx §xx]` 个数一致
+- [ ] `[auto]` SSE 集成测覆盖 **10** 类 event（run_start / node_start / node_end / **chunks_hit / chunks_rerank** / token / final / end / cancelled / error），fake LangGraph fixture 灌入断言事件顺序与字段；`chunks_hit` 不带 rerank_score、`chunks_rerank` 必带 rerank_score（Q6/Q7）
+- [ ] `[auto]` EventSourceResponse `ping=15`：模拟 30s 静默场景断言至少 1 条 `: ping` 注释行（Q8）
+- [ ] `[auto]` DB 落盘：assistant message 完成后 `messages.langgraph_run_id` / `langgraph_checkpoint_id` / `langfuse_trace_id` 非空，`message_citations` 行数与回答中 `[xx §xx]` 个数一致；仅 `final` event 后落盘（Q9：partial token 不写库，模拟中断时 `messages.content` 为空 + `status=failed`）
+- [ ] `[auto]` 历史压缩：会话 `message_count > 8` 时 `history_compactor` 触发并命中 Redis 缓存第二次直接复用 summary（Q10）
 - [ ] `[auto]` 取消：`DELETE /sessions/{sid}/runs/{rid}` → SSE 收到 `cancelled` event → graph 不再写后续 token
 
 ### M4.8 Checkpoint API

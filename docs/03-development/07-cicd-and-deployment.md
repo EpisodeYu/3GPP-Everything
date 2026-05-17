@@ -399,6 +399,11 @@ server {
     }
 
     # SSE 单独 location 必须关 buffering
+    # 与后端 EventSourceResponse `ping=15` 协作（M4.7 Q8 决策；详见
+    # docs/04-handoff/2026-05-17-m4.6-m4.9-decisions.md §一 Q8）：
+    # - `proxy_buffering off` + `X-Accel-Buffering: no` 保证 token 流不被缓冲
+    # - `proxy_read_timeout 600s` 覆盖最长 chat 时长（包含 self-RAG retry）
+    # - 后端每 15s 发一条 `: ping` 注释行，远低于 600s 阈值，防代理认为连接死掉
     location ~ ^/api/v1/sessions/[^/]+/messages$ {
         proxy_pass http://api:8002;
         proxy_http_version 1.1;
