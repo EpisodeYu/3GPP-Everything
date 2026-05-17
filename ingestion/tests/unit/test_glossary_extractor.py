@@ -48,11 +48,7 @@ def test_normalize_term_collapses_internal_whitespace():
 
 
 def test_extract_bold_definitions_simple_pair():
-    text = (
-        "**5GS:** 5G System.\n"
-        "\n"
-        "**AMF:** Access and Mobility Management Function.\n"
-    )
+    text = "**5GS:** 5G System.\n" "\n" "**AMF:** Access and Mobility Management Function.\n"
     out = extract_bold_definitions(text, "24.501", ["3.1"], source_revision="rev1")
     assert [e.term for e in out] == ["5GS", "AMF"]
     assert out[0].definition == "5G System."
