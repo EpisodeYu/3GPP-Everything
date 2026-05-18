@@ -144,7 +144,7 @@
 
 ## 三、Batch B — M4.9 期间穿插（1 项）
 
-### B.1 R8 + O3 · self-RAG citation 真实性核对
+### B.1 R8 + O3 · self-RAG citation 真实性核对 ✅ DONE (2026-05-18)
 
 **目标**：在 `self_rag_node` 中加 set-intersection 校验，拦截 LLM 输出的 `[spec_id §section_path]` 不存在于 retrieved chunks 的 hallucination。
 

@@ -12,12 +12,22 @@
   - 把 missing_aspects 拼到 rewritten_queries 末尾（下一轮 retrieve 用更细的 query）
   - 路由由 graph 的 conditional edge 判定：`retry_count >= 2` 即使 verdict=retry 也走 END
 - LLM 失败时退化到 verdict=accept + confidence=0，避免 graph 卡死
+
+M4.9 batch B.1（R8 + O3）：citation 真实性核对。
+LLM 的 grounding 判定不直接看 `[spec §section]` 引用是否落在 reranked 集合内；
+此处对 `state.final_answer` 用 `_CITE_RE` 重抽 (spec_id, section_path)，与
+`state.reranked` 做严格前缀交集（无 generate_node 的 "同 spec 任意 chunk" 兜底）：
+- hit_rate == 1.0          → 不动
+- 0.5 ≤ hit_rate < 1.0     → confidence *= hit_rate（部分 hallucinate，弱化展示）
+- hit_rate < 0.5 + retry   → 强制 verdict=retry，未命中 spec/section 加入 missing
+- hit_rate < 0.5 + simple  → 保持 accept（M4.2 不死循环口径），但 confidence=0
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Literal
 
 from langgraph.types import interrupt
@@ -26,9 +36,16 @@ from pydantic import BaseModel, ValidationError
 from app.agent.deps import AgentDeps
 from app.agent.prompts import render
 from app.agent.state import AgentState
+from app.agent.state import RetrievedChunk as StateChunk
 from app.core.errors import LLMError
 
 log = logging.getLogger(__name__)
+
+# 与 `generate.py` 共用同一正则，保持 (spec, section) 抽取语义一致
+_CITE_RE = re.compile(
+    r"\[\s*(?P<spec>[0-9]{2}\.[0-9]{3,4}[A-Za-z]?)\s*§\s*(?P<sect>[A-Za-z0-9.\-/]+)\s*\]"
+)
+_HIT_RATE_THRESHOLD = 0.5
 
 
 class SelfRagOutput(BaseModel):
@@ -37,6 +54,47 @@ class SelfRagOutput(BaseModel):
     confidence: float = 0.0
     verdict: Literal["accept", "retry", "insufficient"] = "accept"
     missing_aspects: list[str] = []
+
+
+def _citation_hit_rate(answer: str, reranked: list[StateChunk]) -> tuple[float, list[str]]:
+    """对 answer 里出现的每个 [spec §section]，严格匹配 reranked 集合。
+
+    严格匹配规则（无 generate_node `_match_chunk` 的"同 spec 任意 chunk"兜底）：
+    - spec_id 必须完全相同
+    - chunk.section_path join('.') 与 cite section 互为前缀（任一方向）
+
+    返回 (hit_rate, missing_specs)：
+    - 无 citation → (1.0, [])，视作不需要核对
+    - missing_specs 用于在 allow_retry 时塞回 rewritten_queries
+    """
+    cites: list[tuple[str, str]] = []
+    for m in _CITE_RE.finditer(answer or ""):
+        spec = m.group("spec").strip()
+        sect = m.group("sect").strip().rstrip(".")
+        cites.append((spec, sect))
+    if not cites:
+        return 1.0, []
+
+    hits = 0
+    missing: list[str] = []
+    for spec, sect in cites:
+        matched = False
+        for c in reranked:
+            if c.spec_id != spec:
+                continue
+            chunk_sect = ".".join(c.section_path)
+            if (
+                chunk_sect == sect
+                or chunk_sect.startswith(sect + ".")
+                or sect.startswith(chunk_sect + ".")
+            ):
+                matched = True
+                break
+        if matched:
+            hits += 1
+        else:
+            missing.append(f"{spec} §{sect}")
+    return hits / len(cites), missing
 
 
 async def self_rag_node(
@@ -91,6 +149,23 @@ async def self_rag_node(
 
     verdict: Literal["accept", "retry", "insufficient"] = parsed.verdict
     missing = list(parsed.missing_aspects or [])
+    confidence = float(parsed.confidence)
+
+    # citation 真实性核对（R8 + O3）：先于 simple-path verdict 强制 accept 计算
+    hit_rate, missing_cites = _citation_hit_rate(state.final_answer, list(state.reranked))
+    if hit_rate < _HIT_RATE_THRESHOLD:
+        if allow_retry:
+            verdict = "retry"
+            for c in missing_cites:
+                if c and c not in missing:
+                    missing.append(c)
+            confidence = 0.0
+        else:
+            # simple path 不死循环：保留 accept 链路，confidence 归零作为下游信号
+            confidence = 0.0
+    elif hit_rate < 1.0:
+        confidence = confidence * hit_rate
+
     if not allow_retry and verdict != "accept":
         # M4.2 simple path: 不死循环、不升级；保留原诊断信息但强制 accept
         verdict = "accept"
@@ -98,7 +173,7 @@ async def self_rag_node(
     update: dict[str, Any] = {
         "self_rag_verdict": verdict,
         "self_rag_missing": missing,
-        "confidence": float(parsed.confidence),
+        "confidence": confidence,
     }
     if allow_retry and verdict == "retry":
         # 把 missing_aspects 拼到 rewritten_queries 末尾，下一轮 retrieve_node 直接消费

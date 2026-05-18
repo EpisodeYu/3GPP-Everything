@@ -154,9 +154,7 @@ async def test_list_checkpoints_maps_summary_payload(
                     )
                     self.created_at = s.created_at
                     self.next = s.next_nodes
-                    self.metadata = (
-                        {"writes": {s.last_node: {}}} if s.last_node else {"writes": {}}
-                    )
+                    self.metadata = {"writes": {s.last_node: {}}} if s.last_node else {"writes": {}}
 
             for s in fake_summaries:
                 yield _Snap(s, s.parent_checkpoint_id)
@@ -168,9 +166,7 @@ async def test_list_checkpoints_maps_summary_payload(
         token = await _new_user_token(client)
         sid = await _create_session(client, token)
 
-        r = await client.get(
-            f"/api/v1/sessions/{sid}/checkpoints", headers=_auth_headers(token)
-        )
+        r = await client.get(f"/api/v1/sessions/{sid}/checkpoints", headers=_auth_headers(token))
         assert r.status_code == 200, r.text
         items = r.json()["items"]
         assert len(items) == 2
@@ -307,17 +303,13 @@ async def test_rollback_deletes_last_n_messages_and_calls_graph(
         body = r.json()
         assert body["deleted_messages"] == 2
 
-    res = await db_session.execute(
-        select(Message).where(Message.session_id == uuid.UUID(sid))
-    )
+    res = await db_session.execute(select(Message).where(Message.session_id == uuid.UUID(sid)))
     remaining = res.scalars().all()
     assert len(remaining) == 1
     assert remaining[0].content == "m-0"
 
 
-async def test_rollback_with_inflight_run_returns_409(
-    app_and_state: Any, db_session: Any
-) -> None:
+async def test_rollback_with_inflight_run_returns_409(app_and_state: Any, db_session: Any) -> None:
     app, _, _ = app_and_state
     app.state.agent_graph = _CheckpointGraph()
 
@@ -363,9 +355,7 @@ async def test_resume_requires_paused_status(app_and_state: Any) -> None:
         assert r.json()["code"] == "session_not_paused"
 
 
-async def test_resume_clears_paused_and_streams_sse(
-    app_and_state: Any, db_session: Any
-) -> None:
+async def test_resume_clears_paused_and_streams_sse(app_and_state: Any, db_session: Any) -> None:
     """pause → resume：清 paused flag、返回 SSE stream、session 回 active。"""
     app, _, _ = app_and_state
     graph = _CheckpointGraph()
@@ -400,9 +390,7 @@ async def test_resume_clears_paused_and_streams_sse(
     assert s.status == "active"
 
     # graph 收到清 paused 的 aupdate_state（{"paused": False}）
-    assert any(
-        c["values"].get("paused") is False for c in graph.aupdate_state_calls
-    )
+    assert any(c["values"].get("paused") is False for c in graph.aupdate_state_calls)
 
 
 async def test_checkpoint_routes_require_auth(app_and_state: Any) -> None:

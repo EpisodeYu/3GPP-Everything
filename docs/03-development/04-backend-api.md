@@ -12,8 +12,8 @@
 | **M4.2 – M4.5** Agent 建设 | 见 [`03-agent.md §0`](03-agent.md) | 同上 |
 | **M4.6** FastAPI 鉴权与基础 ✅ 2026-05-18 | `core/{auth,ratelimit,audit}` + `api/v1/{auth,users}.py` | RBAC（普通用户访问 admin → 403）；限流 429；logout 后 refresh 失效；停用用户无法 refresh |
 | **M4.7** 会话与 SSE Chat（核心交付） | `api/v1/sessions.py` + `api/v1/chat.py`（包 LangGraph `astream_events` + DB 落 message/citations）+ 取消接口 | SSE 集成测覆盖 10 类 event（run_start / node_start / node_end / chunks_hit / chunks_rerank / token / final / end / cancelled / error）；fake LangGraph fixture 端到端 |
-| **M4.8** Checkpoint API | `api/v1/checkpoint.py`：pause / resume / list_checkpoints / fork / rollback 5 个路由，分别包 [`03-agent.md §12`](03-agent.md) 的 5 个纯函数 | §12 checkpoint 相关集成测全绿；rollback 与跑中 run 冲突返回 409 |
-| **M4.9** Reader / Tools / Favorites / Notes / Feedback | `api/v1/{docs,tools,favorites,notes,feedback}.py` | 每个路由 CRUD 集成测；Reader 在 M6 全量数据上能正常返回章节树 |
+| **M4.8** Checkpoint API ✅ 2026-05-18 | `api/v1/checkpoint.py`：pause / resume / list_checkpoints / fork / rollback 5 个路由，分别包 [`03-agent.md §12`](03-agent.md) 的 5 个纯函数 | §12 checkpoint 相关集成测全绿；rollback 与跑中 run 冲突返回 409 |
+| **M4.9** Reader / Tools / Favorites / Notes / Feedback ✅ 2026-05-18 | `api/v1/{docs,tools,favorites,notes,feedback}.py` | 每个路由 CRUD 集成测；Reader 在 M6 全量数据上能正常返回章节树 |
 | **M4.10** Admin 最小集 + 健康检查 + 最终回归 | `api/v1/admin.py`（stats / tasks / index/rebuild）+ `/health` + `/ready` + OpenAPI 覆盖度校验 + 全套回归 | §12 [auto] 项全部绿；[human] 项标注待审；交付 `docs/04-handoff/2026-XX-XX-m4-complete.md` |
 
 **M4 范围内主动推迟的功能**（在 §2 路由总表与 §9 异步任务进一步说明）：
@@ -28,8 +28,8 @@
 
 > 每条标 `[M4.x]` 关联 §0 子里程碑。完成后把 `[ ]` 替换为 `[x]`。
 
-- [ ] `[M4.6/M4.7/M4.8/M4.9/M4.10]` FastAPI 应用 `backend/app/main.py`，所有路由按资源拆分到 `app/api/v1/*`
-- [ ] `[M4.6 — M4.10]` Pydantic v2 请求/响应 schema 全套
+- [x] `[M4.6/M4.7/M4.8/M4.9]` FastAPI 应用 `backend/app/main.py`，所有路由按资源拆分到 `app/api/v1/*`（M4.10 admin 路由待补）
+- [x] `[M4.6/M4.7/M4.8/M4.9]` Pydantic v2 请求/响应 schema（M4.10 admin schema 待补）
 - [x] `[M4.0]` SQLAlchemy 2.0 async ORM + Alembic 迁移（PG schema） — 2026-05-17 完成
 - [x] `[M4.7]` SSE 流式 `/chat` 接口，与 §3 SSE 事件表一致
 - [x] `[M4.6]` 多用户鉴权：JWT access token + refresh token + RBAC（admin/user）+ 审计日志 — 2026-05-18 完成
@@ -554,9 +554,11 @@ async def app_error_handler(req, exc): ...
 
 ### M4.9 Reader / Tools / Favorites / Notes / Feedback
 
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_docs.py` 全绿，Reader 能在 M6 全量数据上返回章节树与单 chunk 详情
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_tools.py` 全绿（glossary search / toc 单独查询）
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_{favorites,notes,feedback}.py` 全绿（CRUD）
+- [x] `[auto]` `pytest -m integration backend/tests/integration/api/test_docs.py` 全绿（9 case：list / spec 详情 / section / search / chunk by id / 404 / auth）；M6 全量数据回归推迟到 M4.10 端到端
+- [x] `[auto]` `pytest -m integration backend/tests/integration/api/test_tools.py` 全绿（4 case：glossary hit / miss / toc / auth）
+- [x] `[auto]` `pytest -m integration backend/tests/integration/api/test_{favorites,notes,feedback}.py` 全绿（favorites 3 / notes 2 / feedback 4 case；包含跨用户隔离 + upsert 语义）
+
+**变更摘要（2026-05-18 M4.9 完成）**：交付 6 个 router（docs/chunks 拆 2 个 prefix）+ 5 套 Pydantic v2 schema + 22 个集成测。Reader 数据源 = `chunks_meta`（M4.0 起 ingestion 写入；`documents` 表 M8 crawler 接入后回填），M4.9 内只读：list 路由 `GROUP BY (spec_id, release, series)`、spec 详情 `GROUP BY section_path` 按 `document_order` 排序、单 section 走 `clause LIKE prefix%`、spec 内 search 走 `section_title / clause ILIKE %q%`（M4.9 最小实现；M7+ 视检索质量再切 PG full-text）。Tools 不复用 agent 工具函数（避免循环引用与 AgentState/AgentDeps 绑死），独立写 PG 查询；feedback 路由按 `messages.message_id` unique 做 upsert（第二次提交覆盖原 thumb/reason，沿用首次提交者 user_id）。同时穿插完成 Batch B.1（R8 + O3 self-RAG citation 真实性核对，详见 `03-agent.md §4.8`）与一处 pre-existing mypy fix（checkpoint.py rollback rowcount，fallback 到 ids 长度）。`make lint` 全绿；unit 176 passed；integration api 58 passed；ingestion 292 passed / 6 skipped；integration agent/retrieval 20 passed / 1 pre-existing flaky（`test_retrieve_node_p50_latency_under_800ms`，归 Batch C.4 处理）。自主决策记录：(1) `section_path` URL 中点分（`6.3.1`）与斜线（`6/3/1`）双兼容，由 `:path` 转换 + replace 实现；(2) feedback upsert 不改 user_id（首次提交者所有权），admin 强改另议。
 
 ### M4.10 Admin 最小集 + 健康检查 + 最终回归
 

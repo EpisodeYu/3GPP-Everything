@@ -6,6 +6,8 @@ M4.6 起：
 - CORS 允许 origins 来自 `settings.ALLOWED_ORIGINS`
 
 M4.7：加上 `/api/v1/sessions`（含 SSE chat + cancel）。
+M4.9：加上 `/api/v1/docs` + `/api/v1/chunks` + `/api/v1/tools` + `/api/v1/favorites`
+       + `/api/v1/notes` + `/api/v1/messages/{mid}/feedback`。
 """
 
 from __future__ import annotations
@@ -17,7 +19,12 @@ from fastapi.responses import JSONResponse
 from app.api.v1 import auth as auth_routes
 from app.api.v1 import chat as chat_routes
 from app.api.v1 import checkpoint as checkpoint_routes
+from app.api.v1 import docs as docs_routes
+from app.api.v1 import favorites as favorites_routes
+from app.api.v1 import feedback as feedback_routes
+from app.api.v1 import notes as notes_routes
 from app.api.v1 import sessions as sessions_routes
+from app.api.v1 import tools as tools_routes
 from app.api.v1 import users as users_routes
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -49,6 +56,12 @@ def create_app() -> FastAPI:
     app.include_router(sessions_routes.router, prefix="/api/v1")
     app.include_router(chat_routes.router, prefix="/api/v1")
     app.include_router(checkpoint_routes.router, prefix="/api/v1")
+    app.include_router(docs_routes.router, prefix="/api/v1")
+    app.include_router(docs_routes.chunks_router, prefix="/api/v1")
+    app.include_router(tools_routes.router, prefix="/api/v1")
+    app.include_router(favorites_routes.router, prefix="/api/v1")
+    app.include_router(notes_routes.router, prefix="/api/v1")
+    app.include_router(feedback_routes.router, prefix="/api/v1")
 
     return app
 
