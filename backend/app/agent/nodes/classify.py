@@ -13,7 +13,7 @@ import json
 import logging
 from typing import Any, Literal, cast
 
-from langgraph.errors import NodeInterrupt
+from langgraph.types import interrupt
 from pydantic import BaseModel, ValidationError
 
 from app.agent.deps import AgentDeps
@@ -47,9 +47,9 @@ _FALLBACK = ClassifyOutput(
 
 async def classify_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
     if state.cancelled:
-        raise NodeInterrupt("cancelled by user")
+        interrupt({"reason": "cancelled by user"})
     if state.paused:
-        raise NodeInterrupt("paused by user")
+        interrupt({"reason": "paused by user"})
 
     user_input = (state.user_input or "").strip()
     if not user_input:

@@ -548,9 +548,9 @@ async def app_error_handler(req, exc): ...
 
 ### M4.8 Checkpoint API
 
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_checkpoint.py` 全绿（5 个路由各一个用例）
-- [ ] `[auto]` rollback 与跑中 run 冲突返回 409 Conflict
-- [ ] `[auto]` fork 出新会话后，原会话 `status=archived_branch` 且新会话 `forked_from_session_id` 指向原会话
+- [x] `[auto]` `pytest -m integration backend/tests/integration/api/test_checkpoint.py` 全绿（9 个用例覆盖 5 路由 + 鉴权 + 404）
+- [x] `[auto]` rollback 与跑中 run 冲突返回 409 Conflict（`test_rollback_with_inflight_run_returns_409`）
+- [x] `[auto]` fork 出新会话后，原会话 `status=archived_branch` 且新会话 `forked_from_session_id` 指向原会话（`test_fork_creates_new_session_and_archives_original`）
 
 ### M4.9 Reader / Tools / Favorites / Notes / Feedback
 

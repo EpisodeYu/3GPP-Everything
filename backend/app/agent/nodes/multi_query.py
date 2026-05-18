@@ -17,7 +17,7 @@ import logging
 import re
 from typing import Any
 
-from langgraph.errors import NodeInterrupt
+from langgraph.types import interrupt
 
 from app.agent.deps import AgentDeps
 from app.agent.prompts import render
@@ -31,9 +31,9 @@ _MAX_SUB_QUERIES = 5
 
 async def multi_query_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
     if state.cancelled:
-        raise NodeInterrupt("cancelled by user")
+        interrupt({"reason": "cancelled by user"})
     if state.paused:
-        raise NodeInterrupt("paused by user")
+        interrupt({"reason": "paused by user"})
 
     primary = (
         state.rewritten_queries[0] if state.rewritten_queries else state.user_input or ""

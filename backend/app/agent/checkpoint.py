@@ -20,7 +20,7 @@ HTTP / WebSocket 层包装这 5 个纯函数；这里不关心鉴权与 session 
 - rollback 是"不可逆"：直接 `adelete_thread` 后用最后保留的 snapshot `aupdate_state`
   重新落一个 checkpoint，保证 graph.aget_state 直接返回保留点
 - pause/cancel 只写状态字段（`paused`/`cancelled`），下一节点边界由
-  `NodeInterrupt` 真正停下（§11）
+  `interrupt()` 真正停下（§11）
 
 注意：resume_run 不直接 `astream_events`；它只清 `paused` 并返回 config，由后端
 SSE 路由自己 `astream_events(None, config=cfg)` 续跑（保持 SSE 流式与 API 层一致）。
@@ -103,7 +103,7 @@ async def list_checkpoints(
 
 
 async def pause_run(graph: CompiledStateGraph, session_id: str, run_id: str) -> RunnableConfig:
-    """标记当前 run 为 paused；下一节点边界自然停下（§11 NodeInterrupt）。"""
+    """标记当前 run 为 paused；下一节点边界自然停下（§11 interrupt）。"""
     cfg = _thread_config(session_id)
     await graph.aupdate_state(cfg, {"paused": True, "run_id": run_id})
     return cfg

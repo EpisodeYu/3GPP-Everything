@@ -20,7 +20,7 @@ import json
 import logging
 from typing import Any, Literal
 
-from langgraph.errors import NodeInterrupt
+from langgraph.types import interrupt
 from pydantic import BaseModel, ValidationError
 
 from app.agent.deps import AgentDeps
@@ -46,9 +46,9 @@ async def self_rag_node(
     allow_retry: bool = False,
 ) -> dict[str, Any]:
     if state.cancelled:
-        raise NodeInterrupt("cancelled by user")
+        interrupt({"reason": "cancelled by user"})
     if state.paused:
-        raise NodeInterrupt("paused by user")
+        interrupt({"reason": "paused by user"})
 
     if not state.final_answer or not state.reranked:
         # 没东西可校验 — accept 兜底，置低 confidence

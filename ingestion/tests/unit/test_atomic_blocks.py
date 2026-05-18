@@ -78,6 +78,70 @@ def test_table_empty_header_row_split_keeps_real_delim() -> None:
         assert has_real_delim, f"piece missing delim:\n{p}"
 
 
+def test_table_with_separator_normal_recognized() -> None:
+    """正常 `| h1 | h2 |\\n|---|---|\\n| v1 | v2 |` 形态：识别为 table 块。
+
+    R4 + O5 兜底回归测三件套（M4.8 batch A.1）的对照基线：有 separator → table；
+    后两测验证缺 separator 时不会被误归 table、也不会让 parse 崩。
+    """
+    body = "| h1 | h2 |\n|---|---|\n| v1 | v2 |\n"
+    blocks = parse_atomic_blocks(body)
+    kinds = [b.kind for b in blocks]
+    assert kinds == ["table"]
+    assert "|---|---|" in blocks[0].text
+
+
+def test_table_missing_separator_falls_back_to_paragraph() -> None:
+    """缺 separator（POC 38.331 §6.2 的 ~84% no-separator 路径）：不识别为 table。
+
+    `| h1 | h2 |\\n| v1 | v2 |` 没有 `|---|` 分隔行 → atomic_blocks 不应升级为 table
+    块（否则下游 split_table_text 会按行切但每片丢 delim，索引一致性塌）。预期降级
+    回 paragraph，原文本完整保留。
+    """
+    body = "| h1 | h2 |\n| v1 | v2 |\n"
+    blocks = parse_atomic_blocks(body)
+    kinds = [b.kind for b in blocks]
+    assert "table" not in kinds
+    # 原始两行作为 paragraph 完整保留，不能被吞或重排
+    joined = "\n".join(b.text for b in blocks)
+    assert "| h1 | h2 |" in joined
+    assert "| v1 | v2 |" in joined
+
+
+def test_table_multi_row_missing_separator_stable() -> None:
+    """连续多行 pipe-row 但缺 separator：兜底逻辑稳定，不抛、不升级、内容不丢。"""
+    body = (
+        "| h1 | h2 | h3 |\n"
+        "| a1 | b1 | c1 |\n"
+        "| a2 | b2 | c2 |\n"
+        "| a3 | b3 | c3 |\n"
+        "| a4 | b4 | c4 |\n"
+    )
+    blocks = parse_atomic_blocks(body)
+    kinds = [b.kind for b in blocks]
+    assert "table" not in kinds
+    joined = "\n".join(b.text for b in blocks)
+    for row in ("| a1 | b1 | c1 |", "| a4 | b4 | c4 |"):
+        assert row in joined
+
+
+def test_force_split_table_no_separator_falls_back_to_token_split() -> None:
+    """`_force_split_table` 拿到没 separator 的表文本时退化到 `split_by_tokens`。
+
+    section_splitter.py:227 的兜底分支：delim_idx < 0 → 不假装是表，直接 token 切；
+    保证不会产出"带 header 但无 delim"的破碎片。
+    """
+    from ingestion.chunker.section_splitter import _force_split_table
+
+    no_sep = "| h1 | h2 |\n" + "\n".join(f"| r{i} | v{i} |" for i in range(40))
+    pieces = _force_split_table(no_sep, max_tokens=80)
+    # 至少切了 2 片（40 行明显超 80 token 预算）
+    assert len(pieces) >= 2
+    # 没有人工编造的 `|---|` 行注入
+    for p in pieces:
+        assert "|---|" not in p
+
+
 def test_table_with_caption_absorbed() -> None:
     body = (
         "Intro paragraph.\n\n"

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1 import auth as auth_routes
 from app.api.v1 import chat as chat_routes
+from app.api.v1 import checkpoint as checkpoint_routes
 from app.api.v1 import sessions as sessions_routes
 from app.api.v1 import users as users_routes
 from app.core.config import get_settings
@@ -47,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(users_routes.router, prefix="/api/v1")
     app.include_router(sessions_routes.router, prefix="/api/v1")
     app.include_router(chat_routes.router, prefix="/api/v1")
+    app.include_router(checkpoint_routes.router, prefix="/api/v1")
 
     return app
 

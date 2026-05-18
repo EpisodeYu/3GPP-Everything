@@ -305,6 +305,18 @@ Langfuse 自动 eval（Cloud 内置）：
 
 ## 7. Pytest 集成
 
+> **D13 两档阈值（2026-05-18 人审通过 Q1 决策）**：M7 nightly 用宽松版（`test_golden_v1_subset` 当前
+> 实装），用于尽早暴露 retrieval / agent 质量问题；M8 上线门槛用严格版（`test_golden_v1_full` 当前实装），
+> 仅在上线前 PR 收紧（详见 `04-handoff/2026-05-18-tech-debt-cleanup-todo.md` Q1 与 batch C / D）。
+>
+> | 档位 | 触发时机 | faithfulness | context recall | answer relevancy | answer correctness | latency-p50 | cost-p50 |
+> |---|---|---|---|---|---|---|---|
+> | **宽松（M7 nightly）** | M7 启动后每日 | ≥ 0.75 | ≥ 0.65 | ≥ 0.70 | ≥ 0.55 | ≤ 6s | ≤ ¥0.30 |
+> | **严格（M8 上线门槛）** | M8 上线前 PR | ≥ 0.85 | ≥ 0.80 | （收紧 PR 时定）| （收紧 PR 时定）| （同上）| （同上）|
+>
+> 实施位置：宽松版断言在 `test_golden_v1_subset`；严格版断言在 `test_golden_v1_full`；M7 → M8
+> 之间一次性 PR 把严格版写进 `test_golden_v1_full` 的最终断言（不破坏 nightly）。
+
 `backend/tests/eval/test_golden_v1.py`：
 
 ```python
@@ -312,12 +324,12 @@ import os
 
 @pytest.mark.eval
 async def test_golden_v1_subset(api_client):
-    """CI 跑 - 10 题快速烟测"""
+    """CI 跑 - 10 题快速烟测（D13 宽松档）"""
     subset = int(os.getenv("EVAL_SUBSET_SIZE", "10"))
     results = await run_eval(Path("eval/golden/v1.yaml"), subset=subset, stratified=True)
     avg_recall = mean(r.context_recall_section for r in results)
     avg_faith = mean(r.ragas_faithfulness for r in results if r.ragas_faithfulness)
-    assert avg_recall >= 0.6, f"context recall too low: {avg_recall}"
+    assert avg_recall >= 0.65, f"context recall too low: {avg_recall}"
     assert avg_faith >= 0.75, f"faithfulness too low: {avg_faith}"
     # 负样本必须全过
     neg_passed = [r for r in results if r.item.category == "negative" and r.must_say_not_found_passed]
@@ -327,7 +339,7 @@ async def test_golden_v1_subset(api_client):
 @pytest.mark.eval
 @pytest.mark.nightly
 async def test_golden_v1_full(api_client):
-    """Nightly - 全集 30/60/100 题"""
+    """Nightly - 全集 30/60/100 题（D13 严格档：M8 上线门槛）"""
     results = await run_eval(Path("eval/golden/v1.yaml"))
     write_report(results, Path(f"eval-results/{ts}/"))
     # 验收阈值（来自需求验收标准）

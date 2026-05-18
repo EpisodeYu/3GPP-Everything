@@ -19,7 +19,7 @@ from typing import Any
 
 from langchain_core.callbacks.manager import adispatch_custom_event
 from langgraph.config import get_stream_writer
-from langgraph.errors import NodeInterrupt
+from langgraph.types import interrupt
 
 from app.agent.deps import AgentDeps
 from app.agent.state import AgentState
@@ -48,9 +48,9 @@ def _state_to_retrieval(c: StateChunk) -> RetrievalChunk:
 
 async def rerank_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
     if state.cancelled:
-        raise NodeInterrupt("cancelled by user")
+        interrupt({"reason": "cancelled by user"})
     if state.paused:
-        raise NodeInterrupt("paused by user")
+        interrupt({"reason": "paused by user"})
 
     if not state.candidates:
         return {"reranked": []}
