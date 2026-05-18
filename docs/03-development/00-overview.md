@@ -103,7 +103,7 @@ graph LR
 | **M4** Agent + 后端 | LangGraph 主干 + self-RAG + 工具节点；FastAPI + SSE + Auth + DB；Alembic migration | `03-agent.md §14` + `04-backend-api.md §12` 全绿；CI 集成测全过 | self-RAG retry 是否过激；鉴权 / RBAC 边界 |
 | **M5** 前端 | Flutter chat + SSE 客户端、阅读器、管理后台、checkpoint UI 闭环 | `05-frontend.md §14` 全绿 | **UX 体验由人主审**（流式动效、引用 chip、checkpoint 闭环易用度）|
 | **M6** 全量索引 ✅ | GSMA R18+R19 TS-only 5G 系列 1270 篇全部 indexed（voyage × 1024 维）；BM25 持久化；全量图片 Vision 命中 hash 缓存；POC 17 篇质量优先 purge 重跑 | ✅ 全量完成（2026-05-17）：specs_succeeded=1270/1270 / chunks_total=394,859 / voyage_tokens=94.4M（< 估算 150M）/ 耗时 9.5h。dense-only retrieval baseline 详见 [`eval-results/m6-retrieval-baseline.md`](../../eval-results/m6-retrieval-baseline.md)（**不构成回归失败**，留给 M4 rerank ablation 做对照基线）| ✅ 人已 approve 预算与并发策略；漂移率门禁通过（POC 17 篇质量优先 purge，详见 [`eval-results/m6-prep/poc17_purge.md`](../../eval-results/m6-prep/poc17_purge.md)）|
-| **M7** 评测扩展 + 监控 | 手工补 20-30 题；Langfuse Dataset + 自动 eval；成本告警 | `06-...md §12` 全绿 + nightly eval 连跑 2 次 ≥ 阈值 | 评测阈值是否符合验收（faithfulness ≥ 0.85、context recall ≥ 0.80）|
+| **M7** 评测扩展 + 监控 | 手工补 20-30 题；Langfuse Dataset + 自动 eval；成本告警 | `06-...md §12` 全绿 + nightly eval 连跑 2 次 ≥ 阈值 | 评测阈值分两档：M7 nightly 用宽松版（faithfulness ≥ 0.75 / context recall ≥ 0.65 / answer relevancy ≥ 0.70 / answer correctness ≥ 0.55 / latency-p50 ≤ 6s / cost-p50 ≤ ¥0.30）；M8 上线门槛用严格版（faithfulness ≥ 0.85 / context recall ≥ 0.80）。详见 `04-handoff/2026-05-18-tech-debt-cleanup-todo.md` Q1 决策与 `06-...md §6` |
 | **M8** 上线 | 生产 Compose、Nginx + Let's Encrypt、CI 全套、Runbook、备份/回滚演练 | `07-cicd-and-deployment.md §10` 全绿；`https://<域名>/health` 200 | 首次上线、域名 DNS、首个 admin 账号、对外可访问 |
 
 **关键决策点重申**（来自上表"必须人审"列）：

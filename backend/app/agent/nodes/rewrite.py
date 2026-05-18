@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from langgraph.errors import NodeInterrupt
+from langgraph.types import interrupt
 
 from app.agent.deps import AgentDeps
 from app.agent.prompts import render
@@ -21,9 +21,9 @@ log = logging.getLogger(__name__)
 
 async def rewrite_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
     if state.cancelled:
-        raise NodeInterrupt("cancelled by user")
+        interrupt({"reason": "cancelled by user"})
     if state.paused:
-        raise NodeInterrupt("paused by user")
+        interrupt({"reason": "paused by user"})
 
     user_input = (state.user_input or "").strip()
     if not user_input:

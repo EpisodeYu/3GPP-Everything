@@ -16,7 +16,7 @@ import logging
 import re
 from typing import Any
 
-from langgraph.errors import NodeInterrupt
+from langgraph.types import interrupt
 
 from app.agent.deps import AgentDeps
 from app.agent.prompts import render
@@ -39,9 +39,9 @@ _FALLBACK_ZH = "未在已索引 3GPP 文档中找到与该问题直接相关的�
 
 async def generate_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
     if state.cancelled:
-        raise NodeInterrupt("cancelled by user")
+        interrupt({"reason": "cancelled by user"})
     if state.paused:
-        raise NodeInterrupt("paused by user")
+        interrupt({"reason": "paused by user"})
 
     chunks = state.reranked
     if not chunks:

@@ -3,27 +3,27 @@
 口径 = `docs/03-development/03-agent.md §11 / §12 / §14 M4.5`。
 
 4 个 `[auto]` 场景：
-1. 中途取消：cancel_run 后续跑 NodeInterrupt 在节点边界停下
+1. 中途取消：cancel_run 后续跑在节点边界 interrupt 停下
 2. 暂停 → 关进程 → 重启 → 恢复续跑：构造新 graph 实例复用同 saver，验证状态持久 + 续跑
 3. fork：从历史 checkpoint 起新会话，老会话状态保留不变（"老会话变只读"由后端在
    PG sessions 表标 archived_branch，本测只验 LangGraph 层 state 隔离）
 4. rollback 一致性：rollback(N) 后 head state = 第 N 个老 checkpoint 的 values + history 变短
 
 实现注意：不需要真 LLM；用一个 3 节点 mini-graph 模拟 agent 的"边界 + 状态字段"语义。
-节点开头同步检查 cancelled / paused 并 raise NodeInterrupt，与生产节点一致（§11）。
+节点开头同步调用 `langgraph.types.interrupt` 检查 cancelled / paused，与生产节点一致（§11）。
 
-LangGraph v1+ 不再 re-raise NodeInterrupt；改为把 `__interrupt__` 注入返回字典 +
-snap.next 指向被打断的节点 + snap.tasks 里能拿到 Interrupt(value=...) 元数据。所以
-本测断言 "中途取消/暂停" 看这三个信号，而不是 `pytest.raises`。
+LangGraph v1+：`interrupt(value)` 会把 `__interrupt__` 注入返回字典 + snap.next 指向被打断
+的节点 + snap.tasks 里能拿到 Interrupt(value=...) 元数据。所以本测断言 "中途取消/暂停"
+看这三个信号，而不是 `pytest.raises`。
 """
 
 from __future__ import annotations
 
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.errors import NodeInterrupt
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import interrupt
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent import checkpoint as ckpt
@@ -50,9 +50,9 @@ def _build_mini(saver: InMemorySaver) -> CompiledStateGraph:
 
     def _guard(s: _S) -> None:
         if s.cancelled:
-            raise NodeInterrupt("cancelled by user")
+            interrupt({"reason": "cancelled by user"})
         if s.paused:
-            raise NodeInterrupt("paused by user")
+            interrupt({"reason": "paused by user"})
 
     def classify(s: _S) -> dict:
         _guard(s)
@@ -91,7 +91,7 @@ async def test_cancel_run_stops_at_next_node_boundary() -> None:
     assert snap.values["stage"] == "generated"
     assert snap.values["log"] == ["classify", "retrieve", "generate"]
 
-    # 标 cancelled，触发新一轮 invoke 时 classify 立刻 NodeInterrupt
+    # 标 cancelled，触发新一轮 invoke 时 classify 立刻 interrupt
     await ckpt.cancel_run(graph, "sess-cancel")
     out = await graph.ainvoke({"user_input": "q2"}, config=cfg)
 
@@ -115,7 +115,7 @@ async def test_pause_resume_across_process_restart() -> None:
 
     步骤：
     1. graph_a + saver：跑到完成
-    2. pause_run + 模拟新 user_input 进 retry：state.paused=True → NodeInterrupt
+    2. pause_run + 模拟新 user_input 进 retry：state.paused=True → interrupt
     3. 丢掉 graph_a；graph_b 重新 compile 同一个 saver（"重启进程"）
     4. resume_run（清 paused）→ ainvoke(None, cfg) 续跑 → 走完
     """

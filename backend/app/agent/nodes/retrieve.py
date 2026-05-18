@@ -21,7 +21,7 @@ from typing import Any
 
 from langchain_core.callbacks.manager import adispatch_custom_event
 from langgraph.config import get_stream_writer
-from langgraph.errors import NodeInterrupt
+from langgraph.types import interrupt
 
 from app.agent.deps import AgentDeps
 from app.agent.state import AgentState
@@ -35,9 +35,9 @@ log = logging.getLogger(__name__)
 
 async def retrieve_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
     if state.cancelled:
-        raise NodeInterrupt("cancelled by user")
+        interrupt({"reason": "cancelled by user"})
     if state.paused:
-        raise NodeInterrupt("paused by user")
+        interrupt({"reason": "paused by user"})
 
     queries: list[str] = list(state.rewritten_queries) if state.rewritten_queries else []
     if not queries and state.user_input:

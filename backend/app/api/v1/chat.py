@@ -213,6 +213,36 @@ async def send_message(
 
     graph = _get_agent_graph(request)
 
+    stream = _build_sse_stream(
+        graph=graph,
+        sid=sid,
+        assistant_msg_id=assistant_msg_id,
+        run_id=run_id,
+        initial_state=initial_state,
+        db=db,
+    )
+    return EventSourceResponse(
+        stream,
+        ping=15,  # Q8：每 15s `: ping` 注释行
+        media_type="text/event-stream",
+    )
+
+
+def _build_sse_stream(
+    *,
+    graph: Any,
+    sid: uuid.UUID,
+    assistant_msg_id: uuid.UUID,
+    run_id: str,
+    initial_state: Any,
+    db: AsyncSession,
+) -> AsyncIterator[dict[str, str]] | Any:
+    """构造 SSE 事件 generator；send_message 与 checkpoint resume 共用。
+
+    `initial_state`：send_message 路径传完整 AgentState；resume 路径传 None
+    （LangGraph 续跑语义：用 thread checkpointer 里的最后 state 继续）。
+    """
+
     async def stream() -> AsyncIterator[dict[str, str]]:
         yield _sse(
             "run_start",
@@ -352,11 +382,7 @@ async def send_message(
 
         yield _sse("end", {})
 
-    return EventSourceResponse(
-        stream(),
-        ping=15,  # Q8：每 15s `: ping` 注释行
-        media_type="text/event-stream",
-    )
+    return stream()
 
 
 @router.delete(
@@ -378,7 +404,7 @@ async def cancel_run(
         raise NotFoundError("session_not_found", code="session_not_found")
 
     graph = _get_agent_graph(request)
-    # aupdate_state 让正在跑的图在下个节点 raise NodeInterrupt
+    # aupdate_state 让正在跑的图在下个节点边界 interrupt 停下
     aupdate = getattr(graph, "aupdate_state", None)
     if aupdate is not None:
         try:
