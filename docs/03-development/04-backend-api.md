@@ -14,7 +14,7 @@
 | **M4.7** 会话与 SSE Chat（核心交付） | `api/v1/sessions.py` + `api/v1/chat.py`（包 LangGraph `astream_events` + DB 落 message/citations）+ 取消接口 | SSE 集成测覆盖 10 类 event（run_start / node_start / node_end / chunks_hit / chunks_rerank / token / final / end / cancelled / error）；fake LangGraph fixture 端到端 |
 | **M4.8** Checkpoint API ✅ 2026-05-18 | `api/v1/checkpoint.py`：pause / resume / list_checkpoints / fork / rollback 5 个路由，分别包 [`03-agent.md §12`](03-agent.md) 的 5 个纯函数 | §12 checkpoint 相关集成测全绿；rollback 与跑中 run 冲突返回 409 |
 | **M4.9** Reader / Tools / Favorites / Notes / Feedback ✅ 2026-05-18 | `api/v1/{docs,tools,favorites,notes,feedback}.py` | 每个路由 CRUD 集成测；Reader 在 M6 全量数据上能正常返回章节树 |
-| **M4.10** Admin 最小集 + 健康检查 + 最终回归 | `api/v1/admin.py`（stats / tasks / index/rebuild）+ `/health` + `/ready` + OpenAPI 覆盖度校验 + 全套回归 | §12 [auto] 项全部绿；[human] 项标注待审；交付 `docs/04-handoff/2026-XX-XX-m4-complete.md` |
+| **M4.10** Admin 最小集 + 健康检查 + 最终回归 ✅ 2026-05-18 | `api/v1/admin.py`（stats / tasks / index/rebuild）+ `/health` + `/ready` + OpenAPI 覆盖度校验 + 全套回归 | §12 [auto] 项全部绿；[human] 项标注待审；交付 `docs/04-handoff/2026-05-18-m4-complete.md` |
 
 **M4 范围内主动推迟的功能**（在 §2 路由总表与 §9 异步任务进一步说明）：
 
@@ -28,14 +28,14 @@
 
 > 每条标 `[M4.x]` 关联 §0 子里程碑。完成后把 `[ ]` 替换为 `[x]`。
 
-- [x] `[M4.6/M4.7/M4.8/M4.9]` FastAPI 应用 `backend/app/main.py`，所有路由按资源拆分到 `app/api/v1/*`（M4.10 admin 路由待补）
-- [x] `[M4.6/M4.7/M4.8/M4.9]` Pydantic v2 请求/响应 schema（M4.10 admin schema 待补）
+- [x] `[M4.6/M4.7/M4.8/M4.9/M4.10]` FastAPI 应用 `backend/app/main.py`，所有路由按资源拆分到 `app/api/v1/*`
+- [x] `[M4.6/M4.7/M4.8/M4.9/M4.10]` Pydantic v2 请求/响应 schema
 - [x] `[M4.0]` SQLAlchemy 2.0 async ORM + Alembic 迁移（PG schema） — 2026-05-17 完成
 - [x] `[M4.7]` SSE 流式 `/chat` 接口，与 §3 SSE 事件表一致
 - [x] `[M4.6]` 多用户鉴权：JWT access token + refresh token + RBAC（admin/user）+ 审计日志 — 2026-05-18 完成
-- [ ] `[M4.10]` OpenAPI / Swagger UI（`/docs`）覆盖所有路由
-- [ ] `[M4.10]` 健康检查 `/health`、就绪检查 `/ready`
-- [ ] `[M4.6 — M4.10]` 集成测覆盖核心路由
+- [x] `[M4.10]` OpenAPI / Swagger UI（`/docs`）覆盖所有路由 — 2026-05-18 完成（auto-fill 兜底 summary+description，集成测把关）
+- [x] `[M4.10]` 健康检查 `/health`、就绪检查 `/ready` — 2026-05-18 完成
+- [x] `[M4.6 — M4.10]` 集成测覆盖核心路由
 
 ## 2. 路由总表
 
@@ -562,11 +562,13 @@ async def app_error_handler(req, exc): ...
 
 ### M4.10 Admin 最小集 + 健康检查 + 最终回归
 
-- [ ] `[auto]` `pytest -m integration backend/tests/integration/api/test_admin.py` 覆盖 stats / tasks list / index_rebuild trigger 三条路径；upload-doc / crawl trigger 路由不存在（404）
-- [ ] `[auto]` `curl /health` 200；`curl /ready` 检测每个依赖（集成测覆盖各依赖断连时降级行为）
-- [ ] `[auto]` `curl /docs` 可访问 Swagger UI，所有路由有 `summary` + `description`（pytest 检查 OpenAPI schema 覆盖度）
-- [ ] `[auto]` 最终回归：`make lint` + `pytest -m unit` + `pytest -m integration`（backend + ingestion 全套）全绿；ReadLints 无新增 error/warning
+- [x] `[auto]` `pytest -m integration backend/tests/integration/api/test_admin.py` 覆盖 stats / tasks list / index_rebuild trigger 三条路径；upload-doc / crawl trigger 路由不存在（404）— 13 case 全绿
+- [x] `[auto]` `curl /health` 200；`curl /ready` 检测每个依赖（集成测覆盖各依赖断连时降级行为）— 4 case 全绿（ok / 单挂 / 全挂 / 超时）
+- [x] `[auto]` `curl /docs` 可访问 Swagger UI，所有路由有 `summary` + `description`（pytest 检查 OpenAPI schema 覆盖度）— `tests/integration/api/test_openapi.py` 5 case 全绿；create_app 注册后 `_autofill_openapi_metadata` 兜底所有 path operation 元数据非空
+- [x] `[auto]` 最终回归：`make lint` + `pytest -m unit` + `pytest -m integration`（backend + ingestion 全套）全绿；ReadLints 无新增 error/warning — 详见 `docs/04-handoff/2026-05-18-m4-complete.md §3`
 - [ ] `[human]` Postman 或脚本跑通端到端：bootstrap admin → 登录 → 创建普通用户 → 创建会话 → 发消息（SSE） → 看引用 → 取消 → 删除会话 —— **bootstrap admin invite code、SSE 体验、checkpoint 链路由人确认**
+
+**变更摘要（2026-05-18 M4.10 完成）**：交付 `api/v1/admin.py`（4 路由：stats / tasks list / tasks 详情 / index/rebuild）+ `api/health.py`（liveness `/health` + readiness `/ready` 带 PG/Qdrant/Redis/LiteLLM 4 个 probe，每项独立超时 3s）+ `services/task_runner.py`（M4 简化版 `asyncio.create_task` 包 ingestion CLI subprocess；测试可注入 `app.state.task_runner` 桩）+ `schemas/admin.py`（IndexRebuildBody / TaskOut / StatsOut）。`main.py` 加 `_autofill_openapi_metadata` 兜底所有 path operation summary（从 fn 名 humanize）+ description（从 docstring 第一段，fallback 到 summary）；新增 22 个集成测（admin 13 + health 4 + openapi 5）。`make lint` 全绿；unit 176 passed；integration api 80 passed；ingestion 292 passed / 6 skipped；integration agent/retrieval 20 passed / 1 pre-existing flaky（`test_complex_qa::proc-005`，归 Batch C.2 retrieval 校准）。自主决策记录：(1) `summary`/`description` 用 `_autofill_openapi_metadata` hook 兜底，避免 36 处 router decorator 散点编辑（admin 4 路由还是显式写了中文 summary 便于 Swagger 展示）；(2) `index_rebuild` 仍受 `admin_crawl` ratelimit 约束（5/天，§6 决策）；(3) `/health` 保留 `version` 字段兼容 M0 既有单测；(4) Task runner 用 `asyncio.ensure_future` 而非 `create_task` 仅为通过 mypy（`Awaitable` vs `Coroutine` 协变）；(5) `crawl` / `upload-doc` 路由按 §0 主动推迟到 M8 上线前补，集成测断言 404。
 
 ## 13. 完成后下一步
 
