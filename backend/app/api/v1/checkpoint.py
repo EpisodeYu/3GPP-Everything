@@ -44,9 +44,7 @@ from app.schemas.sessions import SessionOut
 router = APIRouter(prefix="/sessions", tags=["checkpoint"])
 
 
-async def _load_owned_session(
-    db: AsyncSession, sid: uuid.UUID, user_id: uuid.UUID
-) -> DBSession:
+async def _load_owned_session(db: AsyncSession, sid: uuid.UUID, user_id: uuid.UUID) -> DBSession:
     res = await db.execute(
         select(DBSession).where(DBSession.id == sid, DBSession.user_id == user_id)
     )
@@ -287,7 +285,8 @@ async def rollback_session(
             delete(MessageCitation).where(MessageCitation.message_id.in_(ids_to_delete))
         )
         d = await db.execute(delete(Message).where(Message.id.in_(ids_to_delete)))
-        deleted = d.rowcount or len(ids_to_delete)
+        # AsyncResult 没有 type stub 暴露 rowcount；fallback 到 ids 长度
+        deleted = getattr(d, "rowcount", None) or len(ids_to_delete)
 
     # LangGraph 侧：rollback last_n 个 checkpoint
     graph = _get_agent_graph(request)
