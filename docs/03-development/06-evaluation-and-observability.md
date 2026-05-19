@@ -31,7 +31,7 @@
 
 - [x] `[已存在]` TeleQnA 抽取与转化流水线：`eval/teleqna/` + `eval/builder/`，从公开 [`TeleQnA`](https://github.com/netop-team/TeleQnA) Standards 类 3000 题筛选 + LLM 转化 + 人工校验（M3 已落，119 题入 v1.yaml）
 - [ ] `[M7.0]` 金标准评测集 `eval/golden/v1.yaml`：v1 ≥ 140 题（119 TeleQnA 转化 + ≥ 20 手工补充）；`source==hand_crafted` 切片即 daily 子集
-- [x] `[M7.0]` `eval/golden/_template.yaml` 手写题模板（已落，2026-05-19）+ `eval.cli golden validate` 子命令 2026-05-19 落地；`merge` 子命令暂未实施（待手写题攒到 ≥ 20 题再补，避免无样本调试）
+- [x] `[M7.0]` `eval/golden/_template.yaml` 手写题模板（已落，2026-05-19）+ `eval.cli golden validate / merge / stats` 子命令 2026-05-19 落地（44 单测覆盖 validator + merger + stats + 3 套 CLI）
 - [ ] `[M7.2]` TeleQnA 原生选择题对照评测：`eval/scripts/native_mcq_runner.py`（看 LLM 选对 %，知识准确性维度）
 - [ ] `[M7.1]` `eval/runner.py`：从金标准集驱动 Agent（HTTP `/chat` SSE）跑出结果，输出 metrics + 报告
 - [ ] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-4.6`
@@ -228,6 +228,59 @@ items:
 - `expected_facts` 是 "答案里必须出现的关键事实"，不要 paraphrase 一致才算
 - `must_say_not_found` 给负样本做严格 grounding 校验
 - CI 子集必须按 category 分层抽样，至少覆盖 definition / procedure / table_lookup / negative；不得只抽简单题。
+
+### 3.6 重跑 SOP（2026-05-19 落 CLI 后可一键重跑）
+
+如果 TeleQnA 上游更新 / 想换 LLM 模型 / 想重做 transform，按下序重跑（每步可独立）：
+
+```bash
+# 0. 进 eval 目录，依赖已通过 uv sync
+cd /data/3GPP-Everything && uv sync --project eval --extra dev
+
+# 1. 拉 TeleQnA 仓库 → 解压 (AES) → parse JSON → raw.jsonl
+#    输出：eval/teleqna/data/raw.jsonl (~10k 行)
+uv run --project eval python -m eval.cli teleqna pull
+
+# 2. raw.jsonl → filtered.jsonl + out_of_scope.jsonl + stats
+#    硬约束：17 篇 whitelist；--keep-overview/--strict 二选一
+#    输出：eval/teleqna/data/filtered/{filtered,out_of_scope}.jsonl + stats.json
+uv run --project eval python -m eval.cli teleqna filter
+
+# 3. (可选) 对没硬命中 whitelist 的 Standards 类题跑 LLM 推断
+#    输出：eval/teleqna/data/llm_inferred.jsonl
+uv run --project eval python -m eval.cli teleqna infer --rpm 50 --concurrent 8
+
+# 4. MCQ → 开放问答 LLM 转化（mimo-v2.5-pro）
+#    输入：filtered.jsonl OR llm_inferred.jsonl（自动识别）
+#    输出：eval/golden/v1.draft.yaml
+uv run --project eval python -m eval.cli builder transform \
+    --candidates eval/teleqna/data/filtered/filtered.jsonl \
+    --min-confidence medium
+
+# 5. 草稿先 validate（schema 通过才进人工校验）
+uv run --project eval python -m eval.cli golden validate -f eval/golden/v1.draft.yaml
+
+# 6. 人工校验（accept / edit / reject）→ 写入 eval/golden/v1.yaml
+#    review 脚本本期仍为半自动；编辑直接打 v1.yaml 也行
+#    （`eval/builder/review.py` 在 §3.3 列出，命令以最终落地为准）
+
+# 7. (可选) 手写题与 teleqna 转化 merge
+uv run --project eval python -m eval.cli golden merge \
+    -i eval/golden/v1.yaml \
+    -i eval/golden/v1.handwritten.yaml \
+    -o eval/golden/v1.yaml
+
+# 8. 最终 validate + 看分布
+uv run --project eval python -m eval.cli golden validate -f eval/golden/v1.yaml
+uv run --project eval python -m eval.cli golden stats    -f eval/golden/v1.yaml
+```
+
+**SOP 自检（可在 CI 跑）**：
+- 步骤 1-3 涉及网络 / LLM 调用 → 不进 unit；纯函数已在 `eval/tests/unit/` 覆盖（`test_filter.py` / `test_infer.py` / `test_builder.py`）
+- 步骤 4-8 任一改动 → 必须重跑步骤 5 + 8（validate / stats），把这两条作为门禁
+
+> 上一次完整重跑：M3 决胜（2026-05-16，119 题落 v1.yaml）。如需在 M7 重跑，先和人确认是
+> 否要换 transform LLM（影响 expected_facts 风格 → 既有人审结果失效）。
 
 ## 4. Runner 实现
 
@@ -503,10 +556,10 @@ PRICING = {
 
 - [x] `[已落]` `eval/golden/_template.yaml` 手写题模板（4 个示例：negative / formula / tool / multi_section，2026-05-19 落）
 - [x] `[auto]` `eval.cli golden validate --file <yaml>` 子命令：必填字段 / 枚举值 / id 唯一性 / language 取值校验，错误位置精确报行（2026-05-19 落 `eval/validators/golden.py` + 22 单测；含 `--json` / `--strict-warnings` 选项）
-- [ ] `[auto]` `eval.cli golden merge` 子命令：把 `v1.handwritten.yaml` 合并到 `v1.yaml`，跨文件检查 0 重复 id（暂未实施；待手写题攒到 ≥ 20 题再补）
-- [ ] `[auto]` TeleQnA 拉取 + 过滤 + 转化流水线可重跑（`eval.cli teleqna pull/filter/infer` + `eval.cli builder transform` 已就位）
+- [x] `[auto]` `eval.cli golden merge` 子命令：把 `v1.handwritten.yaml` 合并到 `v1.yaml`，跨文件检查 0 重复 id（2026-05-19 落 `eval/validators/merger.py` + 11 单测；含 `--dry-run` / `--force` 选项）
+- [x] `[auto]` TeleQnA 拉取 + 过滤 + 转化流水线可重跑：`eval.cli teleqna {pull,filter,infer}` + `eval.cli builder transform` 在 M3 已就位；2026-05-19 在 §3.6 落 SOP 文档
 - [ ] `[human]` `eval/golden/v1.yaml` 题数 ≥ 140 题；含 `teleqna_origin_id` 可追溯；**至少 20 题（手写部分）由懂 3GPP 的人 review 过**（这是质量门禁，Agent 不能自己说通过）
-- [ ] `[auto]` 分布按 §3.4 容差 ±5 题：definition ~30 / procedure ~35 / multi_section ~10 / table_lookup ~10 / formula ~10 / tool ~10 / negative ~15
+- [x] `[auto]` 分布按 §3.4 容差 ±5 题校验：`eval.cli golden stats -f <yaml>` 输出 category / source / language 分布 + 目标 ±5 容差比对；2026-05-19 落 `eval/validators/stats.py` + 11 单测（实际分布达标仍依赖人写题）
 
 ### M7.1 端到端 runner + 第一档阈值
 

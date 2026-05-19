@@ -324,6 +324,63 @@ def golden_validate(
         raise typer.Exit(code=1)
 
 
+@golden_app.command("merge")
+def golden_merge(
+    inputs: list[Path] = typer.Option(
+        ...,
+        "--input",
+        "-i",
+        help="输入金标准 YAML，可重复；按出现顺序拼接 items",
+    ),
+    out: Path = typer.Option(..., "--out", "-o", help="合并输出路径（dry-run 时仅校验不写）"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="只跑校验和合并预演，不写文件"),
+    force: bool = typer.Option(
+        False, "--force", help="允许跨文件 id 冲突（后赢覆盖；默认 False 一旦冲突即 fail）"
+    ),
+    json_out: bool = typer.Option(False, "--json", help="输出 JSON 报告"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """合并多个金标准 YAML → 单文件。
+
+    前置：每个输入先过 `golden validate`，任一 invalid → fail 不进入合并。
+    跨文件 id 唯一性硬约束（除非 --force），冲突时报双方 file:line 便于排查。
+    顶层 sources / categories 取并集；total 重算；version / created_at 取第一个输入。
+    """
+    _setup_logging(verbose)
+    from eval.validators.merger import format_merge_report, merge_golden_files
+
+    report = merge_golden_files(inputs, out, dry_run=dry_run, force_overlap=force)
+    if json_out:
+        typer.echo(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_merge_report(report))
+    if not report.ok:
+        raise typer.Exit(code=1)
+
+
+@golden_app.command("stats")
+def golden_stats(
+    file: Path = typer.Option(..., "--file", "-f", help="统计目标 YAML"),
+    json_out: bool = typer.Option(False, "--json", help="输出 JSON"),
+    tolerance: int = typer.Option(5, "--tolerance", help="±N 容差视为 OK（默认 5）"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """统计 category / source / language 分布，对比 §3.4 目标（±tolerance 容差）。
+
+    退出码：0 = 所有 category 在 ±tolerance 内；1 = 任一 GAP 或 OVER。
+    """
+    _setup_logging(verbose)
+    from eval.validators.stats import compute_stats, format_stats
+
+    stats = compute_stats(file, tolerance=tolerance)
+    if json_out:
+        typer.echo(json.dumps(stats.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_stats(stats))
+    if not stats.ok:
+        raise typer.Exit(code=1)
+
+
 def main() -> None:
     app()
 
