@@ -563,6 +563,7 @@ PRICING = {
 ### M7.1 端到端 runner + 第一档阈值
 
 - [ ] `[auto]` `eval/runner.py`：HTTP `POST /api/v1/sessions/{sid}/messages` 取 SSE → 拼 `partial_answer` + `citations` → 计算 `fact_coverage` / `forbidden_violations` / `must_say_not_found_passed` / `context_recall_section` / `context_recall_spec`
+  - **`must_say_not_found_passed` 判定需双语**（2026-05-19 补）：按题目 `language` 字段切词表。en 至少覆盖 `not found` / `not specified` / `no such` / `does not define` / `is not defined in` / `outside the scope`；zh 至少覆盖 `未找到` / `未定义` / `规范未规定` / `不涉及` / `不在范围内` / `没有相关规定`。zh 题用 en 词表（或反之）会把合法的负样本回答误判为失败，因为 hand_crafted 切片里中文 negative 题预计 ≥ 1/3
 - [ ] `[auto]` 输出 `eval-results/{ts}/{report.md, results.json}`；CLI: `python -m eval.runner --golden eval/golden/v1.yaml [--source hand_crafted] [--subset N]`
 - [ ] `[auto]` runner 单测：mock SSE 流 → 断言 metrics 计算正确（fixture）
 - [ ] `[auto]` `backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言（context recall ≥ 0.65 / faith ≥ 0.75 / answer relevancy ≥ 0.70 / answer correctness ≥ 0.55 / latency p50 ≤ 6s / cost p50 ≤ ¥0.30）
