@@ -7,6 +7,14 @@ services:
       dockerfile: Dockerfile
     container_name: tgpp-api
     env_file: ../.env
+    # 容器跑时覆盖 .env 里的 host.docker.internal:* 写法：
+    # 共享服务 qdrant / litellm 在自己的 docker network 里且只 bind 127.0.0.1，
+    # bridge 网关连不上；attach 上对应外部 network 后用容器名访问最干净。
+    # PG / Redis 仍走 host-gateway（dangdang-postgres / dangdang-redis 已 0.0.0.0 监听）。
+    # host 直跑（uv run uvicorn）时 .env 原值生效，不受这里影响。
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      LITELLM_BASE_URL: http://litellm:4000/v1
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -16,6 +24,8 @@ services:
       - ${INGEST_DATA_DIR:-./data}:/data/tgpp
     networks:
       - tgpp-net
+      - qdrant-net
+      - litellm-net
     restart: unless-stopped
 
   ingest:
@@ -48,3 +58,13 @@ services:
 networks:
   tgpp-net:
     driver: bridge
+  # 外部 network：宿主机已有的 qdrant / litellm 容器分别挂在各自的 docker compose
+  # default network 上（name = `<project>_default`）。我们 attach 进去用容器名直连。
+  # 上游若改 compose project 名 → 这里要跟着改；dev-only 配置，可接受。
+  # M8 prod 路径用 reverse proxy + 鉴权解，不用 attach 外部 network。
+  qdrant-net:
+    name: p2-rag-assistant_default
+    external: true
+  litellm-net:
+    name: litellm_default
+    external: true

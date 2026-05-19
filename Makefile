@@ -4,10 +4,10 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-20s %s\n", $$1, $$2}'
 
 dev:                      ## 启动后端 + 前端容器（dev 模式）
-	docker compose -f deploy/docker-compose.yml up --build
+	docker compose --env-file .env -f deploy/docker-compose.yml up --build
 
 down:                     ## 停掉并清理 dev 容器
-	docker compose -f deploy/docker-compose.yml down
+	docker compose --env-file .env -f deploy/docker-compose.yml down
 
 lint:                     ## ruff + black --check + mypy
 	cd backend && uv run ruff check . && uv run black --check . && uv run mypy app
@@ -31,5 +31,5 @@ eval:                     ## RAG 评测（金标准集）
 	cd backend && uv run pytest -m eval -q
 
 ingest-poc:               ## 单文件解析 POC
-	docker compose -f deploy/docker-compose.yml --profile ingest run --rm ingest \
+	docker compose --env-file .env -f deploy/docker-compose.yml --profile ingest run --rm ingest \
 		python -m ingestion.cli parse-single ${FILE}
