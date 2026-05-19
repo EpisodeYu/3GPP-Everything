@@ -2,17 +2,47 @@
 
 > "生产级"的硬指标在这里落地。覆盖：金标准评测集、自动评测（Ragas）、Langfuse 监控、成本告警。
 
+## 0. M7 执行顺序
+
+> 2026-05-19 拆解。M7 拆 7 段，按下表顺序推进，每段门禁全绿才进下一段；同段子项可并行。
+>
+> **2026-05-19 人 approve 决策**（详见 [`../04-handoff/2026-05-19-m7-plan.md §3`](../04-handoff/2026-05-19-m7-plan.md)）：
+>
+> - **Q1 跑测节奏**：全集（v1.yaml 总 ≥ 140 题）每周一次 + 手写题（`source==hand_crafted`，≥ 20 题）每日跑。预算估月度 ¥35（远低于 ¥1000 警戒线）
+> - **Q2 阈值告警通道**：仅 log warning（不接 webhook，零 secret 维护）；M8 上线视监控需要再加
+> - **Q3 D13 两档阈值**：M7 nightly 用宽松版（faithfulness ≥ 0.75 / context recall ≥ 0.65 / answer relevancy ≥ 0.70 / answer correctness ≥ 0.55 / latency-p50 ≤ 6s / cost-p50 ≤ ¥0.30）；M8 上线门槛用严格版（≥ 0.85 / 0.80）。沿用 [`2026-05-18-tech-debt-cleanup-todo.md` Q1](../04-handoff/2026-05-18-tech-debt-cleanup-todo.md) 决议
+> - **Q4 spec 查看方式**：选 Swagger UI（M4.10 已就位 `/docs`），M7 不再补 `eval spec` CLI
+
+| 子里程碑 | 主要交付物 | 完成度门禁 |
+|---|---|---|
+| **M7.0** 金标准 v1 → v1.5 | `eval/golden/_template.yaml` 模板 + `eval.cli golden validate/merge` 子命令 + 手写补题（neg / formula / tool / multi_section 重点） | v1.yaml 题数 ≥ 140；分布按 §3.4 容差 ±5 题；`[human]` 至少 20 题人审过 |
+| **M7.1** 端到端 runner + 第一档阈值 | `eval/runner.py`（HTTP `/chat` SSE → metrics → report.md/json）；`backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言；Makefile `eval-daily/eval-weekly` | unit + integration 全绿；daily 子集（≥ 20 题）跑通；`make eval-daily` < 10min |
+| **M7.2** Ragas + native MCQ | Ragas 4 metric 接入（judge=`glm-4.6`，避免同源偏差）；`eval/scripts/native_mcq_runner.py`（TeleQnA 选择题对照） | Ragas 跑 daily 子集输出非空；MCQ runner 输出 LLM 选对 % 报告 |
+| **M7.3** Langfuse Dataset 集成 | `eval/langfuse_dataset.py` 一次性 push 金标准；runner 每条 item 上传 score（fact_coverage / faithfulness 等） | Langfuse Cloud UI 可见 dataset run；`[human]` 启用 built-in evaluators |
+| **M7.4** 成本与用量监控 | `backend/app/services/usage.py` + `app/llm/pricing.py` + `services/alerts.py`（仅 log）；LiteLLM 响应钩 `usage` 字段 → ApiUsage upsert | unit 覆盖 LLM/Embed/Rerank/WebSearch 4 路径；`/admin/stats` 真实数据；alerts 阈值触发 → log warning（mock 验证） |
+| **M7.5** Batch C 技术债（retrieval 校准） | C.2 R10/R11/R19 retrieval 校准（数据 drive 调 dense/RRF/rerank top_k）；C.3 O2 rerank ablation 报告 → `eval-results/m7-rerank-ablation.md`；C.4 `test_retrieve_node_p50_latency_under_800ms` 处理 | C.2：daily eval 连跑 2 次 ≥ 第一档阈值；C.3：报告归档；C.4：阈值放宽或 outlier 处理 |
+| **M7.6** Daily/Weekly CI + 完成验收 | `.github/workflows/eval-daily.yml` cron 02:00 跑 daily / `eval-weekly.yml` cron 周一 03:00 跑全集；阈值未达自动开 issue（mock 验证） | nightly 连跑 2 次 ≥ D13 第一档；交付 `docs/04-handoff/yyyy-mm-dd-m7-complete.md` |
+
+各段完成后按 [`../00-vibe-coding-protocol.md §4`](../00-vibe-coding-protocol.md) 输出完成报告。
+
 ## 1. 交付物
 
-- ✅ TeleQnA 抽取与转化流水线：`eval/teleqna/` + `eval/builder/`，从公开 [`TeleQnA`](https://github.com/netop-team/TeleQnA) Standards 类 3000 题筛选 + LLM 转化 + 人工校验
-- ✅ 金标准评测集 `eval/golden/*.yaml`：v1 ≥ 120 题（100 TeleQnA 转化 + 20-30 手工补充），v2 200+
-- ✅ TeleQnA 原生选择题对照评测：`eval/teleqna/native_mcq_runner.py`（看 LLM 选对 %，知识准确性维度）
-- ✅ `eval/runner.py`：从金标准集驱动 Agent 跑出结果，写 Ragas + 写 Langfuse Dataset
-- ✅ Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision
-- ✅ Telco-DPR 风格 retrieval-only 评测：`eval/embedding_poc.py`（M3 决胜，top-K / MRR）
-- ✅ Langfuse 集成：所有 Agent 调用产生 trace；上传 Dataset；自动 eval
-- ✅ 成本与用量监控：API usage 聚合表 + 每日告警阈值
-- ✅ Pytest `eval` marker：CI 跑子集（10 题），nightly 跑全集
+> 每条标 `[M7.x]` 关联 §0 子里程碑。完成后把 `[ ]` 替换为 `[x]`。
+
+- [x] `[已存在]` TeleQnA 抽取与转化流水线：`eval/teleqna/` + `eval/builder/`，从公开 [`TeleQnA`](https://github.com/netop-team/TeleQnA) Standards 类 3000 题筛选 + LLM 转化 + 人工校验（M3 已落，119 题入 v1.yaml）
+- [ ] `[M7.0]` 金标准评测集 `eval/golden/v1.yaml`：v1 ≥ 140 题（119 TeleQnA 转化 + ≥ 20 手工补充）；`source==hand_crafted` 切片即 daily 子集
+- [ ] `[M7.0]` `eval/golden/_template.yaml` 手写题模板（已落，2026-05-19）+ `eval.cli golden validate/merge` 子命令
+- [ ] `[M7.2]` TeleQnA 原生选择题对照评测：`eval/scripts/native_mcq_runner.py`（看 LLM 选对 %，知识准确性维度）
+- [ ] `[M7.1]` `eval/runner.py`：从金标准集驱动 Agent（HTTP `/chat` SSE）跑出结果，输出 metrics + 报告
+- [ ] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-4.6`
+- [x] `[已存在]` Telco-DPR 风格 retrieval-only 评测：`eval/runner_retrieval.py`（M3 决胜已用）+ `eval/retrieval/{retriever,metrics,client}.py`
+- [x] `[已存在]` Langfuse client + langchain CallbackHandler：`backend/app/agent/langfuse_handler.py`（v4，缺 key 自动 disable）；`.env` 已配 pk/sk/host
+- [ ] `[M7.3]` Langfuse Dataset：`eval/langfuse_dataset.py` push 金标准 + runner 每次跑上传 score
+- [x] `[已存在]` `ApiUsage` 表 + Alembic 迁移 + `/admin/stats` 7 天聚合查询（M4.10）
+- [ ] `[M7.4]` 成本与用量监控**写入链路**：`services/usage.py` + `llm/pricing.py` + `services/alerts.py`（仅 log warning）+ LiteLLM 响应 `usage` 钩
+- [x] `[已存在]` Pytest `eval` marker（`pyproject.toml::markers` + `Makefile::eval`）+ `ragas>=0.2` 已声明
+- [ ] `[M7.1]` `backend/tests/eval/test_golden_v1.py`：D13 第一档（宽松）阈值断言；daily 子集 + 全集两套 case
+- [ ] `[M7.6]` Daily / Weekly CI：`.github/workflows/eval-{daily,weekly}.yml`；阈值未达自动开 GitHub issue
 
 ## 2. 评测体系总览
 
@@ -314,19 +344,21 @@ Langfuse 自动 eval（Cloud 内置）：
 > | **宽松（M7 nightly）** | M7 启动后每日 | ≥ 0.75 | ≥ 0.65 | ≥ 0.70 | ≥ 0.55 | ≤ 6s | ≤ ¥0.30 |
 > | **严格（M8 上线门槛）** | M8 上线前 PR | ≥ 0.85 | ≥ 0.80 | （收紧 PR 时定）| （收紧 PR 时定）| （同上）| （同上）|
 >
-> 实施位置：宽松版断言在 `test_golden_v1_subset`；严格版断言在 `test_golden_v1_full`；M7 → M8
-> 之间一次性 PR 把严格版写进 `test_golden_v1_full` 的最终断言（不破坏 nightly）。
+> 实施位置（2026-05-19 决策 Q1）：宽松版断言在 `test_golden_v1_daily`（每日跑 `source==hand_crafted` 切片，≥ 20 题）；
+> 严格版断言在 `test_golden_v1_full`（每周一全集 ≥ 140 题）；M7 → M8 之间一次性 PR 把严格版
+> 写进 `test_golden_v1_full` 的最终断言（不破坏 daily / weekly）。
 
 `backend/tests/eval/test_golden_v1.py`：
 
 ```python
-import os
-
 @pytest.mark.eval
-async def test_golden_v1_subset(api_client):
-    """CI 跑 - 10 题快速烟测（D13 宽松档）"""
-    subset = int(os.getenv("EVAL_SUBSET_SIZE", "10"))
-    results = await run_eval(Path("eval/golden/v1.yaml"), subset=subset, stratified=True)
+async def test_golden_v1_daily(api_client):
+    """每日 CI - daily 子集（source==hand_crafted，≥ 20 题，D13 宽松档）"""
+    results = await run_eval(
+        Path("eval/golden/v1.yaml"),
+        source_filter="hand_crafted",
+    )
+    assert len(results) >= 20, "daily 子集题数不足 20"
     avg_recall = mean(r.context_recall_section for r in results)
     avg_faith = mean(r.ragas_faithfulness for r in results if r.ragas_faithfulness)
     assert avg_recall >= 0.65, f"context recall too low: {avg_recall}"
@@ -337,9 +369,9 @@ async def test_golden_v1_subset(api_client):
     assert len(neg_passed) == len(neg_total), "negative sample failed"
 
 @pytest.mark.eval
-@pytest.mark.nightly
+@pytest.mark.weekly
 async def test_golden_v1_full(api_client):
-    """Nightly - 全集 30/60/100 题（D13 严格档：M8 上线门槛）"""
+    """每周一 CI - 全集 ≥ 140 题（D13 严格档：M8 上线门槛）"""
     results = await run_eval(Path("eval/golden/v1.yaml"))
     write_report(results, Path(f"eval-results/{ts}/"))
     # 验收阈值（来自需求验收标准）
@@ -465,18 +497,64 @@ PRICING = {
 
 ## 12. 验收清单
 
-> 标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人介入（评测内容由懂 3GPP 的人 review、外部账号、决策签字）。
+> 按 §0 子里程碑分组。标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人介入（评测内容由懂 3GPP 的人 review、外部账号、决策签字）。同一段全绿才能进下一段。
 
-- [ ] `[auto]` TeleQnA 拉取 + 过滤 + 转化流水线可重跑（`make eval-build`）
-- [ ] `[human]` `eval/golden/v1.yaml` ≥ 120 题；含 `teleqna_origin_id` 可追溯；**由懂 3GPP 的人 review 过**（这是质量门禁，Agent 不能自己说通过）
-- [ ] `[auto]` `python -m eval.runner --subset 10` 跑通无错误
-- [ ] `[auto]` `python -m eval.teleqna.native_mcq_runner` 跑完 Standards 子集，输出 LLM 选对 %
-- [ ] `[human]` Langfuse Dataset 与 Run 在 Web UI 可见，evaluators 自动出分（外部账号，人确认看到）
-- [ ] `[auto]` CI eval 子集（10 题）耗时 < 10 分钟，全绿；分层抽样按 category 覆盖
-- [ ] `[auto]` Nightly eval 全集跑通；阈值未达自动开 GitHub issue
+### M7.0 金标准 v1 → v1.5
+
+- [x] `[已落]` `eval/golden/_template.yaml` 手写题模板（4 个示例：negative / formula / tool / multi_section，2026-05-19 落）
+- [ ] `[auto]` `eval.cli golden validate --file <yaml>` 子命令：必填字段 / 枚举值 / id 唯一性 / language 取值校验，错误位置精确报行
+- [ ] `[auto]` `eval.cli golden merge` 子命令：把 `v1.handwritten.yaml` 合并到 `v1.yaml`，跨文件检查 0 重复 id
+- [ ] `[auto]` TeleQnA 拉取 + 过滤 + 转化流水线可重跑（`eval.cli teleqna pull/filter/infer` + `eval.cli builder transform` 已就位）
+- [ ] `[human]` `eval/golden/v1.yaml` 题数 ≥ 140 题；含 `teleqna_origin_id` 可追溯；**至少 20 题（手写部分）由懂 3GPP 的人 review 过**（这是质量门禁，Agent 不能自己说通过）
+- [ ] `[auto]` 分布按 §3.4 容差 ±5 题：definition ~30 / procedure ~35 / multi_section ~10 / table_lookup ~10 / formula ~10 / tool ~10 / negative ~15
+
+### M7.1 端到端 runner + 第一档阈值
+
+- [ ] `[auto]` `eval/runner.py`：HTTP `POST /api/v1/sessions/{sid}/messages` 取 SSE → 拼 `partial_answer` + `citations` → 计算 `fact_coverage` / `forbidden_violations` / `must_say_not_found_passed` / `context_recall_section` / `context_recall_spec`
+- [ ] `[auto]` 输出 `eval-results/{ts}/{report.md, results.json}`；CLI: `python -m eval.runner --golden eval/golden/v1.yaml [--source hand_crafted] [--subset N]`
+- [ ] `[auto]` runner 单测：mock SSE 流 → 断言 metrics 计算正确（fixture）
+- [ ] `[auto]` `backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言（context recall ≥ 0.65 / faith ≥ 0.75 / answer relevancy ≥ 0.70 / answer correctness ≥ 0.55 / latency p50 ≤ 6s / cost p50 ≤ ¥0.30）
+- [ ] `[auto]` `make eval-daily` 跑 daily 子集（`source==hand_crafted`，≥ 20 题）< 10min 全绿；负样本必须全过 `must_say_not_found_passed`
+
+### M7.2 Ragas + native MCQ
+
+- [ ] `[auto]` Ragas 4 metric 接入：faithfulness / answer_relevancy / context_recall / context_precision；judge LLM = `glm-4.6`（temperature=0）；评估 embedding 复用 `voyage-4-large`
+- [ ] `[auto]` Ragas 单题失败容忍：单条评估异常不挂 runner（log warning + 该 metric 记 None）
+- [ ] `[auto]` `eval/scripts/native_mcq_runner.py`：从 TeleQnA filtered.jsonl 跑选择题对照（mimo-v2.5 + glm-4.6 各一遍），输出 LLM 选对 % 报告归档 `eval-results/m7-native-mcq/{ts}/report.md`
+- [ ] `[auto]` MCQ runner 单测：mock LLM 返回特定 option → 断言准确率计算正确
+
+### M7.3 Langfuse Dataset 集成
+
+- [ ] `[auto]` `eval/langfuse_dataset.py`：一次性把 `v1.yaml` 全集 push 到 Langfuse Dataset `tgpp-golden-v1`；幂等（已存在的 item 跳过）
+- [ ] `[auto]` runner 跑时给每条 item 创建 dataset run + 上传 score（`fact_coverage` / `faithfulness` / `context_recall` / `must_say_not_found`）；缺 Langfuse key 时 disable，runner 仍可跑
+- [ ] `[human]` Langfuse Cloud Web UI 验证：dataset 可见、run 出现、built-in evaluators（faithfulness / relevance）已启用并出分
+
+### M7.4 成本与用量监控
+
+- [ ] `[auto]` `backend/app/llm/pricing.py`：单价表（mimo-v2.5-pro / mimo-v2.5 / voyage-4-large / voyage-rerank-2.5 / tavily-search），免费额度区间用 `billed=false` 标记
+- [ ] `[auto]` `backend/app/services/usage.py`：LLM / Embedding / Rerank / WebSearch 4 路 hook，从 LiteLLM 响应 `usage` 字段取 token；写 ApiUsage 按 `(user_id, day)` upsert；rerank 按 `query_tokens × n_docs + Σ doc_tokens` 计费（Voyage 口径）
+- [ ] `[auto]` LiteLLM client 在 `chat_completion` / `embedding` / `rerank` 返回处调 usage hook（侵入最小，不改业务路径）
+- [ ] `[auto]` `backend/app/services/alerts.py`：每日聚合 job（apscheduler 进程内 cron） + 阈值（`.env` 覆盖：日 $5 / $10 / 月 $50） → 仅 log warning（决策 Q2）
+- [ ] `[auto]` unit 覆盖 4 路径 + alerts 阈值边界（mock 用量数据 → 断言 log warning 行为）；`/admin/stats` 集成测从 ApiUsage 真实数据查询
+
+### M7.5 Batch C 技术债（retrieval 校准）
+
+- [ ] `[auto]` C.2 R10/R11/R19 retrieval 校准：根据 daily eval 暴露的 `proc-005` 等问题数据 drive 调 `backend/app/retrieval/{dense,sparse,hybrid,rerank}.py` 参数（top_k / RRF k / rerank top_k）；变更前后用 daily 子集对照
+- [ ] `[auto]` C.3 O2 rerank ablation：同一份 daily 子集在 `tgpp_chunks_voyage_d1024` 上跑 baseline（dense+BM25+RRF）vs 加 voyage rerank-2.5；spec R@10 / section R@10 / MRR 提升曲线归档 `eval-results/m7-rerank-ablation.md`
+- [ ] `[auto]` C.4 `test_retrieve_node_p50_latency_under_800ms`：选项 A 调宽阈值到 1200ms 加注释 / 选项 B 剔除 outlier 后取 p50（agent 自决）
+
+### M7.6 Daily / Weekly CI + 完成验收
+
+- [ ] `[auto]` `.github/workflows/eval-daily.yml` cron 每日 02:00（UTC+8）跑 `make eval-daily`；阈值未达自动开 GitHub issue（mock 验证：手动塞失败结果触发 issue 创建）
+- [ ] `[auto]` `.github/workflows/eval-weekly.yml` cron 每周一 03:00 跑全集（`make eval-weekly`）；上传 results.json + report.md 到 artifact
+- [ ] `[auto]` Daily eval 连跑 2 次 ≥ D13 第一档阈值
+- [ ] `[auto]` 最终回归：`make lint` + `pytest -m unit` + `pytest -m integration`（backend + ingestion）+ `pytest -m eval`（daily 子集）全绿
+- [ ] `[human]` 交付 `docs/04-handoff/yyyy-mm-dd-m7-complete.md` 完成报告
+
+### 非 M7 范围（保留行）
+
 - [x] `[human]` M3 embedding POC 决胜**决策由人拍板**：✅ 1024 维（2026-05-16），结果与签字记录在 `eval-results/m3-embedding-poc.md`
-- [ ] `[auto]` 前端管理后台展示 today / month 成本（widget test 覆盖渲染）
-- [ ] `[auto]` 成本告警阈值触发后能写日志/发通知（mock webhook 验证）
+- [ ] `[M5]` 前端管理后台展示 today / month 成本（widget test 覆盖渲染） — **挪到 M5**，M7 只保证 `/admin/stats` 数据真实
 
 ## 13. 风险与排雷
 
@@ -486,10 +564,11 @@ PRICING = {
 | LLM 转化误把"选项排除题"做成开放题 | "以下哪个不属于"类 | 转化 prompt 检测此类题型，跳过 → 进 `_rejected.yaml` |
 | TeleQnA 解释字段引用的 spec 与现行版本编号不同 | spec 重命名 / 拆分 | M3 校验时手工映射；维护 `teleqna_spec_alias.yaml` |
 | 金标准集主观偏差 | 一人写一人评 | 标注规范文档化；M7 期请第二人 sanity check 10 题 |
-| Ragas 评分本身不稳 | LLM 评估随机性 | 评估固定 temperature=0；多跑 3 次取均值 |
-| Langfuse Cloud 网络抖动 | 国内访问 | 写入 retry + 本地落盘 fallback；监控 ingest 失败率 |
-| 评测 LLM 与 Agent LLM 同源偏差 | 都用 mimo | 明确 Ragas 用 glm-4.6（已在 LiteLLM） |
-| CI eval 超时 | 子集 10 题但 Agent 慢 | 子集用 simple 题为主；并发 2-3 题；timeout 30min |
+| Ragas 评分本身不稳 | LLM 评估随机性 | 评估固定 temperature=0；M7 暂不多跑取均值（成本控制 Q1） |
+| Langfuse Cloud 网络抖动 | 国内访问 | 写入 retry + 本地落盘 fallback；监控 ingest 失败率；缺 key 时 runner 仍可跑（M7.3 容忍） |
+| 评测 LLM 与 Agent LLM 同源偏差 | 都用 mimo | 明确 Ragas judge 用 `glm-4.6`（已在 LiteLLM） |
+| CI eval 超时 | daily 20 题但 Agent 慢 | daily 子集偏 hand_crafted 高信号题；并发 2-3 题；timeout 30min |
+| 全集每周一次 + daily 20 题预算超支 | 模型涨价 / 题目复杂化 | M7.4 alerts 仅 log；预算超 ¥1000/月 → 触发 §5.10 上报，降配 daily 隔日跑 |
 
 ## 14. 完成后下一步
 
