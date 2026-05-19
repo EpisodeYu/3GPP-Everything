@@ -56,6 +56,10 @@ async def retrieve_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
         if cached:
             chunks = [StateChunk.model_validate(c) for c in cached]
             log.debug("retrieve_node cache hit (%d chunks)", len(chunks))
+            # F-3：cache hit 路径也要 emit chunks_hit，否则 SSE 事件序列在
+            # 第二次同样问法时少一条事件（rerank 总会 emit chunks_rerank，retrieve
+            # 不能漏）。前端按 chunks_hit + chunks_rerank 两次更新候选展示。
+            await _emit_chunks_hit(chunks)
             return {"candidates": chunks}
 
     dense_lists: list[list[RetrievedChunk]] = []

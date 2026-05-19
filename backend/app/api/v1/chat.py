@@ -18,6 +18,7 @@ final event 之后一次性 `UPDATE messages SET content=...`；中断 → statu
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import uuid
@@ -60,13 +61,30 @@ _NODE_NAMES: set[str] = {
 
 
 def _get_agent_graph(request: Request) -> Any:
-    """先取测试注入的 fake，再 fallback prod 单例。"""
+    """先取测试注入 / lifespan 构造的 graph，再 fallback prod lazy 单例。"""
     override = getattr(request.app.state, "agent_graph", None)
     if override is not None:
         return override
     from app.agent import tgpp_agent  # lazy：测试环境不连依赖也能 import 本模块
 
     return tgpp_agent
+
+
+def _get_cancel_registry(request: Request) -> dict[str, asyncio.Event]:
+    """`app.state.in_flight_cancels`：run_id → asyncio.Event。
+
+    DELETE /sessions/{sid}/runs/{rid} 设事件；SSE 流在 race loop 里检测 → 立即
+    `task.cancel()` 正在 await 的 astream_events 迭代器，让 LLM streaming 中段就停。
+    需要在请求进入前由 lifespan 或 conftest 初始化；缺失时按需 lazy 建（多 worker
+    部署下不同 worker 持有各自 registry，cancel 命中率取决于 run 是否在同 worker —
+    M4 单进程 dev 不受影响）。
+    """
+    state = request.app.state
+    reg: dict[str, asyncio.Event] | None = getattr(state, "in_flight_cancels", None)
+    if reg is None:
+        reg = {}
+        state.in_flight_cancels = reg
+    return reg
 
 
 def _build_initial_state(
@@ -213,6 +231,11 @@ async def send_message(
 
     graph = _get_agent_graph(request)
 
+    # F-1：在 app.state 注册 cancel_event；DELETE /runs/{rid} 设事件 → race loop 命中
+    cancel_event = asyncio.Event()
+    registry = _get_cancel_registry(request)
+    registry[run_id] = cancel_event
+
     stream = _build_sse_stream(
         graph=graph,
         sid=sid,
@@ -220,6 +243,8 @@ async def send_message(
         run_id=run_id,
         initial_state=initial_state,
         db=db,
+        cancel_event=cancel_event,
+        cancel_registry=registry,
     )
     return EventSourceResponse(
         stream,
@@ -236,11 +261,17 @@ def _build_sse_stream(
     run_id: str,
     initial_state: Any,
     db: AsyncSession,
+    cancel_event: asyncio.Event | None = None,
+    cancel_registry: dict[str, asyncio.Event] | None = None,
 ) -> AsyncIterator[dict[str, str]] | Any:
     """构造 SSE 事件 generator；send_message 与 checkpoint resume 共用。
 
     `initial_state`：send_message 路径传完整 AgentState；resume 路径传 None
     （LangGraph 续跑语义：用 thread checkpointer 里的最后 state 继续）。
+
+    `cancel_event`：可选，外部 DELETE /runs/{rid} set 后 race loop 会立刻 cancel
+    正在 await 的 astream_events 迭代器，让 LLM streaming 中途也能停。None →
+    退化为原 best-effort 路径（仅靠 aupdate_state 的 cancelled flag）。
     """
 
     async def stream() -> AsyncIterator[dict[str, str]]:
@@ -258,12 +289,16 @@ def _build_sse_stream(
         was_cancelled = False
         node_start_ts: dict[str, float] = {}
 
+        events_iter = graph.astream_events(
+            initial_state,
+            config={"configurable": {"thread_id": str(sid)}},
+            version="v2",
+        )
         try:
-            async for evt in graph.astream_events(
-                initial_state,
-                config={"configurable": {"thread_id": str(sid)}},
-                version="v2",
-            ):
+            async for evt in _iter_with_cancel(events_iter, cancel_event):
+                if evt is _CANCEL_SENTINEL:
+                    was_cancelled = True
+                    break
                 kind = evt.get("event")
                 name = evt.get("name") or ""
                 data = evt.get("data") or {}
@@ -305,11 +340,19 @@ def _build_sse_stream(
                 elif kind == "on_custom_event" and name in ("chunks_hit", "chunks_rerank"):
                     yield _sse(name, data)
         except asyncio.CancelledError:
-            was_cancelled = True
+            # ASGI 客户端断开 / 服务关闭 — 没人接收事件了，直接退出，不再写 DB
+            with contextlib.suppress(Exception):
+                await events_iter.aclose()
+            if cancel_registry is not None:
+                cancel_registry.pop(run_id, None)
             raise
         except Exception as exc:
             log.exception("chat stream agent failure: run_id=%s", run_id)
             error_msg = str(exc) or exc.__class__.__name__
+        finally:
+            # 确保 LangGraph 流被关闭，避免后台 LLM 调用继续燃烧 token
+            with contextlib.suppress(Exception):
+                await events_iter.aclose()
 
         # 检测 graph 通过 cancelled flag 优雅退出（aupdate_state cancelled=True）
         if (
@@ -382,7 +425,54 @@ def _build_sse_stream(
 
         yield _sse("end", {})
 
+        # 收尾：清 cancel registry。CancelledError 路径已在 except 里清过
+        if cancel_registry is not None:
+            cancel_registry.pop(run_id, None)
+
     return stream()
+
+
+_CANCEL_SENTINEL: Any = object()
+
+
+async def _iter_with_cancel(
+    events_iter: Any,
+    cancel_event: asyncio.Event | None,
+) -> AsyncIterator[Any]:
+    """以 asyncio.race 形式包 LangGraph astream_events 迭代器。
+
+    cancel_event 为 None → 直接转发；cancel_event set → 取消正在 await 的
+    `__anext__`（让 LiteLLM streaming 调用收到 CancelledError），yield 一次
+    `_CANCEL_SENTINEL` 通知 stream 退出循环。
+    """
+    if cancel_event is None:
+        async for evt in events_iter:
+            yield evt
+        return
+
+    cancel_task: asyncio.Task[Any] = asyncio.ensure_future(cancel_event.wait())
+    try:
+        while True:
+            evt_task: asyncio.Task[Any] = asyncio.ensure_future(events_iter.__anext__())
+            done, _pending = await asyncio.wait(
+                {evt_task, cancel_task}, return_when=asyncio.FIRST_COMPLETED
+            )
+            if cancel_task in done:
+                evt_task.cancel()
+                with contextlib.suppress(BaseException):
+                    await evt_task
+                yield _CANCEL_SENTINEL
+                return
+            try:
+                evt = evt_task.result()
+            except StopAsyncIteration:
+                return
+            yield evt
+    finally:
+        if not cancel_task.done():
+            cancel_task.cancel()
+            with contextlib.suppress(BaseException):
+                await cancel_task
 
 
 @router.delete(
@@ -403,8 +493,16 @@ async def cancel_run(
     if res.scalar_one_or_none() is None:
         raise NotFoundError("session_not_found", code="session_not_found")
 
+    # F-1：优先走 cancel_event race（mid-LLM 也能停）；同时把 cancelled flag
+    # 写入 checkpoint 供 resume / debug 可见。两条通道幂等共存，DELETE 返回 204
+    # 表示"请求已收到"，不依赖 run 是否实际在跑（前端只关心后续 SSE 是否出
+    # cancelled / final 事件）。
+    registry = _get_cancel_registry(request)
+    event = registry.get(rid)
+    if event is not None:
+        event.set()
+
     graph = _get_agent_graph(request)
-    # aupdate_state 让正在跑的图在下个节点边界 interrupt 停下
     aupdate = getattr(graph, "aupdate_state", None)
     if aupdate is not None:
         try:

@@ -51,17 +51,18 @@
 |  | PATCH | `/api/v1/users/{uid}` | 启停用户 / 改角色 / 重置密码 |
 | **Sessions** | GET | `/api/v1/sessions` | 列出当前用户会话（分页） |
 |  | POST | `/api/v1/sessions` | 创建空会话 |
-|  | GET | `/api/v1/sessions/{sid}` | 获取会话元信息 + 消息列表 |
+|  | GET | `/api/v1/sessions/{sid}` | 获取会话元信息（**不含 messages**：消息列表走 `/sessions/{sid}/messages`，F-6 2026-05-19 拆分） |
 |  | PATCH | `/api/v1/sessions/{sid}` | 改标题等 |
 |  | DELETE | `/api/v1/sessions/{sid}` | 删除会话（PG cascade） |
 | **Chat (流式)** | POST | `/api/v1/sessions/{sid}/messages` | 发送消息，返回 SSE 事件流 |
-|  | DELETE | `/api/v1/sessions/{sid}/runs/{rid}` | 取消正在跑的 graph（终止；下次重问从头跑） |
+|  | DELETE | `/api/v1/sessions/{sid}/runs/{rid}` | 取消正在跑的 graph：set cancel_event → race loop 中断 LLM streaming（F-1 2026-05-19）+ 写 cancelled flag |
 | **Checkpoint** | POST | `/api/v1/sessions/{sid}/runs/{rid}/pause` | 暂停跑中 run（保留 checkpoint，可恢复，区别于取消） |
 |  | POST | `/api/v1/sessions/{sid}/resume` | 从最后一个 checkpoint 续跑剩余节点；返回 SSE 事件流 |
 |  | GET | `/api/v1/sessions/{sid}/checkpoints` | 列出该会话所有 checkpoint（按时间倒序，含 last_node / message_id） |
 |  | POST | `/api/v1/sessions/{sid}/fork` | body: `{checkpoint_id, new_user_message}`，从指定 checkpoint 起新会话；原会话标记 `archived_branch` |
 |  | POST | `/api/v1/sessions/{sid}/rollback` | body: `{last_n: int}`，删除最后 N 轮 messages + checkpoints |
-| **Messages** | GET | `/api/v1/sessions/{sid}/messages/{mid}` | 单条消息详情（含 citations） |
+| **Messages** | GET | `/api/v1/sessions/{sid}/messages` | 列出会话消息（分页 page/page_size，F-6 2026-05-19 补） |
+|  | GET | `/api/v1/sessions/{sid}/messages/{mid}` | 单条消息详情（含 citations，F-5 2026-05-19 补） |
 | **Reader（章节阅读器）** | GET | `/api/v1/docs` | 已索引文档列表（带筛选 release/series） |
 |  | GET | `/api/v1/docs/{spec_id}` | 单篇 TS 章节树 |
 |  | GET | `/api/v1/docs/{spec_id}/sections/{path}` | 取某章节完整 markdown + chunks |

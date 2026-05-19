@@ -86,6 +86,8 @@ async def app_and_state() -> AsyncIterator[tuple[Any, FakeRedis, async_sessionma
     from app.main import create_app
 
     app = create_app()
+    # lifespan 钩子读这个标记 → 跳过 PG / Qdrant / LiteLLM 真实依赖初始化
+    app.state.disable_agent_init = True
 
     async def _get_db_override() -> AsyncIterator[AsyncSession]:
         async with sessionmaker() as s:
@@ -94,6 +96,8 @@ async def app_and_state() -> AsyncIterator[tuple[Any, FakeRedis, async_sessionma
     app.dependency_overrides[get_db] = _get_db_override
     app.dependency_overrides[get_settings] = lambda: settings
     app.state.redis = fake_redis
+    # 集成测不连 Qdrant：docs/{spec_id}/sections + /chunks/{cid} 走 raw_extra fallback
+    app.state.qdrant_client_disabled = True
 
     try:
         yield app, fake_redis, sessionmaker

@@ -301,6 +301,82 @@ async def test_sse_error_path_writes_failed_status(app_and_state: Any, db_sessio
     assert assistant.status == "failed"
 
 
+async def test_delete_cancels_inflight_sse_stream_via_race(
+    app_and_state: Any, db_session: Any
+) -> None:
+    """F-1：并发 SSE + DELETE → race loop 监测到 cancel_event → 立即终止 + emit cancelled。
+
+    用 hang 图模拟 LLM streaming 卡在网络等待；如果没有 race 机制，DELETE 只设
+    aupdate_state flag 无效，SSE 会卡死（M4.8 best-effort 缺陷）。
+    """
+    block_event = asyncio.Event()
+
+    class _HangGraph:
+        def __init__(self) -> None:
+            self.aupdate_state_calls: list[dict[str, Any]] = []
+
+        async def astream_events(
+            self, state: Any, *, config: Any, version: str
+        ) -> AsyncIterator[dict[str, Any]]:
+            yield {"event": "on_chain_start", "name": "classify", "data": {}}
+            yield {"event": "on_chain_end", "name": "classify", "data": {"output": {}}}
+            # 模拟 LLM 卡在 streaming —— 没有 cancel 机制就永远不返回
+            await block_event.wait()
+            # 解开 block 后才走到这（不应该被走到）
+            yield {"event": "on_chain_end", "name": "LangGraph", "data": {"output": {}}}
+
+        async def aupdate_state(self, *, config: Any, values: dict[str, Any]) -> None:
+            self.aupdate_state_calls.append({"config": config, "values": values})
+
+    app, _, _ = app_and_state
+    graph = _HangGraph()
+    app.state.agent_graph = graph
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test", timeout=10) as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token)
+
+        async def _cancel_when_registered() -> tuple[int | None, str | None]:
+            # 等 send_message 把 cancel_event 注册到 registry → DELETE
+            for _ in range(100):
+                reg = getattr(app.state, "in_flight_cancels", {})
+                if reg:
+                    rid = next(iter(reg.keys()))
+                    r = await client.delete(
+                        f"/api/v1/sessions/{sid}/runs/{rid}",
+                        headers=_auth_headers(token),
+                    )
+                    return r.status_code, rid
+                await asyncio.sleep(0.02)
+            return None, None
+
+        sse_task = asyncio.create_task(
+            client.post(
+                f"/api/v1/sessions/{sid}/messages",
+                json={"content": "hang"},
+                headers=_auth_headers(token),
+            )
+        )
+        cancel_status, run_id = await _cancel_when_registered()
+        assert cancel_status == 204, "DELETE 没在 5s 内找到 in-flight run"
+        assert run_id is not None
+
+        resp = await sse_task
+        assert resp.status_code == 200
+        kinds = [k for k, _ in _parse_sse(resp.text)]
+        assert "cancelled" in kinds, f"SSE 缺 cancelled 事件，实际：{kinds}"
+        assert kinds[-1] == "end"
+
+    res = await db_session.execute(select(Message).where(Message.role == "assistant"))
+    assistant = res.scalar_one()
+    assert assistant.status == "cancelled"
+    # registry 已清
+    assert app.state.in_flight_cancels == {}
+    # aupdate_state 也被调过（双通道）
+    assert any(c["values"].get("cancelled") for c in graph.aupdate_state_calls)
+
+
 async def test_cancel_run_delegates_to_aupdate_state(app_and_state: Any) -> None:
     app, _, _ = app_and_state
     graph = _CannedGraph(events=[], final_state=_canned_final_state())
