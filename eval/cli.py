@@ -35,9 +35,11 @@ app = typer.Typer(no_args_is_help=True, help="tgpp-eval CLI")
 teleqna_app = typer.Typer(no_args_is_help=True, help="TeleQnA pull / filter / infer")
 retrieval_app = typer.Typer(no_args_is_help=True, help="retrieval smoke / batch")
 builder_app = typer.Typer(no_args_is_help=True, help="MCQ→开放问答 LLM 转化 (T2)")
+golden_app = typer.Typer(no_args_is_help=True, help="金标准 YAML 校验 / 合并 (M7.0)")
 app.add_typer(teleqna_app, name="teleqna")
 app.add_typer(retrieval_app, name="retrieval")
 app.add_typer(builder_app, name="builder")
+app.add_typer(golden_app, name="golden")
 
 
 def _setup_logging(verbose: bool) -> None:
@@ -286,6 +288,40 @@ def builder_transform(
             await client.aclose()
 
     asyncio.run(_go())
+
+
+@golden_app.command("validate")
+def golden_validate(
+    file: Path = typer.Option(..., "--file", "-f", exists=False, help="待校验的金标准 YAML 路径"),
+    json_out: bool = typer.Option(False, "--json", help="输出 JSON 报告（CI 友好）"),
+    strict_warnings: bool = typer.Option(
+        False,
+        "--strict-warnings",
+        help="将 warning 也视为失败（exit code 1）",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """校验金标准 YAML（§3.5 schema）。
+
+    - 必填字段 / 枚举值（category / language / source）/ id 全局唯一
+    - negative 类约束（expected_specs 空 + must_say_not_found=true）
+    - spec_id 形状（NN.NNN）warning + sections list[str]
+    错误位置定位到 1-indexed 行号。
+
+    退出码：0 = 全通过；1 = 至少一条 error（或 --strict-warnings 下任一 warning）。
+    """
+    _setup_logging(verbose)
+    from eval.validators.golden import format_report, validate_golden_file
+
+    report = validate_golden_file(file)
+    if json_out:
+        typer.echo(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_report(report))
+
+    failed = (not report.ok) or (strict_warnings and bool(report.warnings))
+    if failed:
+        raise typer.Exit(code=1)
 
 
 def main() -> None:

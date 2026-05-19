@@ -31,7 +31,7 @@
 
 - [x] `[已存在]` TeleQnA 抽取与转化流水线：`eval/teleqna/` + `eval/builder/`，从公开 [`TeleQnA`](https://github.com/netop-team/TeleQnA) Standards 类 3000 题筛选 + LLM 转化 + 人工校验（M3 已落，119 题入 v1.yaml）
 - [ ] `[M7.0]` 金标准评测集 `eval/golden/v1.yaml`：v1 ≥ 140 题（119 TeleQnA 转化 + ≥ 20 手工补充）；`source==hand_crafted` 切片即 daily 子集
-- [ ] `[M7.0]` `eval/golden/_template.yaml` 手写题模板（已落，2026-05-19）+ `eval.cli golden validate/merge` 子命令
+- [x] `[M7.0]` `eval/golden/_template.yaml` 手写题模板（已落，2026-05-19）+ `eval.cli golden validate` 子命令 2026-05-19 落地；`merge` 子命令暂未实施（待手写题攒到 ≥ 20 题再补，避免无样本调试）
 - [ ] `[M7.2]` TeleQnA 原生选择题对照评测：`eval/scripts/native_mcq_runner.py`（看 LLM 选对 %，知识准确性维度）
 - [ ] `[M7.1]` `eval/runner.py`：从金标准集驱动 Agent（HTTP `/chat` SSE）跑出结果，输出 metrics + 报告
 - [ ] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-4.6`
@@ -502,8 +502,8 @@ PRICING = {
 ### M7.0 金标准 v1 → v1.5
 
 - [x] `[已落]` `eval/golden/_template.yaml` 手写题模板（4 个示例：negative / formula / tool / multi_section，2026-05-19 落）
-- [ ] `[auto]` `eval.cli golden validate --file <yaml>` 子命令：必填字段 / 枚举值 / id 唯一性 / language 取值校验，错误位置精确报行
-- [ ] `[auto]` `eval.cli golden merge` 子命令：把 `v1.handwritten.yaml` 合并到 `v1.yaml`，跨文件检查 0 重复 id
+- [x] `[auto]` `eval.cli golden validate --file <yaml>` 子命令：必填字段 / 枚举值 / id 唯一性 / language 取值校验，错误位置精确报行（2026-05-19 落 `eval/validators/golden.py` + 22 单测；含 `--json` / `--strict-warnings` 选项）
+- [ ] `[auto]` `eval.cli golden merge` 子命令：把 `v1.handwritten.yaml` 合并到 `v1.yaml`，跨文件检查 0 重复 id（暂未实施；待手写题攒到 ≥ 20 题再补）
 - [ ] `[auto]` TeleQnA 拉取 + 过滤 + 转化流水线可重跑（`eval.cli teleqna pull/filter/infer` + `eval.cli builder transform` 已就位）
 - [ ] `[human]` `eval/golden/v1.yaml` 题数 ≥ 140 题；含 `teleqna_origin_id` 可追溯；**至少 20 题（手写部分）由懂 3GPP 的人 review 过**（这是质量门禁，Agent 不能自己说通过）
 - [ ] `[auto]` 分布按 §3.4 容差 ±5 题：definition ~30 / procedure ~35 / multi_section ~10 / table_lookup ~10 / formula ~10 / tool ~10 / negative ~15
