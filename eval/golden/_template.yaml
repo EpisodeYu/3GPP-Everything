@@ -1,0 +1,157 @@
+# =============================================================================
+# 手写金标准题模板（M7.0 / 2026-05-19 起用）
+# =============================================================================
+#
+# 用法：
+#   1. 复制本文件为 `eval/golden/v1.handwritten.yaml`（或直接编辑 v1.yaml 末尾）
+#   2. 按下方 4 个示例一题题填，至少 20 题
+#   3. 跑校验（实施于 M7.0 startup，CLI 命令以最终落地为准）：
+#         cd eval && uv run python -m eval.cli golden validate \
+#             --file eval/golden/v1.handwritten.yaml
+#   4. 校验全绿后合并到 v1.yaml（CLI 一并提供 merge 子命令）
+#
+# 字段口径同 docs/03-development/06-evaluation-and-observability.md §3.5
+# 与 eval/runner_retrieval.py::GoldenItem dataclass。
+#
+# 决策 1（2026-05-19，人 approve）：
+#   - 全集（v1.yaml = teleqna 119 + hand-crafted ≥ 20）每周一次跑 nightly
+#   - 手写题（source == 'hand_crafted'）每日跑 daily eval
+#   → 写题时把 source 字段保持 'hand_crafted'，runner 用它切片
+#
+# 当前缺口（v1.yaml 截至 2026-05-19，119 题）：
+#   - definition  60   ← 已超目标 30
+#   - procedure   40   ← 已超目标 35
+#   - table_lookup 12  ← 接近目标 10
+#   - multi_section 3  ← 缺 7  ★ 重点补
+#   - negative    3    ← 缺 12 ★ 重点补
+#   - formula     1    ← 缺 9  ★ 重点补
+#   - tool        0    ← 缺 10 ★ 重点补（agent 工具调用类）
+# 优先补 negative / formula / tool / multi_section 四类。
+# =============================================================================
+
+version: 1
+created_at: '2026-05-19'
+total: 0   # 写完用 CLI validate 自动填
+sources:
+  - hand_crafted
+
+# 7 个 category 枚举（与 §3.5 对齐）：
+#   definition / procedure / multi_section / table_lookup /
+#   formula / tool / negative
+categories:
+  - definition
+  - procedure
+  - multi_section
+  - table_lookup
+  - formula
+  - tool
+  - negative
+
+items:
+
+# -----------------------------------------------------------------------------
+# 示例 1 · negative（必须明示"未找到"）
+# -----------------------------------------------------------------------------
+- id: hand-neg-001                 # 必填，建议 hand-{cat-缩写}-NNN，全局唯一
+  category: negative               # 必填枚举
+  language: en                     # 必填，'en' 或 'zh'
+  source: hand_crafted             # 必填，固定 'hand_crafted'
+  question: |                      # 必填，开放式问题，不要泄露选项
+    What is the MAC address format used for a 5G UE PDU Session?
+  expected_specs: []               # negative 必须空数组（"找不到"语义）
+  expected_facts: []               # negative 通常为空；下面 must_say_not_found 才是关键
+  forbidden:                       # 答案绝不能编造的字段；catch hallucination
+    - "00:"                        # MAC 地址常见前缀
+    - 48-bit
+    - hexadecimal
+  must_say_not_found: true         # negative 必填 true，answer 必须明示"未找到"
+  notes: |                         # 选填但强烈建议：写一句"为什么这是负样本"
+    UE 在 3GPP 规范里没有 MAC 地址语义；PDU Session 是 L3 概念。
+    若 agent 编造 MAC 格式即视为 hallucination。
+
+# -----------------------------------------------------------------------------
+# 示例 2 · formula（公式查询）
+# -----------------------------------------------------------------------------
+- id: hand-formula-001
+  category: formula
+  language: en
+  source: hand_crafted
+  question: |
+    According to TS 38.214, how is the CQI index mapped to MCS for PDSCH
+    scheduled by PDCCH with DCI format 1_1 in NR?
+  expected_specs:
+    - spec_id: "38.214"            # 字符串；spec_id 一律用规范号 "38.214" 不是 "38214"
+      sections:                    # 章节路径前缀数组；空数组 = 不限章节
+        - "5.1.3"                  # 命中 5.1.3 / 5.1.3.1 / 5.1.3.2 都算
+  expected_facts:                  # 关键事实点，至少 3-7 条；substring 命中即覆盖
+    - MCS table
+    - CQI table
+    - Table 5.1.3.1
+    - PDSCH
+  forbidden:                       # 可空数组；防 hallucinate 的字段
+    - LTE
+    - 36.213                       # 错配到 LTE 规范号即扣分
+  must_say_not_found: false        # 非 negative 一律 false（可省）
+  notes: |
+    NR PDSCH 的 CQI/MCS 映射来自 TS 38.214 §5.1.3 系列表；
+    LTE 是 TS 36.213 §7，不要混。
+
+# -----------------------------------------------------------------------------
+# 示例 3 · tool（agent 工具调用类，期望 agent 触发 glossary / toc / params）
+# -----------------------------------------------------------------------------
+- id: hand-tool-001
+  category: tool
+  language: zh
+  source: hand_crafted
+  question: |
+    "AMF" 在 5G 核心网里是什么的缩写？给出全称与中文名。
+  expected_specs:                  # tool 类通常不强制 spec，但能写就写
+    - spec_id: "23.501"
+      sections:
+        - "6.2.1"                  # AMF functional description
+  expected_facts:
+    - Access and Mobility Management Function
+    - 接入和移动性管理功能
+  forbidden:
+    - Application Mobility         # 错误展开
+  must_say_not_found: false
+  notes: |
+    期望 agent 命中 glossary 工具（不一定要调，但答案应等价于 glossary 命中）。
+    runner 不直接断言"工具被调用"，靠 expected_facts 间接。
+
+# -----------------------------------------------------------------------------
+# 示例 4 · multi_section（多章节合并推理，但**不跨 spec**——需求文档 §1.4）
+# -----------------------------------------------------------------------------
+- id: hand-multi-001
+  category: multi_section
+  language: en
+  source: hand_crafted
+  question: |
+    List the NF and message sequence involved in 5G UE-requested PDU Session
+    Establishment in HR-SBO scenario, per TS 23.502.
+  expected_specs:
+    - spec_id: "23.502"
+      sections:
+        - "4.3.2"                  # PDU Session Establishment
+        - "4.3.5"                  # HR-SBO 相关
+  expected_facts:
+    - V-SMF
+    - H-SMF
+    - PDU Session Establishment Request
+    - SM Context Request
+    - HR-SBO                       # Home Routed - Selective Breakout
+    - Nsmf_PDUSession_Create
+  forbidden:
+    - LBO                          # Local Breakout 是另一个场景
+  must_say_not_found: false
+  notes: |
+    HR-SBO 是 R18 引入的家路由本地分流场景；多章节合并推理样本，
+    考验 retrieve+rerank 召回多 section + generate 合并能力。
+
+# -----------------------------------------------------------------------------
+# 你的题从这里开始往下写。删掉/保留示例 1-4 都行（建议先保留作为风格基准）。
+# -----------------------------------------------------------------------------
+
+# - id: hand-neg-002
+#   category: negative
+#   ...
