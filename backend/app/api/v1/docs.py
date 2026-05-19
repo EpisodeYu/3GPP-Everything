@@ -18,11 +18,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
+from app.core.config import get_settings
 from app.core.errors import NotFoundError
 from app.db.base import get_db
 from app.db.models import ChunkMeta, User
@@ -93,26 +94,38 @@ async def get_doc(
     if head is None:
         raise NotFoundError("doc_not_found", code="doc_not_found")
 
-    # 按 (section_path, section_title) 聚合 chunk_count；按 document_order 的最小值排序
+    # 不在 SQL 层 GROUP BY (section_path)：PG 的 JSON 列没有等值算子（F-2）；
+    # 拉全 spec 的 (section_path, section_title, document_order) 在 Python 里聚合。
+    # 单 spec ~2-3k 行 × 3 个短字段，单次查询 < 100ms，足够 Reader 列章节树。
     sect_stmt = (
-        select(
-            ChunkMeta.section_path,
-            ChunkMeta.section_title,
-            func.min(ChunkMeta.document_order).label("ord"),
-            func.count(ChunkMeta.id).label("cnt"),
-        )
+        select(ChunkMeta.section_path, ChunkMeta.section_title, ChunkMeta.document_order)
         .where(ChunkMeta.spec_id == spec_id)
-        .group_by(ChunkMeta.section_path, ChunkMeta.section_title)
-        .order_by(func.min(ChunkMeta.document_order).asc())
+        .order_by(ChunkMeta.document_order.asc())
     )
     rows = (await db.execute(sect_stmt)).all()
+
+    # 按 (tuple(section_path), section_title) 聚合 → 保留首次出现的 document_order 作排序键
+    grouped: dict[tuple[tuple[str, ...], str], dict[str, Any]] = {}
+    for r in rows:
+        sp_list = [str(x) for x in (r.section_path or [])]
+        key = (tuple(sp_list), r.section_title or "")
+        bucket = grouped.get(key)
+        if bucket is None:
+            grouped[key] = {
+                "section_path": sp_list,
+                "section_title": r.section_title or "",
+                "ord": int(r.document_order or 0),
+                "cnt": 1,
+            }
+        else:
+            bucket["cnt"] += 1
     sections = [
         SectionNode(
-            section_path=list(r.section_path or []),
-            section_title=r.section_title or "",
-            chunk_count=int(r.cnt or 0),
+            section_path=g["section_path"],
+            section_title=g["section_title"],
+            chunk_count=int(g["cnt"]),
         )
-        for r in rows
+        for g in sorted(grouped.values(), key=lambda x: x["ord"])
     ]
     return DocDetailResponse(
         spec_id=spec_id,
@@ -126,6 +139,7 @@ async def get_doc(
 async def get_section(
     spec_id: str,
     section_path: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> SectionDetailResponse:
@@ -144,7 +158,8 @@ async def get_section(
         raise NotFoundError("section_not_found", code="section_not_found")
 
     section_title = rows[0].section_title or ""
-    chunks = [_chunk_to_out(c) for c in rows]
+    content_map = await _fetch_content_map(request, [r.chunk_id for r in rows])
+    chunks = [_chunk_to_out(c, content_override=content_map.get(c.chunk_id)) for c in rows]
     return SectionDetailResponse(
         spec_id=spec_id,
         section_path=normalized.split("."),
@@ -191,6 +206,7 @@ chunks_router = APIRouter(tags=["docs"])
 @chunks_router.get("/chunks/{chunk_id}", response_model=ChunkOut)
 async def get_chunk(
     chunk_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> ChunkOut:
@@ -198,12 +214,18 @@ async def get_chunk(
     row = (await db.execute(stmt)).scalar_one_or_none()
     if row is None:
         raise NotFoundError("chunk_not_found", code="chunk_not_found")
-    return _chunk_to_out(row)
+    content_map = await _fetch_content_map(request, [chunk_id])
+    return _chunk_to_out(row, content_override=content_map.get(chunk_id))
 
 
-def _chunk_to_out(c: ChunkMeta) -> ChunkOut:
+def _chunk_to_out(c: ChunkMeta, *, content_override: str | None = None) -> ChunkOut:
     raw: dict[str, Any] = c.raw_extra if isinstance(c.raw_extra, dict) else {}
-    content = str(raw.get("content") or raw.get("text") or "")
+    # F-4：content 优先来自 Qdrant payload（ingestion 实际只把 content 写进 Qdrant，
+    # PG chunks_meta 不存 content）。Qdrant 不可达时退回 raw_extra（满足集成测 SQLite 路径）。
+    if content_override is not None:
+        content = content_override
+    else:
+        content = str(raw.get("content") or raw.get("text") or "")
     return ChunkOut(
         chunk_id=c.chunk_id,
         spec_id=c.spec_id,
@@ -221,3 +243,68 @@ def _make_preview(c: ChunkMeta) -> str:
     raw: dict[str, Any] = c.raw_extra if isinstance(c.raw_extra, dict) else {}
     text = str(raw.get("content") or raw.get("text") or "") or (c.section_title or "")
     return text[:_PREVIEW_CHARS]
+
+
+async def _fetch_content_map(request: Request, chunk_ids: list[str]) -> dict[str, str]:
+    """批量从 Qdrant 拉 content；失败/无 client 时返回空 dict（调用方退回 raw_extra）。
+
+    生产路径：`app.state.qdrant_client` 在首次访问时 lazy 构造（与 main 不强耦合，
+    避免冷启动 Qdrant 不可达 → API 起不来）。集成测路径：app.state 不预置 client
+    → 直接返回 {}，让 `_chunk_to_out` 走 raw_extra fallback。
+
+    Qdrant point id = chunk_id（uuid5，ingestion 端 `_ensure_qdrant_point_id` 直接透传）。
+    """
+    if not chunk_ids:
+        return {}
+    client, collection = await _get_qdrant(request)
+    if client is None or not collection:
+        return {}
+    try:
+        points = await client.retrieve(
+            collection_name=collection,
+            ids=list(chunk_ids),
+            with_payload=True,
+            with_vectors=False,
+        )
+    except Exception as exc:
+        log.debug("qdrant retrieve failed for %d ids: %s", len(chunk_ids), exc)
+        return {}
+    out: dict[str, str] = {}
+    for p in points:
+        payload = dict(getattr(p, "payload", {}) or {})
+        cid = str(payload.get("chunk_id") or p.id)
+        content = payload.get("content")
+        if content:
+            out[cid] = str(content)
+    return out
+
+
+async def _get_qdrant(request: Request) -> tuple[Any | None, str]:
+    """惰性单例：第一次访问时建 AsyncQdrantClient，挂到 app.state。
+
+    返回 (client, collection_name)；client=None 表示当前环境没接 Qdrant（测试/没配 URL）。
+    """
+    state = request.app.state
+    client = getattr(state, "qdrant_client", None)
+    collection: str = getattr(state, "qdrant_collection", "") or ""
+    if client is not None:
+        return client, collection
+
+    # `qdrant_client_disabled = True` 让测试显式关掉（也可以不设，默认无 URL 就不连）
+    if getattr(state, "qdrant_client_disabled", False):
+        return None, ""
+
+    s = get_settings()
+    if not s.QDRANT_URL:
+        return None, ""
+    try:
+        from qdrant_client import AsyncQdrantClient
+
+        api_key = s.QDRANT_API_KEY.get_secret_value() or None
+        state.qdrant_client = AsyncQdrantClient(url=s.QDRANT_URL, api_key=api_key)
+        state.qdrant_collection = s.qdrant_collection
+        return state.qdrant_client, state.qdrant_collection
+    except Exception as exc:
+        log.warning("qdrant client init failed; chunk content will fallback: %s", exc)
+        state.qdrant_client_disabled = True
+        return None, ""

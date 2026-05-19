@@ -15,6 +15,7 @@ Resume 的 SSE 续跑沿用 `chat._build_sse_stream`（以 `initial_state=None` 
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import uuid
 
@@ -24,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.agent import checkpoint as ckpt
-from app.api.v1.chat import _build_sse_stream, _get_agent_graph
+from app.api.v1.chat import _build_sse_stream, _get_agent_graph, _get_cancel_registry
 from app.core.auth import get_current_user
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.db.base import get_db
@@ -158,7 +159,11 @@ async def resume_session(
     session.status = "active"
     await db.commit()
 
-    # SSE 续跑：initial_state=None（沿用 checkpoint 续跑语义）
+    # SSE 续跑：initial_state=None（沿用 checkpoint 续跑语义）；同 chat 路径注册 cancel_event
+    cancel_event = asyncio.Event()
+    registry = _get_cancel_registry(request)
+    registry[run_id] = cancel_event
+
     stream = _build_sse_stream(
         graph=graph,
         sid=sid,
@@ -166,6 +171,8 @@ async def resume_session(
         run_id=run_id,
         initial_state=None,
         db=db,
+        cancel_event=cancel_event,
+        cancel_registry=registry,
     )
     return EventSourceResponse(stream, ping=15, media_type="text/event-stream")
 
