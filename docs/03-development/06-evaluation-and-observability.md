@@ -15,7 +15,7 @@
 
 | 子里程碑 | 主要交付物 | 完成度门禁 |
 |---|---|---|
-| **M7.0** 金标准 v1 → v1.5 | `eval/golden/_template.yaml` 模板 + `eval.cli golden validate/merge` 子命令 + 手写补题（neg / formula / tool / multi_section 重点） | v1.yaml 题数 ≥ 140；分布按 §3.4 容差 ±5 题；`[human]` 至少 20 题人审过 |
+| **M7.0** 金标准 v1 → v1.5 | `eval/golden/_template.yaml` 模板 + `eval.cli golden validate/merge/stats` 子命令 + 手写补题（neg / formula / multi_section 重点；2026-05-19 砍 `tool` category） | v1.yaml 题数 ≥ 140；分布按 §3.4 容差 ±5 题；`[human]` 至少 20 题人审过 |
 | **M7.1** 端到端 runner + 第一档阈值 | `eval/runner.py`（HTTP `/chat` SSE → metrics → report.md/json）；`backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言；Makefile `eval-daily/eval-weekly` | unit + integration 全绿；daily 子集（≥ 20 题）跑通；`make eval-daily` < 10min |
 | **M7.2** Ragas + native MCQ | Ragas 4 metric 接入（judge=`glm-4.6`，避免同源偏差）；`eval/scripts/native_mcq_runner.py`（TeleQnA 选择题对照） | Ragas 跑 daily 子集输出非空；MCQ runner 输出 LLM 选对 % 报告 |
 | **M7.3** Langfuse Dataset 集成 | `eval/langfuse_dataset.py` 一次性 push 金标准；runner 每条 item 上传 score（fact_coverage / faithfulness 等） | Langfuse Cloud UI 可见 dataset run；`[human]` 启用 built-in evaluators |
@@ -170,14 +170,13 @@ sources:
   - teleqna_transformed   # 来源标识
   - hand_crafted
 
-categories:
+categories:                # 2026-05-19 砍 tool；10 个名额分到 multi_section+2/formula+4/negative+4
   - definition            # ~30 题
   - procedure             # ~35 题
-  - multi_section         # ~10 题（多章节合并推理，但不跨 spec/版本）
+  - multi_section         # ~12 题（多章节合并推理，但不跨 spec/版本）
   - table_lookup          # ~10 题
-  - formula               # ~10 题
-  - tool                  # ~10 题
-  - negative              # ~15 题 (期望"未找到")
+  - formula               # ~14 题
+  - negative              # ~19 题 (期望"未找到")
 
 items:
   - id: def-001
@@ -554,12 +553,12 @@ PRICING = {
 
 ### M7.0 金标准 v1 → v1.5
 
-- [x] `[已落]` `eval/golden/_template.yaml` 手写题模板（4 个示例：negative / formula / tool / multi_section，2026-05-19 落）
+- [x] `[已落]` `eval/golden/_template.yaml` 手写题模板（4 个示例：negative / formula×2 / multi_section，2026-05-19；同日砍 tool category）
 - [x] `[auto]` `eval.cli golden validate --file <yaml>` 子命令：必填字段 / 枚举值 / id 唯一性 / language 取值校验，错误位置精确报行（2026-05-19 落 `eval/validators/golden.py` + 22 单测；含 `--json` / `--strict-warnings` 选项）
 - [x] `[auto]` `eval.cli golden merge` 子命令：把 `v1.handwritten.yaml` 合并到 `v1.yaml`，跨文件检查 0 重复 id（2026-05-19 落 `eval/validators/merger.py` + 11 单测；含 `--dry-run` / `--force` 选项）
 - [x] `[auto]` TeleQnA 拉取 + 过滤 + 转化流水线可重跑：`eval.cli teleqna {pull,filter,infer}` + `eval.cli builder transform` 在 M3 已就位；2026-05-19 在 §3.6 落 SOP 文档
 - [ ] `[human]` `eval/golden/v1.yaml` 题数 ≥ 140 题；含 `teleqna_origin_id` 可追溯；**至少 20 题（手写部分）由懂 3GPP 的人 review 过**（这是质量门禁，Agent 不能自己说通过）
-- [x] `[auto]` 分布按 §3.4 容差 ±5 题校验：`eval.cli golden stats -f <yaml>` 输出 category / source / language 分布 + 目标 ±5 容差比对；2026-05-19 落 `eval/validators/stats.py` + 11 单测（实际分布达标仍依赖人写题）
+- [x] `[auto]` 分布按 §3.4 容差 ±5 题校验：`eval.cli golden stats -f <yaml>` 输出 category / source / language 分布 + 目标 ±5 容差比对；2026-05-19 落 `eval/validators/stats.py` + 11 单测（实际分布达标仍依赖人写题）。**2026-05-19 砍 tool category**：目标 multi_section 12 / formula 14 / negative 19 / 其余不变，合计 120
 
 ### M7.1 端到端 runner + 第一档阈值
 
