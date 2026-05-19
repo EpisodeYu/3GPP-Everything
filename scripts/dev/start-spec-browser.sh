@@ -253,11 +253,16 @@ ${C_INFO}2.${C_END} 浏览器打开：
 
    ${C_OK}http://127.0.0.1:8002/docs${C_END}
 
-${C_INFO}3.${C_END} Swagger UI 右上角点 ${C_OK}Authorize${C_END}，粘贴下面这串（带 Bearer 前缀）：
+${C_INFO}3.${C_END} Swagger UI 右上角点 ${C_OK}Authorize${C_END}，粘贴下面这串
+   ${C_WARN}（只要 token 本体，不要带 Bearer 前缀 — Swagger UI 自动加）${C_END}：
 
-   ${C_OK}Bearer ${TOKEN}${C_END}
+   ${C_OK}${TOKEN}${C_END}
 
    token 同时已经存到 ${TOKEN_FILE}，过期时重跑本脚本刷新即可（access token 15 分钟 expire）。
+
+   注：如果你用 ${C_INFO}curl 命令行${C_END}调 API（不走 Swagger UI），才要带前缀：
+       ${C_INFO}-H 'Authorization: Bearer ${TOKEN:0:20}…'${C_END}
+   两个场景的格式相反，别搞混。
 
 ${C_INFO}重点路由${C_END}（写题主战场，详见 docs/04-handoff/2026-05-19-m7-plan.md §4.1）：
    GET /api/v1/docs?release=Rel-18                       列已索引 spec
