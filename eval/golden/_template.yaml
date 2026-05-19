@@ -5,10 +5,11 @@
 # 用法：
 #   1. 复制本文件为 `eval/golden/v1.handwritten.yaml`（或直接编辑 v1.yaml 末尾）
 #   2. 按下方 4 个示例一题题填，至少 20 题
-#   3. 跑校验（实施于 M7.0 startup，CLI 命令以最终落地为准）：
-#         cd eval && uv run python -m eval.cli golden validate \
-#             --file eval/golden/v1.handwritten.yaml
-#   4. 校验全绿后合并到 v1.yaml（CLI 一并提供 merge 子命令）
+#   3. 跑校验（2026-05-19 已落地）：
+#         cd /data/3GPP-Everything && uv run --project eval \
+#             python -m eval.cli golden validate -f eval/golden/v1.handwritten.yaml
+#         # 可选：--json 输出机读格式；--strict-warnings 把 warning 也视为失败
+#   4. 校验全绿后合并到 v1.yaml（`merge` 子命令暂未实施，先手动 yaml-cat 即可）
 #
 # 字段口径同 docs/03-development/06-evaluation-and-observability.md §3.5
 # 与 eval/runner_retrieval.py::GoldenItem dataclass。
