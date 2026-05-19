@@ -32,7 +32,7 @@ LOG_FILE="/tmp/tgpp-backend.log"
 TOKEN_FILE="${HOME}/.cache/tgpp-token"
 
 # ---------- 配置（env 覆盖）----------
-TGPP_USER="${TGPP_USER:-s1yu}"
+TGPP_USER="${TGPP_USER:-admin}"
 TGPP_PASS="${TGPP_PASS:-changeme123}"
 TGPP_BACKEND_HOST="${TGPP_BACKEND_HOST:-127.0.0.1}"
 TGPP_BACKEND_PORT="${TGPP_BACKEND_PORT:-8002}"
@@ -168,8 +168,10 @@ for i in {1..30}; do
 done
 
 # /ready 检查（不阻塞，仅提示）
+# /ready 返回结构：{"ok":true,"checks":[{"name":"postgres","ok":true},...]}
+# 顶层 ok=true 即四依赖全绿；任一 fail 时 HTTP 状态码会是 503，curl -f 已 fail
 READY=$(curl -sf -m 5 "${BACKEND_BASE}/ready" || echo "{}")
-if echo "$READY" | grep -q '"status":"ok"'; then
+if echo "$READY" | grep -qE '^\{"ok":true'; then
     log_ok "  /ready 全绿（PG/Qdrant/Redis/LiteLLM）"
 else
     log_warn "  /ready 不是全绿（不阻塞）："
