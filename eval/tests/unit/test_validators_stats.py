@@ -166,10 +166,11 @@ def test_v1_yaml_baseline_numbers() -> None:
     hc = next(r for r in s.sources if r.source == "hand_crafted")
     assert hc.status == "GAP"
     assert not s.unknown_categories
-    # 模板里写的"当前缺口"分布应与此处吻合（formula <=10, tool 0…）
+    # 模板里写的"当前缺口"分布应与此处吻合（formula ≤ 2 / multi_section ≤ 5 / negative ≤ 5）
     by_cat = {r.category: r.actual for r in s.categories}
-    assert by_cat["tool"] == 0
     assert by_cat["formula"] <= 2  # 模板写 1，留 ±1 容错
+    assert "tool" not in by_cat  # 2026-05-19 砍掉
+    assert by_cat["negative"] <= 5  # 模板写 3
 
 
 # --- CLI ---------------------------------------------------------------

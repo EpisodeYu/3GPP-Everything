@@ -30,7 +30,6 @@ CATEGORY_ENUM: frozenset[str] = frozenset(
         "multi_section",
         "table_lookup",
         "formula",
-        "tool",
         "negative",
     }
 )

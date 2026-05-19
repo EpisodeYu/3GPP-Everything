@@ -1,8 +1,12 @@
 """金标准分布统计（M7.0）。
 
 口径锚 docs/03-development/06-evaluation-and-observability.md §3.4：
-    definition ~30 / procedure ~35 / multi_section ~10 / table_lookup ~10 /
-    formula ~10 / tool ~10 / negative ~15
+    definition ~30 / procedure ~35 / multi_section ~12 / table_lookup ~10 /
+    formula ~14 / negative ~19
+
+2026-05-19 砍掉 `tool` category（边界与 definition/table_lookup/multi_section 全部
+重叠 + runner 无法断言"工具被调用"），10 个名额分到 negative+4 / formula+4 /
+multi_section+2，合计仍 120 题。
 
 外加 daily eval 子集硬要求（同 §0 决策 Q1）：source==hand_crafted 至少 20 题。
 
@@ -18,15 +22,14 @@ from typing import Any
 
 import yaml
 
-# §3.4 目标分布
+# §3.4 目标分布（2026-05-19 砍 tool 后重分配）
 CATEGORY_TARGETS: dict[str, int] = {
     "definition": 30,
     "procedure": 35,
-    "multi_section": 10,
+    "multi_section": 12,
     "table_lookup": 10,
-    "formula": 10,
-    "tool": 10,
-    "negative": 15,
+    "formula": 14,
+    "negative": 19,
 }
 
 # daily eval 子集硬要求（§0 Q1）
