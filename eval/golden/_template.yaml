@@ -9,7 +9,15 @@
 #         cd /data/3GPP-Everything && uv run --project eval \
 #             python -m eval.cli golden validate -f eval/golden/v1.handwritten.yaml
 #         # 可选：--json 输出机读格式；--strict-warnings 把 warning 也视为失败
-#   4. 校验全绿后合并到 v1.yaml（`merge` 子命令暂未实施，先手动 yaml-cat 即可）
+#   4. 写题过程中随时看缺口（同 §3.4 目标分布对比 ±5 容差）：
+#         uv run --project eval python -m eval.cli golden stats \
+#             -f eval/golden/v1.handwritten.yaml
+#   5. 写完 + 校验全绿 → 合并到 v1.yaml（跨文件 id 唯一性自动检查）：
+#         uv run --project eval python -m eval.cli golden merge \
+#             -i eval/golden/v1.yaml \
+#             -i eval/golden/v1.handwritten.yaml \
+#             -o eval/golden/v1.yaml
+#         # 加 --dry-run 先预演不写文件
 #
 # 字段口径同 docs/03-development/06-evaluation-and-observability.md §3.5
 # 与 eval/runner_retrieval.py::GoldenItem dataclass。
