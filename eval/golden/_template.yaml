@@ -126,114 +126,7 @@ categories:
 items:
 
 # -----------------------------------------------------------------------------
-# 示例 1 · negative（必须明示"未找到"）
-# -----------------------------------------------------------------------------
-- id: hand-neg-001                 # 必填，建议 hand-{cat-缩写}-NNN，全局唯一
-  category: negative               # 必填枚举
-  language: en                     # 必填，'en' 或 'zh'
-  source: hand_crafted             # 必填，固定 'hand_crafted'
-  question: |                      # 必填，开放式问题，不要泄露选项
-    What is the MAC address format used for a 5G UE PDU Session?
-  expected_specs: []               # negative 必须空数组（"找不到"语义）
-  expected_facts: []               # negative 通常为空；下面 must_say_not_found 才是关键
-  forbidden:                       # 答案绝不能编造的字段；catch hallucination
-    - "00:"                        # MAC 地址常见前缀
-    - 48-bit
-    - hexadecimal
-  must_say_not_found: true         # negative 必填 true，answer 必须明示"未找到"
-  notes: |                         # 选填但强烈建议：写一句"为什么这是负样本"
-    UE 在 3GPP 规范里没有 MAC 地址语义；PDU Session 是 L3 概念。
-    若 agent 编造 MAC 格式即视为 hallucination。
-
-# -----------------------------------------------------------------------------
-# 示例 2 · formula（公式查询）
-# -----------------------------------------------------------------------------
-- id: hand-formula-001
-  category: formula
-  language: en
-  source: hand_crafted
-  question: |
-    According to TS 38.214, how is the CQI index mapped to MCS for PDSCH
-    scheduled by PDCCH with DCI format 1_1 in NR?
-  expected_specs:
-    - spec_id: "38.214"            # 字符串；spec_id 一律用规范号 "38.214" 不是 "38214"
-      sections:                    # 章节路径前缀数组；空数组 = 不限章节
-        - "5.1.3"                  # 命中 5.1.3 / 5.1.3.1 / 5.1.3.2 都算
-  expected_facts:                  # 关键事实点，至少 3-7 条；substring 命中即覆盖
-    - MCS table
-    - CQI table
-    - Table 5.1.3.1
-    - PDSCH
-  forbidden:                       # 可空数组；防 hallucinate 的字段
-    - LTE
-    - 36.213                       # 错配到 LTE 规范号即扣分
-  must_say_not_found: false        # 非 negative 一律 false（可省）
-  notes: |
-    NR PDSCH 的 CQI/MCS 映射来自 TS 38.214 §5.1.3 系列表；
-    LTE 是 TS 36.213 §7，不要混。
-
-# -----------------------------------------------------------------------------
-# 示例 3 · formula（公式查询 — 第二个示例，强调与 38.214 系列对照）
-# -----------------------------------------------------------------------------
-- id: hand-formula-002
-  category: formula
-  language: en
-  source: hand_crafted
-  question: |
-    According to TS 38.214, what is the formula used to derive the
-    Transport Block Size (TBS) determination for PDSCH in NR?
-  expected_specs:
-    - spec_id: "38.214"
-      sections:
-        - "5.1.3.2"                # TBS determination
-  expected_facts:
-    - N_RE                         # 资源元素数
-    - target code rate
-    - quantized
-    - Table 5.1.3.2
-  forbidden:
-    - LTE
-    - 36.213
-  must_say_not_found: false
-  notes: |
-    TBS determination 在 NR/LTE 都有，但公式不同。
-    本题考验 retrieve 能精准命中 §5.1.3.2 而不是混到 §5.1.3.1（MCS table）。
-
-# -----------------------------------------------------------------------------
-# 示例 4 · multi_section（多章节合并推理，但**不跨 spec**——需求文档 §1.4）
-# -----------------------------------------------------------------------------
-- id: hand-multi-001
-  category: multi_section
-  language: en
-  source: hand_crafted
-  question: |
-    List the NF and message sequence involved in 5G UE-requested PDU Session
-    Establishment in HR-SBO scenario, per TS 23.502.
-  expected_specs:
-    - spec_id: "23.502"
-      sections:
-        - "4.3.2"                  # PDU Session Establishment
-        - "4.3.5"                  # HR-SBO 相关
-  expected_facts:
-    - V-SMF
-    - H-SMF
-    - PDU Session Establishment Request
-    - SM Context Request
-    - HR-SBO                       # Home Routed - Selective Breakout
-    - Nsmf_PDUSession_Create
-  forbidden:
-    - LBO                          # Local Breakout 是另一个场景
-  must_say_not_found: false
-  notes: |
-    HR-SBO 是 R18 引入的家路由本地分流场景；多章节合并推理样本，
-    考验 retrieve+rerank 召回多 section + generate 合并能力。
-
-# -----------------------------------------------------------------------------
-# 你的题从这里开始往下写。删掉/保留示例 1-4 都行（建议先保留作为风格基准）。
-# -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# Category: definition (2 items)
+# Category: definition (8 items)
 # -----------------------------------------------------------------------------
 
 - id: hand-def-001
@@ -418,7 +311,7 @@ items:
     考察第5.1.6.5节（或者PDF文档中对应的TEG段落）对于UE侧TEG的确切分类和定义描述。
 
 # -----------------------------------------------------------------------------
-# Category: procedure (2 items)
+# Category: procedure (8 items)
 # -----------------------------------------------------------------------------
 
 - id: hand-proc-001
@@ -603,7 +496,7 @@ items:
     考察Sidelink拥塞控制(Congestion Control)的过程要求：满足优先级关联的CR<=CR_Limit，且可通过丢弃(dropping)传输来实现。
 
 # -----------------------------------------------------------------------------
-# Category: multi_section (2 items)
+# Category: multi_section (8 items)
 # -----------------------------------------------------------------------------
 
 - id: hand-multi-001
@@ -795,7 +688,7 @@ items:
   notes: |
     8.1.3.1提到如果未配置额外MCS表，默认使用5.1.3.1中的表格（即Table 5.1.3.1-1），考察跨小节对下行表格引用的推理能力。
 # -----------------------------------------------------------------------------
-# Category: table_lookup (2 items)
+# Category: table_lookup (8 items)
 # -----------------------------------------------------------------------------
 
 - id: hand-table-001
@@ -972,7 +865,7 @@ items:
     直接针对Table 5.4-1的查表能力，要求排除相邻表格（如要求2）的干扰。
 
 # -----------------------------------------------------------------------------
-# Category: formula (2 items)
+# Category: formula (8 items)
 # -----------------------------------------------------------------------------
 
 - id: hand-formula-001
@@ -1155,11 +1048,15 @@ items:
     考察Sidelink的预留周期单位转换公式（毫秒到逻辑时隙）。
 
 # -----------------------------------------------------------------------------
-# Category: negative (2 items)
-# -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# Category: negative (2 items) - 包含严重事实性错误与伪造概念
+# Category: negative - 包含严重事实性错误与伪造概念
+#
+# 评测语义（2026-05-20 修订）：
+#   - 主回答的硬指标只有两条：must_say_not_found 短语命中 + forbidden 不命中
+#   - 触发 must_say_not_found 的回答下方可能由 agent suggest_questions
+#     节点附加"你想问的是不是"超链接建议区（cursor-suggest: scheme，前端拦截）
+#   - 建议区不进评测；其有/无、命中数都不影响任何 metric
+#     详见 docs/04-handoff/2026-05-20-suggested-questions.md
+#   - 写题人只需保证主回答的 must_say_not_found / forbidden 设计合理即可
 # -----------------------------------------------------------------------------
 - id: hand-neg-001
   category: negative
