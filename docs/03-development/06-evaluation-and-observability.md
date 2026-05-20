@@ -17,8 +17,8 @@
 |---|---|---|
 | **M7.0** 金标准 v1 → v1.5 ✅ 2026-05-20 | `eval/golden/_template.yaml` 模板 + `eval.cli golden validate/merge/stats` 子命令 + 手写补题（neg / formula / multi_section 重点；2026-05-19 砍 `tool` category） | v1.yaml 题数 ≥ 140；分布按 §3.4 容差 ±5 题；`[human]` 至少 20 题人审过（题数 175 / 手写 56 ≥ 20 已达；human review 待办） |
 | **M7.1** 端到端 runner + 第一档阈值 ✅ 2026-05-20 | `eval/runner.py`（HTTP `/chat` SSE → metrics → report.md/json）；`backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言；Makefile `eval-daily/eval-weekly` | unit + integration 全绿；smoke（canned graph）all green；daily/full live 断言需 `RUN_LIVE_EVAL=1`（M7.6 CI 触发） |
-| **M7.2** Ragas + native MCQ | Ragas 4 metric 接入（judge=`glm-5.1`，避免同源偏差）；`eval/scripts/native_mcq_runner.py`（TeleQnA 选择题对照） | Ragas 跑 daily 子集输出非空；MCQ runner 输出 LLM 选对 % 报告 |
-| **M7.3** Langfuse Dataset 集成 | `eval/langfuse_dataset.py` 一次性 push 金标准；runner 每条 item 上传 score（fact_coverage / faithfulness 等） | Langfuse Cloud UI 可见 dataset run；`[human]` 启用 built-in evaluators |
+| **M7.2** Ragas + native MCQ ✅ 2026-05-20 | Ragas 4 metric 接入（judge=`glm-5.1`，避免同源偏差）；`eval/scripts/native_mcq_runner.py`（TeleQnA 选择题对照） | `eval/ragas_eval.py` + runner hook + 56 单测全绿（27 ragas + 29 mcq）；MCQ runner 一键 `eval native-mcq run` → `eval-results/m7-native-mcq/{ts}/report.md` |
+| **M7.3** Langfuse Dataset 集成 ✅ 2026-05-20 | `eval/langfuse_dataset.py` 一次性 push 金标准；runner 每条 item 上传 score（fact_coverage / faithfulness 等） | code 完成 + 21 单测全绿；`[human]` 待启用 built-in evaluators（M7.2 评估结束后人触发首次推送） |
 | **M7.4** 成本与用量监控 | `backend/app/services/usage.py` + `app/llm/pricing.py` + `services/alerts.py`（仅 log）；LiteLLM 响应钩 `usage` 字段 → ApiUsage upsert | unit 覆盖 LLM/Embed/Rerank/WebSearch 4 路径；`/admin/stats` 真实数据；alerts 阈值触发 → log warning（mock 验证） |
 | **M7.5** Batch C 技术债（retrieval 校准） | C.2 R10/R11/R19 retrieval 校准（数据 drive 调 dense/RRF/rerank top_k）；C.3 O2 rerank ablation 报告 → `eval-results/m7-rerank-ablation.md`；C.4 `test_retrieve_node_p50_latency_under_800ms` 处理 | C.2：daily eval 连跑 2 次 ≥ 第一档阈值；C.3：报告归档；C.4：阈值放宽或 outlier 处理 |
 | **M7.6** Daily/Weekly CI + 完成验收 | `.github/workflows/eval-daily.yml` cron 02:00 跑 daily / `eval-weekly.yml` cron 周一 03:00 跑全集；阈值未达自动开 issue（mock 验证） | nightly 连跑 2 次 ≥ D13 第一档；交付 `docs/04-handoff/yyyy-mm-dd-m7-complete.md` |
@@ -32,12 +32,12 @@
 - [x] `[已存在]` TeleQnA 抽取与转化流水线：`eval/teleqna/` + `eval/builder/`，从公开 [`TeleQnA`](https://github.com/netop-team/TeleQnA) Standards 类 3000 题筛选 + LLM 转化 + 人工校验（M3 已落，119 题入 v1.yaml）
 - [x] `[M7.0]` 金标准评测集 `eval/golden/v1.yaml`：2026-05-20 合并落 175 题（119 TeleQnA 转化 + 56 手工补充）；`source==hand_crafted` 切片即 daily 子集
 - [x] `[M7.0]` `eval/golden/_template.yaml` 手写题模板（已落，2026-05-19）+ `eval.cli golden validate / merge / stats` 子命令 2026-05-19 落地（44 单测覆盖 validator + merger + stats + 3 套 CLI）
-- [ ] `[M7.2]` TeleQnA 原生选择题对照评测：`eval/scripts/native_mcq_runner.py`（看 LLM 选对 %，知识准确性维度）
+- [x] `[M7.2]` TeleQnA 原生选择题对照评测：`eval/scripts/native_mcq_runner.py`（看 LLM 选对 %，知识准确性维度；2026-05-20 落 mimo-v2.5 + glm-5.1 两模型对照；29 单测覆盖 parse / score / aggregate / mock LLM 全流程；CLI `eval native-mcq run` 触发）
 - [x] `[M7.1]` `eval/runner.py`：从金标准集驱动 Agent（HTTP `/chat` SSE）跑出结果，输出 metrics + 报告（2026-05-20 落 `AgentResponse` / `EvalResult` + `consume_sse_stream` + `call_agent` + `compute_eval_metrics` + `run_eval` + `aggregate` + `write_report`；34 单测含 mock-httpx run_eval）
-- [ ] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-5.1`
+- [x] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-5.1`（2026-05-20 落 `eval/ragas_eval.py` + `eval.runner.run_eval(ragas_scorer=...)` hook；单题异常隔离 + None 占位；ragas / langchain-openai 进 `[project.optional-dependencies] ragas` extras；27 单测含 mock evaluate / NaN / crash / pandas fallback）
 - [x] `[已存在]` Telco-DPR 风格 retrieval-only 评测：`eval/runner_retrieval.py`（M3 决胜已用）+ `eval/retrieval/{retriever,metrics,client}.py`
 - [x] `[已存在]` Langfuse client + langchain CallbackHandler：`backend/app/agent/langfuse_handler.py`（v4，缺 key 自动 disable）；`.env` 已配 pk/sk/host
-- [ ] `[M7.3]` Langfuse Dataset：`eval/langfuse_dataset.py` push 金标准 + runner 每次跑上传 score
+- [x] `[M7.3]` Langfuse Dataset：`eval/langfuse_dataset.py` push 金标准 + runner 每次跑上传 score（2026-05-20 落 `push_golden_to_langfuse` + `push_run_score` + `make_eval_trace_id` + 单例 `get_client`；`run_eval(langfuse_run_label=..., langfuse_dataset_name=...)` 一处启用；缺 key 自动 disable，runner 主路径不变；21 单测含 mock SDK / 缺 key / 单条失败隔离 / runner 集成）
 - [x] `[已存在]` `ApiUsage` 表 + Alembic 迁移 + `/admin/stats` 7 天聚合查询（M4.10）
 - [ ] `[M7.4]` 成本与用量监控**写入链路**：`services/usage.py` + `llm/pricing.py` + `services/alerts.py`（仅 log warning）+ LiteLLM 响应 `usage` 钩
 - [x] `[已存在]` Pytest `eval` marker（`pyproject.toml::markers` + `Makefile::eval`）+ `ragas>=0.2` 已声明
@@ -381,7 +381,7 @@ async def run_eval(
 
 - `eval-results/{timestamp}/report.md`（人读，含 aggregate + 异常题清单）
 - `eval-results/{timestamp}/results.json`（机器读，含 `aggregate` + 每条 `asdict(EvalResult)`）
-- Langfuse Dataset run（M7.3 接通后；缺 key 时 disable，runner 仍跑）
+- Langfuse Cloud trace + score（M7.3 已接通；调用方传 `langfuse_run_label="..."` 启用；缺 key 自动 disable，runner 仍跑）
 
 ## 5. Ragas 集成
 
@@ -411,34 +411,76 @@ ragas_llm = ChatOpenAI(model="glm-5.1", base_url=LITELLM_BASE, api_key=LITELLM_K
 ragas_embed = ... # 同 RAG 用的 embedding，或独立的
 ```
 
-## 6. Langfuse Datasets
+## 6. Langfuse Datasets（M7.3 实装）
+
+> 模块 `eval/langfuse_dataset.py`；EvalSettings 加 `langfuse_public_key / secret_key / host`（顶层 `.env` 已配，eval 子项目自动读取）。
+> 缺任一 key → `get_client()` 返回 `None`，所有公开函数 short-circuit 返回 0；runner 主路径不受影响。
+
+### 6.1 一次性推送 dataset
 
 ```python
-from langfuse import Langfuse
-lf = Langfuse(public_key=..., secret_key=..., host=...)
+from pathlib import Path
+from eval.langfuse_dataset import push_golden_to_langfuse
 
-# 一次性建 dataset
-dataset = lf.create_dataset(name="tgpp-golden-v1", description="3GPP RAG eval v1")
-for item in golden_items:
-    lf.create_dataset_item(
-        dataset_name="tgpp-golden-v1",
-        input={"question": item.question, "language": item.language},
-        expected_output={"specs": item.expected_specs, "facts": item.expected_facts},
-        metadata={"category": item.category, "id": item.id},
-    )
-
-# Runner 每次跑产生一个 run
-with lf.observe(...) as trace:
-    answer = await call_agent(...)
-    lf.score(trace_id=trace.id, name="fact_coverage", value=fact_coverage)
-    lf.score(trace_id=trace.id, name="must_say_not_found", value=passed)
-    ...
+n = push_golden_to_langfuse(
+    Path("eval/golden/v1.yaml"),
+    dataset_name="tgpp-golden-v1",
+)  # 返回成功 upsert 的 item 数
 ```
 
-Langfuse 自动 eval（Cloud 内置）：
+幂等性：`create_dataset_item(id=<GoldenItem.id>, ...)` SDK 文档保证 "Upserts if an item with id already exists"；二次推送会按相同 id 覆盖 input / expected_output / metadata。
+单条 item 写失败（网络抖动 / 单 id 校验失败）只 `log.warning`，不阻塞其他题。
 
-- 在 UI 中开启 Dataset 关联的 evaluator（`faithfulness`、`relevance`）
-- 跑完一个 Run，Langfuse 自动算分
+每个 dataset item 字段映射：
+
+| Langfuse 字段 | GoldenItem 来源 |
+|---|---|
+| `id` | `item.id`（幂等键） |
+| `input.question/category/language` | 同名字段 |
+| `expected_output.expected_facts/expected_specs/forbidden/must_say_not_found` | 同名字段 |
+| `metadata.source/teleqna_origin_id/notes` | 同名字段（便于 Cloud UI 按 source 筛 hand_crafted vs teleqna_transformed） |
+
+### 6.2 runner 跑 eval 时上传 trace + score
+
+```python
+# eval/runner.py::run_eval(...)
+results = await run_eval(
+    golden_path,
+    client=httpx_client,
+    auth_token=token,
+    langfuse_run_label="m7-daily-2026-05-20",   # 启用 langfuse 路径
+    langfuse_dataset_name="tgpp-golden-v1",     # 仅 metadata
+)
+```
+
+每条 item 的内部流程（只在启用且 `get_client()` 可用时执行）：
+
+1. `make_eval_trace_id(run_label, item.id)` → 用 `client.create_trace_id(seed="m7-daily-2026-05-20:def-001")` 得到 32 字符幂等 trace_id（同一 (label, id) 多次跑 → 同一 trace_id）
+2. `client.create_event(name="eval-item-<id>", trace_context={"trace_id": trace_id}, input={question,category,language}, output={answer,terminal_event,citations}, metadata={item_id,source,dataset,duration_ms})` —— 让 Cloud UI 看到 IO，evaluator 可读
+3. `push_run_score(trace_id, result_score_dict, ...)` —— 把 9 个 metric 全部按 NUMERIC 上传：
+   - `context_recall_section` / `context_recall_spec` / `fact_coverage`
+   - `must_say_not_found_passed`（bool → 0/1）
+   - `forbidden_violation`（0/1，命中 forbidden = 1）
+   - `ragas_faithfulness` / `ragas_answer_relevance` / `ragas_context_recall` / `ragas_context_precision`（Ragas 启用时填）
+4. 每个 metric 写失败只 log warning + skip 该 metric，其他正常；`None / NaN` 自动 skip
+
+`EvalResult` 多一个 `langfuse_trace_id: str | None` 字段，落 `results.json` 方便事后追到对应 trace。
+
+### 6.3 Langfuse 自动 eval（Cloud 内置）
+
+`[human]` 配置（M7.3 验收的最后一步）：
+
+- 在 Cloud UI 中开启 Dataset `tgpp-golden-v1` 关联的 built-in evaluators（`faithfulness`、`relevance`）
+- 跑完一个 run → Cloud 自动按 trace input/output 算分；runner 上传的 score 与 Cloud 算的 score 并列在 UI
+
+### 6.4 故障模式
+
+| 现象 | 行为 |
+|---|---|
+| `.env` 缺 `LANGFUSE_*` key | `get_client()` 返回 None；`push_*` 函数返回 0；runner 跑得通，`results[i].langfuse_trace_id` = None |
+| `langfuse` SDK 未装（pip 失败 / 升级中） | import 异常被吞，等同缺 key |
+| Cloud 网络抖动 / 单条 score 写失败 | log.warning，跳过该 metric / item，不挂 runner |
+| 二次推送同 dataset | `create_dataset` 抛 409 被吞；`create_dataset_item(id=...)` 按 SDK 文档 upsert |
 
 ## 7. Pytest 集成
 
@@ -612,11 +654,11 @@ PRICING = {
 
 需要在 Langfuse Cloud 上手工做的：
 
-- [ ] 注册账号
-- [ ] 新建 project `tgpp-everything`
-- [ ] 拿 public_key + secret_key → 写 `.env`
-- [ ] 创建 Dataset `tgpp-golden-v1`
-- [ ] 启用内置 evaluators（faithfulness、relevance）关联到 Dataset
+- [x] 注册账号
+- [x] 新建 project `tgpp-everything`
+- [x] 拿 public_key + secret_key → 写 `.env`（`LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST`，2026-05-19 前已配）
+- [x] 创建 Dataset `tgpp-golden-v1` 与首次推送：由 `eval.langfuse_dataset.push_golden_to_langfuse()` 程序化执行（2026-05-20 M7.3 落地；M7.2 评估结束后人触发 `python -c "from pathlib import Path; from eval.langfuse_dataset import push_golden_to_langfuse; print(push_golden_to_langfuse(Path('eval/golden/v1.yaml')))"`）
+- [ ] `[human]` 启用内置 evaluators（faithfulness、relevance）关联到 Dataset（在 Cloud UI Dataset 页面操作）
 - [ ] 设置成本预警（Free Tier 含基本告警）
 
 ## 11. 监控指标（应用层）
@@ -659,20 +701,24 @@ PRICING = {
 - [x] `[auto]` `backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言（context recall ≥ 0.65 / 负样本 100% 过 `must_say_not_found_passed`）；smoke（canned graph，always run）+ daily / full（`RUN_LIVE_EVAL=1` gate）
 - [x] `[auto]` Makefile `eval-daily` / `eval-weekly` target：`pytest -m eval -k "daily or smoke" / "full or smoke"`（2026-05-20 落）
 - [ ] `[M7.6 CI]` daily 子集（`source==hand_crafted`，≥ 20 题）< 10min 全绿；负样本必须全过 `must_say_not_found_passed`（需 `RUN_LIVE_EVAL=1` + 真 backend；M7.6 接通 CI）
-- [ ] `[M7.2]` ragas_faithfulness / answer_relevancy / context_recall / context_precision 字段：runner 留 `None` 占位，M7.2 补
+- [x] `[M7.2]` ragas_faithfulness / answer_relevancy / context_recall / context_precision 字段：runner 留 `None` 占位，M7.2 补（2026-05-20 通过 `eval.runner.run_eval(ragas_scorer=...)` 注入 `RagasScorer` 即填；CI / pytest live 链路按需启用，默认 None 不影响 mock 测试）
 
-### M7.2 Ragas + native MCQ
+### M7.2 Ragas + native MCQ ✅ 2026-05-20
 
-- [ ] `[auto]` Ragas 4 metric 接入：faithfulness / answer_relevancy / context_recall / context_precision；judge LLM = `glm-5.1`（temperature=0）；评估 embedding 复用 `voyage-4-large`
-- [ ] `[auto]` Ragas 单题失败容忍：单条评估异常不挂 runner（log warning + 该 metric 记 None）
-- [ ] `[auto]` `eval/scripts/native_mcq_runner.py`：从 TeleQnA filtered.jsonl 跑选择题对照（mimo-v2.5 + glm-5.1 各一遍），输出 LLM 选对 % 报告归档 `eval-results/m7-native-mcq/{ts}/report.md`
-- [ ] `[auto]` MCQ runner 单测：mock LLM 返回特定 option → 断言准确率计算正确
+> M7.2 完成报告：[`../04-handoff/2026-05-20-m7.2-complete.md`](../04-handoff/2026-05-20-m7.2-complete.md)
 
-### M7.3 Langfuse Dataset 集成
+- [x] `[auto]` Ragas 4 metric 接入：faithfulness / answer_relevancy / context_recall / context_precision；judge LLM = `glm-5.1`（temperature=0）；评估 embedding 复用 `voyage-4-large`（2026-05-20 落 `eval/ragas_eval.py::build_default_ragas_scorer` + `RagasScorer.score_item`；4 metric 字段 `ragas_faithfulness` / `ragas_answer_relevance` / `ragas_context_recall` / `ragas_context_precision` 写回 `EvalResult`）
+- [x] `[auto]` Ragas 单题失败容忍：单条评估异常不挂 runner（log warning + 该 metric 记 None）：`score_item` 内部 try/except `ragas.evaluate(...)` 任一异常 / NaN / 缺 metric key / 空 contexts/answer 都退化为全 None；`run_eval` 外层再兜底 `RagasScorer.score_item` 自身 crash
+- [x] `[auto]` `eval/scripts/native_mcq_runner.py`：从 TeleQnA filtered.jsonl 跑选择题对照（mimo-v2.5 + glm-5.1 各一遍），输出 LLM 选对 % 报告归档 `eval-results/m7-native-mcq/{ts}/report.md`（2026-05-20 落 + `eval native-mcq run` CLI；每模型独立 ModelAggregate 含 accuracy / parse_rate / errors / token 用量）
+- [x] `[auto]` MCQ runner 单测：mock LLM 返回特定 option → 断言准确率计算正确（29 单测：parse_mcq_answer 各种格式 / score_item 一致性 / aggregate_results 重算 / `_FakeChatClient` 端到端 3-of-4 acc=0.75 / 双模型 acc 独立 / write_report markdown+JSON 落地）
 
-- [ ] `[auto]` `eval/langfuse_dataset.py`：一次性把 `v1.yaml` 全集 push 到 Langfuse Dataset `tgpp-golden-v1`；幂等（已存在的 item 跳过）
-- [ ] `[auto]` runner 跑时给每条 item 创建 dataset run + 上传 score（`fact_coverage` / `faithfulness` / `context_recall` / `must_say_not_found`）；缺 Langfuse key 时 disable，runner 仍可跑
-- [ ] `[human]` Langfuse Cloud Web UI 验证：dataset 可见、run 出现、built-in evaluators（faithfulness / relevance）已启用并出分
+### M7.3 Langfuse Dataset 集成 ✅ 2026-05-20
+
+> M7.3 完成报告：[`../04-handoff/2026-05-20-m7.3-complete.md`](../04-handoff/2026-05-20-m7.3-complete.md)
+
+- [x] `[auto]` `eval/langfuse_dataset.py`：`push_golden_to_langfuse(golden_path, dataset_name="tgpp-golden-v1")` 一次性把 `v1.yaml` 全集 push 到 Langfuse Dataset；按 `GoldenItem.id` 幂等 upsert（SDK 文档保证 "Upserts if an item with id already exists"）；缺 key / SDK 异常 → 返回 0 + log；单条 item 失败不阻塞其他（2026-05-20 落 + 5 单测覆盖）
+- [x] `[auto]` runner 跑时给每条 item 创建 trace + 上传 score：`run_eval(langfuse_run_label="...")` 触发；`make_eval_trace_id` 按 `(label, item.id)` seed 生成幂等 trace_id；`create_event` 写 question/answer 到 trace；`push_run_score` 上传 9 个 NUMERIC（`context_recall_section/spec` / `fact_coverage` / `must_say_not_found_passed` / `forbidden_violation` / `ragas_faithfulness/answer_relevance/context_recall/context_precision`）；缺 key 自动 disable（2026-05-20 落 + 16 单测覆盖含 mock SDK / 缺 trace_id / 单 metric 失败隔离 / runner 集成）
+- [ ] `[human]` Langfuse Cloud Web UI 验证：M7.2 评估结束后人触发首次 `push_golden_to_langfuse` → Cloud Dataset 页面确认 175 题可见 → 启用 built-in evaluators（faithfulness / relevance）关联 Dataset → 跑一次 daily 子集（`langfuse_run_label="m7-smoke-..."`）确认 trace 出现 + 出分
 
 ### M7.4 成本与用量监控
 
