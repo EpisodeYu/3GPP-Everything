@@ -26,7 +26,7 @@ from collections.abc import AsyncIterator, Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from statistics import mean
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -38,6 +38,9 @@ from eval.retrieval.metrics import (
 )
 from eval.runner_retrieval import GoldenItem, load_golden
 from eval.sse_parser import SSEEvent, SSEStreamParser
+
+if TYPE_CHECKING:
+    from eval.ragas_eval import RagasScorer
 
 log = logging.getLogger(__name__)
 
@@ -91,6 +94,9 @@ class EvalResult:
     # bookkeeping
     terminal_event: str = ""
     error: dict | None = None
+    # M7.3：当 langfuse 启用且 client 可用时，每条 result 关联一个幂等 trace_id；
+    # 落 results.json 方便后续追到 Langfuse UI 上的对应 trace + score
+    langfuse_trace_id: str | None = None
 
 
 # === SSE 消费 ==============================================================
@@ -325,6 +331,76 @@ def compute_eval_metrics(item: GoldenItem, resp: AgentResponse) -> EvalResult:
 # === Orchestration =========================================================
 
 
+def _apply_ragas_scores(result: EvalResult, scores: dict[str, float | None]) -> None:
+    """把 ragas 单题 metric dict 写回 EvalResult 字段（缺的 → 维持 None）。"""
+    if "ragas_faithfulness" in scores:
+        result.ragas_faithfulness = scores["ragas_faithfulness"]
+    if "ragas_answer_relevance" in scores:
+        result.ragas_answer_relevance = scores["ragas_answer_relevance"]
+    if "ragas_context_recall" in scores:
+        result.ragas_context_recall = scores["ragas_context_recall"]
+    if "ragas_context_precision" in scores:
+        result.ragas_context_precision = scores["ragas_context_precision"]
+
+
+def _result_to_langfuse_scores(result: EvalResult) -> dict[str, float | bool | None]:
+    """EvalResult → Langfuse score dict（None / NaN 留给 push_run_score 内部 skip）。
+
+    口径：所有 metric 都用 NUMERIC（bool 由 push_run_score 转 0/1），统一一种 data_type
+    便于 Cloud UI 上配 evaluator 阈值。
+    """
+    return {
+        "context_recall_section": result.context_recall_section,
+        "context_recall_spec": result.context_recall_spec,
+        "fact_coverage": result.fact_coverage,
+        "must_say_not_found_passed": result.must_say_not_found_passed,
+        "forbidden_violation": 1.0 if result.forbidden_violations else 0.0,
+        "ragas_faithfulness": result.ragas_faithfulness,
+        "ragas_answer_relevance": result.ragas_answer_relevance,
+        "ragas_context_recall": result.ragas_context_recall,
+        "ragas_context_precision": result.ragas_context_precision,
+    }
+
+
+def _emit_langfuse_trace_event(
+    lf_client: Any,
+    *,
+    trace_id: str,
+    item: GoldenItem,
+    resp: AgentResponse,
+    dataset_name: str | None,
+) -> None:
+    """用一个 `create_event` 把 eval 单条 (question, answer) 写到 trace 上。
+
+    create_event 在 Langfuse v4 里会自动按 trace_context.trace_id 关联到对应 trace；
+    后续 push_run_score(trace_id=...) 的分数就挂到同一 trace，evaluator 也能读到 IO。
+    任何异常吞掉转 log（保持 runner 不挂）。
+    """
+    try:
+        lf_client.create_event(
+            name=f"eval-item-{item.id}",
+            trace_context={"trace_id": trace_id},
+            input={
+                "question": item.question,
+                "category": item.category,
+                "language": item.language,
+            },
+            output={
+                "answer": resp.answer,
+                "terminal_event": resp.terminal_event,
+                "citations": resp.citations,
+            },
+            metadata={
+                "item_id": item.id,
+                "source": item.source,
+                "dataset": dataset_name,
+                "duration_ms": resp.duration_ms,
+            },
+        )
+    except Exception as exc:  # pragma: no cover - 仅网络/版本异常
+        log.warning("langfuse create_event failed for %s: %s", item.id, exc)
+
+
 async def run_eval(
     golden_path: Path,
     *,
@@ -334,6 +410,10 @@ async def run_eval(
     subset: int | None = None,
     mode: str = "qa",
     api_prefix: str = "/api/v1",
+    ragas_scorer: RagasScorer | None = None,
+    langfuse_run_label: str | None = None,
+    langfuse_dataset_name: str | None = None,
+    langfuse_client: Any | None = None,
 ) -> list[EvalResult]:
     """对 golden 集合的每条 item 跑端到端评测。
 
@@ -341,12 +421,33 @@ async def run_eval(
     cache 互相干扰；M7.1 求稳。M7.6 上 CI 时若耗时不满意再加并发。
 
     HTTP 异常单题：log + 生成空 EvalResult（terminal_event="http_error"），不阻塞后续。
+
+    M7.2：`ragas_scorer` 传入时对每条 final/answer 非空的 result 跑 4 metric；
+    单题 ragas 失败 → log + 该 metric None，不挂 runner。
+
+    M7.3：`langfuse_run_label` 传入时启用 Langfuse 上报；缺 key / SDK / 网络都会让
+    `eval.langfuse_dataset.get_client()` 返回 None → runner 自动 disable，原路径不受影响。
+    `langfuse_client` 仅供测试注入用；生产路径调 `get_client()`。
     """
     items = load_golden(golden_path)
     if source_filter:
         items = [it for it in items if it.source == source_filter]
     if subset:
         items = items[:subset]
+
+    lf_client: Any | None = None
+    if langfuse_run_label is not None:
+        if langfuse_client is not None:
+            lf_client = langfuse_client
+        else:
+            from eval.langfuse_dataset import get_client as _get_lf_client
+
+            lf_client = _get_lf_client()
+        if lf_client is None:
+            log.info(
+                "langfuse_run_label=%s requested but client unavailable; disabled",
+                langfuse_run_label,
+            )
 
     results: list[EvalResult] = []
     for it in items:
@@ -367,7 +468,46 @@ async def run_eval(
         except Exception as exc:
             log.exception("agent call failed on %s", it.id)
             resp = AgentResponse(terminal_event="error", error={"exc": str(exc)})
-        results.append(compute_eval_metrics(it, resp))
+
+        result = compute_eval_metrics(it, resp)
+        if ragas_scorer is not None and resp.answer:
+            try:
+                scores = ragas_scorer.score_item(it, resp)
+            except Exception as exc:
+                # RagasScorer.score_item 内部已 try/except，此处兜底极端情况
+                log.warning("ragas scorer crashed on %s: %s", it.id, exc)
+                scores = {}
+            _apply_ragas_scores(result, scores)
+
+        if lf_client is not None and langfuse_run_label is not None:
+            from eval.langfuse_dataset import (
+                make_eval_trace_id,
+                push_run_score,
+            )
+
+            trace_id = make_eval_trace_id(langfuse_run_label, it.id, client=lf_client)
+            if trace_id is not None:
+                result.langfuse_trace_id = trace_id
+                _emit_langfuse_trace_event(
+                    lf_client,
+                    trace_id=trace_id,
+                    item=it,
+                    resp=resp,
+                    dataset_name=langfuse_dataset_name,
+                )
+                push_run_score(
+                    trace_id,
+                    _result_to_langfuse_scores(result),
+                    comment=f"run={langfuse_run_label} item={it.id}",
+                    metadata={
+                        "run_label": langfuse_run_label,
+                        "item_id": it.id,
+                        "dataset": langfuse_dataset_name,
+                    },
+                    client=lf_client,
+                )
+
+        results.append(result)
     return results
 
 
@@ -401,6 +541,12 @@ def aggregate(results: list[EvalResult]) -> dict[str, Any]:
             "total": len(neg),
             "passed": len(neg_passed),
             "pass_rate": (len(neg_passed) / len(neg)) if neg else None,
+        },
+        "ragas": {
+            "faithfulness": _safe_mean([r.ragas_faithfulness for r in results]),
+            "answer_relevance": _safe_mean([r.ragas_answer_relevance for r in results]),
+            "context_recall": _safe_mean([r.ragas_context_recall for r in results]),
+            "context_precision": _safe_mean([r.ragas_context_precision for r in results]),
         },
         "duration_p50_ms": (
             sorted(r.duration_ms for r in results)[len(results) // 2] if results else 0
@@ -438,6 +584,7 @@ def write_report(results: list[EvalResult], outdir: Path) -> None:
     lines.append(f"- fact_coverage: {agg['fact_coverage']}")
     lines.append(f"- forbidden_violation_rate: {agg['forbidden_violation_rate']}")
     lines.append(f"- must_say_not_found: {agg['must_say_not_found']}")
+    lines.append(f"- ragas: {agg.get('ragas')}")
     lines.append(f"- duration_p50_ms: {agg['duration_p50_ms']}")
     lines.append(f"- terminal_events: {agg['terminal_events']}")
     lines.append("")
@@ -463,6 +610,9 @@ def write_report(results: list[EvalResult], outdir: Path) -> None:
 __all__ = [
     "AgentResponse",
     "EvalResult",
+    "_apply_ragas_scores",
+    "_emit_langfuse_trace_event",
+    "_result_to_langfuse_scores",
     "aggregate",
     "call_agent",
     "compute_eval_metrics",

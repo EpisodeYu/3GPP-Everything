@@ -15,6 +15,8 @@ dependencies = [
   # TeleQnA.zip 用 WinZip AES (method 99)，Python stdlib zipfile 与系统 unzip 都不支持；
   # pyzipper 是 pure-Python AES zip 实现（zipfile API drop-in）
   "pyzipper>=0.3.6",
+  # M7.3：dataset 推送 + 端到端 trace/score 上报；缺 key 时模块自动 disable
+  "langfuse>=4.0,<5",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +26,13 @@ dev = [
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
   "pytest-cov>=5.0",
+]
+# M7.2 Ragas judge LLM = glm-5.1 / embedding 复用 voyage-4-large（都走 LiteLLM proxy）。
+# 单测 mock LLM/embedding，不需要真装 ragas；只有 `--with-ragas` 跑活评测时才需要这一组。
+ragas = [
+  "ragas>=0.2,<0.3",
+  "langchain-openai>=0.2",
+  "datasets>=2.20",
 ]
 
 [tool.ruff]
@@ -37,7 +46,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 # scripts 里 prompt 字符串 / 表格输出会过 100 列，符合现有 ingestion 项目惯例
-"scripts/*.py" = ["E501"]
+"scripts/*.py" = ["E501", "B008"]
 # typer.Option 默认值
 "cli.py" = ["B008", "E501"]
 "teleqna/runner.py" = ["B008", "E501"]
@@ -48,6 +57,8 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "builder/prompts.py" = ["E501"]
 # runner 里 markdown 表头列宽不可避免
 "runner_retrieval.py" = ["E501"]
+# langfuse client 调用动态属性，B017 / 与 SDK 风格冲突
+"langfuse_dataset.py" = ["E501"]
 
 [tool.black]
 line-length = 100

@@ -75,6 +75,11 @@ class EvalSettings(BaseSettings):
     llm_light_model: str = Field(default="mimo-v2.5")
     llm_judge_model: str = Field(default="glm-5.1")
 
+    # M7.3 Langfuse Dataset / Trace 上报；缺任一 key 即 disable
+    langfuse_public_key: str = Field(default="")
+    langfuse_secret_key: str = Field(default="")
+    langfuse_host: str = Field(default="https://cloud.langfuse.com")
+
     @property
     def resolved_litellm_base_url(self) -> str:
         return _resolve_docker_internal_host(self.litellm_base_url)
@@ -82,6 +87,10 @@ class EvalSettings(BaseSettings):
     @property
     def resolved_qdrant_url(self) -> str:
         return _resolve_docker_internal_host(self.qdrant_url)
+
+    @property
+    def langfuse_enabled(self) -> bool:
+        return bool(self.langfuse_public_key.strip() and self.langfuse_secret_key.strip())
 
 
 @lru_cache(maxsize=1)

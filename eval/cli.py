@@ -36,10 +36,12 @@ teleqna_app = typer.Typer(no_args_is_help=True, help="TeleQnA pull / filter / in
 retrieval_app = typer.Typer(no_args_is_help=True, help="retrieval smoke / batch")
 builder_app = typer.Typer(no_args_is_help=True, help="MCQ→开放问答 LLM 转化 (T2)")
 golden_app = typer.Typer(no_args_is_help=True, help="金标准 YAML 校验 / 合并 (M7.0)")
+mcq_app = typer.Typer(no_args_is_help=True, help="TeleQnA 原生 MCQ 对照评测 (M7.2)")
 app.add_typer(teleqna_app, name="teleqna")
 app.add_typer(retrieval_app, name="retrieval")
 app.add_typer(builder_app, name="builder")
 app.add_typer(golden_app, name="golden")
+app.add_typer(mcq_app, name="native-mcq")
 
 
 def _setup_logging(verbose: bool) -> None:
@@ -379,6 +381,58 @@ def golden_stats(
         typer.echo(format_stats(stats))
     if not stats.ok:
         raise typer.Exit(code=1)
+
+
+@mcq_app.command("run")
+def native_mcq_run(
+    input_path: Path = typer.Option(
+        Path(__file__).parent / "teleqna" / "data" / "filtered" / "filtered.jsonl",
+        "--input",
+        "-i",
+        help="TeleQnA filtered.jsonl 路径",
+    ),
+    out_base: Path = typer.Option(
+        Path(__file__).parent.parent / "eval-results" / "m7-native-mcq",
+        "--out-base",
+        help="结果目录基址；最终写入 {out_base}/{ts}/",
+    ),
+    models: list[str] = typer.Option(
+        [],
+        "--model",
+        help="可重复；不传 → 默认 [mimo-v2.5, glm-5.1]",
+    ),
+    limit: int = typer.Option(0, "--limit", help="0 = 全跑；>0 = 前 N 题（spike 用）"),
+    rpm: int = typer.Option(60, "--rpm"),
+    concurrent: int = typer.Option(8, "--concurrent"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """裸 LLM 选择题对照：mimo-v2.5 + glm-5.1 各跑一遍 filtered.jsonl，输出准确率对照。
+
+    用途：作为 RAG 端到端指标的下限锚（"RAG 至少要打过裸 LLM"）。
+    报告归档 `eval-results/m7-native-mcq/{ts}/{report.md, results.json}`。
+    """
+    import asyncio as _asyncio
+    from datetime import datetime as _dt
+
+    from eval.scripts.native_mcq_runner import run_native_mcq_async
+
+    _setup_logging(verbose)
+    s = __import__("eval.settings", fromlist=["get_settings"]).get_settings()
+    chosen_models = models if models else [s.llm_light_model, s.llm_judge_model]
+    ts = _dt.now(UTC).strftime("%Y%m%d-%H%M%S")
+    out_dir = out_base / ts
+    report = _asyncio.run(
+        run_native_mcq_async(
+            input_path=input_path,
+            out_dir=out_dir,
+            models=chosen_models,
+            limit=limit,
+            rpm=rpm,
+            concurrent=concurrent,
+            settings=s,
+        )
+    )
+    typer.echo(f"\n→ report: {report}")
 
 
 def main() -> None:
