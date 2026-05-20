@@ -332,7 +332,6 @@ def test_metric_fields_match_eval_result_attrs() -> None:
         citations=[],
         fact_coverage=None,
         forbidden_violations=[],
-        must_say_not_found_passed=None,
     )
     # 确保 EvalResult 有这 4 个 attribute（slots=True 时缺一个就会 AttributeError）
     for f in RAGAS_METRIC_FIELDS:

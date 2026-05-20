@@ -30,7 +30,9 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from eval.not_found_phrases import is_not_found_answer
+# 2026-05-20：must_say_not_found_passed 由 substring 切到 LLM judge（详见
+# docs/04-handoff/2026-05-20-daily-eval-findings.md），is_not_found_answer 不再用作
+# metric；保留模块便于未来 suggest_questions 节点复用或回退实验。
 from eval.retrieval.metrics import (
     HitRef,
     is_section_hit,
@@ -81,7 +83,10 @@ class EvalResult:
     citations: list[dict]
     fact_coverage: float | None
     forbidden_violations: list[str]
-    must_say_not_found_passed: bool | None
+    # negative-判定（2026-05-20 由 substring 切到 LLM judge；非 negative item 永远 None）
+    # verdict ∈ {"VALID_REFUSAL", "PARTIAL_REFUSAL", "INVALID", None}
+    negative_judge_verdict: str | None = None
+    negative_judge_reason: str | None = None
     # Ragas（M7.2 填）
     ragas_faithfulness: float | None = None
     ragas_answer_relevance: float | None = None
@@ -304,14 +309,8 @@ def compute_eval_metrics(item: GoldenItem, resp: AgentResponse) -> EvalResult:
     fact_cov = _fact_coverage(answer, item.expected_facts)
     violations = _forbidden_violations(answer, item.forbidden)
 
-    if item.must_say_not_found:
-        # 2026-05-20 daily eval 复盘：拒答必然复述用户假设的概念才能否认它，
-        # 把 forbidden 当 must_nf 失败条件 → 几乎所有合理拒答都被误判。
-        # forbidden_violations 仍单独上报；must_nf 只看"拒答短语是否触发"。
-        must_passed: bool | None = is_not_found_answer(answer, item.language)
-    else:
-        must_passed = None
-
+    # negative_judge_verdict 由 run_eval 在外层调 NegativeJudge.score_item 填；
+    # compute_eval_metrics 本身只做纯函数指标，不打 LLM。
     return EvalResult(
         item_id=item.id,
         category=item.category,
@@ -324,7 +323,6 @@ def compute_eval_metrics(item: GoldenItem, resp: AgentResponse) -> EvalResult:
         citations=resp.citations,
         fact_coverage=fact_cov,
         forbidden_violations=violations,
-        must_say_not_found_passed=must_passed,
         duration_ms=resp.duration_ms,
         terminal_event=resp.terminal_event,
         error=resp.error,
@@ -346,17 +344,27 @@ def _apply_ragas_scores(result: EvalResult, scores: dict[str, float | None]) -> 
         result.ragas_context_precision = scores["ragas_context_precision"]
 
 
+_VERDICT_TO_NUMERIC: dict[str, float] = {
+    "VALID_REFUSAL": 1.0,
+    "PARTIAL_REFUSAL": 0.5,
+    "INVALID": 0.0,
+}
+
+
 def _result_to_langfuse_scores(result: EvalResult) -> dict[str, float | bool | None]:
     """EvalResult → Langfuse score dict（None / NaN 留给 push_run_score 内部 skip）。
 
     口径：所有 metric 都用 NUMERIC（bool 由 push_run_score 转 0/1），统一一种 data_type
     便于 Cloud UI 上配 evaluator 阈值。
+
+    2026-05-20：`must_say_not_found_passed` 替换为 `negative_judge_score`
+    （VALID=1.0 / PARTIAL=0.5 / INVALID=0.0；None → 不上传）。
     """
     return {
         "context_recall_section": result.context_recall_section,
         "context_recall_spec": result.context_recall_spec,
         "fact_coverage": result.fact_coverage,
-        "must_say_not_found_passed": result.must_say_not_found_passed,
+        "negative_judge_score": _VERDICT_TO_NUMERIC.get(result.negative_judge_verdict or ""),
         "forbidden_violation": 1.0 if result.forbidden_violations else 0.0,
         "ragas_faithfulness": result.ragas_faithfulness,
         "ragas_answer_relevance": result.ragas_answer_relevance,
@@ -414,6 +422,7 @@ async def run_eval(
     mode: str = "qa",
     api_prefix: str = "/api/v1",
     ragas_scorer: RagasScorer | None = None,
+    negative_judge: Any | None = None,
     langfuse_run_label: str | None = None,
     langfuse_dataset_name: str | None = None,
     langfuse_client: Any | None = None,
@@ -427,6 +436,10 @@ async def run_eval(
 
     M7.2：`ragas_scorer` 传入时对每条 final/answer 非空的 result 跑 4 metric；
     单题 ragas 失败 → log + 该 metric None，不挂 runner。
+
+    2026-05-20 negative_judge：`negative_judge` 传入时对每条 `must_say_not_found`
+    item 跑一次三档枚举 LLM judge（VALID_REFUSAL / PARTIAL_REFUSAL / INVALID）。
+    单题异常隔离同 ragas；不传则 verdict 字段保持 None。
 
     M7.3：`langfuse_run_label` 传入时启用 Langfuse 上报；缺 key / SDK / 网络都会让
     `eval.langfuse_dataset.get_client()` 返回 None → runner 自动 disable，原路径不受影响。
@@ -482,6 +495,16 @@ async def run_eval(
                 scores = {}
             _apply_ragas_scores(result, scores)
 
+        if negative_judge is not None and it.must_say_not_found:
+            try:
+                judgement = negative_judge.score_item(it, resp)
+            except Exception as exc:
+                # NegativeJudge.score_item 内部已 try/except，此处兜底极端情况
+                log.warning("negative_judge crashed on %s: %s", it.id, exc)
+                judgement = {"verdict": None, "reason": f"runner_caught: {exc}"[:300]}
+            result.negative_judge_verdict = judgement.get("verdict")
+            result.negative_judge_reason = judgement.get("reason")
+
         if lf_client is not None and langfuse_run_label is not None:
             from eval.langfuse_dataset import (
                 make_eval_trace_id,
@@ -529,7 +552,18 @@ def aggregate(results: list[EvalResult]) -> dict[str, Any]:
         by_cat[r.category] = by_cat.get(r.category, 0) + 1
 
     neg = [r for r in results if r.category == "negative"]
-    neg_passed = [r for r in neg if r.must_say_not_found_passed]
+    verdict_counts = {"VALID_REFUSAL": 0, "PARTIAL_REFUSAL": 0, "INVALID": 0, "unjudged": 0}
+    for r in neg:
+        v = r.negative_judge_verdict
+        if v in verdict_counts:
+            verdict_counts[v] += 1
+        else:
+            verdict_counts["unjudged"] += 1
+    judged = (
+        verdict_counts["VALID_REFUSAL"]
+        + verdict_counts["PARTIAL_REFUSAL"]
+        + verdict_counts["INVALID"]
+    )
 
     return {
         "total": len(results),
@@ -540,10 +574,19 @@ def aggregate(results: list[EvalResult]) -> dict[str, Any]:
         "forbidden_violation_rate": (
             sum(1 for r in results if r.forbidden_violations) / len(results) if results else 0.0
         ),
-        "must_say_not_found": {
+        "negative_judge": {
             "total": len(neg),
-            "passed": len(neg_passed),
-            "pass_rate": (len(neg_passed) / len(neg)) if neg else None,
+            "verdict_counts": verdict_counts,
+            # valid_rate 分母按"已判定数"算，避免 judge 未注入时分母全 None 拉低分子
+            "valid_rate": (verdict_counts["VALID_REFUSAL"] / judged) if judged else None,
+            # weighted_pass_rate = (VALID + 0.5 × PARTIAL) / judged；
+            # 与 backend/tests/eval/test_golden_v1.py daily 断言阈值（≥ 0.85）对齐
+            "weighted_pass_rate": (
+                (verdict_counts["VALID_REFUSAL"] + 0.5 * verdict_counts["PARTIAL_REFUSAL"])
+                / judged
+                if judged
+                else None
+            ),
         },
         "ragas": {
             "faithfulness": _safe_mean([r.ragas_faithfulness for r in results]),
@@ -586,7 +629,7 @@ def write_report(results: list[EvalResult], outdir: Path) -> None:
     lines.append(f"- context_recall_spec: {agg['context_recall_spec']}")
     lines.append(f"- fact_coverage: {agg['fact_coverage']}")
     lines.append(f"- forbidden_violation_rate: {agg['forbidden_violation_rate']}")
-    lines.append(f"- must_say_not_found: {agg['must_say_not_found']}")
+    lines.append(f"- negative_judge: {agg['negative_judge']}")
     lines.append(f"- ragas: {agg.get('ragas')}")
     lines.append(f"- duration_p50_ms: {agg['duration_p50_ms']}")
     lines.append(f"- terminal_events: {agg['terminal_events']}")
@@ -597,15 +640,18 @@ def write_report(results: list[EvalResult], outdir: Path) -> None:
         flagged = (
             r.terminal_event not in ("final",)
             or bool(r.forbidden_violations)
-            or (r.must_say_not_found_passed is False)
+            or (r.negative_judge_verdict in ("PARTIAL_REFUSAL", "INVALID"))
             or (r.context_recall_section == 0.0)
         )
         if not flagged:
             continue
+        verdict = r.negative_judge_verdict or "—"
+        reason = (r.negative_judge_reason or "")[:120]
         lines.append(
             f"- **{r.item_id}** ({r.category}/{r.language}) terminal={r.terminal_event} "
             f"recall_section={r.context_recall_section} fact={r.fact_coverage} "
-            f"forbidden={r.forbidden_violations} must_nf={r.must_say_not_found_passed}"
+            f"forbidden={r.forbidden_violations} judge={verdict}"
+            + (f" reason={reason!r}" if reason else "")
         )
     (outdir / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 

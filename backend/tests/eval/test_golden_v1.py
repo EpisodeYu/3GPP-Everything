@@ -201,7 +201,7 @@ items:
     assert r.context_recall_section == 1.0
     assert r.fact_coverage == 1.0
     assert r.forbidden_violations == []
-    assert r.must_say_not_found_passed is None
+    assert r.negative_judge_verdict is None  # 非 negative item 且未注入 judge
     assert "23.501" in r.retrieved_specs
     assert any("5.2.1" in s for s in r.retrieved_sections)
 
@@ -227,12 +227,19 @@ async def test_golden_v1_daily() -> None:
     base_url = os.environ.get("EVAL_BACKEND_BASE_URL", "http://localhost:8000")
     token = os.environ["EVAL_BACKEND_TOKEN"]  # 必填，daily 路径不做 bootstrap
 
+    # 2026-05-20：negative 改用 LLM judge（VALID_REFUSAL / PARTIAL_REFUSAL / INVALID）
+    # 详见 docs/04-handoff/2026-05-20-daily-eval-findings.md
+    from eval.negative_judge import build_default_negative_judge
+
+    judge = build_default_negative_judge()
+
     async with httpx.AsyncClient(base_url=base_url, timeout=60) as client:
         results = await run_eval(
             GOLDEN_V1,
             client=client,
             auth_token=token,
             source_filter="hand_crafted",
+            negative_judge=judge,
         )
 
     assert len(results) >= 20, f"daily 子集 < 20: {len(results)}"
@@ -243,13 +250,20 @@ async def test_golden_v1_daily() -> None:
     avg_recall = mean(recalls)
     assert avg_recall >= 0.65, f"context recall 太低: {avg_recall}"
 
-    # 负样本必须 100% 触发 not_found（forbidden 命中 = 失败）
+    # 负样本：宽松档 VALID_REFUSAL 比例 ≥ 0.85（PARTIAL 算 0.5）；
+    # M8 严格档收紧到 1.0。详见 06-md §7。
     neg = [r for r in results if r.category == "negative"]
-    neg_passed = [r for r in neg if r.must_say_not_found_passed]
-    assert len(neg_passed) == len(neg), (
-        f"negative 未全过：{len(neg_passed)}/{len(neg)}；"
-        f"失败题：{[r.item_id for r in neg if not r.must_say_not_found_passed]}"
-    )
+    if neg:
+        valid = sum(1 for r in neg if r.negative_judge_verdict == "VALID_REFUSAL")
+        partial = sum(1 for r in neg if r.negative_judge_verdict == "PARTIAL_REFUSAL")
+        unjudged = sum(1 for r in neg if r.negative_judge_verdict is None)
+        weighted_pass_rate = (valid + 0.5 * partial) / len(neg)
+        assert unjudged == 0, f"negative judge 缺判定: {unjudged} 条未判（LLM 异常？）"
+        assert weighted_pass_rate >= 0.85, (
+            f"negative weighted pass rate 太低: {weighted_pass_rate:.2f}；"
+            f"verdict 分布 VALID={valid} PARTIAL={partial} "
+            f"INVALID={len(neg) - valid - partial - unjudged}"
+        )
 
 
 @pytest.mark.eval

@@ -377,19 +377,19 @@ class TestPushRunScore:
                 "fact_coverage": None,
                 "ragas_faithfulness": 0.8,
                 "ragas_answer_relevance": math.nan,
-                "must_say_not_found_passed": True,
+                "negative_judge_score": 1.0,  # VALID_REFUSAL → 1.0
                 "forbidden_violation": False,
             },
             comment="run=r1",
             metadata={"item_id": "def-1"},
             client=cli,
         )
-        # context_recall_section + ragas_faithfulness + must_say(=1) + forbidden(=0) = 4
+        # context_recall_section + ragas_faithfulness + negative_judge_score + forbidden(=0) = 4
         assert n == 4
         recorded = {s["name"]: s["value"] for s in cli.scores}
         assert recorded["context_recall_section"] == 1.0
         assert recorded["ragas_faithfulness"] == 0.8
-        assert recorded["must_say_not_found_passed"] == 1.0
+        assert recorded["negative_judge_score"] == 1.0
         assert recorded["forbidden_violation"] == 0.0
         for s in cli.scores:
             assert s["trace_id"] == "trace-1"

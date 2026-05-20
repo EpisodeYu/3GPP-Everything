@@ -229,7 +229,7 @@ items:
 - `expected_facts` 是 "答案里必须出现的关键事实"，不要 paraphrase 一致才算
 - `must_say_not_found` 给负样本做严格 grounding 校验
 - CI 子集必须按 category 分层抽样，至少覆盖 definition / procedure / table_lookup / negative；不得只抽简单题。
-- **建议问题区不进评测**（2026-05-20）：触发 `must_say_not_found` 的回答下方可能由 agent `suggest_questions` 节点附加"你想问的是不是"超链接建议区（详见 [`../04-handoff/2026-05-20-suggested-questions.md`](../04-handoff/2026-05-20-suggested-questions.md)）；该建议区有/无、命中数都**不参与**任何 metric（`fact_coverage` / `forbidden_violations` / `must_say_not_found_passed` / Ragas 全部排除其影响）。建议区文本是否触发 `forbidden` 命中仍按主回答规则扫，是已有规则的自然延伸，不算新指标
+- **建议问题区不进评测**（2026-05-20）：触发 `must_say_not_found` 的回答下方可能由 agent `suggest_questions` 节点附加"你想问的是不是"超链接建议区（详见 [`../04-handoff/2026-05-20-suggested-questions.md`](../04-handoff/2026-05-20-suggested-questions.md)）；该建议区有/无、命中数都**不参与**任何 metric（`fact_coverage` / `forbidden_violations` / `negative_judge_verdict` / Ragas 全部排除其影响）。建议区文本是否触发 `forbidden` 命中仍按主回答规则扫，是已有规则的自然延伸，不算新指标
 
 ### 3.6 重跑 SOP（2026-05-19 落 CLI 后可一键重跑）
 
@@ -322,7 +322,9 @@ class EvalResult:
     citations: list[dict]
     fact_coverage: float | None
     forbidden_violations: list[str]
-    must_say_not_found_passed: bool | None
+    # negative-判定（2026-05-20 由 substring 切到 LLM judge，三档枚举）
+    negative_judge_verdict: str | None = None     # VALID_REFUSAL / PARTIAL_REFUSAL / INVALID / None
+    negative_judge_reason: str | None = None
     # Ragas（M7.2 填，目前 None 占位）
     ragas_faithfulness: float | None = None
     ragas_answer_relevance: float | None = None
@@ -374,7 +376,7 @@ async def run_eval(
 | `context_recall_section` | 同上但用 `is_section_hit`（`.` 切段做章节前缀匹配）|
 | `fact_coverage` | substring case-insensitive 命中率；空 list → `None` |
 | `forbidden_violations` | substring case-insensitive 命中字符串数组 |
-| `must_say_not_found_passed` | `is_not_found_answer(answer, lang)`；仅 negative；en/zh 词表切换。**2026-05-20 daily 复盘后修订**：原口径 `AND not forbidden_violations` 太严 —— 合理拒答必复述用户假设的概念才能否认，几乎都被 forbidden 误杀；现 must_nf 只看拒答短语是否触发，`forbidden_violations` 仍作为独立 metric 单独上报（详见 [`../04-handoff/2026-05-20-daily-eval-findings.md`](../04-handoff/2026-05-20-daily-eval-findings.md)） |
+| `negative_judge_verdict` | **2026-05-20 二轮修订**：彻底放弃 substring 拒答词表，改为 LLM judge（`eval/negative_judge.py::NegativeJudge`）。仅 negative item 调，glm-5.1 + function_calling 输出三档枚举：`VALID_REFUSAL` / `PARTIAL_REFUSAL` / `INVALID`。原 `must_say_not_found_passed: bool` 字段移除；`negative_judge_reason: str` 同行落地裁判简述便于 report 排查（详见 [`../04-handoff/2026-05-20-daily-eval-findings.md`](../04-handoff/2026-05-20-daily-eval-findings.md)） |
 | `duration_ms` | `time.perf_counter()` 从 POST /messages 起，到 SSE 流结束 |
 
 输出：
@@ -459,7 +461,7 @@ results = await run_eval(
 2. `client.create_event(name="eval-item-<id>", trace_context={"trace_id": trace_id}, input={question,category,language}, output={answer,terminal_event,citations}, metadata={item_id,source,dataset,duration_ms})` —— 让 Cloud UI 看到 IO，evaluator 可读
 3. `push_run_score(trace_id, result_score_dict, ...)` —— 把 9 个 metric 全部按 NUMERIC 上传：
    - `context_recall_section` / `context_recall_spec` / `fact_coverage`
-   - `must_say_not_found_passed`（bool → 0/1）
+   - `negative_judge_score`（VALID_REFUSAL → 1.0 / PARTIAL_REFUSAL → 0.5 / INVALID → 0.0；非 negative 或未判定 → 自动 skip。2026-05-20 由原 `must_say_not_found_passed` 改）
    - `forbidden_violation`（0/1，命中 forbidden = 1）
    - `ragas_faithfulness` / `ragas_answer_relevance` / `ragas_context_recall` / `ragas_context_precision`（Ragas 启用时填）
 4. 每个 metric 写失败只 log warning + skip 该 metric，其他正常；`None / NaN` 自动 skip
@@ -488,10 +490,12 @@ results = await run_eval(
 > 实装），用于尽早暴露 retrieval / agent 质量问题；M8 上线门槛用严格版（`test_golden_v1_full` 当前实装），
 > 仅在上线前 PR 收紧（详见 `04-handoff/2026-05-18-tech-debt-cleanup-todo.md` Q1 与 batch C / D）。
 >
-> | 档位 | 触发时机 | faithfulness | context recall | answer relevancy | answer correctness | latency-p50 | cost-p50 |
-> |---|---|---|---|---|---|---|---|
-> | **宽松（M7 nightly）** | M7 启动后每日 | ≥ 0.75 | ≥ 0.65 | ≥ 0.70 | ≥ 0.55 | ≤ 6s | ≤ ¥0.30 |
-> | **严格（M8 上线门槛）** | M8 上线前 PR | ≥ 0.85 | ≥ 0.80 | （收紧 PR 时定）| （收紧 PR 时定）| （同上）| （同上）|
+> | 档位 | 触发时机 | faithfulness | context recall | answer relevancy | answer correctness | latency-p50 | cost-p50 | negative weighted pass |
+> |---|---|---|---|---|---|---|---|---|
+> | **宽松（M7 nightly）** | M7 启动后每日 | ≥ 0.75 | ≥ 0.65 | ≥ 0.70 | ≥ 0.55 | ≤ 6s | ≤ ¥0.30 | ≥ 0.85（VALID + 0.5·PARTIAL）|
+> | **严格（M8 上线门槛）** | M8 上线前 PR | ≥ 0.85 | ≥ 0.80 | （收紧 PR 时定）| （收紧 PR 时定）| （同上）| （同上）| 1.0（VALID only）|
+>
+> **negative weighted pass** 是 2026-05-20 由原 substring `must_say_not_found_passed` 切到 LLM judge 后新增的口径：在 negative item 上 `(VALID_REFUSAL + 0.5 × PARTIAL_REFUSAL) / total ≥ 阈值`。详见 `eval/negative_judge.py` + `04-handoff/2026-05-20-daily-eval-findings.md`。
 >
 > 实施位置（2026-05-19 决策 Q1）：宽松版断言在 `test_golden_v1_daily`（每日跑 `source==hand_crafted` 切片，≥ 20 题）；
 > 严格版断言在 `test_golden_v1_full`（每周一全集 ≥ 140 题）；M7 → M8 之间一次性 PR 把严格版
@@ -532,11 +536,12 @@ async def test_golden_v1_daily() -> None:
     recalls = [r.context_recall_section for r in results if r.context_recall_section is not None]
     avg_recall = mean(recalls)
     assert avg_recall >= 0.65, f"context recall too low: {avg_recall}"
-    # 负样本必须 100% 触发 not_found（forbidden 命中 = 失败）
+    # 负样本 weighted pass rate ≥ 0.85（2026-05-20 改：substring → LLM judge）
     neg = [r for r in results if r.category == "negative"]
-    neg_passed = [r for r in neg if r.must_say_not_found_passed]
-    assert len(neg_passed) == len(neg), \
-        f"negative 未全过：{len(neg_passed)}/{len(neg)}"
+    valid = sum(1 for r in neg if r.negative_judge_verdict == "VALID_REFUSAL")
+    partial = sum(1 for r in neg if r.negative_judge_verdict == "PARTIAL_REFUSAL")
+    weighted = (valid + 0.5 * partial) / len(neg) if neg else 1.0
+    assert weighted >= 0.85, f"negative weighted pass {weighted:.2f}"
 
 @pytest.mark.eval
 @pytest.mark.skipif(not _RUN_LIVE, reason="需 RUN_LIVE_EVAL=1 + 真 backend")
@@ -693,14 +698,14 @@ PRICING = {
 
 > M7.1 完成报告：[`../04-handoff/2026-05-20-m7.1-complete.md`](../04-handoff/2026-05-20-m7.1-complete.md)
 
-- [x] `[auto]` `eval/runner.py`：HTTP `POST /api/v1/sessions/{sid}/messages` 取 SSE → 拼 `answer` + `citations` → 计算 `fact_coverage` / `forbidden_violations` / `must_say_not_found_passed` / `context_recall_section` / `context_recall_spec`（2026-05-20 落）
-  - **`must_say_not_found_passed` 判定双语**（2026-05-19 补）：按题目 `language` 字段切词表。en 至少覆盖 `not found` / `not specified` / `no such` / `does not define` / `is not defined in` / `outside the scope`；zh 至少覆盖 `未找到` / `未定义` / `规范未规定` / `不涉及` / `不在范围内` / `没有相关规定`
+- [x] `[auto]` `eval/runner.py`：HTTP `POST /api/v1/sessions/{sid}/messages` 取 SSE → 拼 `answer` + `citations` → 计算 `fact_coverage` / `forbidden_violations` / `negative_judge_verdict`（2026-05-20 二轮由 substring 切到 LLM judge）/ `context_recall_section` / `context_recall_spec`（2026-05-20 落）
+  - **2026-05-20 二轮修订**：`must_say_not_found_passed`（substring）整体废除，由 `eval/negative_judge.py::NegativeJudge` 替代（LLM judge 三档枚举）。原 `backend/app/agent/not_found_phrases.py` + 镜像保留供 `suggest_questions` 节点未来使用，不再是 eval metric 的输入
   - **词表单点定义**（2026-05-20 落）：双语短语在 `backend/app/agent/not_found_phrases.py`（`NOT_FOUND_PHRASES_EN` / `NOT_FOUND_PHRASES_ZH` + `is_not_found_answer()`）；eval 不依赖 backend → `eval/not_found_phrases.py` 镜像 + `test_mirror_with_backend_module` 单测强制同步（详见 [`../04-handoff/2026-05-20-suggested-questions.md`](../04-handoff/2026-05-20-suggested-questions.md) §3.1）
 - [x] `[auto]` 输出 `eval-results/{ts}/{report.md, results.json}`：`run_eval` 完事调 `write_report(results, outdir)`；`aggregate` 报告聚合 + 异常题清单（2026-05-20 落）
 - [x] `[auto]` runner 单测：mock httpx `MockTransport` SSE 流 → 断言 metrics 计算正确（34 case 含 happy / source_filter+subset / HTTP 500 单题隔离）
-- [x] `[auto]` `backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言（context recall ≥ 0.65 / 负样本 100% 过 `must_say_not_found_passed`）；smoke（canned graph，always run）+ daily / full（`RUN_LIVE_EVAL=1` gate）
+- [x] `[auto]` `backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言（context recall ≥ 0.65 / 负样本 weighted pass ≥ 0.85，VALID+0.5·PARTIAL 口径，2026-05-20 由 substring 切到 LLM judge）；smoke（canned graph，always run）+ daily / full（`RUN_LIVE_EVAL=1` gate）
 - [x] `[auto]` Makefile `eval-daily` / `eval-weekly` target：`pytest -m eval -k "daily or smoke" / "full or smoke"`（2026-05-20 落）
-- [ ] `[M7.6 CI]` daily 子集（`source==hand_crafted`，≥ 20 题）< 10min 全绿；负样本必须全过 `must_say_not_found_passed`（需 `RUN_LIVE_EVAL=1` + 真 backend；M7.6 接通 CI）
+- [ ] `[M7.6 CI]` daily 子集（`source==hand_crafted`，≥ 20 题）< 10min 全绿；负样本 weighted pass ≥ 0.85（2026-05-20 由 substring 切到 LLM judge；需 `RUN_LIVE_EVAL=1` + 真 backend；M7.6 接通 CI）
 - [x] `[M7.2]` ragas_faithfulness / answer_relevancy / context_recall / context_precision 字段：runner 留 `None` 占位，M7.2 补（2026-05-20 通过 `eval.runner.run_eval(ragas_scorer=...)` 注入 `RagasScorer` 即填；CI / pytest live 链路按需启用，默认 None 不影响 mock 测试）
 
 ### M7.2 Ragas + native MCQ ✅ 2026-05-20

@@ -258,7 +258,8 @@ class TestComputeEvalMetrics:
         assert r.context_recall_section == 1.0
         assert r.fact_coverage == 1.0
         assert r.forbidden_violations == []
-        assert r.must_say_not_found_passed is None
+        assert r.negative_judge_verdict is None
+        assert r.negative_judge_reason is None
         assert r.terminal_event == "final"
 
     def test_section_miss_spec_hit(self) -> None:
@@ -272,7 +273,12 @@ class TestComputeEvalMetrics:
         assert r.context_recall_spec == 1.0
         assert r.context_recall_section == 0.0
 
-    def test_negative_with_not_found_passes(self) -> None:
+    def test_negative_compute_metrics_skips_recall_and_facts(self) -> None:
+        """negative item 的 expected_specs=[] / expected_facts=[] → recall/facts None。
+
+        2026-05-20 改口径后，compute_eval_metrics 不再写 verdict；负题的 judge
+        verdict 由 run_eval 在外层调 NegativeJudge.score_item 填。
+        """
         item = _golden_item(
             category="negative",
             language="en",
@@ -281,16 +287,13 @@ class TestComputeEvalMetrics:
         )
         resp = AgentResponse(answer="The spec does not define X here.", terminal_event="final")
         r = compute_eval_metrics(item, resp)
-        assert r.must_say_not_found_passed is True
         assert r.context_recall_spec is None
         assert r.context_recall_section is None
         assert r.fact_coverage is None
+        assert r.negative_judge_verdict is None  # 未注入 judge → None
 
-    def test_negative_passes_even_with_forbidden_hit(self) -> None:
-        """2026-05-20：拒答需复述假设的概念，forbidden 撞拒答里的引用不再扣 must_nf。
-
-        forbidden_violations 仍独立报告；must_nf 只看"拒答短语是否触发"。
-        """
+    def test_negative_forbidden_still_reported(self) -> None:
+        """forbidden_violations 仍是独立 metric，不再耦合 must_nf。"""
         item = _golden_item(
             category="negative",
             language="en",
@@ -299,29 +302,8 @@ class TestComputeEvalMetrics:
         )
         resp = AgentResponse(answer="not found — LTE is not used here", terminal_event="final")
         r = compute_eval_metrics(item, resp)
-        assert r.must_say_not_found_passed is True
         assert r.forbidden_violations == ["LTE"]
-
-    def test_negative_without_phrase_still_fails(self) -> None:
-        """没触发拒答短语 → must_nf 仍 False（forbidden 是否命中不影响）。"""
-        item = _golden_item(
-            category="negative",
-            language="en",
-            forbidden=["LTE"],
-            must_say_not_found=True,
-        )
-        resp = AgentResponse(
-            answer="The procedure uses LTE handover with X2 interface.", terminal_event="final"
-        )
-        r = compute_eval_metrics(item, resp)
-        assert r.must_say_not_found_passed is False
-        assert r.forbidden_violations == ["LTE"]
-
-    def test_negative_zh_phrase(self) -> None:
-        item = _golden_item(category="negative", language="zh", must_say_not_found=True)
-        resp = AgentResponse(answer="规范未规定该字段。", terminal_event="final")
-        r = compute_eval_metrics(item, resp)
-        assert r.must_say_not_found_passed is True
+        assert r.negative_judge_verdict is None
 
     def test_empty_answer(self) -> None:
         item = _golden_item(expected_facts=["AMF"])
@@ -348,7 +330,6 @@ def _eval_row(**kw) -> EvalResult:  # type: ignore[no-untyped-def]
         citations=[],
         fact_coverage=1.0,
         forbidden_violations=[],
-        must_say_not_found_passed=None,
         duration_ms=100,
         terminal_event="final",
     )
@@ -373,7 +354,7 @@ class TestAggregate:
                 context_recall_section=None,
                 context_recall_spec=None,
                 fact_coverage=None,
-                must_say_not_found_passed=True,
+                negative_judge_verdict="VALID_REFUSAL",
                 forbidden_violations=[],
             ),
             _eval_row(
@@ -381,7 +362,7 @@ class TestAggregate:
                 category="negative",
                 context_recall_section=None,
                 fact_coverage=None,
-                must_say_not_found_passed=False,
+                negative_judge_verdict="INVALID",
                 forbidden_violations=["LTE"],
             ),
         ]
@@ -391,7 +372,54 @@ class TestAggregate:
         # 只算 non-None 的 → (1+0)/2 = 0.5
         assert agg["context_recall_section"] == 0.5
         assert agg["forbidden_violation_rate"] == 0.25
-        assert agg["must_say_not_found"]["pass_rate"] == 0.5
+        # 1 VALID + 1 INVALID → valid_rate = 0.5；unjudged 0
+        assert agg["negative_judge"]["total"] == 2
+        assert agg["negative_judge"]["verdict_counts"] == {
+            "VALID_REFUSAL": 1,
+            "PARTIAL_REFUSAL": 0,
+            "INVALID": 1,
+            "unjudged": 0,
+        }
+        assert agg["negative_judge"]["valid_rate"] == 0.5
+        # weighted = (1 VALID + 0.5 × 0 PARTIAL) / 2 judged = 0.5
+        assert agg["negative_judge"]["weighted_pass_rate"] == 0.5
+
+    def test_negative_partial_weighted(self) -> None:
+        """混合 VALID+PARTIAL+INVALID → weighted = (VALID + 0.5·PARTIAL) / judged。"""
+        rows = [
+            _eval_row(
+                item_id=str(i),
+                category="negative",
+                context_recall_section=None,
+                context_recall_spec=None,
+                fact_coverage=None,
+                negative_judge_verdict=v,
+            )
+            for i, v in enumerate(
+                ["VALID_REFUSAL"] * 14 + ["PARTIAL_REFUSAL"] + ["INVALID"]
+            )
+        ]
+        agg = aggregate(rows)
+        # (14 + 0.5) / 16 = 0.90625
+        assert agg["negative_judge"]["weighted_pass_rate"] == pytest.approx(14.5 / 16)
+        assert agg["negative_judge"]["valid_rate"] == pytest.approx(14 / 16)
+
+    def test_unjudged_negative(self) -> None:
+        """negative item 但未注入 judge → unjudged 计数 +1，valid_rate=None。"""
+        rows = [
+            _eval_row(
+                item_id="n1",
+                category="negative",
+                context_recall_section=None,
+                context_recall_spec=None,
+                fact_coverage=None,
+                negative_judge_verdict=None,
+            ),
+        ]
+        agg = aggregate(rows)
+        assert agg["negative_judge"]["verdict_counts"]["unjudged"] == 1
+        assert agg["negative_judge"]["valid_rate"] is None
+        assert agg["negative_judge"]["weighted_pass_rate"] is None
 
 
 class TestWriteReport:
