@@ -59,8 +59,7 @@ def _golden_item(
     must_say_not_found: bool = False,
 ) -> GoldenItem:
     specs = [
-        ExpectedSpec(spec_id=sid, sections=tuple(secs))
-        for sid, secs in (expected_specs or [])
+        ExpectedSpec(spec_id=sid, sections=tuple(secs)) for sid, secs in (expected_specs or [])
     ]
     return GoldenItem(
         id=item_id,
@@ -287,16 +286,34 @@ class TestComputeEvalMetrics:
         assert r.context_recall_section is None
         assert r.fact_coverage is None
 
-    def test_negative_with_forbidden_violates(self) -> None:
+    def test_negative_passes_even_with_forbidden_hit(self) -> None:
+        """2026-05-20：拒答需复述假设的概念，forbidden 撞拒答里的引用不再扣 must_nf。
+
+        forbidden_violations 仍独立报告；must_nf 只看"拒答短语是否触发"。
+        """
         item = _golden_item(
             category="negative",
             language="en",
             forbidden=["LTE"],
             must_say_not_found=True,
         )
-        resp = AgentResponse(answer="not found — but LTE used", terminal_event="final")
+        resp = AgentResponse(answer="not found — LTE is not used here", terminal_event="final")
         r = compute_eval_metrics(item, resp)
-        # 触发了"未找到"但也命中 forbidden → must_say_not_found_passed = False
+        assert r.must_say_not_found_passed is True
+        assert r.forbidden_violations == ["LTE"]
+
+    def test_negative_without_phrase_still_fails(self) -> None:
+        """没触发拒答短语 → must_nf 仍 False（forbidden 是否命中不影响）。"""
+        item = _golden_item(
+            category="negative",
+            language="en",
+            forbidden=["LTE"],
+            must_say_not_found=True,
+        )
+        resp = AgentResponse(
+            answer="The procedure uses LTE handover with X2 interface.", terminal_event="final"
+        )
+        r = compute_eval_metrics(item, resp)
         assert r.must_say_not_found_passed is False
         assert r.forbidden_violations == ["LTE"]
 
@@ -450,9 +467,7 @@ async def test_call_agent_full_path() -> None:
     )
     transport = _mock_transport(sse_body=sse)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await call_agent(
-            client=client, auth_token="t", question="q?", api_prefix="/api/v1"
-        )
+        resp = await call_agent(client=client, auth_token="t", question="q?", api_prefix="/api/v1")
     assert resp.terminal_event == "final"
     assert resp.answer == "ok"
     assert len(resp.chunks_rerank) == 1

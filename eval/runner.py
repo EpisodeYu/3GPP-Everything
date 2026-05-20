@@ -305,7 +305,10 @@ def compute_eval_metrics(item: GoldenItem, resp: AgentResponse) -> EvalResult:
     violations = _forbidden_violations(answer, item.forbidden)
 
     if item.must_say_not_found:
-        must_passed: bool | None = is_not_found_answer(answer, item.language) and not violations
+        # 2026-05-20 daily eval 复盘：拒答必然复述用户假设的概念才能否认它，
+        # 把 forbidden 当 must_nf 失败条件 → 几乎所有合理拒答都被误判。
+        # forbidden_violations 仍单独上报；must_nf 只看"拒答短语是否触发"。
+        must_passed: bool | None = is_not_found_answer(answer, item.language)
     else:
         must_passed = None
 

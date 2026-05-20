@@ -1,4 +1,4 @@
-""""未找到"短语词表（eval 子项目的镜像）。
+""" "未找到"短语词表（eval 子项目的镜像）。
 
 源：`backend/app/agent/not_found_phrases.py`。eval 不依赖 backend，故复制；改一侧
 务必同步另一侧。两侧 API（`NOT_FOUND_PHRASES_EN` / `_ZH` 常量 + `is_not_found_answer()`
@@ -16,6 +16,16 @@ NOT_FOUND_PHRASES_EN: tuple[str, ...] = (
     "does not define",
     "is not defined in",
     "outside the scope",
+    # 2026-05-20 daily eval 复盘补充（详见 04-handoff/2026-05-20-daily-eval-findings.md）：
+    # LLM 拒答常用表达，原 6 个偏正式短语覆盖不到
+    "cannot answer",
+    "cannot support",
+    "cannot determine",
+    "premise does not hold",
+    "not mentioned",
+    "does not apply",
+    "does not exist",
+    "no information",
 )
 
 NOT_FOUND_PHRASES_ZH: tuple[str, ...] = (
@@ -25,6 +35,16 @@ NOT_FOUND_PHRASES_ZH: tuple[str, ...] = (
     "不涉及",
     "不在范围内",
     "没有相关规定",
+    # 2026-05-20 daily eval 复盘补充（详见 04-handoff/2026-05-20-daily-eval-findings.md）：
+    # daily 16 条 negative 上 agent 实际用的拒答表达，原词表全没覆盖
+    "前提不成立",
+    "无法回答",
+    "无法支持",
+    "无法确定",
+    "未提及",
+    "并未涉及",
+    "并不存在",
+    "未包含",
 )
 
 

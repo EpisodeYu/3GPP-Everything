@@ -65,19 +65,37 @@ def test_mirror_with_backend_module() -> None:
     # 关键：两边的两个 tuple 字面量 + is_not_found_answer 函数体必须一致
     # 用 substring 比对常量定义块
     for line in (
-        'NOT_FOUND_PHRASES_EN: tuple[str, ...] = (',
+        "NOT_FOUND_PHRASES_EN: tuple[str, ...] = (",
         '"not found",',
         '"not specified",',
         '"no such",',
         '"does not define",',
         '"is not defined in",',
         '"outside the scope",',
-        'NOT_FOUND_PHRASES_ZH: tuple[str, ...] = (',
+        # 2026-05-20 扩充：
+        '"cannot answer",',
+        '"cannot support",',
+        '"cannot determine",',
+        '"premise does not hold",',
+        '"not mentioned",',
+        '"does not apply",',
+        '"does not exist",',
+        '"no information",',
+        "NOT_FOUND_PHRASES_ZH: tuple[str, ...] = (",
         '"未找到",',
         '"未定义",',
         '"规范未规定",',
         '"不涉及",',
         '"不在范围内",',
         '"没有相关规定",',
+        # 2026-05-20 扩充：
+        '"前提不成立",',
+        '"无法回答",',
+        '"无法支持",',
+        '"无法确定",',
+        '"未提及",',
+        '"并未涉及",',
+        '"并不存在",',
+        '"未包含",',
     ):
         assert line in backend_src, f"backend 镜像缺常量行: {line!r}"

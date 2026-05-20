@@ -374,7 +374,7 @@ async def run_eval(
 | `context_recall_section` | 同上但用 `is_section_hit`（`.` 切段做章节前缀匹配）|
 | `fact_coverage` | substring case-insensitive 命中率；空 list → `None` |
 | `forbidden_violations` | substring case-insensitive 命中字符串数组 |
-| `must_say_not_found_passed` | `is_not_found_answer(answer, lang) AND not forbidden_violations`；仅 negative；en/zh 词表切换；命中 forbidden = `False` |
+| `must_say_not_found_passed` | `is_not_found_answer(answer, lang)`；仅 negative；en/zh 词表切换。**2026-05-20 daily 复盘后修订**：原口径 `AND not forbidden_violations` 太严 —— 合理拒答必复述用户假设的概念才能否认，几乎都被 forbidden 误杀；现 must_nf 只看拒答短语是否触发，`forbidden_violations` 仍作为独立 metric 单独上报（详见 [`../04-handoff/2026-05-20-daily-eval-findings.md`](../04-handoff/2026-05-20-daily-eval-findings.md)） |
 | `duration_ms` | `time.perf_counter()` 从 POST /messages 起，到 SSE 流结束 |
 
 输出：
