@@ -52,7 +52,7 @@ class TestEvalSettings:
         assert s.embedding_provider == "voyage"
         assert s.voyage_embedding_model == "voyage-4-large"
         assert s.llm_agent_model == "mimo-v2.5-pro"
-        assert s.llm_judge_model == "glm-4.6"
+        assert s.llm_judge_model == "glm-5.1"
 
     def test_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com:9999/v1")

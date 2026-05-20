@@ -70,10 +70,10 @@ class EvalSettings(BaseSettings):
 
     # M3 LLM 用途：
     # - T2 转化：mimo-v2.5-pro（用户显式选择，700M token 余量）
-    # - T6 旁证 MCQ runner：mimo-v2.5 + glm-4.6 各跑
+    # - T6 旁证 MCQ runner：mimo-v2.5 + glm-5.1 各跑
     llm_agent_model: str = Field(default="mimo-v2.5-pro")
     llm_light_model: str = Field(default="mimo-v2.5")
-    llm_judge_model: str = Field(default="glm-4.6")
+    llm_judge_model: str = Field(default="glm-5.1")
 
     @property
     def resolved_litellm_base_url(self) -> str:

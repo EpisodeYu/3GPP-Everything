@@ -59,7 +59,7 @@ M0 准备 ─ M1 数据接入 ─ M2 索引 POC ─ M3 维度决胜 ─ M4 Agent
 | **Vision**（索引期图片描述） | `mimo-v2.5` | 小米（本机 LiteLLM） | 方案 E：单次调用同时输出 description + 结构化字段（figure_kind / visible_labels / visible_acronyms / spec_role）|
 | **Embedding** | `voyage-4-large` @ **1024 维** | Voyage AI | M3 决胜（MRL，200M tokens 免费）|
 | **Reranker** | `rerank-2.5` | Voyage AI | top-50 → top-5；200M tokens 免费 |
-| **Eval Judge** | `glm-4.6` | 智谱（本机 LiteLLM） | Ragas faithfulness / answer relevancy；与生成模型异源避免 self-bias |
+| **Eval Judge** | `glm-5.1` | 智谱（本机 LiteLLM） | Ragas faithfulness / answer relevancy；与生成模型异源避免 self-bias |
 
 > 所有 LLM 统一走本机 [LiteLLM](https://github.com/BerriAI/litellm) proxy（OpenAI 协议适配），LangGraph 节点零额外抽象。
 

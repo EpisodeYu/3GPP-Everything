@@ -93,7 +93,7 @@ def is_not_found_answer(answer: str, language: str) -> bool:
 
 1. **检索**：复用现有 `app/retrieval/hybrid.py` 的入口，用**原 user query** 召回 top-N spec 段落（N=10，默认走完整 dense+BM25+RRF；**不**走 rerank 以省时）
 2. **阈值过滤**：保留 `score ≥ 0.75` 的段落；为 0 → 直接返回 `[]`
-3. **LLM 反生成**：把过滤后的段落（最多取 top-5 段落，去重 spec_id + section_path）拼成 prompt，调 `glm-4.6`（temperature=0），让它输出**最多 3 个**"基于这些段落、用户可能真正想问的问题"
+3. **LLM 反生成**：把过滤后的段落（最多取 top-5 段落，去重 spec_id + section_path）拼成 prompt，调 `glm-5.1`（temperature=0），让它输出**最多 3 个**"基于这些段落、用户可能真正想问的问题"
 4. **后处理**：
    - 去重（substring 包含视为重复）
    - 长度限制（每条 ≤ 80 字 / 60 单词）
@@ -331,7 +331,7 @@ function SuggestionLink({ href, children }: { href: string; children: ReactNode 
 | §5 条 | 是否命中 | 说明 |
 |---|---|---|
 | §5.1 全局决策表 | ❌ | 不动 `00-overview.md §2` |
-| §5.2 花钱大批量 | ⚠️ 间接 | 每次"未找到"多 1 次 glm-4.6 调用（~ 800 tokens prompt + 100 tokens output ≈ ¥0.001）。daily eval 负样本约 20 题 → 多 ¥0.02/天，远低于阈值 |
+| §5.2 花钱大批量 | ⚠️ 间接 | 每次"未找到"多 1 次 glm-5.1 调用（~ 800 tokens prompt + 100 tokens output ≈ ¥0.001）。daily eval 负样本约 20 题 → 多 ¥0.02/天，远低于阈值 |
 | §5.3 安全 | ❌ | 无鉴权 / CORS / 密钥改动 |
 | §5.4 删数据 | ❌ | 不动 DB / Qdrant |
 | §5.5 改产品决策 | ✅ **本文档即上报凭据，人已 approve D1-D7** | 同时撤销 `2026-05-19-m7.0-negative-split.md` 的 B 方案决议 |

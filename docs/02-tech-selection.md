@@ -18,7 +18,7 @@
 | **框架·编排** | LangGraph 1.x | - | 业界 2026 共识；PG checkpointer；状态流原生支持 |
 | **框架·检索/解析** | LlamaIndex 0.13+ | - | Docling 集成、auto-merging/hierarchical 索引、hybrid 检索原生 |
 | **框架·工具/Prompt** | LangChain 0.3+ | - | 与 LangGraph 同生态、Loader 全、Tools/Prompt 兼容层 |
-| **Agent 主 LLM** | `mimo-v2.5-pro` (本机 LiteLLM) | `glm-4.6` | 1M context、function calling、长 horizon agent |
+| **Agent 主 LLM** | `mimo-v2.5-pro` (本机 LiteLLM) | `glm-5.1` | 1M context、function calling、长 horizon agent |
 | **轻量 LLM**（路由/改写/多查询） | `mimo-v2.5` (本机 LiteLLM) | `glm-4.5-air` | 便宜一半、原生 omni、1M context |
 | **Vision**（索引期图片描述） | `mimo-v2.5` (本机 LiteLLM) | `qwen-vl-plus` | 已在 LiteLLM、omni 多模态、零额外配置 |
 | **Embedding** | Voyage `voyage-4-large` **单轨** | 智谱 `embedding-3`（代码层 fallback） | 2026-05-16 决议：放弃双轨评测，改 voyage 单轨 + **维度 ablation**（M2 2048+1024 双维度 collection，M3 决胜）。账号 200M tokens 免费已加 payment 解除限速 |
@@ -100,7 +100,7 @@ flowchart TB
 | `mimo-v2.5-pro` | 小米 | text + agent | 1M | **Agent 主脑** |
 | `mimo-v2.5` | 小米 | **omni** (text/image/video/audio) | 1M | **Vision + 轻量任务** |
 | `mimo-v2-omni` | 小米 | omni | 262K | Vision 备份 |
-| `glm-4.6` / `glm-5.1` | 智谱 | text | - | 备份 LLM |
+| `glm-5.1` | 智谱 | text | - | **Eval Judge** + Agent 备份 LLM |
 | `glm-4.5-air` | 智谱 | text | - | 超低成本备份 |
 | `qwen-plus` / `qwen-max` | 阿里 | text | - | 备份 LLM |
 | `embedding-3` | 智谱 | embedding | - | **Embedding 代码 fallback**（不主动使用） |
@@ -502,7 +502,7 @@ graph LR
 | 场景 | 触发条件 | 替代方案 |
 |------|---------|----------|
 | Voyage 海外不可达 / 额度耗尽 | 网络不稳 > 1h 或 200M 额度告急 | 切智谱 `embedding-3` + Jina reranker：(a) `.env` 改 `EMBEDDING_PROVIDER=glm`；(b) 用 GLM 在新 Qdrant collection `tgpp_chunks_glm_d2048` 重建索引（embedding-3 默认 2048 维）；(c) backend retrieval 切到 GLM collection。需要重做的就是 embed + Qdrant upsert（chunker / vision / BM25 / PG 都不动） |
-| `mimo-v2.5-pro` 限流/不稳 | LiteLLM 报错率 > 5% | 走 `glm-4.6` fallback（在 LiteLLM 加 fallback chain） |
+| `mimo-v2.5-pro` 限流/不稳 | LiteLLM 报错率 > 5% | 走 `glm-5.1` fallback（在 LiteLLM 加 fallback chain） |
 | Qdrant 单机不稳 | 内存/磁盘报警 | 数据冷备到 pgvector（同 PostgreSQL 内）作为应急 |
 | 服务器内存爆 | 实际开发阶段才能定位 | 把 ingest worker 拆到独立 VM；或减小 chunk 数量、走 Matryoshka 缩维（M3 ablation 已经在选 1024 维） |
 | voyage-4-large MRL truncate 等价性失效 | B0 spike 实测 cosine 中位 < 0.998 | 回退到"双调 API"（2048 + 1024 各调一次），token 翻倍至 ~290M，**超 200M 额度**；此时降级为单维度（2048 或 1024 选一） |

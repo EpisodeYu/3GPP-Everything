@@ -17,7 +17,7 @@
 |---|---|---|
 | **M7.0** 金标准 v1 → v1.5 ✅ 2026-05-20 | `eval/golden/_template.yaml` 模板 + `eval.cli golden validate/merge/stats` 子命令 + 手写补题（neg / formula / multi_section 重点；2026-05-19 砍 `tool` category） | v1.yaml 题数 ≥ 140；分布按 §3.4 容差 ±5 题；`[human]` 至少 20 题人审过（题数 175 / 手写 56 ≥ 20 已达；human review 待办） |
 | **M7.1** 端到端 runner + 第一档阈值 ✅ 2026-05-20 | `eval/runner.py`（HTTP `/chat` SSE → metrics → report.md/json）；`backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言；Makefile `eval-daily/eval-weekly` | unit + integration 全绿；smoke（canned graph）all green；daily/full live 断言需 `RUN_LIVE_EVAL=1`（M7.6 CI 触发） |
-| **M7.2** Ragas + native MCQ | Ragas 4 metric 接入（judge=`glm-4.6`，避免同源偏差）；`eval/scripts/native_mcq_runner.py`（TeleQnA 选择题对照） | Ragas 跑 daily 子集输出非空；MCQ runner 输出 LLM 选对 % 报告 |
+| **M7.2** Ragas + native MCQ | Ragas 4 metric 接入（judge=`glm-5.1`，避免同源偏差）；`eval/scripts/native_mcq_runner.py`（TeleQnA 选择题对照） | Ragas 跑 daily 子集输出非空；MCQ runner 输出 LLM 选对 % 报告 |
 | **M7.3** Langfuse Dataset 集成 | `eval/langfuse_dataset.py` 一次性 push 金标准；runner 每条 item 上传 score（fact_coverage / faithfulness 等） | Langfuse Cloud UI 可见 dataset run；`[human]` 启用 built-in evaluators |
 | **M7.4** 成本与用量监控 | `backend/app/services/usage.py` + `app/llm/pricing.py` + `services/alerts.py`（仅 log）；LiteLLM 响应钩 `usage` 字段 → ApiUsage upsert | unit 覆盖 LLM/Embed/Rerank/WebSearch 4 路径；`/admin/stats` 真实数据；alerts 阈值触发 → log warning（mock 验证） |
 | **M7.5** Batch C 技术债（retrieval 校准） | C.2 R10/R11/R19 retrieval 校准（数据 drive 调 dense/RRF/rerank top_k）；C.3 O2 rerank ablation 报告 → `eval-results/m7-rerank-ablation.md`；C.4 `test_retrieve_node_p50_latency_under_800ms` 处理 | C.2：daily eval 连跑 2 次 ≥ 第一档阈值；C.3：报告归档；C.4：阈值放宽或 outlier 处理 |
@@ -34,7 +34,7 @@
 - [x] `[M7.0]` `eval/golden/_template.yaml` 手写题模板（已落，2026-05-19）+ `eval.cli golden validate / merge / stats` 子命令 2026-05-19 落地（44 单测覆盖 validator + merger + stats + 3 套 CLI）
 - [ ] `[M7.2]` TeleQnA 原生选择题对照评测：`eval/scripts/native_mcq_runner.py`（看 LLM 选对 %，知识准确性维度）
 - [x] `[M7.1]` `eval/runner.py`：从金标准集驱动 Agent（HTTP `/chat` SSE）跑出结果，输出 metrics + 报告（2026-05-20 落 `AgentResponse` / `EvalResult` + `consume_sse_stream` + `call_agent` + `compute_eval_metrics` + `run_eval` + `aggregate` + `write_report`；34 单测含 mock-httpx run_eval）
-- [ ] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-4.6`
+- [ ] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-5.1`
 - [x] `[已存在]` Telco-DPR 风格 retrieval-only 评测：`eval/runner_retrieval.py`（M3 决胜已用）+ `eval/retrieval/{retriever,metrics,client}.py`
 - [x] `[已存在]` Langfuse client + langchain CallbackHandler：`backend/app/agent/langfuse_handler.py`（v4，缺 key 自动 disable）；`.env` 已配 pk/sk/host
 - [ ] `[M7.3]` Langfuse Dataset：`eval/langfuse_dataset.py` push 金标准 + runner 每次跑上传 score
@@ -110,7 +110,7 @@ flowchart TB
 ```python
 # eval/builder/transform.py
 # 对每个 filtered TeleQnA item：
-# 用 LLM (glm-4.6) 生成：
+# 用 LLM (glm-5.1) 生成：
 # - rewritten_question: 把"以下哪个..."这种 MCQ 题面改为开放式提问
 # - expected_specs: 根据 explanation 推断哪几篇 spec 涉及
 # - expected_facts: 从 answer + explanation 抽取关键事实
@@ -402,12 +402,12 @@ ds = Dataset.from_list([
 ragas_scores = evaluate(ds, metrics=[faithfulness, answer_relevancy, context_recall, context_precision])
 ```
 
-**Ragas 用的 LLM**（评估时本身也要调 LLM）：建议**用与 Agent 不同**的模型避免同源偏差。例如 Agent 用 `mimo-v2.5-pro`，Ragas 评估用 `glm-4.6`（都在 LiteLLM 中）。
+**Ragas 用的 LLM**（评估时本身也要调 LLM）：建议**用与 Agent 不同**的模型避免同源偏差。例如 Agent 用 `mimo-v2.5-pro`，Ragas 评估用 `glm-5.1`（都在 LiteLLM 中）。
 
 ```python
 import os
 os.environ["RAGAS_LLM"] = "langchain_openai.ChatOpenAI"
-ragas_llm = ChatOpenAI(model="glm-4.6", base_url=LITELLM_BASE, api_key=LITELLM_KEY)
+ragas_llm = ChatOpenAI(model="glm-5.1", base_url=LITELLM_BASE, api_key=LITELLM_KEY)
 ragas_embed = ... # 同 RAG 用的 embedding，或独立的
 ```
 
@@ -663,9 +663,9 @@ PRICING = {
 
 ### M7.2 Ragas + native MCQ
 
-- [ ] `[auto]` Ragas 4 metric 接入：faithfulness / answer_relevancy / context_recall / context_precision；judge LLM = `glm-4.6`（temperature=0）；评估 embedding 复用 `voyage-4-large`
+- [ ] `[auto]` Ragas 4 metric 接入：faithfulness / answer_relevancy / context_recall / context_precision；judge LLM = `glm-5.1`（temperature=0）；评估 embedding 复用 `voyage-4-large`
 - [ ] `[auto]` Ragas 单题失败容忍：单条评估异常不挂 runner（log warning + 该 metric 记 None）
-- [ ] `[auto]` `eval/scripts/native_mcq_runner.py`：从 TeleQnA filtered.jsonl 跑选择题对照（mimo-v2.5 + glm-4.6 各一遍），输出 LLM 选对 % 报告归档 `eval-results/m7-native-mcq/{ts}/report.md`
+- [ ] `[auto]` `eval/scripts/native_mcq_runner.py`：从 TeleQnA filtered.jsonl 跑选择题对照（mimo-v2.5 + glm-5.1 各一遍），输出 LLM 选对 % 报告归档 `eval-results/m7-native-mcq/{ts}/report.md`
 - [ ] `[auto]` MCQ runner 单测：mock LLM 返回特定 option → 断言准确率计算正确
 
 ### M7.3 Langfuse Dataset 集成
@@ -711,7 +711,7 @@ PRICING = {
 | 金标准集主观偏差 | 一人写一人评 | 标注规范文档化；M7 期请第二人 sanity check 10 题 |
 | Ragas 评分本身不稳 | LLM 评估随机性 | 评估固定 temperature=0；M7 暂不多跑取均值（成本控制 Q1） |
 | Langfuse Cloud 网络抖动 | 国内访问 | 写入 retry + 本地落盘 fallback；监控 ingest 失败率；缺 key 时 runner 仍可跑（M7.3 容忍） |
-| 评测 LLM 与 Agent LLM 同源偏差 | 都用 mimo | 明确 Ragas judge 用 `glm-4.6`（已在 LiteLLM） |
+| 评测 LLM 与 Agent LLM 同源偏差 | 都用 mimo | 明确 Ragas judge 用 `glm-5.1`（已在 LiteLLM） |
 | CI eval 超时 | daily 20 题但 Agent 慢 | daily 子集偏 hand_crafted 高信号题；并发 2-3 题；timeout 30min |
 | 全集每周一次 + daily 20 题预算超支 | 模型涨价 / 题目复杂化 | M7.4 alerts 仅 log；预算超 ¥1000/月 → 触发 §5.10 上报，降配 daily 隔日跑 |
 
