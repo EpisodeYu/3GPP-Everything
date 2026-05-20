@@ -1,7 +1,9 @@
 """Ragas 接入（M7.2）：在 eval.runner 已生成的 (item, AgentResponse) 上算 4 metric。
 
 接口约定（详见 docs/03-development/06-evaluation-and-observability.md §5）：
-- judge LLM：`glm-5.1`（temperature=0）；与 Agent 用的 `mimo-v2.5-pro` 错开避免同源偏差
+- judge LLM：`glm-5.1`（temperature=0.01）；与 Agent 用的 `mimo-v2.5-pro` 错开避免同源偏差。
+  注：langchain_openai 把 `temperature=0` 编码成 `1e-08`，GLM provider 视为越界（开区间 (0,1)）
+  返回 400；0.01 是它能接受的最低值，对 judge 的"近似贪心"特性影响可忽略
 - 评估 embedding：`voyage-4-large`（与 RAG 索引同款，走 LiteLLM OpenAI 兼容端点）
 - 4 metric：faithfulness / answer_relevancy / context_recall / context_precision
 - 单题异常隔离：任一 metric 计算失败 → log warning + 该项填 None；不挂整个 runner
@@ -244,15 +246,25 @@ def build_default_ragas_scorer(settings: EvalSettings | None = None) -> RagasSco
         model=s.llm_judge_model,
         base_url=s.resolved_litellm_base_url,
         api_key=s.litellm_api_key,
-        temperature=0,
+        temperature=0.01,
     )
     embed = OpenAIEmbeddings(
         model=s.voyage_embedding_model,
         base_url=s.resolved_litellm_base_url,
         api_key=s.litellm_api_key,
     )
+
+    class _GLMSafeLangchainLLMWrapper(LangchainLLMWrapper):
+        """ragas `get_temperature()` 硬编码 1e-8，会强制覆盖 ChatOpenAI.temperature。
+
+        GLM provider 把 1e-8 当越界返回 400；这里把 n=1 时的下界提到 0.01。
+        """
+
+        def get_temperature(self, n: int) -> float:
+            return 0.3 if n > 1 else 0.01
+
     return RagasScorer(
-        llm=LangchainLLMWrapper(judge),
+        llm=_GLMSafeLangchainLLMWrapper(judge),
         embeddings=LangchainEmbeddingsWrapper(embed),
         metrics=[faithfulness, answer_relevancy, context_recall, context_precision],
     )
