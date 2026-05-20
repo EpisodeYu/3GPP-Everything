@@ -154,23 +154,23 @@ def test_languages_counted(tmp_path: Path) -> None:
 
 
 def test_v1_yaml_baseline_numbers() -> None:
-    """v1.yaml 当前是 119 题 teleqna 转化（无 hand_crafted）。
+    """v1.yaml M7.0 合并后：119 teleqna + 56 hand_crafted = 175 题。
 
-    断言：hand_crafted GAP（=0 < 20）+ unknown_categories 为空 + total >= 100。
+    断言：total >= 140（M7.0 门禁）+ hand_crafted >= 20 + negative ~= 19
+    + unknown_categories 为空 + 不含已砍 tool 类。
     """
     v1 = Path(__file__).resolve().parents[3] / "eval" / "golden" / "v1.yaml"
     if not v1.exists():
         pytest.skip("v1.yaml 不存在")
     s = compute_stats(v1)
-    assert s.total >= 100
+    assert s.total >= 140  # M7.0 plan §4.1 门禁
     hc = next(r for r in s.sources if r.source == "hand_crafted")
-    assert hc.status == "GAP"
+    assert hc.actual >= 20
+    assert hc.status == "OK"
     assert not s.unknown_categories
-    # 模板里写的"当前缺口"分布应与此处吻合（formula ≤ 2 / multi_section ≤ 5 / negative ≤ 5）
     by_cat = {r.category: r.actual for r in s.categories}
-    assert by_cat["formula"] <= 2  # 模板写 1，留 ±1 容错
     assert "tool" not in by_cat  # 2026-05-19 砍掉
-    assert by_cat["negative"] <= 5  # 模板写 3
+    assert by_cat["negative"] >= 15  # 目标 19，±5 容差下限
 
 
 # --- CLI ---------------------------------------------------------------

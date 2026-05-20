@@ -1,0 +1,1242 @@
+# =============================================================================
+# v1.handwritten.yaml — 手写金标准题集 (hand_crafted, zh)
+# =============================================================================
+# 起源：M7.0 由人手写，决策见 docs/04-handoff/2026-05-19-m7-plan.md §4.1
+# 写题方法 / series 选源推荐 / 缺口表：见 eval/golden/_template.yaml header
+#
+# 自检：
+#   uv run --project eval python -m eval.cli golden validate -f eval/golden/v1.handwritten.yaml
+#   uv run --project eval python -m eval.cli golden stats    -f eval/golden/v1.handwritten.yaml
+#
+# 合并到 v1.yaml（M7.0 完成时跑一次）：
+#   uv run --project eval python -m eval.cli golden merge \
+#       -i eval/golden/v1.yaml -i eval/golden/v1.handwritten.yaml -o eval/golden/v1.yaml
+#
+# 当前缺口（2026-05-20，单文件视角）：8/8/8/8/8/8 共 48 题
+#   目标分布对比见 `golden stats`。负样本 negative 是最大缺口（合并后仍差 8 题）。
+# =============================================================================
+
+version: 1
+created_at: '2026-05-20'
+total: 48
+sources:
+  - hand_crafted
+
+categories:
+  - definition
+  - procedure
+  - multi_section
+  - table_lookup
+  - formula
+  - negative
+
+items:
+
+
+# -----------------------------------------------------------------------------
+# Category: definition (8 items)
+# -----------------------------------------------------------------------------
+
+- id: hand-def-001
+  category: definition
+  language: zh
+  source: hand_crafted
+  question: |
+    资源块网格的公共参考点 Point A 的定义和作用是什么？
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "4.4.4.2"
+  expected_facts:
+    - 公共参考点
+    - resource block grids
+    - offsetToPointA
+    - absoluteFrequencyPointA
+  forbidden:
+    - LTE
+    - MAC层
+  must_say_not_found: false
+  notes: |
+    考察对物理层最基础频域参考点 Point A 的定义理解，位于 4.4.4.2 节。
+
+- id: hand-def-002
+  category: definition
+  language: zh
+  source: hand_crafted
+  question: |
+    什么是BWP？对于单个载波，一个UE在下行链路最多可以被配置几个BWP？
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "4.4.5"
+  expected_facts:
+    - 连续公共资源块的子集
+    - contiguous common resource blocks
+    - 最多四个
+    - up to four
+    - active
+  forbidden:
+    - 无限个
+    - PDCP
+  must_say_not_found: false
+  notes: |
+    考查 BWP 的物理层定义以及最大配置数量限制，明确指出单个载波上下行的配置上限。
+
+- id: hand-def-003
+  category: definition
+  language: zh
+  source: hand_crafted
+  question: |
+    在为上行共享信道 (UL-SCH) 的传输块选择 LDPC 基础图 (LDPC base graph) 时，选择 LDPC base graph 2 的具体条件是什么？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "6.2.2"
+  expected_facts:
+    - 传输块的有效载荷大小 A
+    - A 小于或等于 292
+    - A 小于或等于 3824 且编码率 R 小于或等于 0.67
+    - 编码率 R 小于或等于 0.25
+  forbidden:
+    - LDPC base graph 1
+    - Turbo code
+  must_say_not_found: false
+  notes: |
+    考查物理层数据信道核心编码方案之一：LDPC 基础图选择的具体阈值和判定条件。
+
+- id: hand-def-004
+  category: definition
+  language: zh
+  source: hand_crafted
+  question: |
+    对于侧行链路 (Sidelink)，第一阶段侧行控制信息 (1st-stage SCI) 中的 SCI format 1-A 的具体用途是什么？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "8.3.1.1"
+  expected_facts:
+    - 调度 PSSCH (Physical Sidelink Shared Channel)
+    - 调度 PSSCH 上的第二阶段 SCI (2nd-stage-SCI on PSSCH)
+  forbidden:
+    - DCI
+    - Downlink
+    - 上行链路
+  must_say_not_found: false
+  notes: |
+    考查对侧行链路专属控制信息 SCI 具体格式的功能定义。
+
+- id: hand-def-005
+  category: definition
+  language: zh
+  source: hand_crafted
+  question: |
+    在DAPS HO过程中，如果UE被配置了target MCG和source MCG，它如何进行transmission power control？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "15"
+  expected_facts:
+    - DAPS HO
+    - target MCG
+    - source MCG
+    - p-DAPS-Target
+    - p-DAPS-Source
+    - uplinkPowerSharingDAPS-Mode
+  forbidden:
+    - LTE
+  must_say_not_found: false
+  notes: |
+    38.213 Clause 15 对DAPS HO场景下的transmission power control规则进行了定义。
+
+- id: hand-def-006
+  category: definition
+  language: zh
+  source: hand_crafted
+  question: |
+    对于PDCCH monitoring，search space set group switching flag在DCI format 2_0中的作用是什么？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "10.4"
+  expected_facts:
+    - DCI format 2_0
+    - search space set
+    - group index 0
+    - group index 1
+    - start monitoring
+    - stop monitoring
+  forbidden:
+    - DCI format 1_0
+  must_say_not_found: false
+  notes: |
+    38.213 Clause 10.4 明确定义了DCI 2_0中search space set group switching flag指示组切换的语义。
+
+- id: hand-def-007
+  category: definition
+  language: zh
+  source: hand_crafted
+  question: |
+    在CSI报告机制中，对于特定的服务小区，频域和时域的CSI参考资源 (CSI reference resource) 是如何定义的？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "5.2.2.5"
+  expected_facts:
+    - "频域"
+    - "下行物理资源块组"
+    - "时域"
+    - "下行时隙"
+    - "n - nCSI_ref"
+  forbidden:
+    - "Sidelink"
+    - "PUSCH"
+  must_say_not_found: false
+  notes: |
+    考察对于CSI Reference Resource在时域和频域上如何定义的掌握。
+
+- id: hand-def-008
+  category: definition
+  language: zh
+  source: hand_crafted
+  question: |
+    在用于定位测量的下行PRS接收过程中，UE侧的定时误差组 (Timing Error Group, TEG) 包含哪两种基本类型？它们分别是如何定义的？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "5.1.6.5"
+  expected_facts:
+    - "UE Rx TEG"
+    - "UE RxTx TEG"
+    - "接收定时误差"
+    - "收发时间差"
+    - "Rx timing error"
+    - "Rx-Tx time difference"
+  forbidden:
+    - "基站侧"
+    - "gNB TEG"
+  must_say_not_found: false
+  notes: |
+    考察第5.1.6.5节（或者PDF文档中对应的TEG段落）对于UE侧TEG的确切分类和定义描述。
+
+# -----------------------------------------------------------------------------
+# Category: procedure (8 items)
+# -----------------------------------------------------------------------------
+
+- id: hand-proc-001
+  category: procedure
+  language: zh
+  source: hand_crafted
+  question: |
+    对于非 msgA 的 PUSCH 传输，物理上行共享信道的scrambling sequence应该如何初始化？请说明其初始化流程。
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "6.3.1.1"
+  expected_facts:
+    - c_init
+    - n_RNTI
+    - 2^15
+    - 2^14
+    - n_ID
+    - dataScramblingIdentityPUSCH
+  forbidden:
+    - PBCH
+    - 下行
+    - msgA-DataScramblingIndex
+  must_say_not_found: false
+  notes: |
+    考察物理信道信号处理流程中的加扰初始化步骤，要求明确给出 c_init 的计算过程与条件。
+
+- id: hand-proc-002
+  category: procedure
+  language: zh
+  source: hand_crafted
+  question: |
+    如果配置了跳频，对于 PUCCH format 0，用于生成序列的cyclic shift的基础参数 m_cs 是如何确定的？
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "6.3.2.2.2"
+  expected_facts:
+    - 取决于要传输的信息
+    - information to be transmitted
+    - TS 38.213
+    - clause 9.2
+  forbidden:
+    - 始终为0
+    - MAC CE
+  must_say_not_found: false
+  notes: |
+    考查 PUCCH 循环移位参数在 format 0 下的确定规则，考察模型是否能准确说明 m_cs 取决于要传输的信息（参考TS 38.213）。
+
+- id: hand-proc-003
+  category: procedure
+  language: zh
+  source: hand_crafted
+  question: |
+    如果在一个search space中监听的 DCI format 0_0 在进行截断之前的信息位数大于调度同一服务小区使用的 DCI format 1_0 的有效载荷大小，此时应该如何处理？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "7.3.1.0"
+  expected_facts:
+    - 通过截断前面的最高有效位 (truncating the first few most significant bits)
+    - 减小频域资源分配字段的位宽 (bitwidth of the frequency domain resource assignment field is reduced)
+    - 使得 DCI format 0_0 的大小等于 DCI format 1_0 的大小
+  forbidden:
+    - 填充零 (padding zeros)
+    - MAC CE
+  must_say_not_found: false
+  notes: |
+    考查下行控制信息 (DCI) 解析流程中的大小对齐（截断机制）细节。
+
+- id: hand-proc-004
+  category: procedure
+  language: zh
+  source: hand_crafted
+  question: |
+    当存在多个 UL-SCH 传输块用于 PUSCH 传输时，上行UCI的数据和控制复用 (Data and control multiplexing) 流程是如何确定在哪个传输块上复用 UCI 信息的？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "6.2.7"
+  expected_facts:
+    - 复用到具有最高 I_MCS 值的 UL-SCH 传输块上
+    - highest I_MCS value
+    - 如果两个传输块的 I_MCS 值相同
+    - 仅在第一个传输块上复用 (multiplexed with data only on the first transport block)
+  forbidden:
+    - PDCCH
+    - PDSCH
+    - 随机选择
+  must_say_not_found: false
+  notes: |
+    考查上行物理层中 UCI 搭载到 PUSCH 时的传输块选择流程。
+
+- id: hand-proc-005
+  category: procedure
+  language: zh
+  source: hand_crafted
+  question: |
+    UE在计算PRACH的transmission power时，需要遵循怎样的过程？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "7.4"
+  expected_facts:
+    - $P_{CMAX,f,c}(i)$
+    - $P_{PRACH,target,f,c}$
+    - $PL_{b,f,c}$
+    - PREAMBLE_RECEIVED_TARGET_POWER
+    - referenceSignalPower
+    - RSRP
+  forbidden:
+    - PUSCH
+  must_say_not_found: false
+  notes: |
+    38.213 Clause 7.4 描述了PRACH transmission power计算的完整步骤和涉及的参数。
+
+- id: hand-proc-006
+  category: procedure
+  language: zh
+  source: hand_crafted
+  question: |
+    当UE不需要发送PUSCH且需要发送包含SR的UCI时，UE如何选择PUCCH format？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "9.2.2"
+  expected_facts:
+    - PUCCH format 0
+    - PUCCH format 1
+    - 1 symbol or 2 symbols
+    - 4 or more symbols
+    - positive SR
+    - negative SR
+  forbidden:
+    - PUSCH transmission
+  must_say_not_found: false
+  notes: |
+    38.213 Clause 9.2.2 描述了在发送SR等UCI时，根据symbol数量选择PUCCH format的过程。
+
+- id: hand-procedure-007
+  category: procedure
+  language: zh
+  source: hand_crafted
+  question: |
+    如果UE被配置为接收基于代码块组 (CBG) 的PDSCH传输，当收到调度DCI中的 'New Data Indicator' 字段指示这是该传输块 (TB) 的初始传输时，UE应该如何处理CBGTI字段并接收该TB？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "5.1.7.2"
+  expected_facts:
+    - "初始传输"
+    - "CBGTI字段"
+    - "所有代码块组"
+    - "包含该TB的全部CBG"
+  forbidden:
+    - "重传"
+    - "仅包含部分CBG"
+  must_say_not_found: false
+  notes: |
+    考察对CBG PDSCH初始传输过程的具体行为（UE假定指示了所有CBG，并包含TB的所有CBG）。
+
+- id: hand-procedure-008
+  category: procedure
+  language: zh
+  source: hand_crafted
+  question: |
+    在Sidelink资源分配模式2中，如果UE被配置了 sl-CR-Limit 参数并在时隙n发送PSSCH，UE如何执行拥塞控制 (congestion control) 处理以满足相应的限制要求？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "8.1.6"
+  expected_facts:
+    - "信道占用率"
+    - "CR"
+    - "优先级"
+    - "丢弃"
+    - "不超过CR_Limit"
+  forbidden:
+    - "资源分配模式1"
+  must_say_not_found: false
+  notes: |
+    考察Sidelink拥塞控制(Congestion Control)的过程要求：满足优先级关联的CR<=CR_Limit，且可通过丢弃(dropping)传输来实现。
+
+# -----------------------------------------------------------------------------
+# Category: multi_section (8 items)
+# -----------------------------------------------------------------------------
+
+- id: hand-multi-001
+  category: multi_section
+  language: zh
+  source: hand_crafted
+  question: |
+    对于PDSCH传输支持哪些调制方案？此外，如果是单码字传输且number of layers = 3，复值调制符号 d(i) 将如何映射到这3个层上？
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "7.3.1.2"
+        - "7.3.1.3"
+  expected_facts:
+    - QPSK
+    - 16QAM
+    - 64QAM
+    - 256QAM
+    - 1024QAM
+    - x^(0)(i) = d^(0)(3i)
+    - x^(1)(i) = d^(0)(3i+1)
+    - x^(2)(i) = d^(0)(3i+2)
+  forbidden:
+    - pi/2-BPSK
+    - BPSK
+    - d^(0)(2i)
+  must_say_not_found: false
+  notes: |
+    需要综合 7.3.1.2 节的 PDSCH 调制方案表和 7.3.1.3 节的 Layer mapping 映射公式才能完整作答。
+
+- id: hand-multi-002
+  category: multi_section
+  language: zh
+  source: hand_crafted
+  question: |
+    物理侧行同步标识 (physical-layer sidelink synchronization identities) 共有多少个？并且，侧行主同步信号 (S-PSS) 序列的生成参数 m 是如何用这些标识计算的？
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "8.4.2.1"
+        - "8.4.2.2.1"
+  expected_facts:
+    - 672
+    - N_ID,1
+    - N_ID,2
+    - m = (n + 22 + 43 * N_ID,2) mod 127
+  forbidden:
+    - 1008
+    - N_ID^cell
+  must_say_not_found: false
+  notes: |
+    要求模型结合 8.4.2.1 节的标识总数及拆分逻辑，与 8.4.2.2.1 节中关于 S-PSS 序列参数 m 的生成公式。
+
+- id: hand-multi-003
+  category: multi_section
+  language: zh
+  source: hand_crafted
+  question: |
+    对于下行共享信道 (DL-SCH)，如果传输块的payload size A 大于 3824，其附加的 CRC 校验位数 L 是多少？并且使用哪个具体的生成多项式来计算该 CRC？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "7.2.1"
+        - "5.1"
+  expected_facts:
+    - CRC 校验位数为 24 (L = 24)
+    - g_CRC24A(D)
+    - D^24 + D^23 + D^18 + D^17 + D^14 + D^11 + D^10 + D^7 + D^6 + D^5 + D^4 + D^3 + D + 1
+  forbidden:
+    - g_CRC16(D)
+    - L = 16
+    - Uplink
+  must_say_not_found: false
+  notes: |
+    需要结合 7.2.1 (PDSCH CRC attachment) 的判断条件和 5.1 (CRC calculation) 的多项式定义，跨章节检索。
+
+- id: hand-multi-004
+  category: multi_section
+  language: zh
+  source: hand_crafted
+  question: |
+    在 PUCCH format 2 上传输的 HARQ-ACK 信息，当物理层对其进行调制时采用哪种调制方案？其加扰序列的初始化变量 c_init 的计算公式是什么？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "6.3.2.5.1"
+        - "6.3.2.5.2"
+  expected_facts:
+    - QPSK 调制
+    - c_init = n_RNTI * 2^15 + n_ID
+    - Clause 5.1
+  forbidden:
+    - 16QAM
+    - BPSK
+    - PUSCH
+  must_say_not_found: false
+  notes: |
+    结合 PUCCH format 2 的 Scrambling 节 (6.3.2.5.1) 获取公式，以及 Modulation 节 (6.3.2.5.2) 获取调制方案。
+
+- id: hand-multi-005
+  category: multi_section
+  language: zh
+  source: hand_crafted
+  question: |
+    在dynamic HARQ-ACK codebook配置下，如果UE需要将HARQ-ACK信息复用到由DCI调度的PUSCH中，且该DCI包含SAI字段，UE应该如何处理？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "16.5.2.1"
+        - "16.5.2.2"
+  expected_facts:
+    - Type-2 HARQ-ACK codebook
+    - SAI field
+    - $V^{UL}_{T-SAI}$
+    - DCI format 3_0
+    - SL configured grant
+  forbidden:
+    - semi-static
+  must_say_not_found: false
+  notes: |
+    跨越 16.5.2.1 和 16.5.2.2 章节，涉及SL场景下动态码本中SAI字段的提取和应用。
+
+- id: hand-multi-006
+  category: multi_section
+  language: zh
+  source: hand_crafted
+  question: |
+    在基于竞争的random access procedure中，如果UE在Msg3或MsgA中包含了BFR MAC CE，完成随机接入后，UE使用哪些参数来确定PUCCH的transmission power？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "6"
+        - "7.2.1"
+  expected_facts:
+    - BFR MAC CE
+    - $q_u = 0$
+    - $q_d = q_{new}$
+    - $l = 0$
+    - PRACH transmission
+  forbidden:
+    - CBRA
+  must_say_not_found: false
+  notes: |
+    跨越 Clause 6 和 7.2.1，UE发送包含BFR MAC CE的Msg3/MsgA后，功率控制参数回退的判断逻辑。
+
+- id: hand-multi-007
+  category: multi_section
+  language: zh
+  source: hand_crafted
+  question: |
+    对于配置了多面板方案 (multipanelSchemeSDM) 且没有配置多面板方案SFN (multipanelSchemeSFN) 的PUSCH repetition Type B，如果DCI中的SRS Resource Set indicator指示了'10'或'11'，UE如何决定每次实际重复 (actual repetition) 的冗余版本 (RV)？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "6.1.2.1"
+        - "6.1.2.3.2"
+  expected_facts:
+    - "冗余版本"
+    - "sequenceOffsetforRV"
+    - "repK-RV"
+    - "附加移位操作"
+    - "第一传输时机"
+  forbidden:
+    - "Type A"
+  must_say_not_found: false
+  notes: |
+    跨小节问题：6.1.2.3.2定义了Type B结合多面板的场景，需联合6.1.2.1中表6.1.2.1-2及关于RV附加移位的规则综合回答。
+
+- id: hand-multi-008
+  category: multi_section
+  language: zh
+  source: hand_crafted
+  question: |
+    在Sidelink中，当UE接收到SCI format 1-A且没有配置附加的MCS表时，如何确定PSSCH的调制阶数和目标码率？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "8.1.3.1"
+        - "5.1.3.1"
+  expected_facts:
+    - "调制和编码方案"
+    - "IMCS"
+    - "表格 5.1.3.1-1"
+    - "SCI format 1-A"
+  forbidden:
+    - "sl-Additional-MCS-Table"
+    - "表格 5.1.3.1-2"
+  must_say_not_found: false
+  notes: |
+    8.1.3.1提到如果未配置额外MCS表，默认使用5.1.3.1中的表格（即Table 5.1.3.1-1），考察跨小节对下行表格引用的推理能力。
+# -----------------------------------------------------------------------------
+# Category: table_lookup (8 items)
+# -----------------------------------------------------------------------------
+
+- id: hand-table-001
+  category: table_lookup
+  language: zh
+  source: hand_crafted
+  question: |
+    当子载波间隔SCS配置 (numerology) mu = 4 时，对应的子载波间隔SCS是多少千赫兹？支持哪种循环前缀 (Cyclic prefix)？
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "4.2"
+  expected_facts:
+    - 240
+    - 240 kHz
+    - Normal
+  forbidden:
+    - Extended
+    - 120 kHz
+    - 480 kHz
+  must_say_not_found: false
+  notes: |
+    直接考查 Table 4.2-1: Supported transmission numerologies 的查表能力。
+
+- id: hand-table-002
+  category: table_lookup
+  language: zh
+  source: hand_crafted
+  question: |
+    关于SRS，如果transmission comb K_TC 配置为 4，则循环移位的最大数量 (Maximum number of cyclic shifts) 是多少？
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "6.4.1.4.2"
+  expected_facts:
+    - 12
+    - n_SRS^cs,max
+  forbidden:
+    - 8
+    - 6
+  must_say_not_found: false
+  notes: |
+    直接考查 Table 6.4.1.4.2-1: Maximum number of cyclic shifts as a function of K_TC 表格内容的提取。
+
+- id: hand-table-003
+  category: table_lookup
+  language: zh
+  source: hand_crafted
+  question: |
+    DCI format 2_6 的具体用途是什么？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "7.3.1"
+  expected_facts:
+    - 通知一个或多个 UE
+    - 处于 DRX Active Time 之外的节能信息 (power saving information outside DRX Active Time)
+  forbidden:
+    - 调度 PUSCH
+    - Sidelink
+    - 随机接入
+  must_say_not_found: false
+  notes: |
+    直接考查从 Table 7.3.1-1: DCI formats 表格中提取指定 DCI format 用途的能力。
+
+- id: hand-table-004
+  category: table_lookup
+  language: zh
+  source: hand_crafted
+  question: |
+    当输入索引 i = 12 时， Polar 码子块交织模式值 P(i) 是多少？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "5.4.1.1"
+  expected_facts:
+    - 10
+    - Table 5.4.1.1-1
+  forbidden:
+    - 12
+    - 16
+    - 19
+  must_say_not_found: false
+  notes: |
+    直接考查对 Table 5.4.1.1-1: Sub-block interleaver pattern 的查表能力，测试提取准确数值。
+
+- id: hand-table-005
+  category: table_lookup
+  language: zh
+  source: hand_crafted
+  question: |
+    当PRACH preamble的SCS配置为480 kHz时，在确定有效的PRACH occasion时，Ngap的值是多少？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "8.1"
+  expected_facts:
+    - 8
+    - Table 8.1-2
+  forbidden:
+    - 24
+    - 16
+  must_say_not_found: false
+  notes: |
+    查表题，基于 38.213 Table 8.1-2，480 kHz 对应的 Ngap 为 8。
+
+- id: hand-table-006
+  category: table_lookup
+  language: zh
+  source: hand_crafted
+  question: |
+    在调度PUSCH transmission的DCI format中，如果TPC command field的值为2，其对应的accumulated delta PUSCH和absolute delta PUSCH分别是多少dB？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "7.1.1"
+  expected_facts:
+    - 1
+    - Table 7.1.1-1
+  forbidden:
+    - -1
+    - 0
+  must_say_not_found: false
+  notes: |
+    查表题，基于 38.213 Table 7.1.1-1，TPC command field 2 对应 1 dB 的 accumulated/absolute value。
+
+- id: hand-table-007
+  category: table_lookup
+  language: zh
+  source: hand_crafted
+  question: |
+    对于使用变换预编码 (transform precoding) 且支持64QAM的PUSCH，如果DCI指示的MCS索引 (IMCS) 为16，其对应的目标码率 (Target code Rate) 和频谱效率 (Spectral efficiency) 分别是多少？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "6.1.4.1"
+  expected_facts:
+    - "表格 6.1.4.1-1"
+    - "目标码率"
+    - "378"
+    - "频谱效率"
+    - "1.4766"
+    - "调制阶数"
+    - "4"
+  forbidden:
+    - "256QAM"
+    - "1024QAM"
+  must_say_not_found: false
+  notes: |
+    测试表格检索能力。需准确定位到Table 6.1.4.1-1（MCS index table for PUSCH with transform precoding and 64QAM）并查出索引16对应的值。
+
+- id: hand-table-008
+  category: table_lookup
+  language: zh
+  source: hand_crafted
+  question: |
+    在CSI计算延迟要求1 (CSI computation delay requirement 1) 中，当触发CSI报告的PDCCH和CSI-RS的最小子载波间隔配置系数 (µ) 为2时，要求的Z1和Z'1的符号数分别是多少？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "5.4"
+  expected_facts:
+    - "表格 5.4-1"
+    - "符号数"
+    - "Z1"
+    - "25"
+    - "Z'1"
+    - "21"
+  forbidden:
+    - "44"
+    - "42"
+  must_say_not_found: false
+  notes: |
+    直接针对Table 5.4-1的查表能力，要求排除相邻表格（如要求2）的干扰。
+
+# -----------------------------------------------------------------------------
+# Category: formula (8 items)
+# -----------------------------------------------------------------------------
+
+- id: hand-formula-001
+  category: formula
+  language: zh
+  source: hand_crafted
+  question: |
+    除 PRACH 和 RIM-RS 之外的所有物理信道和信号，其子帧内的 OFDM 基带时域连续信号 s_l^(p,mu)(t) 的生成公式是什么？
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "5.3.1"
+  expected_facts:
+    - a_k,l
+    - e^(j2\pi(k+k_0))
+    - \Delta f
+    - N_grid
+    - N_sc^RB
+  forbidden:
+    - PRACH
+    - Zadoff-Chu
+  must_say_not_found: false
+  notes: |
+    考察物理层中最基础的 OFDM 基带信号生成的数学表达式，考量多参数和求和符号的表达能力。
+
+- id: hand-formula-002
+  category: formula
+  language: zh
+  source: hand_crafted
+  question: |
+    频域上的公共资源块CRB索引 n_CRB^mu 与子载波索引 k（相对于 Point A）之间的关系是什么？
+  expected_specs:
+    - spec_id: "38.211"
+      sections:
+        - "4.4.4.3"
+  expected_facts:
+    - n_CRB
+    - 向下取整
+    - k / N_sc^RB
+    - N_sc^RB
+  forbidden:
+    - offsetToPointA
+    - N_BWP,i^start
+  must_say_not_found: false
+  notes: |
+    考察 4.4.4.3 节最核心的频域资源网格基础公式，即利用 k 除以每 RB 的子载波数向下取整。
+
+- id: hand-formula-003
+  category: formula
+  language: zh
+  source: hand_crafted
+  question: |
+    在 LDPC 信道编码流程中，如果输入比特序列长度 B 大于最大码块大小 K_cb，那么代码块的数量 C 的计算公式是什么？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "5.2.2"
+  expected_facts:
+    - C = ceil(B / (K_cb - L))
+    - 向上取整
+    - L = 24
+  forbidden:
+    - 向下取整
+    - C = 1
+    - C = B / K_cb
+  must_say_not_found: false
+  notes: |
+    考查 5.2.2 节 LDPC 代码块分割 (Code block segmentation) 核心判定公式。
+
+- id: hand-formula-004
+  category: formula
+  language: zh
+  source: hand_crafted
+  question: |
+   关于 Polar 码的 Rate matching 过程，在进行 Bit selection 时，如果速率匹配输出序列长度 E 大于或等于循环缓冲区长度 N，则输出比特 e_k 的生成公式是什么？
+  expected_specs:
+    - spec_id: "38.212"
+      sections:
+        - "5.4.1.2"
+  expected_facts:
+    - 这是一个重复 (repetition) 过程
+    - e_k = y_{k mod N} 或 y_{mod(k,N)}
+    - E >= N
+  forbidden:
+    - puncturing
+    - shortening
+  must_say_not_found: false
+  notes: |
+    考查 Polar 码打孔、缩短、重复判定条件中的重复 (repetition) 过程输出数学公式提取。
+
+- id: hand-formula-005
+  category: formula
+  language: zh
+  source: hand_crafted
+  question: |
+    对于配置了多个TCI-State的PUSCH transmission，UE如何计算其transmission power？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "7.1.1"
+  expected_facts:
+    - $P_{CMAX,f,c,k}(i)$
+    - $P_{O\_PUSCH,b,f,c}(j)$
+    - $\alpha_{b,f,c}(j)$
+    - $PL_{b,f,c}(q_d)$
+    - $\Delta_{TF,b,f,c}(i)$
+    - $f_{b,f,c}(i, l)$
+    - $M^{PUSCH}_{RB,b,f,c}(i)$
+  forbidden:
+    - LTE
+  must_say_not_found: false
+  notes: |
+    基于 Clause 7.1.1，考察配置多个 TCI-State 下的 PUSCH 功率计算数学公式。
+
+- id: hand-formula-006
+  category: formula
+  language: zh
+  source: hand_crafted
+  question: |
+    在计算PUCCH format 0的transmission power时，power adjustment component TF的具体计算公式是什么？
+  expected_specs:
+    - spec_id: "38.213"
+      sections:
+        - "7.2.1"
+  expected_facts:
+    - $10\log_{10}(\frac{N^{PUCCH}_{ref}}{N^{PUCCH}_{symb}})$
+    - $\Delta_{UCI}(i) = 0$
+    - $N^{PUCCH}_{ref} = 2$
+  forbidden:
+    - PUSCH
+  must_say_not_found: false
+  notes: |
+    基于 Clause 7.2.1，考察 PUCCH format 0 下的 $\Delta_{TF}$ 调整因子的计算公式。
+
+- id: hand-formula-007
+  category: formula
+  language: zh
+  source: hand_crafted
+  question: |
+    当下行资源分配类型为1 (Type 1) 时，如果指示的连续分配的资源块长度减1 (LRBs - 1) 小于等于激活的BWP大小 (NBWP) 的一半，UE计算资源指示值 (RIV) 的公式是什么？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "5.1.2.2.2"
+  expected_facts:
+    - "资源指示值"
+    - "RIV"
+    - "NBWP"
+    - "LRBs"
+    - "RBstart"
+    - "N_{BWP}^{size} (L_{RBs} - 1) + RB_{start}"
+  forbidden:
+    - "上行资源分配"
+  must_say_not_found: false
+  notes: |
+    考察对下行Type 1资源分配的RIV基本计算公式的提取。
+
+- id: hand-formula-008
+  category: formula
+  language: zh
+  source: hand_crafted
+  question: |
+    在Sidelink资源分配模式2中，给定的资源预留周期 (resource reservation period) 从毫秒转换为逻辑时隙 (logical slots) 数量的公式是什么？
+  expected_specs:
+    - spec_id: "38.214"
+      sections:
+        - "8.1.7"
+  expected_facts:
+    - "预留周期"
+    - "逻辑时隙"
+    - "10240"
+    - "T'_{max}"
+    - "P'_{rsvp}"
+    - "P_{rsvp}"
+  forbidden:
+    - "PDCCH"
+    - "RIV"
+  must_say_not_found: false
+  notes: |
+    考察Sidelink的预留周期单位转换公式（毫秒到逻辑时隙）。
+
+# -----------------------------------------------------------------------------
+# Category: negative - 包含严重事实性错误与伪造概念
+#
+# 评测语义（2026-05-20 修订）：
+#   - 主回答的硬指标只有两条：must_say_not_found 短语命中 + forbidden 不命中
+#   - 触发 must_say_not_found 的回答下方可能由 agent suggest_questions
+#     节点附加"你想问的是不是"超链接建议区（cursor-suggest: scheme，前端拦截）
+#   - 建议区不进评测；其有/无、命中数都不影响任何 metric
+#     详见 docs/04-handoff/2026-05-20-suggested-questions.md
+#   - 写题人只需保证主回答的 must_say_not_found / forbidden 设计合理即可
+# -----------------------------------------------------------------------------
+- id: hand-neg-001
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    5G基站(gNB)的IPv6地址是如何通过主同步信号(PSS)和辅同步信号(SSS)的序列组合，直接在物理层进行编码与广播传输的？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - IPv6
+    - 128位
+    - IP地址映射
+    - 路由
+  must_say_not_found: true
+  notes: |
+    纯幻觉/事实性错误负样本。基站的 IP 地址属于传输网络层（OAM/传输网）概念，绝对不会通过无线物理层的同步信号（PSS/SSS）进行编码或广播。PSS/SSS 仅用于携带物理层小区标识（PCI）以供UE进行下行同步。如果 Agent 编造了 IPv6 到 PSS/SSS 序列的映射公式，即视为严重的幻觉。
+
+- id: hand-neg-002
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    UE在发起随机接入时，是如何将自身的GPS经纬度坐标数据直接代入公式，用来计算和调制 PRACH Preamble（前导码）的Zadoff-Chu序列的循环移位 (Cyclic Shift) 的？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - 经纬度
+    - GPS
+    - GNSS
+    - 坐标调制
+    - 绝对位置
+  must_say_not_found: true
+  notes: |
+    伪造概念负样本。在 38.211 物理层规范中，PRACH Zadoff-Chu 序列的循环移位（Cyclic Shift, Cv）严格由高层配置的零相关区（zeroCorrelationZoneConfig）、逻辑根序列索引等无线参数通过公式计算得出。即使在 NTN（非地面网络）场景中，GPS/GNSS 信息也仅用于计算 Timing Advance (TA) 等高层补偿，绝对不存在“将GPS坐标直接代入公式调制PRACH序列循环移位”的物理层机制。
+
+- id: hand-neg-003
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    根据 TS 38.212 规范，当下行共享信道 (DL-SCH) 的传输块非常小（例如小于 100 字节）时，物理层是如何使用 Turbo 码 (Turbo code) 替代 LDPC 码进行信道编码的？请列出使用 Turbo 码的阈值条件。
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - Turbo code
+    - Turbo码
+    - 阈值
+    - 切换编码
+  must_say_not_found: true
+  notes: |
+    纯幻觉/事实性错误负样本。5G NR (38 系列) 物理层彻底移除了 LTE 中的 Turbo 码，全部使用 LDPC 码（用于数据）和 Polar 码（用于控制）。如果 Agent 编造了使用 Turbo 码的条件，即视为极其严重的跨代技术幻觉。
+
+- id: hand-neg-004
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    当基站需要通过 PDCCH 向 UE 广播公钥加密的 SSL 证书更新信息时，所使用的 DCI format 5_0 具体包含了哪些网络层信息字段？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - SSL证书
+    - DCI format 5_0
+    - 公钥
+    - 加密
+    - 广播
+  must_say_not_found: true
+  notes: |
+    伪造概念负样本。首先，无线物理层协议 TS 38.212 根本不存在 DCI format 5_0 这个格式；其次，物理层 DCI 仅用于承载底层的调度和无线控制信息，绝不可能直接解析并广播网络应用层/传输层的 SSL 证书更新。测试模型能否果断拒绝此类明显的跨层缝合幻觉。
+
+- id: hand-neg-005
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    在解码Type0-PDCCH CSS set时，UE应该如何使用其MAC address来推导DM-RS的scrambling sequence？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - "MAC地址"
+    - MAC address
+  must_say_not_found: true
+  notes: |
+    反事实问题。PDCCH DMRS的scrambling在物理层依赖于cell ID或配置的scrambling ID，而不使用MAC地址。
+
+- id: hand-neg-006
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    在配置了载波聚合CA的场景下，UE如何利用 Type-4 HARQ-ACK codebook 来决定 PDCCH DMRS 的天线端口（antenna port）数量？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - 天线端口
+    - antenna port
+    - Type-4
+  must_say_not_found: true
+  notes: |
+    这是一个纯粹的协议机制反事实问题。首先，物理层控制规范中仅定义了 Type-1（半静态）、Type-2（动态）和 Type-3 三种 HARQ-ACK codebook，根本不存在所谓的“Type-4 HARQ-ACK codebook”；其次，HARQ-ACK 码本是用于上行接收状态反馈的机制，绝对不会用于推导或决定下行控制信道（PDCCH）的 DMRS 天线端口数量，两者在物理层逻辑上毫无关联。
+
+- id: hand-neg-007
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    在NR中，PDSCH的DMRS端口是否可以使用IPv6地址进行标识以支持多播传输？如果可以，其格式是什么？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - "IPv6"
+    - "IP地址"
+    - "128位"
+    - "128-bit"
+  must_say_not_found: true
+  notes: |
+    DMRS port在3GPP规范中始终是通过整数索引（如1000等）进行标识的物理/逻辑天线端口，不存在使用IP地址或IPv6来标识底层物理层端口的概念。编造IPv6格式属于幻觉。
+
+- id: hand-neg-008
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    在基于码本的PUSCH传输中，UE如何根据BGP (Border Gateway Protocol) 路由表来选择TPMI？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - "BGP"
+    - "路由表"
+    - "Border Gateway Protocol"
+    - "网关"
+  must_say_not_found: true
+  notes: |
+    TPMI（Transmit Precoding Matrix Indicator）是由物理层信令（如DCI）指示或高层（RRC）配置的，与网络层的BGP路由协议没有任何关系。
+
+- id: hand-neg-009
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    5G核心网中，BAF在PDU Session Establishment流程中起到什么作用？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - BAF
+    - 作用
+    - 建立
+    - 区块链
+    - Blockchain
+  must_say_not_found: true
+  notes: |
+    5G核心网架构中不存在BAF（Blockchain Authorization Function）这一网元，属于完全伪造的概念。
+
+- id: hand-neg-010
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    在NR中，PQCCH主要用于传输哪些类型的控制信息？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - PQCCH
+    - 控制信息
+    - 传输
+    - 量子
+    - Quantum
+  must_say_not_found: true
+  notes: |
+    NR物理层控制信道只有PDCCH和PUCCH，不存在PQCCH（Physical Quantum Control Channel），属于伪造的物理信道。
+
+- id: hand-neg-011
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    当UE进入5GMM-HIBERNATE状态时，AMF会如何处理该UE的Paging请求？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - 5GMM-HIBERNATE
+    - 休眠
+    - 处理
+    - 状态
+  must_say_not_found: true
+  notes: |
+    5G NAS协议中5GMM状态主要包含REGISTERED、DEREGISTERED等，根本不存在5GMM-HIBERNATE这一状态。
+
+- id: hand-neg-012
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    SST值为99的标准化切片类型是为什么业务设计的？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - 99
+    - 业务
+    - 设计
+    - 标准化
+  must_say_not_found: true
+  notes: |
+    3GPP定义的标准化SST（Slice/Service Type）值只有1到6（对应eMBB, URLLC, MIoT, V2X等），99不属于标准化的SST值，为事实性错误。
+
+- id: hand-neg-013
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    当UE在不同PLMN间移动时，如何触发并执行X4 handover？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - X4
+    - handover
+    - 触发
+    - 执行
+    - 切换
+  must_say_not_found: true
+  notes: |
+    5G系统中基站间的标准接口为Xn，不存在X4接口，也没有X4 handover这一流程概念。
+
+- id: hand-neg-014
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    在5G系统中，UE和AMF之间是否支持使用EAP-WEP协议进行Primary authentication？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - EAP-WEP
+    - 支持
+    - 协议
+    - 认证
+  must_say_not_found: true
+  notes: |
+    5G Primary authentication支持的EAP方法主要是5G AKA、EAP-AKA'和EAP-TLS等，EAP-WEP是伪造的认证协议组合，包含严重事实错误。
+
+- id: hand-neg-015
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    在5G QoS框架中，如何为GBR QoS Flow配置QBER参数？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - QBER
+    - 配置
+    - 参数
+    - 误码率
+  must_say_not_found: true
+  notes: |
+    5G QoS参数包括GFBR, MFBR, PER, PDB等，不存在QBER（Quantum Bit Error Rate）这一伪造的QoS参数。
+
+- id: hand-neg-016
+  category: negative
+  language: zh
+  source: hand_crafted
+  question: |
+    在5G独立组网中，AMF如何通过N8接口直接向UE发送GSM Triplet进行身份验证？
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+    - GSM Triplet
+    - 发送
+    - N8
+    - 验证
+    - 三元组
+  must_say_not_found: true
+  notes: |
+    5G SA系统不支持使用传统的2G GSM Triplet（三元组）进行认证，并且N8是AMF与UDM之间的SBI接口，根本不用于直接向UE发送消息。题目逻辑与概念全错。
