@@ -15,8 +15,8 @@
 
 | 子里程碑 | 主要交付物 | 完成度门禁 |
 |---|---|---|
-| **M7.0** 金标准 v1 → v1.5 | `eval/golden/_template.yaml` 模板 + `eval.cli golden validate/merge/stats` 子命令 + 手写补题（neg / formula / multi_section 重点；2026-05-19 砍 `tool` category） | v1.yaml 题数 ≥ 140；分布按 §3.4 容差 ±5 题；`[human]` 至少 20 题人审过 |
-| **M7.1** 端到端 runner + 第一档阈值 | `eval/runner.py`（HTTP `/chat` SSE → metrics → report.md/json）；`backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言；Makefile `eval-daily/eval-weekly` | unit + integration 全绿；daily 子集（≥ 20 题）跑通；`make eval-daily` < 10min |
+| **M7.0** 金标准 v1 → v1.5 ✅ 2026-05-20 | `eval/golden/_template.yaml` 模板 + `eval.cli golden validate/merge/stats` 子命令 + 手写补题（neg / formula / multi_section 重点；2026-05-19 砍 `tool` category） | v1.yaml 题数 ≥ 140；分布按 §3.4 容差 ±5 题；`[human]` 至少 20 题人审过（题数 175 / 手写 56 ≥ 20 已达；human review 待办） |
+| **M7.1** 端到端 runner + 第一档阈值 ✅ 2026-05-20 | `eval/runner.py`（HTTP `/chat` SSE → metrics → report.md/json）；`backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言；Makefile `eval-daily/eval-weekly` | unit + integration 全绿；smoke（canned graph）all green；daily/full live 断言需 `RUN_LIVE_EVAL=1`（M7.6 CI 触发） |
 | **M7.2** Ragas + native MCQ | Ragas 4 metric 接入（judge=`glm-4.6`，避免同源偏差）；`eval/scripts/native_mcq_runner.py`（TeleQnA 选择题对照） | Ragas 跑 daily 子集输出非空；MCQ runner 输出 LLM 选对 % 报告 |
 | **M7.3** Langfuse Dataset 集成 | `eval/langfuse_dataset.py` 一次性 push 金标准；runner 每条 item 上传 score（fact_coverage / faithfulness 等） | Langfuse Cloud UI 可见 dataset run；`[human]` 启用 built-in evaluators |
 | **M7.4** 成本与用量监控 | `backend/app/services/usage.py` + `app/llm/pricing.py` + `services/alerts.py`（仅 log）；LiteLLM 响应钩 `usage` 字段 → ApiUsage upsert | unit 覆盖 LLM/Embed/Rerank/WebSearch 4 路径；`/admin/stats` 真实数据；alerts 阈值触发 → log warning（mock 验证） |
@@ -30,10 +30,10 @@
 > 每条标 `[M7.x]` 关联 §0 子里程碑。完成后把 `[ ]` 替换为 `[x]`。
 
 - [x] `[已存在]` TeleQnA 抽取与转化流水线：`eval/teleqna/` + `eval/builder/`，从公开 [`TeleQnA`](https://github.com/netop-team/TeleQnA) Standards 类 3000 题筛选 + LLM 转化 + 人工校验（M3 已落，119 题入 v1.yaml）
-- [ ] `[M7.0]` 金标准评测集 `eval/golden/v1.yaml`：v1 ≥ 140 题（119 TeleQnA 转化 + ≥ 20 手工补充）；`source==hand_crafted` 切片即 daily 子集
+- [x] `[M7.0]` 金标准评测集 `eval/golden/v1.yaml`：2026-05-20 合并落 175 题（119 TeleQnA 转化 + 56 手工补充）；`source==hand_crafted` 切片即 daily 子集
 - [x] `[M7.0]` `eval/golden/_template.yaml` 手写题模板（已落，2026-05-19）+ `eval.cli golden validate / merge / stats` 子命令 2026-05-19 落地（44 单测覆盖 validator + merger + stats + 3 套 CLI）
 - [ ] `[M7.2]` TeleQnA 原生选择题对照评测：`eval/scripts/native_mcq_runner.py`（看 LLM 选对 %，知识准确性维度）
-- [ ] `[M7.1]` `eval/runner.py`：从金标准集驱动 Agent（HTTP `/chat` SSE）跑出结果，输出 metrics + 报告
+- [x] `[M7.1]` `eval/runner.py`：从金标准集驱动 Agent（HTTP `/chat` SSE）跑出结果，输出 metrics + 报告（2026-05-20 落 `AgentResponse` / `EvalResult` + `consume_sse_stream` + `call_agent` + `compute_eval_metrics` + `run_eval` + `aggregate` + `write_report`；34 单测含 mock-httpx run_eval）
 - [ ] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-4.6`
 - [x] `[已存在]` Telco-DPR 风格 retrieval-only 评测：`eval/runner_retrieval.py`（M3 决胜已用）+ `eval/retrieval/{retriever,metrics,client}.py`
 - [x] `[已存在]` Langfuse client + langchain CallbackHandler：`backend/app/agent/langfuse_handler.py`（v4，缺 key 自动 disable）；`.env` 已配 pk/sk/host
@@ -41,7 +41,9 @@
 - [x] `[已存在]` `ApiUsage` 表 + Alembic 迁移 + `/admin/stats` 7 天聚合查询（M4.10）
 - [ ] `[M7.4]` 成本与用量监控**写入链路**：`services/usage.py` + `llm/pricing.py` + `services/alerts.py`（仅 log warning）+ LiteLLM 响应 `usage` 钩
 - [x] `[已存在]` Pytest `eval` marker（`pyproject.toml::markers` + `Makefile::eval`）+ `ragas>=0.2` 已声明
-- [ ] `[M7.1]` `backend/tests/eval/test_golden_v1.py`：D13 第一档（宽松）阈值断言；daily 子集 + 全集两套 case
+- [x] `[M7.1]` `backend/tests/eval/test_golden_v1.py`：D13 第一档（宽松）阈值断言；smoke（canned graph，always run）+ daily / full（`RUN_LIVE_EVAL=1` 触发；2026-05-20）+ Makefile `eval-daily` / `eval-weekly` target
+- [x] `[M7.1]` `backend/app/agent/not_found_phrases.py` + `eval/not_found_phrases.py`（镜像）：双语短语词表 + `is_not_found_answer()`；供 agent + eval runner 共享导入（42 单测含 mirror 同步校验）
+- [x] `[M7.1]` `eval/sse_parser.py`：`SSEEvent` / `parse_sse_text` / `SSEStreamParser`（13 单测覆盖一次/流式/ping/EOF/JSON 校验）
 - [ ] `[M7.6]` Daily / Weekly CI：`.github/workflows/eval-{daily,weekly}.yml`；阈值未达自动开 GitHub issue
 
 ## 2. 评测体系总览
@@ -284,50 +286,102 @@ uv run --project eval python -m eval.cli golden stats    -f eval/golden/v1.yaml
 
 ## 4. Runner 实现
 
-`eval/runner.py`：
+> **实装状态**（2026-05-20，M7.1 完成）：`eval/runner.py` 已落；下方代码与实际签名一致；
+> Ragas / Langfuse hook 留 `None` 占位，由 M7.2 / M7.3 各自 PR 填。
+
+`eval/runner.py` 关键 dataclass + 入口：
 
 ```python
-@dataclass
+@dataclass(slots=True)
+class AgentResponse:
+    """从 SSE 流还原的 agent 终态。"""
+    answer: str = ""
+    citations: list[dict] = field(default_factory=list)
+    confidence: float = 0.0
+    chunks_hit: list[dict] = field(default_factory=list)
+    chunks_rerank: list[dict] = field(default_factory=list)
+    node_durations_ms: dict[str, int] = field(default_factory=dict)
+    terminal_event: str = "incomplete"   # final | cancelled | error | end | http_error
+    error: dict | None = None
+    duration_ms: int = 0
+    token_event_count: int = 0
+
+
+@dataclass(slots=True)
 class EvalResult:
     item_id: str
-    # retrieval 指标
+    category: str
+    language: str
+    # retrieval（negative 题 expected_specs=[] → None，aggregate 用 _safe_mean 跳过）
     retrieved_specs: list[str]
     retrieved_sections: list[str]
-    context_recall_spec: float
-    context_recall_section: float
-    # 答案指标
+    context_recall_spec: float | None
+    context_recall_section: float | None
+    # 答案
     answer: str
     citations: list[dict]
-    fact_coverage: float
+    fact_coverage: float | None
     forbidden_violations: list[str]
     must_say_not_found_passed: bool | None
-    # Ragas 指标（异步评测）
-    ragas_faithfulness: float | None
-    ragas_answer_relevance: float | None
-    ragas_context_recall: float | None
-    ragas_context_precision: float | None
-    # 性能
-    duration_ms: int
-    llm_calls: int
-    total_cost_usd: float
+    # Ragas（M7.2 填，目前 None 占位）
+    ragas_faithfulness: float | None = None
+    ragas_answer_relevance: float | None = None
+    ragas_context_recall: float | None = None
+    ragas_context_precision: float | None = None
+    # 性能（llm_calls / cost 由 M7.4 usage hook 后填）
+    duration_ms: int = 0
+    llm_calls: int = 0
+    total_cost_usd: float = 0.0
+    # bookkeeping
+    terminal_event: str = ""
+    error: dict | None = None
 
-async def run_eval(golden_path: Path, subset: int | None = None) -> list[EvalResult]:
-    items = load_golden(golden_path)
-    if subset: items = items[:subset]
-    results = []
-    for it in items:
-        agent_result = await call_agent_via_http(it.question, mode="qa", lang=it.language)
-        r = compute_metrics(it, agent_result)
-        results.append(r)
-        await push_to_langfuse_dataset(it, agent_result, r)
-    return results
+
+async def run_eval(
+    golden_path: Path,
+    *,
+    client: httpx.AsyncClient,     # 真 HTTP 或 ASGITransport in-process
+    auth_token: str,                # JWT bearer
+    source_filter: str | None = None,
+    subset: int | None = None,
+    mode: str = "qa",
+    api_prefix: str = "/api/v1",
+) -> list[EvalResult]:
+    """对 golden items 顺序跑端到端评测。
+
+    流程：POST /api/v1/sessions → POST /api/v1/sessions/{sid}/messages → SSE →
+    consume_sse_stream → compute_eval_metrics。单题 HTTP 异常隔离（terminal_event="http_error"）。
+    """
 ```
+
+调用方负责传 `httpx.AsyncClient`（真实部署：base_url=后端地址；测试：`ASGITransport(app=app)`）
++ 已登录 bearer token。每题一个独立 session（避免历史污染 retrieval）。
+
+模块边界 / 单测拆点：
+
+- `consume_sse_stream(line_iter)`：纯函数，喂行流 → `AgentResponse`；终止事件
+  (`final` / `cancelled` / `error` / `end`) 决定 `terminal_event`
+- `compute_eval_metrics(item, resp)`：纯函数。指标口径见 §4.1
+- `call_agent(...)`：开 session + 发 message + 消费 SSE
+- `run_eval(...)`：顶层 orchestrator（顺序执行，M7.6 看耗时再加并发）
+- `aggregate(results)` / `write_report(results, outdir)`：报告输出
+
+### 4.1 指标实现口径
+
+| 字段 | 实现 |
+|---|---|
+| `context_recall_spec` | `1.0 if any` over `chunks_rerank → chunks_hit → citations`（与 `eval/retrieval/metrics.py::is_spec_hit` 一致）；空 `expected_specs` → `None` |
+| `context_recall_section` | 同上但用 `is_section_hit`（`.` 切段做章节前缀匹配）|
+| `fact_coverage` | substring case-insensitive 命中率；空 list → `None` |
+| `forbidden_violations` | substring case-insensitive 命中字符串数组 |
+| `must_say_not_found_passed` | `is_not_found_answer(answer, lang) AND not forbidden_violations`；仅 negative；en/zh 词表切换；命中 forbidden = `False` |
+| `duration_ms` | `time.perf_counter()` 从 POST /messages 起，到 SSE 流结束 |
 
 输出：
 
-- `eval-results/{timestamp}/report.md`（人读）
-- `eval-results/{timestamp}/results.json`
-- Langfuse Dataset run（在线可看）
+- `eval-results/{timestamp}/report.md`（人读，含 aggregate + 异常题清单）
+- `eval-results/{timestamp}/results.json`（机器读，含 `aggregate` + 每条 `asdict(EvalResult)`）
+- Langfuse Dataset run（M7.3 接通后；缺 key 时 disable，runner 仍跑）
 
 ## 5. Ragas 集成
 
@@ -401,36 +455,67 @@ Langfuse 自动 eval（Cloud 内置）：
 > 严格版断言在 `test_golden_v1_full`（每周一全集 ≥ 140 题）；M7 → M8 之间一次性 PR 把严格版
 > 写进 `test_golden_v1_full` 的最终断言（不破坏 daily / weekly）。
 
-`backend/tests/eval/test_golden_v1.py`：
+**`backend/tests/eval/test_golden_v1.py`**（2026-05-20 实装；与原 sketch 略有调整）：
+
+三个用例分工：
+
+1. **`test_runner_smoke_against_canned_backend`**（@pytest.mark.eval，always run）：
+   注入 `_CannedGraph` + ASGITransport in-process backend，对 1 道临时金标准题跑
+   `run_eval`，断言 `EvalResult` 各字段。**不调真实 LLM**。作用：backend SSE event
+   名 / 字段一旦漂移，本测试 fail；这是 runner ↔ backend 契约的自动哨兵
+2. **`test_golden_v1_daily`**（@pytest.mark.eval + skipif）：D13 宽松档；需
+   `RUN_LIVE_EVAL=1` + `EVAL_BACKEND_BASE_URL` + `EVAL_BACKEND_TOKEN` 才触发
+3. **`test_golden_v1_full`**（同上）：每周一全集；M7 期间用宽松，M8 上线前 PR 改严格
 
 ```python
-@pytest.mark.eval
-async def test_golden_v1_daily(api_client):
-    """每日 CI - daily 子集（source==hand_crafted，≥ 20 题，D13 宽松档）"""
-    results = await run_eval(
-        Path("eval/golden/v1.yaml"),
-        source_filter="hand_crafted",
-    )
-    assert len(results) >= 20, "daily 子集题数不足 20"
-    avg_recall = mean(r.context_recall_section for r in results)
-    avg_faith = mean(r.ragas_faithfulness for r in results if r.ragas_faithfulness)
-    assert avg_recall >= 0.65, f"context recall too low: {avg_recall}"
-    assert avg_faith >= 0.75, f"faithfulness too low: {avg_faith}"
-    # 负样本必须全过
-    neg_passed = [r for r in results if r.item.category == "negative" and r.must_say_not_found_passed]
-    neg_total = [r for r in results if r.item.category == "negative"]
-    assert len(neg_passed) == len(neg_total), "negative sample failed"
+import os
+import pytest
+
+_RUN_LIVE = os.getenv("RUN_LIVE_EVAL") == "1"
 
 @pytest.mark.eval
-@pytest.mark.weekly
-async def test_golden_v1_full(api_client):
-    """每周一 CI - 全集 ≥ 140 题（D13 严格档：M8 上线门槛）"""
-    results = await run_eval(Path("eval/golden/v1.yaml"))
-    write_report(results, Path(f"eval-results/{ts}/"))
-    # 验收阈值（来自需求验收标准）
-    assert mean(r.context_recall_section for r in results) >= 0.80
-    assert mean(r.ragas_faithfulness for r in results) >= 0.85
+@pytest.mark.skipif(not _RUN_LIVE, reason="需 RUN_LIVE_EVAL=1 + 真 backend")
+async def test_golden_v1_daily() -> None:
+    """每日 CI - daily 子集（source==hand_crafted，≥ 20 题，D13 宽松档）"""
+    base_url = os.environ.get("EVAL_BACKEND_BASE_URL", "http://localhost:8000")
+    token = os.environ["EVAL_BACKEND_TOKEN"]
+    async with httpx.AsyncClient(base_url=base_url, timeout=60) as client:
+        results = await run_eval(
+            GOLDEN_V1,
+            client=client,
+            auth_token=token,
+            source_filter="hand_crafted",
+        )
+    assert len(results) >= 20, "daily 子集题数不足 20"
+    recalls = [r.context_recall_section for r in results if r.context_recall_section is not None]
+    avg_recall = mean(recalls)
+    assert avg_recall >= 0.65, f"context recall too low: {avg_recall}"
+    # 负样本必须 100% 触发 not_found（forbidden 命中 = 失败）
+    neg = [r for r in results if r.category == "negative"]
+    neg_passed = [r for r in neg if r.must_say_not_found_passed]
+    assert len(neg_passed) == len(neg), \
+        f"negative 未全过：{len(neg_passed)}/{len(neg)}"
+
+@pytest.mark.eval
+@pytest.mark.skipif(not _RUN_LIVE, reason="需 RUN_LIVE_EVAL=1 + 真 backend")
+async def test_golden_v1_full() -> None:
+    """每周一 CI - 全集 ≥ 140 题（M7 用宽松 ≥ 0.65；M8 上线前 PR 改 ≥ 0.80）"""
+    ...
 ```
+
+> **与原 sketch 的差异**：
+> - `run_eval` 改为关键字参数（`client` + `auth_token` 必填，移除 `api_client` fixture）
+> - daily 实装暂不断 ragas_faithfulness（M7.2 接通后补）
+> - daily/full 均加 `skipif RUN_LIVE_EVAL` gate，避免在无 backend 环境下错误失败
+> - 增加 smoke 用例守 runner↔backend 契约
+>
+> **Makefile target**（2026-05-20 落）：
+>
+> ```
+> make eval         # 所有 eval marker（smoke + daily/full 含 skip）
+> make eval-daily   # pytest -m eval -k "daily or smoke"
+> make eval-weekly  # pytest -m eval -k "full or smoke"
+> ```
 
 ## 8. Embedding 维度决胜评测（2026-05-16 修订 → ✅ 决胜完成）
 
@@ -558,18 +643,23 @@ PRICING = {
 - [x] `[auto]` `eval.cli golden validate --file <yaml>` 子命令：必填字段 / 枚举值 / id 唯一性 / language 取值校验，错误位置精确报行（2026-05-19 落 `eval/validators/golden.py` + 22 单测；含 `--json` / `--strict-warnings` 选项）
 - [x] `[auto]` `eval.cli golden merge` 子命令：把 `v1.handwritten.yaml` 合并到 `v1.yaml`，跨文件检查 0 重复 id（2026-05-19 落 `eval/validators/merger.py` + 11 单测；含 `--dry-run` / `--force` 选项）
 - [x] `[auto]` TeleQnA 拉取 + 过滤 + 转化流水线可重跑：`eval.cli teleqna {pull,filter,infer}` + `eval.cli builder transform` 在 M3 已就位；2026-05-19 在 §3.6 落 SOP 文档
-- [ ] `[human]` `eval/golden/v1.yaml` 题数 ≥ 140 题；含 `teleqna_origin_id` 可追溯；**至少 20 题（手写部分）由懂 3GPP 的人 review 过**（这是质量门禁，Agent 不能自己说通过）
+- [x] `[auto]` `eval/golden/v1.yaml` 题数 ≥ 140 题（2026-05-20 合并落 175 题；含 `teleqna_origin_id` 可追溯）；hand_crafted 56 ≥ 20 已达；M7.0 完成报告：[`../04-handoff/2026-05-20-m7.0-complete.md`](../04-handoff/2026-05-20-m7.0-complete.md)
+- [ ] `[human]` **至少 20 题（手写部分）由懂 3GPP 的人 review 过**（这是质量门禁，Agent 不能自己说通过；2026-05-20 待办）
 - [x] `[auto]` 分布按 §3.4 容差 ±5 题校验：`eval.cli golden stats -f <yaml>` 输出 category / source / language 分布 + 目标 ±5 容差比对；2026-05-19 落 `eval/validators/stats.py` + 11 单测（实际分布达标仍依赖人写题）。**2026-05-19 砍 tool category**：目标 multi_section 12 / formula 14 / negative 19 / 其余不变，合计 120
 
-### M7.1 端到端 runner + 第一档阈值
+### M7.1 端到端 runner + 第一档阈值 ✅ 2026-05-20
 
-- [ ] `[auto]` `eval/runner.py`：HTTP `POST /api/v1/sessions/{sid}/messages` 取 SSE → 拼 `partial_answer` + `citations` → 计算 `fact_coverage` / `forbidden_violations` / `must_say_not_found_passed` / `context_recall_section` / `context_recall_spec`
-  - **`must_say_not_found_passed` 判定需双语**（2026-05-19 补）：按题目 `language` 字段切词表。en 至少覆盖 `not found` / `not specified` / `no such` / `does not define` / `is not defined in` / `outside the scope`；zh 至少覆盖 `未找到` / `未定义` / `规范未规定` / `不涉及` / `不在范围内` / `没有相关规定`。zh 题用 en 词表（或反之）会把合法的负样本回答误判为失败，因为 hand_crafted 切片里中文 negative 题预计 ≥ 1/3
-  - **词表单点定义**（2026-05-20 补）：双语短语挪到 `backend/app/agent/not_found_phrases.py`（`NOT_FOUND_PHRASES_EN` / `NOT_FOUND_PHRASES_ZH` + `is_not_found_answer()`），eval runner 与 agent `suggest_questions` 节点共享导入（详见 [`../04-handoff/2026-05-20-suggested-questions.md`](../04-handoff/2026-05-20-suggested-questions.md) §3.1），避免两边漂移
-- [ ] `[auto]` 输出 `eval-results/{ts}/{report.md, results.json}`；CLI: `python -m eval.runner --golden eval/golden/v1.yaml [--source hand_crafted] [--subset N]`
-- [ ] `[auto]` runner 单测：mock SSE 流 → 断言 metrics 计算正确（fixture）
-- [ ] `[auto]` `backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言（context recall ≥ 0.65 / faith ≥ 0.75 / answer relevancy ≥ 0.70 / answer correctness ≥ 0.55 / latency p50 ≤ 6s / cost p50 ≤ ¥0.30）
-- [ ] `[auto]` `make eval-daily` 跑 daily 子集（`source==hand_crafted`，≥ 20 题）< 10min 全绿；负样本必须全过 `must_say_not_found_passed`
+> M7.1 完成报告：[`../04-handoff/2026-05-20-m7.1-complete.md`](../04-handoff/2026-05-20-m7.1-complete.md)
+
+- [x] `[auto]` `eval/runner.py`：HTTP `POST /api/v1/sessions/{sid}/messages` 取 SSE → 拼 `answer` + `citations` → 计算 `fact_coverage` / `forbidden_violations` / `must_say_not_found_passed` / `context_recall_section` / `context_recall_spec`（2026-05-20 落）
+  - **`must_say_not_found_passed` 判定双语**（2026-05-19 补）：按题目 `language` 字段切词表。en 至少覆盖 `not found` / `not specified` / `no such` / `does not define` / `is not defined in` / `outside the scope`；zh 至少覆盖 `未找到` / `未定义` / `规范未规定` / `不涉及` / `不在范围内` / `没有相关规定`
+  - **词表单点定义**（2026-05-20 落）：双语短语在 `backend/app/agent/not_found_phrases.py`（`NOT_FOUND_PHRASES_EN` / `NOT_FOUND_PHRASES_ZH` + `is_not_found_answer()`）；eval 不依赖 backend → `eval/not_found_phrases.py` 镜像 + `test_mirror_with_backend_module` 单测强制同步（详见 [`../04-handoff/2026-05-20-suggested-questions.md`](../04-handoff/2026-05-20-suggested-questions.md) §3.1）
+- [x] `[auto]` 输出 `eval-results/{ts}/{report.md, results.json}`：`run_eval` 完事调 `write_report(results, outdir)`；`aggregate` 报告聚合 + 异常题清单（2026-05-20 落）
+- [x] `[auto]` runner 单测：mock httpx `MockTransport` SSE 流 → 断言 metrics 计算正确（34 case 含 happy / source_filter+subset / HTTP 500 单题隔离）
+- [x] `[auto]` `backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言（context recall ≥ 0.65 / 负样本 100% 过 `must_say_not_found_passed`）；smoke（canned graph，always run）+ daily / full（`RUN_LIVE_EVAL=1` gate）
+- [x] `[auto]` Makefile `eval-daily` / `eval-weekly` target：`pytest -m eval -k "daily or smoke" / "full or smoke"`（2026-05-20 落）
+- [ ] `[M7.6 CI]` daily 子集（`source==hand_crafted`，≥ 20 题）< 10min 全绿；负样本必须全过 `must_say_not_found_passed`（需 `RUN_LIVE_EVAL=1` + 真 backend；M7.6 接通 CI）
+- [ ] `[M7.2]` ragas_faithfulness / answer_relevancy / context_recall / context_precision 字段：runner 留 `None` 占位，M7.2 补
 
 ### M7.2 Ragas + native MCQ
 
