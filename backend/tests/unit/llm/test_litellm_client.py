@@ -96,8 +96,32 @@ async def test_embed_passes_dimensions() -> None:
         resp = await cli.embed(["query"], dimensions=1024)
 
     assert captured["body"]["dimensions"] == 1024
+    # M7.5 hotfix：LiteLLM 透传 voyage 时只认 voyage 自家的 `output_dimension`，
+    # OpenAI 标准的 `dimensions` 被忽略，导致 voyage 返回默认 2048。这里同时塞两个
+    # 字段做双协议兼容（未识别字段任一上游 schema 都会忽略）。
+    assert captured["body"]["output_dimension"] == 1024
     assert captured["body"]["model"] == "voyage-4-large"
     assert resp["data"][0]["embedding"] == [0.1] * 4
+
+
+async def test_embed_uses_settings_default_dimension() -> None:
+    """未显式传 dimensions → fallback 到 Settings.EMBEDDING_DIMENSIONS；双字段都写。"""
+    captured: dict[str, Any] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(req.content)
+        return httpx.Response(
+            200,
+            json={"data": [{"index": 0, "embedding": [0.1] * 4}], "usage": {"prompt_tokens": 3}},
+        )
+
+    async with LiteLLMClient(
+        settings=_settings(EMBEDDING_DIMENSIONS=1024), client=_mock_client(handler)
+    ) as cli:
+        await cli.embed(["query"])
+
+    assert captured["body"]["dimensions"] == 1024
+    assert captured["body"]["output_dimension"] == 1024
 
 
 async def test_rerank_parses_results_field() -> None:

@@ -211,6 +211,13 @@ class LiteLLMClient:
         """单次 /embeddings 调用；返回原 payload（含 data[].embedding 与 usage）。
 
         caller 自行切 batch（与 retrieval 的 query embedding 路径相对低频，单 batch 足够）。
+
+        target dimension 同时塞 OpenAI 风格 `dimensions` 与 Voyage 风格 `output_dimension`：
+        LiteLLM 透传 voyage 时只认 `output_dimension`，OpenAI / Azure 上游只认 `dimensions`；
+        两个字段并存对任一上游 schema 都是合法 superset（未识别字段会被忽略），
+        但缺 `output_dimension` 时 voyage 一直返回模型默认 2048 → 与 Qdrant
+        `tgpp_chunks_voyage_d1024` collection 维度不匹配 → 400 Bad Request → backend
+        生产 dense 路径一直 fallback 到 sparse-only（2026-05-22 M7.5 启动盘点时发现）。
         """
         body: dict[str, Any] = {
             "model": model or self._settings.VOYAGE_EMBEDDING_MODEL,
@@ -219,6 +226,7 @@ class LiteLLMClient:
         target_dim = dimensions if dimensions is not None else self._settings.EMBEDDING_DIMENSIONS
         if target_dim is not None:
             body["dimensions"] = int(target_dim)
+            body["output_dimension"] = int(target_dim)
         resp = await self._post_json("/embeddings", body)
         self._record_embedding_usage(model_name=body["model"], inputs=list(inputs), resp=resp)
         return resp
