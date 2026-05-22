@@ -131,10 +131,20 @@ class Settings(BaseSettings):
     INGEST_DATA_DIR: str = "/data/tgpp"
 
     # === 检索默认参数 ===
-    RETRIEVAL_DENSE_TOP_K: int = 30
-    RETRIEVAL_SPARSE_TOP_K: int = 30
+    # 2026-05-22 M7.5 校准（详见 docs/04-handoff/2026-05-22-m7.5-complete.md §3.2
+    # + eval-results/m7-rerank-ablation.md）：
+    # - dense / sparse top_k 30→50：给 rerank 更宽的 candidate pool；
+    #   section_recall@5 75%→80%，spec_recall@5 85%→92.5%（hand_crafted 40 题）
+    # - final_top_n 50→80：与 dense/sparse top_k=50 + RRF 去重容量匹配
+    # - RRF k 保持 60：实测 30/60/100 在 rerank 下游被 rerank 完全洗掉，无差异
+    # - RERANK_TOP_K 保持 5：rerank top_k=10 会让 generate prompt context 翻倍
+    #   （额外 token 成本 + latency），而 D13 主硬指标只看 section@5
+    # 改动 latency 影响：dense/sparse 每个查询多 ~20 chunks 但 qdrant/bm25 都是 O(log N)
+    # 走索引，实测 p50 605 vs 旧 610 ms 持平；总仍 < 800ms 预算
+    RETRIEVAL_DENSE_TOP_K: int = 50
+    RETRIEVAL_SPARSE_TOP_K: int = 50
     RETRIEVAL_RRF_K: int = 60
-    RETRIEVAL_FINAL_TOP_K: int = 50
+    RETRIEVAL_FINAL_TOP_K: int = 80
     RERANK_TOP_K: int = 5
     RETRIEVAL_CACHE_TTL_S: int = 3600
 

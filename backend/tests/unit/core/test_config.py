@@ -15,6 +15,21 @@ def test_defaults() -> None:
     assert s.bm25_dir == "/data/tgpp/bm25/voyage"
 
 
+def test_retrieval_defaults_match_m75_calibration() -> None:
+    """M7.5 retrieval 校准选定的默认值：dense/sparse 50、final_top_n 80、rerank_top_k 5。
+
+    详见 `docs/04-handoff/2026-05-22-m7.5-complete.md §3.2` +
+    `eval-results/m7-rerank-ablation.md`。改这些默认值必须先跑 ablation
+    更新报告，否则会破坏 D13 第一档评测对照口径。
+    """
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.RETRIEVAL_DENSE_TOP_K == 50
+    assert s.RETRIEVAL_SPARSE_TOP_K == 50
+    assert s.RETRIEVAL_RRF_K == 60
+    assert s.RETRIEVAL_FINAL_TOP_K == 80
+    assert s.RERANK_TOP_K == 5
+
+
 def test_sync_url_strips_asyncpg() -> None:
     s = Settings(_env_file=None, DATABASE_URL="postgresql+asyncpg://u:p@h/db")  # type: ignore[call-arg]
     assert s.database_url_sync == "postgresql://u:p@h/db"
