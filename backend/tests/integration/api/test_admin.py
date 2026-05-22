@@ -15,6 +15,7 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
@@ -92,6 +93,68 @@ async def test_stats_returns_counts_and_usage(app_and_state: Any, db_session: An
         assert usage["rerank_calls"] == 2
         assert usage["web_search_calls"] == 1
         assert usage["total_cost_usd"] == 0.05
+
+
+async def test_stats_reflects_real_usage_hook_writes(app_and_state: Any, db_session: Any) -> None:
+    """M7.4 写入链路：直接调 4 路 record_*_usage（绑当前 SQLite sm + 真实 user_id）→
+    /admin/stats `api_usage_7d` 字段聚合到一致数字。
+
+    单测层已覆盖 `_upsert_api_usage`；本集成测验证：
+      - sessionmaker_override 注入路径正确
+      - 多次累加后 /admin/stats 暴露的 7d 聚合 = sum(usage)
+    """
+    from app.services import usage as usage_mod
+
+    app, _, sm = app_and_state
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _admin_token(client)
+
+        admin_id = (
+            await db_session.execute(select(User.id).where(User.username == "admin1"))
+        ).scalar_one()
+
+        usage_mod.set_sessionmaker_override(sm)
+        try:
+            # 模拟一次 chat（mimo-v2.5 1000+500 token）+ 一次 embed（voyage 5000 token）
+            # + 一次 rerank + 一次 web_search（tavily）
+            await usage_mod.record_llm_usage(
+                model="mimo-v2.5",
+                prompt_tokens=1000,
+                completion_tokens=500,
+                user_id=admin_id,
+            )
+            await usage_mod.record_embedding_usage(
+                model="voyage-4-large",
+                tokens=5000,
+                user_id=admin_id,
+            )
+            await usage_mod.record_rerank_usage(
+                model="rerank-2.5",
+                query_tokens=20,
+                doc_tokens=2000,
+                n_docs=10,
+                user_id=admin_id,
+            )
+            await usage_mod.record_web_search_usage(
+                provider="tavily-search",
+                calls=2,
+                user_id=admin_id,
+            )
+        finally:
+            usage_mod.set_sessionmaker_override(None)
+
+        r = await client.get("/api/v1/admin/stats", headers=_h(token))
+        assert r.status_code == 200, r.text
+        u = r.json()["api_usage_7d"]
+        assert u["llm_input_tokens"] == 1000
+        assert u["llm_output_tokens"] == 500
+        assert u["embedding_tokens"] == 5000
+        assert u["rerank_calls"] == 1
+        assert u["web_search_calls"] == 2
+        # mimo-v2.5: 0.4/M × 1000 + 2.0/M × 500 = 4e-4 + 1e-3 = 1.4e-3
+        # voyage: 0 (free tier), rerank: 0 (free tier), tavily: 2 × 0.01 = 0.02
+        assert u["total_cost_usd"] == pytest.approx(0.0014 + 0.02, rel=1e-6)
 
 
 async def test_stats_excludes_usage_older_than_7_days(app_and_state: Any, db_session: Any) -> None:

@@ -19,7 +19,7 @@
 | **M7.1** 端到端 runner + 第一档阈值 ✅ 2026-05-20 | `eval/runner.py`（HTTP `/chat` SSE → metrics → report.md/json）；`backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言；Makefile `eval-daily/eval-weekly` | unit + integration 全绿；smoke（canned graph）all green；daily/full live 断言需 `RUN_LIVE_EVAL=1`（M7.6 CI 触发） |
 | **M7.2** Ragas + native MCQ ✅ 2026-05-20 | Ragas 4 metric 接入（judge=`glm-5.1`，避免同源偏差）；`eval/scripts/native_mcq_runner.py`（TeleQnA 选择题对照） | `eval/ragas_eval.py` + runner hook + 56 单测全绿（27 ragas + 29 mcq）；MCQ runner 一键 `eval native-mcq run` → `eval-results/m7-native-mcq/{ts}/report.md` |
 | **M7.3** Langfuse Dataset 集成 ✅ 2026-05-20 | `eval/langfuse_dataset.py` 一次性 push 金标准；runner 每条 item 上传 score（fact_coverage / faithfulness 等） | code 完成 + 21 单测全绿；`[human]` 待启用 built-in evaluators（M7.2 评估结束后人触发首次推送） |
-| **M7.4** 成本与用量监控 | `backend/app/services/usage.py` + `app/llm/pricing.py` + `services/alerts.py`（仅 log）；LiteLLM 响应钩 `usage` 字段 → ApiUsage upsert | unit 覆盖 LLM/Embed/Rerank/WebSearch 4 路径；`/admin/stats` 真实数据；alerts 阈值触发 → log warning（mock 验证） |
+| **M7.4** 成本与用量监控 ✅ 2026-05-22 | `backend/app/services/usage.py` + `app/llm/pricing.py` + `services/alerts.py`（仅 log）；LiteLLM 响应钩 `usage` 字段 → ApiUsage upsert | unit 覆盖 LLM/Embed/Rerank/WebSearch 4 路径（44 单测 + 1 集成测）；`/admin/stats` 真实数据；alerts 4 个阈值边界 → log warning |
 | **M7.5** Batch C 技术债（retrieval 校准） | C.2 R10/R11/R19 retrieval 校准（数据 drive 调 dense/RRF/rerank top_k）；C.3 O2 rerank ablation 报告 → `eval-results/m7-rerank-ablation.md`；C.4 `test_retrieve_node_p50_latency_under_800ms` 处理 | C.2：daily eval 连跑 2 次 ≥ 第一档阈值；C.3：报告归档；C.4：阈值放宽或 outlier 处理 |
 | **M7.6** Daily/Weekly CI + 完成验收 | `.github/workflows/eval-daily.yml` cron 02:00 跑 daily / `eval-weekly.yml` cron 周一 03:00 跑全集；阈值未达自动开 issue（mock 验证） | nightly 连跑 2 次 ≥ D13 第一档；交付 `docs/04-handoff/yyyy-mm-dd-m7-complete.md` |
 
@@ -39,7 +39,7 @@
 - [x] `[已存在]` Langfuse client + langchain CallbackHandler：`backend/app/agent/langfuse_handler.py`（v4，缺 key 自动 disable）；`.env` 已配 pk/sk/host
 - [x] `[M7.3]` Langfuse Dataset：`eval/langfuse_dataset.py` push 金标准 + runner 每次跑上传 score（2026-05-20 落 `push_golden_to_langfuse` + `push_run_score` + `make_eval_trace_id` + 单例 `get_client`；`run_eval(langfuse_run_label=..., langfuse_dataset_name=...)` 一处启用；缺 key 自动 disable，runner 主路径不变；21 单测含 mock SDK / 缺 key / 单条失败隔离 / runner 集成）
 - [x] `[已存在]` `ApiUsage` 表 + Alembic 迁移 + `/admin/stats` 7 天聚合查询（M4.10）
-- [ ] `[M7.4]` 成本与用量监控**写入链路**：`services/usage.py` + `llm/pricing.py` + `services/alerts.py`（仅 log warning）+ LiteLLM 响应 `usage` 钩
+- [x] `[M7.4]` 成本与用量监控**写入链路**：`services/usage.py` + `llm/pricing.py` + `services/alerts.py`（仅 log warning）+ LiteLLM 响应 `usage` 钩（2026-05-22 落地，[`../04-handoff/2026-05-22-m7.4-complete.md`](../04-handoff/2026-05-22-m7.4-complete.md)）
 - [x] `[已存在]` Pytest `eval` marker（`pyproject.toml::markers` + `Makefile::eval`）+ `ragas>=0.2` 已声明
 - [x] `[M7.1]` `backend/tests/eval/test_golden_v1.py`：D13 第一档（宽松）阈值断言；smoke（canned graph，always run）+ daily / full（`RUN_LIVE_EVAL=1` 触发；2026-05-20）+ Makefile `eval-daily` / `eval-weekly` target
 - [x] `[M7.1]` `backend/app/agent/not_found_phrases.py` + `eval/not_found_phrases.py`（镜像）：双语短语词表 + `is_not_found_answer()`；供 agent + eval runner 共享导入（42 单测含 mirror 同步校验）
@@ -616,36 +616,56 @@ async def main():
 
 ## 9. 成本与用量监控
 
-### 9.1 计费层
+### 9.1 计费层（M7.4 已落）
 
-`backend/app/services/usage.py`：
+`backend/app/llm/pricing.py` —— 单价表（dataclass + 4 个 cost helper）：
 
-- LLM / Embedding / Reranker / Vision / WebSearch 每次调用计入 PG `api_usage`
-- LLM token 数从 LiteLLM 响应 `usage` 字段读
-- Embedding 按 token 数估算
-- Reranker 按 token 数计费（Voyage 口径：`query_tokens × n_docs + Σ doc_tokens`，**不是按 query 次数**）
-- WebSearch 按调用次数计费
-- 单价由 `app/llm/pricing.py` 表维护；标的是"用尽免费额度后"的等效单价，免费区内本表算出的成本由 usage 上层标记为 `billed=false`
+- `LLMPrice / EmbeddingPrice / RerankPrice / WebSearchPrice` dataclass，`billed=False`
+  标记免费区（cost=0 但 token 仍写入 ApiUsage 列）
+- `_LLM_PRICES`：mimo-v2.5-pro / mimo-v2.5 / glm-5.1 / glm-4-plus
+- `_EMBEDDING_PRICES`：voyage-4-large（free）/ voyage-3.5（free）/ embedding-3
+- `_RERANK_PRICES`：rerank-2.5（free）/ rerank-2（free）
+- `_WEB_SEARCH_PRICES`：tavily-search（$0.01/call）
+- 未知模型走 `_UNKNOWN_*` 单例（cost=0），不抛错；usage hook 仍能写 token
 
-```python
-PRICING = {
-    "mimo-v2.5-pro":    {"input": 1.0/1e6, "output": 3.0/1e6},
-    "mimo-v2.5":        {"input": 0.4/1e6, "output": 2.0/1e6},
-    "voyage-4-large":   {"per_token_embed": 0.12/1e6},      # 200M tokens 免费
-    "voyage-rerank-2.5": {"per_token_rerank": 0.05/1e6},    # 200M tokens 免费，按 token 不按 query
-    "tavily-search":    {"per_call": 0.01},
-}
-```
+`backend/app/services/usage.py` —— 4 路 hook + 跨方言 upsert：
 
-### 9.2 告警阈值
+- `current_user_id` `ContextVar` 在 `api/v1/chat.py::send_message` 入口 `set_current_user(user.id)`，
+  在 asyncio Task 内自动传递；ingestion / eval 等无 user 场景 → hook skip
+- 4 个 fire-and-forget hook：`record_llm_usage` / `record_embedding_usage` /
+  `record_rerank_usage` / `record_web_search_usage`，用 `asyncio.ensure_future`
+  调度，**不阻塞 LLM 业务路径**；任何异常 swallow + log.warning
+- `_upsert_api_usage`：先 UPDATE（atomic 累加 + 自身列引用），rowcount=0 退化 INSERT；
+  并发 INSERT 撞 UNIQUE 约束 → rollback 后再 UPDATE 一次（PG / SQLite 通用，不依赖 dialect 方言）
+- Voyage rerank 口径：`rerank_billable_tokens(query_tokens × n_docs + Σ doc_tokens)`
+  → `total_cost_usd += billable × per_token`；`rerank_calls += 1`；token 数本身走
+  structlog DEBUG（ApiUsage schema 没单列，未来要拆加 rerank_tokens 列再 alembic）
+
+`backend/app/llm/litellm_client.py` —— hook 调用点：
+
+- `chat()` 后从 `resp.usage.{prompt_tokens, completion_tokens}` 提 → `_record_chat_usage`
+- `embed()` 后从 `resp.usage.{total_tokens, prompt_tokens}` 提，缺失退化按 `len/4` 估算
+- `rerank()` 后按 `query_tokens × n_docs + Σ doc_tokens` 估算（LiteLLM 透传 voyage
+  rerank 的 usage 字段口径不稳，估算更稳定；M7.4 Q2 决策仅 log warning，不依赖精确数字）
+- `tools/web_search.py` 在 tavily 成功返回后调 `record_web_search_usage(calls=1)`
+
+### 9.2 告警阈值（M7.4 Q2 仅 log warning）
 
 `backend/app/services/alerts.py`：
 
-- 每日聚合 job（apscheduler 或 cron）：检查 `api_usage(day=today)`
-- 阈值（可在 .env 覆盖）：
-  - 日总成本 > $5 → log warning
-  - 日总成本 > $10 → 发邮件 / Telegram / Discord webhook（看用户偏好）
-  - 月累计 > $50 → 同上
+- `apscheduler.AsyncIOScheduler` 进程内 cron job（`ALERT_DAILY_AGGREGATE_HOUR` 小时，
+  默认 01:00，本地时区 `APP_TIMEZONE`）
+- job 体：聚合**昨日**（避免读到当日还在累加的不完整数据）+ 月累计 → 与
+  `ALERT_DAILY_USD` / `ALERT_DAILY_USD_CRITICAL` / `ALERT_MONTHLY_USD` 比对 → log
+- Q2 决策（2026-05-19）：**仅 log warning**，不接 webhook / 邮件 / 推送通道
+- 默认阈值（可在 `.env` 覆盖）：
+  - daily > $5 → `cost_alert.daily` log.warning
+  - daily > $10 → `cost_alert.daily_critical` log.warning（不再叠 daily 普通 warn）
+  - monthly through today > $50 → `cost_alert.monthly` log.warning
+- 阈值 ≤ 0 视作 disabled；`ALERT_SCHEDULER_ENABLED=false` 整体关掉
+- `main.py::lifespan` 启停；`disable_agent_init=true` / 缺 apscheduler / 时区无效
+  都优雅降级（仅 log，不阻塞 API）
+- M8 上线监控需要时再加 webhook / 邮件，不在 M7.4 范围
 
 ### 9.3 前端展示
 
@@ -726,13 +746,16 @@ PRICING = {
 - [x] `[auto]` runner 跑时给每条 item 创建 trace + 上传 score：`run_eval(langfuse_run_label="...")` 触发；`make_eval_trace_id` 按 `(label, item.id)` seed 生成幂等 trace_id；`create_event` 写 question/answer 到 trace；`push_run_score` 上传 9 个 NUMERIC（`context_recall_section/spec` / `fact_coverage` / `must_say_not_found_passed` / `forbidden_violation` / `ragas_faithfulness/answer_relevance/context_recall/context_precision`）；缺 key 自动 disable（2026-05-20 落 + 16 单测覆盖含 mock SDK / 缺 trace_id / 单 metric 失败隔离 / runner 集成）
 - [ ] `[human]` Langfuse Cloud Web UI 验证：M7.2 评估结束后人触发首次 `push_golden_to_langfuse` → Cloud Dataset 页面确认 175 题可见 → 启用 built-in evaluators（faithfulness / relevance）关联 Dataset → 跑一次 daily 子集（`langfuse_run_label="m7-smoke-..."`）确认 trace 出现 + 出分
 
-### M7.4 成本与用量监控
+### M7.4 成本与用量监控 ✅ 2026-05-22
 
-- [ ] `[auto]` `backend/app/llm/pricing.py`：单价表（mimo-v2.5-pro / mimo-v2.5 / voyage-4-large / voyage-rerank-2.5 / tavily-search），免费额度区间用 `billed=false` 标记
-- [ ] `[auto]` `backend/app/services/usage.py`：LLM / Embedding / Rerank / WebSearch 4 路 hook，从 LiteLLM 响应 `usage` 字段取 token；写 ApiUsage 按 `(user_id, day)` upsert；rerank 按 `query_tokens × n_docs + Σ doc_tokens` 计费（Voyage 口径）
-- [ ] `[auto]` LiteLLM client 在 `chat_completion` / `embedding` / `rerank` 返回处调 usage hook（侵入最小，不改业务路径）
-- [ ] `[auto]` `backend/app/services/alerts.py`：每日聚合 job（apscheduler 进程内 cron） + 阈值（`.env` 覆盖：日 $5 / $10 / 月 $50） → 仅 log warning（决策 Q2）
-- [ ] `[auto]` unit 覆盖 4 路径 + alerts 阈值边界（mock 用量数据 → 断言 log warning 行为）；`/admin/stats` 集成测从 ApiUsage 真实数据查询
+> M7.4 完成报告：[`../04-handoff/2026-05-22-m7.4-complete.md`](../04-handoff/2026-05-22-m7.4-complete.md)
+
+- [x] `[auto]` `backend/app/llm/pricing.py`：单价表（mimo-v2.5-pro / mimo-v2.5 / glm-5.1 / voyage-4-large / voyage-rerank-2.5 / tavily-search），免费额度区间 `billed=False` → cost=0 但 token 仍计入
+- [x] `[auto]` `backend/app/services/usage.py`：LLM / Embedding / Rerank / WebSearch 4 路 hook + `current_user_id` ContextVar；写 ApiUsage 按 `(user_id, day)` 跨 PG/SQLite UPDATE-then-INSERT-on-IntegrityError 兼容 upsert；rerank 按 `query_tokens × n_docs + Σ doc_tokens`（Voyage 口径）；缺 user 上下文 / 0 token / 异常一律 swallow，**绝不阻断主路径**
+- [x] `[auto]` LiteLLM client 在 `chat` / `embed` / `rerank` 返回处调 usage hook（fire-and-forget `asyncio.ensure_future`，侵入最小，不改业务路径）；`api/v1/chat.py` 在请求入口 `set_current_user(user.id)` 把身份装进 ContextVar；`tools/web_search.py` 同口径 hook
+- [x] `[auto]` `backend/app/services/alerts.py`：apscheduler `AsyncIOScheduler` 进程内 daily cron job（`ALERT_DAILY_AGGREGATE_HOUR` 默认 01:00，本地时区 `APP_TIMEZONE`） + 阈值（`.env` 覆盖：`ALERT_DAILY_USD=5` / `ALERT_DAILY_USD_CRITICAL=10` / `ALERT_MONTHLY_USD=50`） → 仅 `log.warning(...)`（Q2 决策）；`ALERT_SCHEDULER_ENABLED=false` 关闭；阈值 ≤ 0 视作 disabled
+- [x] `[auto]` `main.py` lifespan 启停 alerts scheduler（`disable_agent_init` / `apscheduler 缺失` / 时区无效都优雅降级）
+- [x] `[auto]` unit 覆盖 4 路径 + alerts 阈值边界 + scheduler 启停（44 单测 `test_pricing.py` / `test_usage.py` / `test_alerts.py`）；`/admin/stats` 集成测扩 `test_stats_reflects_real_usage_hook_writes`：4 路 hook 写 ApiUsage 后查询 7d 聚合一致
 
 ### M7.5 Batch C 技术债（retrieval 校准）
 

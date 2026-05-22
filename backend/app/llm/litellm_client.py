@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
@@ -36,7 +37,19 @@ from tenacity import (
 from app.core.config import Settings, get_settings
 from app.core.errors import LLMError, UpstreamError
 
+log = logging.getLogger(__name__)
+
 DEFAULT_MAX_RETRIES = 3
+
+
+def _approx_token_count(text: str) -> int:
+    """粗估 token：4 字符 ≈ 1 token（OpenAI/Voyage 公开口径的下限近似）。
+
+    rerank 路径上 LiteLLM 不一定回 usage 字段，需 fallback 估算。中文每字 ≈ 1 token
+    比英文密集，4 字符近似下限对计费是保守低估，实务可接受（M7.4 Q2 仅 log warning，
+    不依赖精确数字）。
+    """
+    return max(len(text) // 4, 1) if text else 0
 
 
 def _is_retryable(exc: BaseException) -> bool:
@@ -113,7 +126,9 @@ class LiteLLMClient:
             stream=False,
             extra=extra,
         )
-        return await self._post_json("/chat/completions", body)
+        resp = await self._post_json("/chat/completions", body)
+        self._record_chat_usage(model_name=body["model"], resp=resp)
+        return resp
 
     async def chat_stream(
         self,
@@ -204,7 +219,9 @@ class LiteLLMClient:
         target_dim = dimensions if dimensions is not None else self._settings.EMBEDDING_DIMENSIONS
         if target_dim is not None:
             body["dimensions"] = int(target_dim)
-        return await self._post_json("/embeddings", body)
+        resp = await self._post_json("/embeddings", body)
+        self._record_embedding_usage(model_name=body["model"], inputs=list(inputs), resp=resp)
+        return resp
 
     # ---------- rerank ----------
 
@@ -228,6 +245,9 @@ class LiteLLMClient:
         if top_k is not None:
             body["top_k"] = int(top_k)
         payload = await self._post_json("/rerank", body)
+        self._record_rerank_usage(
+            model_name=body["model"], query=query, documents=list(documents), resp=payload
+        )
         results = payload.get("results") or payload.get("data") or []
         return [
             {
@@ -270,3 +290,80 @@ class LiteLLMClient:
 
         # 不可达
         raise UpstreamError("LiteLLM retry exhausted without exception")
+
+    # ---------- usage hooks (M7.4) ----------
+    # 设计：按 CLAUDE.md §3 surgical changes，hook 不改业务路径；任何异常 swallow。
+    # 用户身份从 `app.services.usage.current_user_id` ContextVar 读，由 chat 路由
+    # 在请求入口 set。无 user 上下文（ingestion / eval / 后台 job）→ skip。
+
+    def _record_chat_usage(self, *, model_name: str, resp: dict[str, Any]) -> None:
+        try:
+            from app.services.usage import record_llm_usage, schedule_usage_hook
+
+            usage = resp.get("usage") or {}
+            prompt_tokens = int(usage.get("prompt_tokens") or 0)
+            completion_tokens = int(usage.get("completion_tokens") or 0)
+            if prompt_tokens <= 0 and completion_tokens <= 0:
+                return
+            schedule_usage_hook(
+                record_llm_usage(
+                    model=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                )
+            )
+        except Exception as exc:
+            log.debug("usage_hook chat failed: %s", exc)
+
+    def _record_embedding_usage(
+        self, *, model_name: str, inputs: list[str], resp: dict[str, Any]
+    ) -> None:
+        try:
+            from app.services.usage import record_embedding_usage, schedule_usage_hook
+
+            usage = resp.get("usage") or {}
+            tokens = int(usage.get("total_tokens") or usage.get("prompt_tokens") or 0)
+            if tokens <= 0:
+                tokens = sum(_approx_token_count(s) for s in inputs)
+            if tokens <= 0:
+                return
+            schedule_usage_hook(record_embedding_usage(model=model_name, tokens=tokens))
+        except Exception as exc:
+            log.debug("usage_hook embedding failed: %s", exc)
+
+    def _record_rerank_usage(
+        self,
+        *,
+        model_name: str,
+        query: str,
+        documents: list[str],
+        resp: dict[str, Any],
+    ) -> None:
+        """Voyage 口径：billable = query_tokens × n_docs + Σ doc_tokens。"""
+        try:
+            from app.services.usage import record_rerank_usage, schedule_usage_hook
+
+            n_docs = len(documents)
+            doc_tokens = sum(_approx_token_count(d) for d in documents)
+            query_tokens = _approx_token_count(query)
+            # LiteLLM 透传 voyage rerank 时若回 usage（meta.billed_units 等）也接受
+            # 一下，比客户端估算更准；缺失走估算路径。
+            usage = resp.get("usage") or {}
+            meta_total = int(
+                usage.get("total_tokens")
+                or (resp.get("meta") or {}).get("tokens", {}).get("input_tokens")
+                or 0
+            )
+            if meta_total > 0 and n_docs > 0:
+                # 反推 doc_tokens（保留客户端估算的 query_tokens / n_docs）
+                doc_tokens = max(meta_total - query_tokens * n_docs, doc_tokens)
+            schedule_usage_hook(
+                record_rerank_usage(
+                    model=model_name,
+                    query_tokens=query_tokens,
+                    doc_tokens=doc_tokens,
+                    n_docs=n_docs,
+                )
+            )
+        except Exception as exc:
+            log.debug("usage_hook rerank failed: %s", exc)

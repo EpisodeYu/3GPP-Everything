@@ -54,11 +54,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     - 若 DATABASE_URL 是 PostgreSQL：建 AsyncPostgresSaver checkpointer + 完整 LangGraph
       绑到 `app.state.agent_graph`，让 `aupdate_state` / fork / rollback / list_checkpoints
       真正持久化（M4.8 之前是 best-effort no-op）
+    - 启动 M7.4 alerts scheduler（apscheduler 进程内 cron daily job，仅 log warning）
 
-    关闭时：关掉 checkpointer 的连接池 + 释放 AgentDeps（dense / cache / llm）
+    关闭时：关掉 alerts scheduler、checkpointer 的连接池 + 释放 AgentDeps（dense / cache / llm）
     """
     app.state.in_flight_cancels = {}
     saver_ctx: Any = None
+    alerts: Any = None
     try:
         # 测试钩子：conftest 设 `app.state.disable_agent_init = True` 防止 lifespan
         # 用真实 env 连 PG / Qdrant / LiteLLM
@@ -88,9 +90,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # fallback 到 lazy `tgpp_agent` 单例（其 first-touch 还是会按需触发）。
         log.warning("agent graph w/ checkpointer init skipped: %s", exc)
 
+    # M7.4 alerts scheduler：进程内 daily cron job；任一异常都 swallow，不阻塞 API
+    if not getattr(app.state, "disable_agent_init", False):
+        try:
+            from app.services.alerts import AlertScheduler
+
+            alerts = AlertScheduler()
+            alerts.start()
+            app.state.alert_scheduler = alerts
+        except Exception as exc:
+            log.warning("alerts scheduler start failed: %s", exc, exc_info=False)
+
     try:
         yield
     finally:
+        if alerts is not None:
+            with contextlib.suppress(Exception):
+                alerts.shutdown()
         live_deps: Any = getattr(app.state, "_agent_deps", None)
         if live_deps is not None:
             with contextlib.suppress(Exception):

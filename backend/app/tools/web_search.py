@@ -92,4 +92,18 @@ async def web_search_tool(state: AgentState, *, deps: AgentDeps) -> dict[str, An
                 "snippet": str(item.get("content") or "")[:_SNIPPET_CHARS],
             }
         )
+    _record_usage()
     return {"query": query, "results": results, "prefix": _PREFIX, "warning": None}
+
+
+def _record_usage() -> None:
+    """M7.4 计费 hook：tavily basic search 一次 += 1（fire-and-forget）。
+
+    无 user 上下文（agent 在 eval / ingestion 等场景调）→ skip；任何异常 swallow。
+    """
+    try:
+        from app.services.usage import record_web_search_usage, schedule_usage_hook
+
+        schedule_usage_hook(record_web_search_usage(provider="tavily-search", calls=1))
+    except Exception as exc:
+        log.debug("usage_hook web_search failed: %s", exc)

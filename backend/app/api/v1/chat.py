@@ -40,6 +40,7 @@ from app.db.base import get_db
 from app.db.models import Message, MessageCitation, User
 from app.db.models import Session as DBSession
 from app.schemas.chat import SendMessageBody
+from app.services.usage import set_current_user
 
 log = logging.getLogger(__name__)
 
@@ -161,6 +162,11 @@ async def send_message(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> EventSourceResponse:
+    # M7.4：把 user.id 装进 ContextVar，下游 LiteLLMClient / web_search_tool 的
+    # usage hook 自动读到；ContextVar 在 asyncio Task 内部传递，不污染其他请求。
+    # 不在 finally 里 reset：本 task 在 SSE 流结束时自然结束，ContextVar 也随之释放。
+    set_current_user(user.id)
+
     # 1. 会话权属 + 状态校验
     res = await db.execute(
         select(DBSession).where(DBSession.id == sid, DBSession.user_id == user.id)

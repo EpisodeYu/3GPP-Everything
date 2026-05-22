@@ -141,6 +141,17 @@ class Settings(BaseSettings):
     # === 检索缓存 key 前缀 ===
     CACHE_KEY_PREFIX: str = "tgpp:cache"
 
+    # === 成本告警（M7.4，Q2 决策：仅 log warning，不接 webhook）===
+    # 日 / 月美元阈值；超过对应阈值时 alerts daily job 仅写 structlog warning。
+    # 0 / 负值视作 disabled（不告警）；调度时区沿用 APP_TIMEZONE。
+    ALERT_DAILY_USD: float = 5.0
+    ALERT_DAILY_USD_CRITICAL: float = 10.0
+    ALERT_MONTHLY_USD: float = 50.0
+    # 每日聚合 job 的本地时刻（小时 0-23），默认凌晨 1 点，避免与 daily eval 重叠。
+    ALERT_DAILY_AGGREGATE_HOUR: int = 1
+    # 显式开关：测试 / 单进程 worker 部署可关掉 scheduler；缺省走 lifespan 自动启动。
+    ALERT_SCHEDULER_ENABLED: bool = True
+
     @property
     def database_url_sync(self) -> str:
         """同步 driver URL（alembic / sqlite 单测用），把 +asyncpg 换成默认 psycopg。"""
