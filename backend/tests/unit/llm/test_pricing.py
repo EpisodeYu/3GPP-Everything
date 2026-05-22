@@ -34,9 +34,16 @@ class TestLLMPrice:
 
     def test_glm_5_1_used_as_judge(self) -> None:
         # docs/03-development/06 §3.4：judge=glm-5.1
+        # 智谱短输入档 [0, 32K)：¥6/M input, ¥24/M output；÷ 7.2 → USD/M
         cost = llm_cost_usd("glm-5.1", input_tokens=2_000_000, output_tokens=500_000)
-        # 0.5/M × 2 + 2.0/M × 0.5 = 1.0 + 1.0 = 2.0
-        assert math.isclose(cost, 2.0, rel_tol=1e-6)
+        # input: 6/7.2 × 2 = 1.6667；output: 24/7.2 × 0.5 = 1.6667；total ≈ 3.3333
+        assert math.isclose(cost, (6.0 * 2 + 24.0 * 0.5) / 7.2, rel_tol=1e-6)
+
+    def test_glm_4_7_cheapest_short_output_tier(self) -> None:
+        # 智谱短输入档 [0, 32K)：¥2/M input, ¥8/M output（[0, 0.2) 输出长度档）
+        cost = llm_cost_usd("glm-4.7", input_tokens=1_000_000, output_tokens=1_000_000)
+        # (2 + 8) / 7.2 ≈ 1.3889
+        assert math.isclose(cost, 10.0 / 7.2, rel_tol=1e-6)
 
     def test_unknown_model_returns_zero_cost(self) -> None:
         cost = llm_cost_usd("not-a-real-model", input_tokens=10_000, output_tokens=10_000)

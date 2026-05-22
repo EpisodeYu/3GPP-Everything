@@ -57,15 +57,50 @@ class WebSearchPrice:
     billed: bool = True
 
 
+# 人民币 → USD 换算汇率（2026-05 时点近似；GLM 智谱定价是人民币口径，统一在
+# 这里换算）。汇率漂移到 ±5% 以上时手动同步本常量；与 LiteLLM 计费记账无关，
+# 仅 ApiUsage.total_cost_usd 字段口径用。
+_RMB_PER_USD: float = 7.2
+
+
+def _rmb_per_m_to_usd_per_token(rmb_per_m: float) -> float:
+    """¥X/M tokens → USD per token（一个 token 维度的单价）。"""
+    return rmb_per_m / _RMB_PER_USD / 1e6
+
+
 # === LLM ===
-# mimo / glm 单价取自 docs/03-development/06-... §9.1 + docs/02-tech-selection.md
+# mimo 单价：docs/03-development/06-... §9.1（USD 直接挂；小米开放平台 mimo-v2.5
+# 系列价格随官方 list 定期对照）。
+# GLM 单价：智谱开放平台 2026-05 时点 list（人民币口径，按 _RMB_PER_USD 换算）。
+# 智谱定价是分输入长度档（[0, 32K) vs [32K+)）；项目 RAG chunk 输入绝大多数
+# < 32K，用短档当默认；长上下文场景会偏低估 30-40%（M7.4 Q2 仅 log warning 不依赖
+# 精确数字，可接受）。
 _LLM_PRICES: dict[str, LLMPrice] = {
-    # Mimo（小米开放平台 mimo-v2.5 系列；价格随官方 list 定期对照）
+    # Mimo（USD 口径，与 LiteLLM proxy 上的 mimo-v2.5 系列对齐）
     "mimo-v2.5-pro": LLMPrice("mimo-v2.5-pro", 1.0 / 1e6, 3.0 / 1e6),
     "mimo-v2.5": LLMPrice("mimo-v2.5", 0.4 / 1e6, 2.0 / 1e6),
-    # GLM（智谱）judge 用，避免与 mimo 同源偏差
-    "glm-5.1": LLMPrice("glm-5.1", 0.5 / 1e6, 2.0 / 1e6),
-    "glm-4-plus": LLMPrice("glm-4-plus", 0.05 / 1e6, 0.15 / 1e6),
+    # GLM（智谱开放平台短输入档 [0, 32K)，¥/M → USD/token）
+    # judge 用，避免与 mimo 同源偏差（详见 06-... §3.4 / §5）
+    "glm-5.1": LLMPrice(
+        "glm-5.1",
+        _rmb_per_m_to_usd_per_token(6.0),
+        _rmb_per_m_to_usd_per_token(24.0),
+    ),
+    "glm-5-turbo": LLMPrice(
+        "glm-5-turbo",
+        _rmb_per_m_to_usd_per_token(5.0),
+        _rmb_per_m_to_usd_per_token(22.0),
+    ),
+    "glm-5": LLMPrice(
+        "glm-5",
+        _rmb_per_m_to_usd_per_token(4.0),
+        _rmb_per_m_to_usd_per_token(18.0),
+    ),
+    "glm-4.7": LLMPrice(
+        "glm-4.7",
+        _rmb_per_m_to_usd_per_token(2.0),
+        _rmb_per_m_to_usd_per_token(8.0),
+    ),
 }
 
 # === Embedding ===
