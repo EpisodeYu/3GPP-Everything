@@ -199,29 +199,35 @@ assert cost_p50_cny <= 0.30
 
 详见 `docs/03-development/06-evaluation-and-observability.md §6.2`。
 
-### C.2 R10 / R11 / R19 · retrieval 召回校准
+### C.2 R10 / R11 / R19 · retrieval 召回校准 ✅ DONE (M7.5, 2026-05-22)
 
-**目标**：M7 nightly eval 暴露的 retrieval 质量问题（如 R19 的 proc-005、`test_complex_qa_five_golden_items`、simple path spec hit 2/5）按数据 drive 调 retrieval / rerank / prompt。
+**实际做的**：
 
-**实施位置**：
-- `backend/app/retrieval/{dense,sparse,hybrid,rerank}.py`（调 top_k / RRF k / rerank top_k 等参数）
-- `backend/app/agent/prompts/{classify,rewrite,hyde,multi_query}.md`（如 R10 暴露分类错误）
+1. 启动盘点时发现一个生产 hotfix：`LiteLLMClient.embed` 给 LiteLLM proxy 传的是 OpenAI 的 `dimensions` 字段，但 LiteLLM 透传 voyage 时只认 voyage 自家的 `output_dimension` → 返回默认 2048 维 → 与 d1024 collection 维度不匹配 → 生产 **dense 一直返回空，BM25 sparse-only 在跑**。修法 1 行 + 2 单测；container reload 实证 dense 跳中。
+2. 新增 `backend/scripts/dev/retrieval_ablation.py`（dev 工具 + 19 单测）；hand_crafted 56 题 × 7 config 扫描。
+3. 默认参数从 `dense30/sparse30/rrf60/top50/rerank5` 改为 `dense50/sparse50/rrf60/top80/rerank5`：实测 section_recall@5 75→80%、spec_recall@5 85→92.5%、MRR 0.706→0.711，p50 持平 605ms。
 
-**门槛**：M7 nightly 连跑 2 次 ≥ C.1 宽松阈值，才能进入 C.3。
+详见 [`2026-05-22-m7.5-complete.md`](2026-05-22-m7.5-complete.md) + [`../../eval-results/m7-rerank-ablation.md`](../../eval-results/m7-rerank-ablation.md)。
 
-### C.3 O2 · Rerank ablation
+### C.3 O2 · Rerank ablation ✅ DONE (M7.5, 2026-05-22)
 
-跑同一份 `eval/golden/v1.yaml` 在 `tgpp_chunks_voyage_d1024`：
-- baseline（dense+BM25+RRF，无 rerank）
-- 加 voyage rerank-2.5
+报告归档 `eval-results/m7-rerank-ablation.md`。**关键发现**：
 
-记录 spec R@10 / section R@10 / MRR 提升曲线，归档到 `eval-results/m7-rerank-ablation.md`。
+- rerank 收益明确：no-rerank vs rerank5 在 section@5 +2.5pp、spec@5 +5pp、MRR +0.07
+- RRF k ∈ {30, 60, 100} 在 rerank 下游被洗掉，无差异
+- rerank_top_k=10 vs 5 仅在 section@10 +2.5pp，section@5 持平 → 不入默认（避免下游 generate prompt context 翻倍）
+- wider candidate pool（dense/sparse 50, final_top_n 80）+ rerank5 给出 section@5 80% / spec@5 92.5% 综合最优
 
-### C.4 `test_retrieve_node_p50_latency_under_800ms` 处理
+### C.4 `test_retrieve_node_p50_latency_under_800ms` 处理 ✅ DONE (M7.5, 2026-05-22)
 
-- 选项 A：调宽阈值到 1200ms 并加注释"CI 物理机噪声允许"
-- 选项 B：剔除最快与最慢两个 outlier 后取 p50
-- 由 M7 实施 agent 自主决定
+选 **B 改进**：
+
+- 加 2 题 warmup 吃 BM25 / voyage / qdrant 连接池 cold-path（warmup 不计入 timings）
+- 5 题取中位数 P50（outlier-resistant）
+- 硬阈值 800 → 1500ms 给 voyage 外网 RTT + 物理机噪声宽余量
+- 设计目标 800ms 不动（docs/03-development/03-agent.md §M4.2）；M8 上线如真稳定到 < 800ms 可再收紧
+
+详见 [`2026-05-22-m7.5-complete.md §3.4`](2026-05-22-m7.5-complete.md)。
 
 ---
 
