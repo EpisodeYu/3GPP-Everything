@@ -36,8 +36,99 @@ from eval.runner_retrieval import GoldenItem
 # === Fakes ================================================================
 
 
+class _FakeDatasetRunItemsClient:
+    """v4 低层 `client.api.dataset_run_items.create(...)` 的 mock 子类。"""
+
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.calls: list[dict[str, Any]] = []
+
+    def create(self, **kwargs: Any) -> Any:
+        if self.fail:
+            raise RuntimeError("simulated dataset_run_items.create failure")
+        self.calls.append(kwargs)
+        return {"id": f"dri-{len(self.calls)}"}
+
+
+class _FakeDatasetMeta:
+    def __init__(self, name: str, id_: str) -> None:
+        self.name = name
+        self.id = id_
+
+
+class _FakeDatasetsApi:
+    """`client.api.datasets.get(dataset_name=...)` 的 mock；用来支持 `_resolve_dataset_id`。"""
+
+    def __init__(self, mapping: dict[str, str] | None = None, *, fail: bool = False) -> None:
+        self._mapping = mapping or {"tgpp-golden-v1": "ds-tgpp-fake-id"}
+        self.fail = fail
+        self.calls: list[str] = []
+
+    def get(self, *, dataset_name: str) -> _FakeDatasetMeta:
+        self.calls.append(dataset_name)
+        if self.fail:
+            raise RuntimeError("simulated datasets.get failure")
+        return _FakeDatasetMeta(dataset_name, self._mapping.get(dataset_name, "ds-unknown"))
+
+
+class _FakeApi:
+    """`client.api.<resource>` 命名空间的 mock 容器。"""
+
+    def __init__(self, *, fail_run_item: bool = False, fail_dataset_get: bool = False) -> None:
+        self.dataset_run_items = _FakeDatasetRunItemsClient(fail=fail_run_item)
+        self.datasets = _FakeDatasetsApi(fail=fail_dataset_get)
+
+
+class _FakeOtelSpanHandle:
+    """`span._otel_span` 的最小 mock；只暴露 set_attributes（runner 用到的唯一方法）。"""
+
+    def __init__(self, parent: _FakeSpan) -> None:
+        self._parent = parent
+
+    def set_attributes(self, attrs: dict[str, Any]) -> None:
+        self._parent.otel_attrs.update(attrs)
+
+
+class _FakeSpan:
+    """`Langfuse.start_as_current_observation` context manager 返回的对象 mock。"""
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        span_input: Any,
+        span_output: Any,
+        span_metadata: Any,
+        trace_id: str,
+        span_id: str,
+    ) -> None:
+        self.name = name
+        self.input = span_input
+        self.output = span_output
+        self.metadata = span_metadata
+        self.trace_id = trace_id
+        self.id = span_id
+        self.otel_attrs: dict[str, Any] = {}
+        self._otel_span = _FakeOtelSpanHandle(self)
+
+
+class _FakeSpanContextManager:
+    """同步 with 上下文管理器；__enter__ 返回 span，__exit__ 把 span 落入 recorder。"""
+
+    def __init__(self, span: _FakeSpan, recorder: list[_FakeSpan]) -> None:
+        self._span = span
+        self._recorder = recorder
+
+    def __enter__(self) -> _FakeSpan:
+        return self._span
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
+        self._recorder.append(self._span)
+        return False
+
+
 class FakeLangfuseClient:
-    """记录 SDK 调用的极简 mock，覆盖 dataset / trace / score 4 个用到的方法。"""
+    """记录 SDK 调用的极简 mock，覆盖 dataset / span / score / run_item / api.datasets。"""
 
     def __init__(
         self,
@@ -45,18 +136,30 @@ class FakeLangfuseClient:
         fail_create_dataset: bool = False,
         fail_item_ids: tuple[str, ...] = (),
         fail_score_names: tuple[str, ...] = (),
+        fail_run_item: bool = False,
+        fail_dataset_get: bool = False,
         next_trace_id: str = "fake-trace-id-deadbeef",
+        next_span_id: str = "fake-span-id-feedface",
     ) -> None:
         self.fail_create_dataset = fail_create_dataset
         self.fail_item_ids = set(fail_item_ids)
         self.fail_score_names = set(fail_score_names)
         self.next_trace_id = next_trace_id
+        self.next_span_id = next_span_id
 
         self.datasets: list[dict[str, Any]] = []
         self.items: list[dict[str, Any]] = []
+        self.spans: list[_FakeSpan] = []
+        # 旧测试可能仍 assert events/trace_id_calls 为空（兼容路径回退证明）
         self.events: list[dict[str, Any]] = []
         self.scores: list[dict[str, Any]] = []
         self.trace_id_calls: list[str | None] = []
+        self.flushes: int = 0
+        self.api = _FakeApi(fail_run_item=fail_run_item, fail_dataset_get=fail_dataset_get)
+
+    @property
+    def run_item_calls(self) -> list[dict[str, Any]]:
+        return self.api.dataset_run_items.calls
 
     def create_dataset(self, *, name: str, description: str | None = None, **_: Any) -> Any:
         if self.fail_create_dataset:
@@ -76,13 +179,40 @@ class FakeLangfuseClient:
         return self.next_trace_id
 
     def create_event(self, **kwargs: Any) -> Any:
+        # M7.3-fixup-2 之后 runner 不再用 create_event；保留 mock 兼容
+        # langfuse_dataset 模块内任何残留 caller，并供单测 assert "未被调用"。
         self.events.append(kwargs)
         return {"id": "ev-1"}
+
+    def start_as_current_observation(
+        self,
+        *,
+        name: str,
+        as_type: str,
+        input: Any = None,
+        output: Any = None,
+        metadata: Any = None,
+        **_kwargs: Any,
+    ) -> _FakeSpanContextManager:
+        if as_type != "span":  # runner 永远传 span；防止意外
+            raise AssertionError(f"unexpected as_type={as_type!r}")
+        span = _FakeSpan(
+            name=name,
+            span_input=input,
+            span_output=output,
+            span_metadata=metadata,
+            trace_id=self.next_trace_id,
+            span_id=self.next_span_id,
+        )
+        return _FakeSpanContextManager(span, self.spans)
 
     def create_score(self, *, name: str, value: float, **kwargs: Any) -> None:
         if name in self.fail_score_names:
             raise RuntimeError(f"simulated score failure for {name}")
         self.scores.append({"name": name, "value": value, **kwargs})
+
+    def flush(self) -> None:
+        self.flushes += 1
 
 
 def _golden_item(
@@ -413,7 +543,9 @@ class TestPushRunScore:
 
 def _sse_body() -> str:
     chunk_payload = (
-        '{"chunks": [{"spec_id": "23.501", "section_path": "5.2.1", "content": "AMF content"}]}'
+        '{"chunks": [{"spec_id": "23.501", "section_path": "5.2.1", '
+        '"preview": "AMF handles", '
+        '"content": "AMF handles access and mobility for 5G UE."}]}'
     )
     lines = [
         "event: chunks_rerank",
@@ -482,14 +614,39 @@ async def test_run_eval_pushes_to_langfuse_when_label_set(tmp_path: Path) -> Non
     assert len(results) == 1
     r = results[0]
     assert r.langfuse_trace_id == "trace-X"
-    # 1 个 event + ≥3 个 score 上传
-    assert len(fake_client.events) == 1
-    assert fake_client.events[0]["trace_context"] == {"trace_id": "trace-X"}
-    assert fake_client.events[0]["input"]["question"] == "What is AMF?"
+    # M7.3-fixup-2（2026-05-22 PM）：runner 改用 SPAN 模式（`start_as_current_observation`）
+    # 而不是 create_event；create_event 必须未被调用。
+    assert fake_client.events == []
+    # 1 个 root SPAN observation
+    assert len(fake_client.spans) == 1
+    span = fake_client.spans[0]
+    assert span.name == "eval-item-def-1"
+    assert span.input["question"] == "What is AMF?"
+    # span.output 必须含 contexts（给 Cloud built-in faithfulness evaluator
+    # 当 `{{context}}`），且按 [spec_id §section] 标记拼接。
+    assert "contexts" in span.output
+    assert "AMF handles access and mobility" in span.output["contexts"]
+    assert "[23.501 §5.2.1]" in span.output["contexts"]
+    # 5 个 experiment OTel attributes 必须写到 root span，让 Cloud
+    # LLM-as-a-Judge evaluator filter `experimentDatasetId any of <id>` 命中。
+    attrs = span.otel_attrs
+    assert attrs["langfuse.environment"] == "sdk-experiment"
+    assert attrs["langfuse.experiment.id"] == "m7-smoke-2026-05-20"
+    assert attrs["langfuse.experiment.name"] == "m7-smoke-2026-05-20"
+    assert attrs["langfuse.experiment.dataset.id"] == "ds-tgpp-fake-id"
+    assert attrs["langfuse.experiment.item.id"] == "def-1"
+    assert attrs["langfuse.experiment.item.root_observation_id"] == "fake-span-id-feedface"
+    # score 上传不变
     score_names = {s["name"] for s in fake_client.scores}
     assert "context_recall_section" in score_names
     assert "fact_coverage" in score_names
     assert "forbidden_violation" in score_names
+    # dataset_run_items 仍然挂（让 v3.x UI Datasets→Runs 子页面也能看到）
+    assert len(fake_client.run_item_calls) == 1
+    rc = fake_client.run_item_calls[0]
+    assert rc["run_name"] == "m7-smoke-2026-05-20"
+    assert rc["dataset_item_id"] == "def-1"
+    assert rc["trace_id"] == "trace-X"
 
 
 @pytest.mark.asyncio
@@ -526,4 +683,91 @@ async def test_run_eval_no_langfuse_when_label_none(tmp_path: Path) -> None:
 
     assert results[0].langfuse_trace_id is None
     assert fake_client.events == []
+    assert fake_client.spans == []
     assert fake_client.scores == []
+    assert fake_client.run_item_calls == []
+
+
+# === _link_trace_to_dataset_run ============================================
+
+
+@pytest.mark.asyncio
+async def test_run_eval_skips_run_item_when_dataset_none(tmp_path: Path) -> None:
+    """label 给了但 dataset_name 没给 → trace + score 仍上报，但不挂 run_item
+    （回退路径：人在 Cloud UI 上看到孤儿 run，不会因 run_item 失败阻塞 score）。"""
+    from eval.runner import run_eval
+
+    golden = tmp_path / "g.yaml"
+    _write_minimal_golden(
+        golden,
+        [
+            {
+                "id": "def-1",
+                "category": "definition",
+                "language": "en",
+                "source": "hand_crafted",
+                "question": "Q?",
+                "expected_specs": [],
+                "expected_facts": [],
+                "forbidden": [],
+                "must_say_not_found": False,
+            }
+        ],
+    )
+    fake_client = FakeLangfuseClient()
+    async with httpx.AsyncClient(transport=_mock_transport(), base_url="http://t") as cli:
+        await run_eval(
+            golden,
+            client=cli,
+            auth_token="t",
+            langfuse_run_label="r",
+            langfuse_dataset_name=None,  # 显式 None
+            langfuse_client=fake_client,
+        )
+    # SPAN 仍然创建（仍想给 score 一个 trace 挂载点），但 run_item 跳过
+    assert len(fake_client.spans) == 1
+    # dataset_name=None 时 _resolve_dataset_id 直接返回 None，不调 datasets.get
+    assert fake_client.api.datasets.calls == []
+    # OTel attrs 不含 EXPERIMENT_DATASET_ID（因为没 dataset_id）
+    span = fake_client.spans[0]
+    assert "langfuse.experiment.dataset.id" not in span.otel_attrs
+    assert span.otel_attrs["langfuse.experiment.id"] == "r"
+    assert fake_client.run_item_calls == []
+
+
+@pytest.mark.asyncio
+async def test_run_eval_run_item_failure_isolated(tmp_path: Path) -> None:
+    """`api.dataset_run_items.create` 抛错被吞掉，score 上传不受影响。"""
+    from eval.runner import run_eval
+
+    golden = tmp_path / "g.yaml"
+    _write_minimal_golden(
+        golden,
+        [
+            {
+                "id": "def-1",
+                "category": "definition",
+                "language": "en",
+                "source": "hand_crafted",
+                "question": "Q?",
+                "expected_specs": [],
+                "expected_facts": [],
+                "forbidden": [],
+                "must_say_not_found": False,
+            }
+        ],
+    )
+    fake_client = FakeLangfuseClient(fail_run_item=True)
+    async with httpx.AsyncClient(transport=_mock_transport(), base_url="http://t") as cli:
+        results = await run_eval(
+            golden,
+            client=cli,
+            auth_token="t",
+            langfuse_run_label="r",
+            langfuse_dataset_name="tgpp-golden-v1",
+            langfuse_client=fake_client,
+        )
+    # span / score 不受 run_item 失败影响
+    assert results[0].langfuse_trace_id == "fake-trace-id-deadbeef"
+    assert len(fake_client.spans) == 1
+    assert any(s["name"] == "forbidden_violation" for s in fake_client.scores)

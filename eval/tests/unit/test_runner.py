@@ -17,6 +17,7 @@ from eval.runner import (
     _fact_coverage,
     _forbidden_violations,
     _hits_for_metrics,
+    _join_contexts,
     _retrieved_sections,
     _retrieved_specs,
     aggregate,
@@ -237,6 +238,106 @@ class TestHitsForMetrics:
         assert _hits_for_metrics(resp) == []
 
 
+# === _join_contexts ========================================================
+
+
+class TestJoinContexts:
+    def test_empty_returns_empty_string(self) -> None:
+        assert _join_contexts(AgentResponse()) == ""
+
+    def test_uses_rerank_first(self) -> None:
+        resp = AgentResponse(
+            chunks_rerank=[
+                {"spec_id": "23.501", "section_path": "5.2.1", "preview": "rerank-text"},
+            ],
+            chunks_hit=[{"spec_id": "23.501", "section_path": "5.2.1", "preview": "hit-text"}],
+        )
+        ctx = _join_contexts(resp)
+        assert "[23.501 §5.2.1]" in ctx
+        assert "rerank-text" in ctx
+        assert "hit-text" not in ctx
+
+    def test_fallback_to_hit_when_rerank_empty(self) -> None:
+        resp = AgentResponse(
+            chunks_hit=[{"spec_id": "38.331", "section_path": "5.3.5", "preview": "hit-only"}],
+        )
+        ctx = _join_contexts(resp)
+        assert "[38.331 §5.3.5]" in ctx
+        assert "hit-only" in ctx
+
+    def test_field_priority_content_then_preview_then_text(self) -> None:
+        """优先 content > preview > text；都没 → 跳过该 chunk。
+
+        2026-05-22 fixup-3：backend 现在 SSE chunks_rerank/chunks_hit 同时发
+        `content`（完整文本）和 `preview`（240 字）。runner 必须取 content 才
+        能让 evaluator 拿到充分上下文。`preview` 只作为老 backend 部署的回退。
+        """
+        resp = AgentResponse(
+            chunks_rerank=[
+                {"spec_id": "a", "content": "FULL", "preview": "short"},  # content 赢
+                {"spec_id": "b", "preview": " p "},  # 没 content → preview
+                {"spec_id": "c", "text": "t"},  # 都没 → text
+                {"spec_id": "d"},  # 全空 → 跳过
+            ],
+        )
+        ctx = _join_contexts(resp)
+        assert "[a §]\nFULL" in ctx
+        assert "short" not in ctx
+        assert "[b §]\np" in ctx
+        assert "[c §]\nt" in ctx
+        assert "[d " not in ctx
+
+    def test_uses_content_when_present(self) -> None:
+        """content 字段（fixup-3 起 backend 默认发）优先级最高，避免 240 字截断。"""
+        full_text = ("Section 5.2.1 defines AMF as the network function. " * 30).strip()
+        assert len(full_text) > 240  # sanity
+        resp = AgentResponse(
+            chunks_rerank=[
+                {
+                    "spec_id": "23.501",
+                    "section_path": "5.2.1",
+                    "preview": full_text[:240],
+                    "content": full_text,
+                }
+            ],
+        )
+        ctx = _join_contexts(resp)
+        # 取的是 content（完整文本），不是 preview（240 字）
+        assert len(ctx) > 800
+        assert full_text in ctx
+
+    def test_list_section_path_is_joined(self) -> None:
+        resp = AgentResponse(
+            chunks_rerank=[{"spec_id": "38.331", "section_path": ["5", "3", "5"], "preview": "x"}],
+        )
+        assert "[38.331 §5.3.5]" in _join_contexts(resp)
+
+    def test_separator_between_chunks(self) -> None:
+        resp = AgentResponse(
+            chunks_rerank=[
+                {"spec_id": "a", "section_path": "1", "preview": "AAA"},
+                {"spec_id": "b", "section_path": "2", "preview": "BBB"},
+            ],
+        )
+        ctx = _join_contexts(resp)
+        assert "AAA\n\n---\n\n[b §2]\nBBB" in ctx
+
+    def test_max_chars_truncates(self) -> None:
+        big = "x" * 1000
+        resp = AgentResponse(
+            chunks_rerank=[
+                {"spec_id": "a", "section_path": "1", "preview": big},
+                {"spec_id": "b", "section_path": "2", "preview": big},
+                {"spec_id": "c", "section_path": "3", "preview": big},
+            ],
+        )
+        ctx = _join_contexts(resp, max_chars=1500)
+        assert "[a §1]" in ctx
+        # 第二个 chunk 加上去会爆 1500 → 被丢
+        assert "[b §2]" not in ctx
+        assert "[c §3]" not in ctx
+
+
 # === compute_eval_metrics ==================================================
 
 
@@ -395,9 +496,7 @@ class TestAggregate:
                 fact_coverage=None,
                 negative_judge_verdict=v,
             )
-            for i, v in enumerate(
-                ["VALID_REFUSAL"] * 14 + ["PARTIAL_REFUSAL"] + ["INVALID"]
-            )
+            for i, v in enumerate(["VALID_REFUSAL"] * 14 + ["PARTIAL_REFUSAL"] + ["INVALID"])
         ]
         agg = aggregate(rows)
         # (14 + 0.5) / 16 = 0.90625

@@ -125,7 +125,10 @@ async def _emit_chunks_hit(chunks: list[StateChunk]) -> None:
             "section_path": ".".join(c.section_path),
             "section_title": c.section_title,
             "score": c.fused_score,
+            # `preview` (240 字) 给前端流式展示；`content` 给 eval runner 拼
+            # 完整 contexts 用（Langfuse Cloud faithfulness evaluator 需要）。
             "preview": (c.content or "")[:240],
+            "content": c.content or "",
         }
         for c in chunks[:10]
     ]

@@ -171,14 +171,16 @@ async def test_astream_events_v2_covers_all_nodes() -> None:
     chunks = sample.get("chunks") or []
     assert isinstance(chunks, list) and chunks, "chunks_hit.chunks 应非空 list"
     keys = set(chunks[0].keys())
-    # §7 表 payload 字段：chunk_id / spec / score / preview
-    # （这里 spec 拆成 spec_id + section_path 让 backend 重映射）
+    # §7 表 payload 字段：chunk_id / spec / score / preview + content
+    # （`content` 完整文本 2026-05-22 fixup-3 加，给 eval runner 拼 contexts；
+    # `preview` 240 字仍保留，前端流式展示用。）
     assert {
         "chunk_id",
         "spec_id",
         "section_path",
         "score",
         "preview",
+        "content",
     } <= keys, f"chunks_hit chunk payload 字段缺失：{keys!r}"
 
 

@@ -373,43 +373,197 @@ def _result_to_langfuse_scores(result: EvalResult) -> dict[str, float | bool | N
     }
 
 
-def _emit_langfuse_trace_event(
+def _join_contexts(resp: AgentResponse, *, max_chars: int = 16000) -> str:
+    """把 chunks_rerank（fallback chunks_hit）的完整 chunk 文本拼成单段 string。
+
+    Langfuse Cloud 内置 faithfulness evaluator 模板要求 `{{context}}` 是
+    "RAG 检索到的原文"。backend SSE `chunks_rerank` / `chunks_hit` 事件每条 chunk
+    现在带两个字段：`content`（完整文本，2026-05-22 fixup-3 加）+ `preview`
+    （前 240 字，留给前端流式展示）。runner 优先取 `content`，
+    fallback `preview` / `text` 字段防御老 backend 部署或未来 schema 变更。
+
+    每个 chunk 拼成：
+
+        [<spec_id> §<section_path>]
+        <full content>
+
+    多 chunk 用 `\\n\\n---\\n\\n` 分隔；累计长度超过 `max_chars` 截断（防 token 爆掉
+    evaluator judge 模型上下文）。`max_chars=16000` 默认 ≈ 16K 字符 ≈ 4-5K token，
+    占 deepseek/gpt-4o-mini class judge 64K 上下文 < 10%，留足 prompt + response 余量。
+    空字符串安全返回 ""。
+    """
+    chunks: list[dict] = list(resp.chunks_rerank or resp.chunks_hit or [])
+    parts: list[str] = []
+    total = 0
+    for c in chunks:
+        text = str(c.get("content") or c.get("preview") or c.get("text") or "").strip()
+        if not text:
+            continue
+        sid = str(c.get("spec_id") or "").strip()
+        sec_raw = c.get("section_path") or ""
+        sec = ".".join(sec_raw) if isinstance(sec_raw, list) else str(sec_raw).strip()
+        head = f"[{sid} §{sec}]" if sid or sec else "[chunk]"
+        seg = f"{head}\n{text}"
+        if total + len(seg) > max_chars:
+            break
+        parts.append(seg)
+        total += len(seg)
+    return "\n\n---\n\n".join(parts)
+
+
+# Langfuse OTel span attribute keys（v4 SDK `langfuse._client.attributes`）。
+# 按字面值常量化，避免依赖 SDK 私有模块导致升版本时炸。
+# Cloud-side LLM-as-a-Judge evaluator 的 filter `experimentDatasetId any of ...`
+# 直接读这些 OTel attribute 而不是数据库 `dataset_run_items` join；不写就永远
+# 匹配不到。常量与 SDK 同步检查点：升 langfuse 主版本时 grep 校对一次。
+_LF_OTEL_ENVIRONMENT = "langfuse.environment"
+_LF_OTEL_EXPERIMENT_ID = "langfuse.experiment.id"
+_LF_OTEL_EXPERIMENT_NAME = "langfuse.experiment.name"
+_LF_OTEL_EXPERIMENT_DATASET_ID = "langfuse.experiment.dataset.id"
+_LF_OTEL_EXPERIMENT_ITEM_ID = "langfuse.experiment.item.id"
+_LF_OTEL_EXPERIMENT_ITEM_ROOT_OBSERVATION_ID = "langfuse.experiment.item.root_observation_id"
+# Special environment value SDK uses for experiment runs（`_client/constants.py`）。
+_LF_EXPERIMENT_ENVIRONMENT_VALUE = "sdk-experiment"
+
+
+def _emit_langfuse_experiment_span(
+    lf_client: Any,
+    *,
+    item: GoldenItem,
+    resp: AgentResponse,
+    dataset_id: str | None,
+    dataset_name: str | None,
+    run_label: str,
+) -> tuple[str, str] | None:
+    """创建一个 root SPAN observation 作为 experiment trace，写 5 个 experiment OTel
+    attributes + environment=`sdk-experiment`，让 Cloud LLM-as-a-Judge evaluator
+    的 filter `experimentDatasetId any of <id>` 能匹配。
+
+    为什么不能继续用 `create_event`：
+    - v3.175 Cloud evaluator 的 `experimentDatasetId` filter 是基于 trace 上的
+      OTel attribute（`langfuse.experiment.dataset.id`），不是数据库 dataset_run_items 表
+      的反向 join。`create_event` 不写这些 attribute，所以 evaluator 永远不触发。
+    - SDK `dataset.run_experiment(task=...)` 内部就是这么干的（`langfuse/_client/client.py`
+      第 2780-2810 行）：先 `start_as_current_observation` 创建 root span，再
+      `set_attributes(EXPERIMENT_*)`。
+
+    `output.contexts` 提供给 evaluator 的 `{{context}}` 变量映射 `Output $.contexts`。
+
+    返回 `(trace_id, observation_id)` 给 caller 上报 score；client/SDK 异常时返回 None
+    （runner 仍生成 EvalResult，仅本题不上报）。
+    """
+    contexts = _join_contexts(resp)
+    span_input = {
+        "question": item.question,
+        "category": item.category,
+        "language": item.language,
+    }
+    span_output = {
+        "answer": resp.answer,
+        "contexts": contexts,
+        "terminal_event": resp.terminal_event,
+        "citations": resp.citations,
+    }
+    span_metadata = {
+        "item_id": item.id,
+        "source": item.source,
+        "dataset": dataset_name,
+        "duration_ms": resp.duration_ms,
+    }
+
+    try:
+        cm = lf_client.start_as_current_observation(
+            name=f"eval-item-{item.id}",
+            as_type="span",
+            input=span_input,
+            output=span_output,
+            metadata=span_metadata,
+        )
+    except Exception as exc:  # pragma: no cover - 仅 SDK 不兼容
+        log.warning("langfuse start_as_current_observation failed for %s: %s", item.id, exc)
+        return None
+
+    try:
+        with cm as span:
+            # 关键：写 experiment OTel attributes 让 evaluator filter 命中。
+            # `_otel_span` 是 SDK 暴露的内部句柄；`set_attributes` 是 OTel 标准 API，
+            # SDK 自己的 `run_experiment` 也直接用（见 client.py:2781）。
+            attrs: dict[str, str] = {
+                _LF_OTEL_ENVIRONMENT: _LF_EXPERIMENT_ENVIRONMENT_VALUE,
+                _LF_OTEL_EXPERIMENT_ID: run_label,
+                _LF_OTEL_EXPERIMENT_NAME: run_label,
+                _LF_OTEL_EXPERIMENT_ITEM_ID: item.id,
+                _LF_OTEL_EXPERIMENT_ITEM_ROOT_OBSERVATION_ID: span.id,
+            }
+            if dataset_id:
+                attrs[_LF_OTEL_EXPERIMENT_DATASET_ID] = dataset_id
+            try:
+                span._otel_span.set_attributes(attrs)
+            except Exception as exc:  # pragma: no cover
+                log.warning("langfuse otel set_attributes failed for %s: %s", item.id, exc)
+            return span.trace_id, span.id
+    except Exception as exc:  # pragma: no cover
+        log.warning("langfuse experiment span block failed for %s: %s", item.id, exc)
+        return None
+
+
+def _resolve_dataset_id(lf_client: Any, dataset_name: str | None) -> str | None:
+    """通过 SDK 查 dataset 的内部 ID（experiment OTel attribute 需要 ID 不是 name）。
+
+    缺 client / dataset_name 不存在 → 返回 None；caller 不会 set EXPERIMENT_DATASET_ID
+    OTel attribute（evaluator filter `dataset any_of <id>` 不匹配，但 trace 仍能写出
+    + dataset_run_items 仍可挂；属于优雅降级）。
+
+    每次 run_eval 启动时调一次（不在循环里），结果传给每条 item 复用。
+    """
+    if lf_client is None or not dataset_name:
+        return None
+    try:
+        ds = lf_client.api.datasets.get(dataset_name=dataset_name)
+        return getattr(ds, "id", None)
+    except Exception as exc:  # pragma: no cover - 仅网络/版本
+        log.warning("langfuse datasets.get(%s) failed: %s", dataset_name, exc)
+        return None
+
+
+def _link_trace_to_dataset_run(
     lf_client: Any,
     *,
     trace_id: str,
-    item: GoldenItem,
-    resp: AgentResponse,
     dataset_name: str | None,
-) -> None:
-    """用一个 `create_event` 把 eval 单条 (question, answer) 写到 trace 上。
+    dataset_item_id: str,
+    run_label: str,
+) -> bool:
+    """把 trace 关联到 Langfuse dataset run（v4 低层 REST：`api.dataset_run_items.create`）。
 
-    create_event 在 Langfuse v4 里会自动按 trace_context.trace_id 关联到对应 trace；
-    后续 push_run_score(trace_id=...) 的分数就挂到同一 trace，evaluator 也能读到 IO。
-    任何异常吞掉转 log（保持 runner 不挂）。
+    Langfuse Cloud built-in evaluator 的 target=Experiments / Dataset Runs 在 UI 上
+    通过 `dataset_run_items` 表索引到 trace；不创建 run_item → evaluator 永远查不到
+    我们 push 上去的 trace。本函数与 `make_eval_trace_id` + `_emit_langfuse_trace_event`
+    搭配：seed 决定 trace_id 幂等，run_name 决定一次 dataset run 的逻辑分组。
+
+    `dataset_name` 为 None（runner 没传）时跳过：runner 仍生成 trace + score，但
+    Cloud UI 上不会出现 Run（这种"不挂 dataset 的孤儿 run"是允许的回退路径）。
+
+    任何异常吞掉转 log + 返回 False；调用方不依赖返回值，但保留布尔便于单测断言。
     """
+    if not dataset_name:
+        return False
     try:
-        lf_client.create_event(
-            name=f"eval-item-{item.id}",
-            trace_context={"trace_id": trace_id},
-            input={
-                "question": item.question,
-                "category": item.category,
-                "language": item.language,
-            },
-            output={
-                "answer": resp.answer,
-                "terminal_event": resp.terminal_event,
-                "citations": resp.citations,
-            },
-            metadata={
-                "item_id": item.id,
-                "source": item.source,
-                "dataset": dataset_name,
-                "duration_ms": resp.duration_ms,
-            },
+        lf_client.api.dataset_run_items.create(
+            run_name=run_label,
+            dataset_item_id=dataset_item_id,
+            trace_id=trace_id,
+            metadata={"runner": "eval.runner.run_eval"},
         )
+        return True
     except Exception as exc:  # pragma: no cover - 仅网络/版本异常
-        log.warning("langfuse create_event failed for %s: %s", item.id, exc)
+        log.warning(
+            "langfuse dataset_run_items.create failed for %s/%s: %s",
+            run_label,
+            dataset_item_id,
+            exc,
+        )
+        return False
 
 
 async def run_eval(
@@ -452,6 +606,7 @@ async def run_eval(
         items = items[:subset]
 
     lf_client: Any | None = None
+    lf_dataset_id: str | None = None
     if langfuse_run_label is not None:
         if langfuse_client is not None:
             lf_client = langfuse_client
@@ -464,6 +619,9 @@ async def run_eval(
                 "langfuse_run_label=%s requested but client unavailable; disabled",
                 langfuse_run_label,
             )
+        else:
+            # 一次性 lookup dataset.id，循环里复用（写 experiment OTel attribute 用）
+            lf_dataset_id = _resolve_dataset_id(lf_client, langfuse_dataset_name)
 
     results: list[EvalResult] = []
     for it in items:
@@ -506,20 +664,25 @@ async def run_eval(
             result.negative_judge_reason = judgement.get("reason")
 
         if lf_client is not None and langfuse_run_label is not None:
-            from eval.langfuse_dataset import (
-                make_eval_trace_id,
-                push_run_score,
-            )
+            from eval.langfuse_dataset import push_run_score
 
-            trace_id = make_eval_trace_id(langfuse_run_label, it.id, client=lf_client)
-            if trace_id is not None:
+            emitted = _emit_langfuse_experiment_span(
+                lf_client,
+                item=it,
+                resp=resp,
+                dataset_id=lf_dataset_id,
+                dataset_name=langfuse_dataset_name,
+                run_label=langfuse_run_label,
+            )
+            if emitted is not None:
+                trace_id, _observation_id = emitted
                 result.langfuse_trace_id = trace_id
-                _emit_langfuse_trace_event(
+                _link_trace_to_dataset_run(
                     lf_client,
                     trace_id=trace_id,
-                    item=it,
-                    resp=resp,
                     dataset_name=langfuse_dataset_name,
+                    dataset_item_id=it.id,
+                    run_label=langfuse_run_label,
                 )
                 push_run_score(
                     trace_id,
@@ -582,8 +745,7 @@ def aggregate(results: list[EvalResult]) -> dict[str, Any]:
             # weighted_pass_rate = (VALID + 0.5 × PARTIAL) / judged；
             # 与 backend/tests/eval/test_golden_v1.py daily 断言阈值（≥ 0.85）对齐
             "weighted_pass_rate": (
-                (verdict_counts["VALID_REFUSAL"] + 0.5 * verdict_counts["PARTIAL_REFUSAL"])
-                / judged
+                (verdict_counts["VALID_REFUSAL"] + 0.5 * verdict_counts["PARTIAL_REFUSAL"]) / judged
                 if judged
                 else None
             ),
@@ -660,7 +822,10 @@ __all__ = [
     "AgentResponse",
     "EvalResult",
     "_apply_ragas_scores",
-    "_emit_langfuse_trace_event",
+    "_emit_langfuse_experiment_span",
+    "_join_contexts",
+    "_link_trace_to_dataset_run",
+    "_resolve_dataset_id",
     "_result_to_langfuse_scores",
     "aggregate",
     "call_agent",

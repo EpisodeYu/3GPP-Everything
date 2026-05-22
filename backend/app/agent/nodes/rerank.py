@@ -101,7 +101,11 @@ async def _emit_chunks_rerank(chunks: list[StateChunk]) -> None:
             "section_path": ".".join(c.section_path),
             "section_title": c.section_title,
             "rerank_score": c.score_rerank if c.score_rerank is not None else c.fused_score,
+            # `preview` (240 字) 给前端流式展示用；`content` 是完整 chunk 文本，
+            # eval runner（langfuse experiment）拼 trace.output.contexts 给
+            # Cloud-side faithfulness evaluator 当 `{{context}}` 用，必须完整。
             "preview": (c.content or "")[:240],
+            "content": c.content or "",
         }
         for c in chunks
     ]

@@ -162,6 +162,11 @@ def push_golden_to_langfuse(
             ok += 1
         except Exception as exc:
             log.warning("langfuse upsert dataset item %s failed: %s", it.id, exc)
+    # v4 SDK 是后台批量发送，函数返回后进程若立刻退出会丢 buffer，dashboard 显示 0。
+    try:
+        cli.flush()
+    except Exception as exc:
+        log.warning("langfuse flush after dataset push failed: %s", exc)
     log.info("langfuse dataset push: %d/%d ok → %s", ok, len(items), dataset_name)
     return ok
 
@@ -241,6 +246,11 @@ def push_run_score(
             ok += 1
         except Exception as exc:
             log.warning("langfuse create_score(%s) failed: %s", name, exc)
+    # 同 push_golden_to_langfuse 末尾：v4 后台批量发送，需显式 flush 才能落 dashboard。
+    try:
+        cli.flush()
+    except Exception as exc:
+        log.warning("langfuse flush after score push failed: %s", exc)
     return ok
 
 
