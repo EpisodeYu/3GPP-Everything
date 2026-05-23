@@ -57,6 +57,18 @@ def _forbidden_hits(answer: str, forbidden: list[Any]) -> list[str]:
     return [f for f in _norm_strs(forbidden) if f.lower() in hay]
 
 
+def _spec_recall(retrieved_specs: list[str], expected_specs_yaml: list[Any]) -> float | None:
+    """retrieved_specs 里有任一 expected spec_id 即算命中。负样本（expected 空）→ None。"""
+    exp = []
+    for es in expected_specs_yaml or []:
+        if isinstance(es, dict) and es.get("spec_id"):
+            exp.append(str(es["spec_id"]))
+    if not exp:
+        return None
+    ret = {str(s) for s in retrieved_specs or []}
+    return 1.0 if any(e in ret for e in exp) else 0.0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", required=True, type=Path)
@@ -88,8 +100,10 @@ def main() -> int:
         cat = new.get("category", "?")
         old_fc = r.get("fact_coverage")
         old_fb = r.get("forbidden_violations") or []
+        old_sr = r.get("context_recall_spec")
         new_fc = _fact_coverage(r.get("answer", ""), new.get("expected_facts") or [])
         new_fb = _forbidden_hits(r.get("answer", ""), new.get("forbidden") or [])
+        new_sr = _spec_recall(r.get("retrieved_specs") or [], new.get("expected_specs") or [])
         delta_rows.append(
             {
                 "item_id": gid,
@@ -102,6 +116,8 @@ def main() -> int:
                 else None,
                 "fb_old": len(old_fb),
                 "fb_new": len(new_fb),
+                "sr_old": old_sr,
+                "sr_new": new_sr,
                 "fb_added_or_removed": sorted(
                     set([f for f in (old.get("forbidden") or [])])
                     ^ set([f for f in (new.get("forbidden") or [])])
@@ -112,21 +128,27 @@ def main() -> int:
         new_by_source_cat[source]["fact_coverage_old"].append(old_fc)
         new_by_source_cat[source]["forbidden_hit_new"].append(1.0 if new_fb else 0.0)
         new_by_source_cat[source]["forbidden_hit_old"].append(1.0 if old_fb else 0.0)
+        new_by_source_cat[source]["spec_recall_new"].append(new_sr)
+        new_by_source_cat[source]["spec_recall_old"].append(old_sr)
         # also by category within source
         scat = f"{source}::{cat}"
         new_by_source_cat[scat]["fact_coverage_new"].append(new_fc)
         new_by_source_cat[scat]["fact_coverage_old"].append(old_fc)
         new_by_source_cat[scat]["forbidden_hit_new"].append(1.0 if new_fb else 0.0)
         new_by_source_cat[scat]["forbidden_hit_old"].append(1.0 if old_fb else 0.0)
+        new_by_source_cat[scat]["spec_recall_new"].append(new_sr)
+        new_by_source_cat[scat]["spec_recall_old"].append(old_sr)
 
     # ALL aggregate
     all_fc_new = [d["fact_new"] for d in delta_rows if d["fact_new"] is not None]
     all_fc_old = [d["fact_old"] for d in delta_rows if d["fact_old"] is not None]
+    all_sr_new = [d["sr_new"] for d in delta_rows if d["sr_new"] is not None]
+    all_sr_old = [d["sr_old"] for d in delta_rows if d["sr_old"] is not None]
     all_fb_new = sum(1 for d in delta_rows if d["fb_new"] > 0) / len(delta_rows) if delta_rows else 0
     all_fb_old = sum(1 for d in delta_rows if d["fb_old"] > 0) / len(delta_rows) if delta_rows else 0
 
     lines: list[str] = []
-    lines.append("# Substring 指标重算（不重跑 agent）")
+    lines.append("# Substring + spec_recall 指标重算（不重跑 agent）")
     lines.append("")
     lines.append(f"- 原 results: `{args.results}`")
     lines.append(f"- 旧 golden : `{args.old_golden}`")
@@ -136,6 +158,9 @@ def main() -> int:
     lines.append("## 整体 (overall)")
     lines.append("")
     lines.append(
+        f"- spec_recall    : old=**{mean(all_sr_old):.3f}** → new=**{mean(all_sr_new):.3f}** (Δ {mean(all_sr_new)-mean(all_sr_old):+.3f})"
+    )
+    lines.append(
         f"- fact_coverage  : old=**{mean(all_fc_old):.3f}** → new=**{mean(all_fc_new):.3f}** (Δ {mean(all_fc_new)-mean(all_fc_old):+.3f})"
     )
     lines.append(
@@ -144,39 +169,47 @@ def main() -> int:
     lines.append("")
     lines.append("## by source")
     lines.append("")
-    lines.append("| source | fact_coverage old | fact_coverage new | Δ | forbidden hit% old | forbidden hit% new |")
-    lines.append("|---|---:|---:|---:|---:|---:|")
+    lines.append(
+        "| source | spec_recall old | spec_recall new | Δ | fact_cov old | fact_cov new | Δ | forbidden hit% old → new |"
+    )
+    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|")
     for src in sorted(s for s in new_by_source_cat if "::" not in s):
         v = new_by_source_cat[src]
         fc_o, fc_n = _safe_mean(v["fact_coverage_old"]), _safe_mean(v["fact_coverage_new"])
+        sr_o, sr_n = _safe_mean(v["spec_recall_old"]), _safe_mean(v["spec_recall_new"])
         fb_o, fb_n = (
             (sum(v["forbidden_hit_old"]) / len(v["forbidden_hit_old"])) if v["forbidden_hit_old"] else 0,
             (sum(v["forbidden_hit_new"]) / len(v["forbidden_hit_new"])) if v["forbidden_hit_new"] else 0,
         )
-        delta = (fc_n - fc_o) if fc_o is not None and fc_n is not None else None
+        sr_d = (sr_n - sr_o) if sr_o is not None and sr_n is not None else None
+        fc_d = (fc_n - fc_o) if fc_o is not None and fc_n is not None else None
         lines.append(
-            f"| {src} | {fc_o:.3f} | {fc_n:.3f} | {delta:+.3f} | {fb_o:.1%} | {fb_n:.1%} |"
-            if delta is not None
-            else f"| {src} | — | — | — | — | — |"
+            f"| {src} | "
+            f"{sr_o:.3f} | {sr_n:.3f} | {sr_d:+.3f} | "
+            f"{fc_o:.3f} | {fc_n:.3f} | {fc_d:+.3f} | "
+            f"{fb_o:.1%} → {fb_n:.1%} |"
+            if (sr_d is not None and fc_d is not None)
+            else f"| {src} | — | — | — | — | — | — | {fb_o:.1%} → {fb_n:.1%} |"
         )
     lines.append("")
     lines.append("## by source × category")
     lines.append("")
-    lines.append("| key | fact_coverage old | fact_coverage new | Δ | forbidden hit% old | forbidden hit% new |")
-    lines.append("|---|---:|---:|---:|---:|---:|")
+    lines.append(
+        "| key | spec_recall old | spec_recall new | Δ | fact_cov old | fact_cov new | Δ |"
+    )
+    lines.append("|---|---:|---:|---:|---:|---:|---:|")
     for key in sorted(s for s in new_by_source_cat if "::" in s):
         v = new_by_source_cat[key]
         fc_o, fc_n = _safe_mean(v["fact_coverage_old"]), _safe_mean(v["fact_coverage_new"])
-        fb_o, fb_n = (
-            (sum(v["forbidden_hit_old"]) / len(v["forbidden_hit_old"])) if v["forbidden_hit_old"] else 0,
-            (sum(v["forbidden_hit_new"]) / len(v["forbidden_hit_new"])) if v["forbidden_hit_new"] else 0,
-        )
-        if fc_o is None or fc_n is None:
-            lines.append(f"| {key} | — | — | — | {fb_o:.1%} | {fb_n:.1%} |")
-            continue
-        delta = fc_n - fc_o
+        sr_o, sr_n = _safe_mean(v["spec_recall_old"]), _safe_mean(v["spec_recall_new"])
+        sr_d = (sr_n - sr_o) if sr_o is not None and sr_n is not None else None
+        fc_d = (fc_n - fc_o) if fc_o is not None and fc_n is not None else None
         lines.append(
-            f"| {key} | {fc_o:.3f} | {fc_n:.3f} | {delta:+.3f} | {fb_o:.1%} | {fb_n:.1%} |"
+            f"| {key} | "
+            f"{(sr_o if sr_o is not None else float('nan')):.3f} | {(sr_n if sr_n is not None else float('nan')):.3f} | "
+            f"{(sr_d if sr_d is not None else float('nan')):+.3f} | "
+            f"{(fc_o if fc_o is not None else float('nan')):.3f} | {(fc_n if fc_n is not None else float('nan')):.3f} | "
+            f"{(fc_d if fc_d is not None else float('nan')):+.3f} |"
         )
     lines.append("")
     # Top biggest fact_coverage gains
@@ -210,6 +243,9 @@ def main() -> int:
     args.out.write_text("\n".join(lines), encoding="utf-8")
     print(f"wrote: {args.out}")
     print()
+    print(
+        f"overall spec_recall    : {mean(all_sr_old):.3f} → {mean(all_sr_new):.3f} ({mean(all_sr_new)-mean(all_sr_old):+.3f})"
+    )
     print(
         f"overall fact_coverage  : {mean(all_fc_old):.3f} → {mean(all_fc_new):.3f} ({mean(all_fc_new)-mean(all_fc_old):+.3f})"
     )

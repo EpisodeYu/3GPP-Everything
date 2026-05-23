@@ -97,7 +97,7 @@ items:
   language: en
   question: Describe the purpose of the Binding Indication in the context of NF service discovery procedures in 5G systems.
   expected_specs:
-  - spec_id: '29.500'
+  - spec_id: '29.510'
     sections: []
   expected_facts:
   - Binding Indication
@@ -112,7 +112,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''To authorize the request from the NF service consumer'', ''To select the NF service producer instance'', ''To notify of newly registered NF instances'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Binding Indication in NF service discovery is defined in the NRF service specification TS 29.510.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1881
   id: def-004
@@ -122,6 +125,9 @@ items:
   - Regarding data context or resource
   - Used in NF service discovery procedure
   - Part of 5G Service Based Architecture
+  _original_expected_specs:
+  - spec_id: '29.500'
+    sections: []
 - category: definition
   language: en
   question: In LTE's Licensed Spectrum Access (LAA), what determines the maximum transmission duration for the Physical Downlink Shared Channel (PDSCH)?
@@ -234,8 +240,6 @@ items:
   expected_specs:
   - spec_id: '38.401'
     sections: []
-  - spec_id: '38.413'
-    sections: []
   expected_facts:
   - NG-C interface
   - NG-RAN node
@@ -249,12 +253,20 @@ items:
   notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Transport of user plane data'', ''Transport of NAS messages'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The NG-C interface is defined in the NG-RAN architecture specification TS 38.401, which describes the interface between NG-RAN nodes and the AMF for control plane information transport.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - NG-C interface connects NG-RAN node and AMF
   - It transports control plane information
   - Information is directed towards the AMF
   - Supports control plane functions in NG-RAN
+  _original_expected_specs:
+  - spec_id: '38.401'
+    sections: []
+  - spec_id: '38.413'
+    sections: []
 - category: definition
   language: en
   question: Explain the role and function of the Open Distributed Unit (O-DU) in the 5G RAN architecture.
@@ -338,7 +350,7 @@ items:
   language: en
   question: What is the power saving scheme in NR that reduces UE power consumption by decreasing the number of PDCCH blind decoding operations?
   expected_specs:
-  - spec_id: '38.331'
+  - spec_id: '38.213'
     sections: []
   expected_facts:
   - PDCCH skipping
@@ -351,13 +363,19 @@ items:
   notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Triggering of PDCCH monitoring'', ''Go-to-sleep signaling'', ''Dynamic DRX configuration'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PDCCH skipping is a power-saving scheme defined in TS 38.213 (NR PHY procedures for control), where the UE can skip PDCCH blind decoding in configured slots.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - PDCCH skipping is a power saving mechanism.
   - It reduces the number of PDCCH blind decodings.
   - This leads to lower UE power consumption.
   - Introduced in 3GPP Release 16 for NR.
   - Configured via RRC to limit PDCCH monitoring.
+  _original_expected_specs:
+  - spec_id: '38.331'
+    sections: []
 - category: definition
   language: en
   question: Define DL RS power in the context of 3GPP standards.
@@ -414,9 +432,8 @@ items:
   language: en
   question: What RNTI is responsible for controlling the transmit power of Sounding Reference Signals (SRS)?
   expected_specs:
-  - spec_id: '38.214'
-    sections:
-    - '7'
+  - spec_id: '38.213'
+    sections: []
   expected_facts:
   - TPC-SRS-RNTI
   - SRS power control
@@ -429,7 +446,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''TPC-PUCCH-RNTI'', ''TPC-PUSCH-RNTI'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: TPC-SRS-RNTI and its use for SRS power control via DCI are normatively defined in TS 38.213 (NR PHY procedures - power control).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3794
   id: def-016
@@ -438,6 +458,10 @@ items:
   - SRS transmit power is adjusted via DCI with TPC-SRS-RNTI.
   - TPC-SRS-RNTI is a type of RNTI for uplink power control.
   - Power commands for SRS are sent using TPC-SRS-RNTI.
+  _original_expected_specs:
+  - spec_id: '38.214'
+    sections:
+    - '7'
 - category: definition
   language: en
   question: What does a UE configured for bandwidth part (BWP) operation receive from higher layers?
@@ -535,7 +559,9 @@ items:
   language: en
   question: Describe the charging architecture utilized by the 5G Data Connectivity domain in the context of 3GPP Release 15.
   expected_specs:
-  - spec_id: '23.503'
+  - spec_id: '32.240'
+    sections: []
+  - spec_id: '32.255'
     sections: []
   expected_facts:
   - converged charging architecture
@@ -549,7 +575,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Unified charging architecture'', ''Distributed charging architecture'', ''Separate charging architecture'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The generic converged charging architecture for 5G is normatively defined in TS 32.240 (charging architecture) and TS 32.255 (5G converged charging).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 4079
   id: def-021
@@ -558,6 +587,9 @@ items:
   - 5G Data Connectivity domain charging
   - Converged charging framework
   - Charging in 5G systems
+  _original_expected_specs:
+  - spec_id: '23.503'
+    sections: []
 - category: definition
   language: en
   question: What are the components of the NAS protocol used on the N1 interface in 5G systems?
@@ -685,7 +717,7 @@ items:
   language: en
   question: Describe the information included in the request for PDU Session traffic analytics as specified in 3GPP Release 18.
   expected_specs:
-  - spec_id: '29.502'
+  - spec_id: '23.288'
     sections: []
   expected_facts:
   - SUPI or a list of SUPIs or Internal-Group-Id or any UE
@@ -695,15 +727,21 @@ items:
   - S-NSSAI
   - DNN
   forbidden: []
-  notes: Information pertains to Nsmf service-based interface for analytics.
+  notes: 'Information pertains to Nsmf service-based interface for analytics.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PDU Session traffic analytics are part of the Data Collection/Analytics architecture defined in TS 23.288 (Architecture enhancements for 5G System (5GS) to support network data analytics services), which normatively specifies the request parameters including SUPI, Application Identifier, Area of Int); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5317
   id: def-027
+  _original_expected_specs:
+  - spec_id: '29.502'
+    sections: []
 - category: definition
   language: en
   question: What is the purpose of the NR Coverage and Capacity Optimization (CCO) function?
   expected_specs:
-  - spec_id: '38.300'
+  - spec_id: '32.521'
     sections: []
   expected_facts:
   - coverage issue detection
@@ -718,20 +756,25 @@ items:
   notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''enable inter-system load balancing'', ''optimize 2-step RACH procedure'', ''enhance mobility optimization'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The NR CCO function is normatively defined in TS 32.521 (SON for NR), which specifies self-organizing network functions including coverage and capacity optimization.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - Detect coverage issues
   - Mitigate coverage issues
   - Detect cell edge interference issues
   - Mitigate cell edge interference issues
   - Optimize network coverage and capacity
+  _original_expected_specs:
+  - spec_id: '38.300'
+    sections: []
 - category: definition
   language: en
   question: Describe the types of information stored in the Home Subscriber Server (HSS).
   expected_specs:
-  - spec_id: '23.401'
-    sections:
-    - '4.3'
+  - spec_id: '23.002'
+    sections: []
   expected_facts:
   - user identification information
   - user numbering information
@@ -742,7 +785,10 @@ items:
   notes: 'HSS is a key network element in the EPS architecture.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: HSS functions and the information it holds (user identification, numbering, security, location, profile) are normatively defined in TS 23.002 (Network architecture), which is the canonical specification for HSS role and responsibilities.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5825
   id: def-029
@@ -752,6 +798,10 @@ items:
   - HSS holds user security information.
   - HSS holds user location information.
   - HSS holds user profile information.
+  _original_expected_specs:
+  - spec_id: '23.401'
+    sections:
+    - '4.3'
 - category: definition
   language: en
   question: What types of services can be included in a subscription in 3GPP systems?
@@ -811,9 +861,8 @@ items:
   language: en
   question: What physical channel is used to carry Hybrid ARQ ACK/NAKs in response to uplink transmissions?
   expected_specs:
-  - spec_id: '36.213'
-    sections:
-    - '6.9'
+  - spec_id: '36.211'
+    sections: []
   expected_facts:
   - PHICH
   - Physical Hybrid ARQ Indicator Channel
@@ -829,14 +878,20 @@ items:
   - Physical Hybrid ARQ Indicator Channel
   - HARQ feedback in LTE for uplink
   - PHICH provides ACK/NAK indication
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: 'M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PHICH is an LTE physical channel normatively defined in TS 36.211 (E-UTRA Physical Channels and Modulation).); original archived under `_original_expected_specs`.'
+  _original_expected_specs:
+  - spec_id: '36.213'
+    sections:
+    - '6.9'
 - category: definition
   language: en
   question: What is the purpose of the scheduler in the MAC layer of a gNB?
   expected_specs:
-  - spec_id: '38.300'
-    sections:
-    - 5.3.5
+  - spec_id: '38.321'
+    sections: []
   expected_facts:
   - scheduler
   - MAC layer
@@ -852,7 +907,14 @@ items:
   - For uplink transmission
   - For downlink transmission
   - Scheduler operates in MAC layer
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: 'M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The MAC scheduler''s purpose and resource allocation function in the gNB is normatively described in TS 38.321 (NR MAC protocol specification).); original archived under `_original_expected_specs`.'
+  _original_expected_specs:
+  - spec_id: '38.300'
+    sections:
+    - 5.3.5
 - category: definition
   language: en
   question: What is the intended purpose of Application Specific Congestion control for Data Communication (ACDC) as defined in 3GPP?
@@ -878,9 +940,7 @@ items:
   language: en
   question: What is the primary purpose of the Random Access Channel (RACH) in 5G NR systems?
   expected_specs:
-  - spec_id: '38.300'
-    sections: []
-  - spec_id: '38.331'
+  - spec_id: '38.321'
     sections: []
   expected_facts:
   - RACH
@@ -894,7 +954,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Transmit data themselves'', ''Carry ACK/NAK feedback'', ''Indicate resource and other transmission parameters'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: RACH procedure and its purpose (including carrying scheduling requests) is canonically defined in TS 38.321 (MAC specification) for NR.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 6602
   id: def-035
@@ -902,6 +965,11 @@ items:
   - RACH carries scheduling requests
   - RACH has limited control information
   - RACH is used for random access procedure
+  _original_expected_specs:
+  - spec_id: '38.300'
+    sections: []
+  - spec_id: '38.331'
+    sections: []
 - category: definition
   language: en
   question: What is the primary objective of the MINT feature as defined in 3GPP Release 17?
@@ -1198,7 +1266,7 @@ items:
   language: en
   question: What does the acronym NG-RAN stand for in the context of 3GPP standards?
   expected_specs:
-  - spec_id: '38.401'
+  - spec_id: '38.300'
     sections: []
   expected_facts:
   - NG-RAN
@@ -1211,11 +1279,17 @@ items:
   notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Non-Geographical Radio Access Network'', ''New Generation Radio Antenna Node'', ''Network Gateway Radio Access Node'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: NG-RAN (Next Generation Radio Access Network) is defined in TS 38.300, the NR/NG-RAN overall description.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - NG-RAN stands for Next Generation Radio Access Network.
   - It refers to the radio access network for 5G systems.
   - The term is defined in 3GPP specifications.
+  _original_expected_specs:
+  - spec_id: '38.401'
+    sections: []
 - category: definition
   language: en
   question: What is the purpose of the Control Plane Protocol Stack for service-based interfaces in the 5G Core Network?
@@ -1246,7 +1320,7 @@ items:
   language: en
   question: What is the purpose of the Service Capability Exposure Function (SCEF)?
   expected_specs:
-  - spec_id: '23.401'
+  - spec_id: '23.682'
     sections: []
   expected_facts:
   - SCEF
@@ -1261,13 +1335,19 @@ items:
   notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''orchestrate and manage US-NSIs'', ''dynamically allocate network resources'', ''translate tenant requirements'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: SCEF (Service Capability Exposure Function) is canonically defined and specified in TS 23.682 as the function that securely exposes network services and capabilities to third-party applications.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - SCEF securely exposes services and capabilities
   - Exposure is to every US-NSI
   - US-NSI refers to network slice instances
   - Enables interaction between operator and tenant
   - SCEF facilitates service exposure in telecom networks
+  _original_expected_specs:
+  - spec_id: '23.401'
+    sections: []
 - category: definition
   language: en
   question: According to 3GPP 5G specifications, what charging principle should be possible to apply during an active session?
@@ -1350,7 +1430,7 @@ items:
   language: en
   question: What specific capability does the LCS feature provide for a Target UE regarding its positioning and Quality of Service requirements?
   expected_specs:
-  - spec_id: '29.518'
+  - spec_id: '23.273'
     sections: []
   expected_facts:
   - LCS
@@ -1361,7 +1441,10 @@ items:
   notes: 'Based on 3GPP Release 17
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: LCS (Location Services) feature enabling positioning within a specified QoS is normatively defined in TS 23.273, the 5GS LCS specification.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 9112
   id: def-053
@@ -1370,6 +1453,9 @@ items:
   - LCS feature enables location positioning for Target UE
   - Quality of Service parameters are defined for positioning
   - Target UE can be positioned with QoS specifications
+  _original_expected_specs:
+  - spec_id: '29.518'
+    sections: []
 - category: definition
   language: en
   question: What identity is used to identify an Access and Mobility Management Function (AMF) in the NG-RAN architecture?
@@ -1455,7 +1541,7 @@ items:
   language: en
   question: What is the Mobile Originating Location capability in the context of LCS (Location Services)?
   expected_specs:
-  - spec_id: '29.518'
+  - spec_id: '23.271'
     sections: []
   expected_facts:
   - Mobile Originating Location
@@ -1469,7 +1555,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''obtaining location of another mobile station'', ''third-party location acquisition'', ''transferring location to another mobile station'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Mobile Originating Location (MO-LR) capability is canonically defined in TS 23.271, which specifies the LCS (Location Services) architecture and procedures.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 9308
   id: def-057
@@ -1479,6 +1568,9 @@ items:
   - It allows the UE to transfer its location to an LCS client.
   - LCS client is an entity that receives location information.
   - The location is defined geographically.
+  _original_expected_specs:
+  - spec_id: '29.518'
+    sections: []
 - category: definition
   language: en
   question: What does the acronym SI represent in the context of the RRC protocol for NR?
@@ -1540,7 +1632,7 @@ items:
   language: en
   question: What is the intended purpose of Fleet and Asset Management services in 3GPP specifications?
   expected_specs:
-  - spec_id: '29.518'
+  - spec_id: '23.280'
     sections: []
   expected_facts:
   - Track location and status of specific service group users
@@ -1551,6 +1643,10 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 9926
   id: def-060
+  _original_expected_specs:
+  - spec_id: '29.518'
+    sections: []
+  notes: 'M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Fleet and Asset Management is a mission-critical (MC) service feature defined in TS 23.280 (Common functional architecture to support mission critical services).); original archived under `_original_expected_specs`.'
 - category: formula
   language: en
   question: What is the mathematical formula used to compute the angle between the unit vectors of the Global Coordinate System (GCS) and the Local Coordinate System (LCS) in 5G NR?
@@ -1645,9 +1741,6 @@ items:
   - spec_id: '23.502'
     sections:
     - 5.2.8
-  - spec_id: '23.503'
-    sections:
-    - '6.1'
   expected_facts:
   - Edge Application Server discovery
   - Edge Application Server re-discovery
@@ -1659,7 +1752,10 @@ items:
   notes: 'Edge Computing enhancements in 3GPP Release 17
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Enhancement of Edge Computing in 5GC is normatively described across TS 23.501 (architecture) and TS 23.502 (procedures), which are the canonical specs for 5GS edge computing support.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5156
   id: multi-003
@@ -1669,6 +1765,16 @@ items:
   - Network exposure to EAS
   - Support of 3GPP application layer architecture
   - AF guidance to PCF determination of URSP rules
+  _original_expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - '5.13'
+  - spec_id: '23.502'
+    sections:
+    - 5.2.8
+  - spec_id: '23.503'
+    sections:
+    - '6.1'
 - category: negative
   language: en
   question: What is the specified behavior of a UE upon receiving an RRC message on DCCH or CCCH that lacks a mandatory field according to 3GPP specifications?
@@ -2053,12 +2159,8 @@ items:
   language: en
   question: What HARQ-ACK information does the UE generate when it correctly decodes a transport block?
   expected_specs:
-  - spec_id: '36.213'
-    sections:
-    - '10.1'
-  - spec_id: '38.214'
-    sections:
-    - '5.3'
+  - spec_id: '38.213'
+    sections: []
   expected_facts:
   - ACK
   - HARQ-ACK
@@ -2068,7 +2170,10 @@ items:
   notes: 'HARQ-ACK is defined in PHY layer procedures
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: HARQ-ACK generation for correctly decoded transport blocks is normatively defined in TS 38.213 (NR physical layer procedures for control, specifically sections on HARQ-ACK reporting).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3657
   id: proc-013
@@ -2078,11 +2183,18 @@ items:
   - Positive acknowledgement in HARQ-ACK information
   - ACK indicates no errors in transport block
   - HARQ-ACK includes ACK for correct reception
+  _original_expected_specs:
+  - spec_id: '36.213'
+    sections:
+    - '10.1'
+  - spec_id: '38.214'
+    sections:
+    - '5.3'
 - category: procedure
   language: en
   question: Explain what the I-SMF Context Transfer procedure involves in 5G systems according to 3GPP specifications.
   expected_specs:
-  - spec_id: '29.502'
+  - spec_id: '23.502'
     sections: []
   expected_facts:
   - Old I-SMF
@@ -2096,7 +2208,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''AMF sends indication to New SMF'', ''New service transaction triggered'', ''I-SMF selected from SMF set'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: I-SMF Context Transfer procedure and the Nsmf_PDUSession_SMContextStatusNotify service operation are defined in TS 23.502 (5GS procedures).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3836
   id: proc-014
@@ -2105,6 +2220,9 @@ items:
   - Triggered by O&M procedure
   - Sends Nsmf_PDUSession_SMContextStatusNotify indication
   - Indication sent to AMF
+  _original_expected_specs:
+  - spec_id: '29.502'
+    sections: []
 - category: procedure
   language: en
   question: In the F1AP protocol, what message does the SN-DU send to the SN-CU as a response after receiving a UE CONTEXT RELEASE command?
@@ -2163,7 +2281,7 @@ items:
   language: en
   question: What synchronization signals does a UE receive to perform cell search in 5G NR?
   expected_specs:
-  - spec_id: '38.300'
+  - spec_id: '38.211'
     sections: []
   expected_facts:
   - Primary Synchronization Signal
@@ -2178,14 +2296,18 @@ items:
   - UE receives primary synchronization signal (PSS)
   - UE receives secondary synchronization signal (SSS)
   - Both PSS and SSS are required for cell search
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: 'M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PSS and SSS definitions and structures are canonically specified in TS 38.211 (NR Physical channels and modulation), specifically in Sections 7.4.2 and 7.4.3.); original archived under `_original_expected_specs`.'
+  _original_expected_specs:
+  - spec_id: '38.300'
+    sections: []
 - category: procedure
   language: en
   question: Describe the mechanism for exchanging analytics between the Home PLMN and Visited PLMN in a 5G roaming architecture.
   expected_specs:
-  - spec_id: '23.501'
-    sections: []
-  - spec_id: '23.502'
+  - spec_id: '23.288'
     sections: []
   expected_facts:
   - H-RE-NWDAF
@@ -2200,7 +2322,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Via SEPPs'', ''Via Nnwdaf interface'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: NWDAF analytics exchange between HPLMN and VPLMN via H-RE-NWDAF/V-RE-NWDAF is defined in TS 23.288 (Architecture enhancements for 5G System for network data analytics).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5706
   id: proc-018
@@ -2210,6 +2335,11 @@ items:
   - V-RE-NWDAF is located in the Visited PLMN.
   - This is part of the 5G roaming architecture.
   - Involves Network Data Analytics Functions (NWDAF).
+  _original_expected_specs:
+  - spec_id: '23.501'
+    sections: []
+  - spec_id: '23.502'
+    sections: []
 - category: procedure
   language: en
   question: What actions should a UE perform if a cell is indicated as barred for cell selection or reselection in a 5G NR system?
@@ -2267,9 +2397,6 @@ items:
   language: en
   question: What information element is included in the UE CONTEXT SETUP REQUEST message when sent to the candidate gNB-DU during the Intra-CU topology adaptation procedure in Standalone mode?
   expected_specs:
-  - spec_id: '38.401'
-    sections:
-    - '8.9'
   - spec_id: '38.473'
     sections:
     - 8.4.1
@@ -2282,7 +2409,10 @@ items:
   notes: 'Intra-CU topology adaptation procedure defined in 38.401 §8.9; UE CONTEXT SETUP REQUEST message defined in 38.473
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The UE CONTEXT SETUP REQUEST message and its contents for intra-CU topology adaptation are defined in TS 38.473 (F1-AP specification).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 6206
   id: proc-021
@@ -2292,6 +2422,13 @@ items:
   - This occurs in the Intra-CU topology adaptation procedure
   - The procedure applies to SA (Standalone) mode
   - Step 5 of the procedure describes this message transfer
+  _original_expected_specs:
+  - spec_id: '38.401'
+    sections:
+    - '8.9'
+  - spec_id: '38.473'
+    sections:
+    - 8.4.1
 - category: procedure
   language: en
   question: In 3GPP Release 17, how are user-plane resources over a 3GPP access established when supporting an MA PDU Session?
@@ -2355,7 +2492,7 @@ items:
   language: en
   question: What does a RedCap UE expect regarding the initial DL BWP when it monitors PDCCH according to the Type1-PDCCH CSS set and does not monitor PDCCH according to the Type2-PDCCH CSS set?
   expected_specs:
-  - spec_id: '38.331'
+  - spec_id: '38.213'
     sections: []
   expected_facts:
   - initial DL BWP
@@ -2370,7 +2507,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Initial DL BWP includes SS/PBCH blocks'', ''Initial DL BWP includes CORESET with index 0'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PDCCH CSS set types, CORESET index 0, and RedCap UE monitoring expectations for initial DL BWP are normatively defined in TS 38.213 (NR physical layer procedures for control).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 669
   id: proc-024
@@ -2379,6 +2519,9 @@ items:
   - RedCap UE does not monitor PDCCH via Type2-PDCCH CSS set
   - Initial DL BWP excludes SS/PBCH blocks
   - Initial DL BWP excludes CORESET with index 0
+  _original_expected_specs:
+  - spec_id: '38.331'
+    sections: []
 - category: procedure
   language: en
   question: Under what circumstances does the PCF include the Duplicated notification indication in a PCC rule?
@@ -2410,7 +2553,7 @@ items:
   language: en
   question: Describe the action performed by a UE on a BWP inactivity timer for a cell when the timer is running.
   expected_specs:
-  - spec_id: '38.214'
+  - spec_id: '38.321'
     sections: []
   expected_facts:
   - BWP inactivity timer
@@ -2426,12 +2569,18 @@ items:
   notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Increments the timer'', ''Suspends the timer'', ''Resets the timer'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: BWP inactivity timer decrement behavior (subframe for FR1, half subframe for FR2) is normatively specified in TS 38.321 (MAC procedures).); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - UE decrements the BWP inactivity timer when it is running
   - Decrement happens at the end of a subframe for FR1
   - Decrement happens at the end of a half subframe for FR2
   - The timer is associated with a cell
+  _original_expected_specs:
+  - spec_id: '38.214'
+    sections: []
 - category: procedure
   language: en
   question: What is the essential action for a UE to access network services while in idle mode according to 3GPP specifications?
@@ -2648,9 +2797,7 @@ items:
   language: en
   question: Describe the purpose of the Intra-CU Backhaul RLF recovery procedure for IAB-nodes operating in standalone mode.
   expected_specs:
-  - spec_id: '38.300'
-    sections: []
-  - spec_id: '38.331'
+  - spec_id: '38.401'
     sections: []
   expected_facts:
   - backhaul RLF
@@ -2666,7 +2813,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''establishing new RRC connection for UE'', ''configuring data bearers in source gNB-DU'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Intra-CU Backhaul RLF recovery for IAB-nodes is defined in TS 38.401, which covers NG-RAN architecture and IAB procedures.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7984
   id: proc-035
@@ -2677,6 +2827,11 @@ items:
   - Triggered by backhaul RLF declaration from IAB-MT
   - Applies to IAB-nodes in SA mode
   - Intra-CU procedure for IAB backhaul recovery
+  _original_expected_specs:
+  - spec_id: '38.300'
+    sections: []
+  - spec_id: '38.331'
+    sections: []
 - category: procedure
   language: en
   question: Identify the message sent by the AMF to the NG-RAN during procedures such as mobility registration, AM policy modification, and handover.
@@ -2839,9 +2994,8 @@ items:
   language: en
   question: According to NR specifications, what identity is used to indicate pre-emption in the downlink?
   expected_specs:
-  - spec_id: '38.331'
-    sections:
-    - '7.1'
+  - spec_id: '38.213'
+    sections: []
   expected_facts:
   - INT-RNTI
   - downlink pre-emption
@@ -2853,7 +3007,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''C-RNTI indicates pre-emption'', ''CI-RNTI is used for downlink pre-emption'', ''CS-RNTI indicates pre-emption in downlink'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: INT-RNTI for downlink pre-emption indication is defined in TS 38.213 (NR physical layer procedures)); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 111
   id: table-002
@@ -2863,6 +3020,10 @@ items:
   - Pre-emption indication specifically uses INT-RNTI
   - The identity is specified in 3GPP 38.331 for NR RRC
   - INT-RNTI signals pre-emption in downlink transmissions
+  _original_expected_specs:
+  - spec_id: '38.331'
+    sections:
+    - '7.1'
 - category: table_lookup
   language: en
   question: In 3GPP Release 18 specifications for NR physical layer procedures, what SNR target is defined for higher Channel Bandwidths (CBWs) based on the assumption of 16 dB?
@@ -2921,7 +3082,7 @@ items:
   language: en
   question: What is the number of downlink HARQ processes specified for UEs supporting full-duplex FDD operation in LTE?
   expected_specs:
-  - spec_id: '36.213'
+  - spec_id: '36.321'
     sections: []
   expected_facts:
   - '10'
@@ -2934,7 +3095,10 @@ items:
     M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''6 DL HARQ processes'', ''12 DL HARQ processes'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Number of DL HARQ processes is a MAC-layer parameter normatively defined in TS 36.321 (LTE MAC specification), which defines HARQ entity and process handling for full-duplex FDD.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3722
   id: table-005
@@ -2944,6 +3108,9 @@ items:
   - Increase from 8 to 10 DL HARQ processes
   - DL peak rate improvement of 25%
   - 3GPP Release 14 specification for full-duplex FDD
+  _original_expected_specs:
+  - spec_id: '36.213'
+    sections: []
 - category: table_lookup
   language: en
   question: How are the modulation order (Qm) and target code rate (R) determined for PSSCH transmission in NR sidelink?
@@ -2979,7 +3146,7 @@ items:
   language: en
   question: What is the minimum number of grid points required for the TRP Measurement Grid with constant density?
   expected_specs:
-  - spec_id: '38.214'
+  - spec_id: 38.141-3
     sections: []
   expected_facts:
   - TRP Measurement Grid
@@ -2990,7 +3157,10 @@ items:
   notes: 'Value likely from a table or definition in 3GPP TS 38.214.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: TRP measurement grid requirements for FR2 are normatively defined in TS 38.141-3 (Radiated performance requirements for NR), which specifies 62 minimum grid points for constant density TRP measurement.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5821
   id: table-007
@@ -2998,6 +3168,9 @@ items:
   - Minimum grid points for TRP Measurement Grid with constant density is 62.
   - Constant density TRP grid requires 62 points.
   - 62 is the specified minimum number of grid points.
+  _original_expected_specs:
+  - spec_id: '38.214'
+    sections: []
 - category: table_lookup
   language: en
   question: What is the NAS error response that indicates the requested service option is not authorized in the PLMN?
@@ -3078,12 +3251,8 @@ items:
   language: en
   question: What modulation schemes are used for narrowband transmissions such as NPUSCH and sub-PRB PUSCH in LTE and NR?
   expected_specs:
-  - spec_id: '36.213'
-    sections:
-    - '10.1'
-  - spec_id: '38.214'
-    sections:
-    - '6.1'
+  - spec_id: '36.211'
+    sections: []
   expected_facts:
   - π/2-BPSK
   - QPSK
@@ -3093,7 +3262,10 @@ items:
   notes: 'NPUSCH modulation defined in 36.213 §10.1; NR sub-PRB modulation in 38.214 §6.1
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+
+
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PUCCH and NPUSCH modulation schemes (π/2-BPSK and QPSK) are defined in the LTE PHY channels spec TS 36.211 for NB-IoT.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 8531
   id: table-011
@@ -3103,6 +3275,13 @@ items:
   - π/2-BPSK is used for sub-PRB PUSCH transmission
   - QPSK is used for sub-PRB PUSCH transmission
   - NB-IoT NPUSCH supports π/2-BPSK and QPSK modulation
+  _original_expected_specs:
+  - spec_id: '36.213'
+    sections:
+    - '10.1'
+  - spec_id: '38.214'
+    sections:
+    - '6.1'
 - category: table_lookup
   language: en
   question: Which industrial scenario in 3GPP Release 17 is characterized by high communication service availability requirements?
