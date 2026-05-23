@@ -2814,7 +2814,7 @@ items:
 
     '
   expected_specs:
-  - spec_id: '38.212'
+  - spec_id: '38.211'
     sections:
     - 6.3.2.5.1
     - 6.3.2.5.2
@@ -2827,8 +2827,9 @@ items:
   - BPSK
   - PUSCH
   must_say_not_found: false
-  notes: '结合 PUCCH format 2 的 Scrambling 节 (6.3.2.5.1) 获取公式，以及 Modulation 节 (6.3.2.5.2)
-    获取调制方案。
+  notes: 'PUCCH format 2 Scrambling (38.211 §6.3.2.5.1) + Modulation (38.211 §6.3.2.5.2)。原稿
+    误写为 38.212；38.212 是 Multiplexing & channel coding，没有 PUCCH 物理通道节，2026-05-23
+    修正（见 eval-results/m7.6-rerank-ablation-fixed.md）。
 
     '
 - id: hand-multi-005

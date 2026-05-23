@@ -40,6 +40,7 @@ import argparse
 import asyncio
 import json
 import logging
+import re
 import statistics
 import sys
 import time
@@ -116,6 +117,22 @@ def is_section_prefix(expected: str, hit_section_path: list[str]) -> bool:
     return all(a == b for a, b in zip(exp, hit_section_path[: len(exp)], strict=True))
 
 
+# ingestion chunker 把小相邻子节合并时会在 section_title 留 `<merged: A / B / C>`
+# 标记（见 ingestion/chunker/*；如 38.211 §4.4.4 chunk 的 title =
+# "<merged: 4.4.4.3 / 4.4.4.4 / 4.4.4.5>"，chunk 内容实际包含这些子节正文）。
+# 评估时若仅按 hit_path 前缀判断，会把这类 chunk 命中 expected=4.4.4.3 误判为 miss。
+_MERGED_TITLE_RE = re.compile(r"<merged:\s*([0-9\.\s/]+)>")
+
+
+def _merged_children(section_title: str) -> list[str]:
+    if not section_title:
+        return []
+    m = _MERGED_TITLE_RE.search(section_title)
+    if not m:
+        return []
+    return [c.strip() for c in m.group(1).split("/") if c.strip()]
+
+
 def is_section_hit(expected: tuple[str, tuple[str, ...]], hit: RetrievedChunk) -> bool:
     spec_id, sections = expected
     if hit.spec_id != spec_id:
@@ -123,7 +140,14 @@ def is_section_hit(expected: tuple[str, tuple[str, ...]], hit: RetrievedChunk) -
     if not sections:
         return True
     hit_path = list(hit.section_path)
-    return any(is_section_prefix(sec, hit_path) for sec in sections)
+    # chunk 内容除了自身 hit_path 子树，还覆盖 section_title 中显式列出的 merged 兄弟节
+    extra_paths = [list(_section_segments(c)) for c in _merged_children(hit.section_title)]
+    for sec in sections:
+        if is_section_prefix(sec, hit_path):
+            return True
+        if any(is_section_prefix(sec, p) for p in extra_paths):
+            return True
+    return False
 
 
 def is_spec_hit(expected_specs: list[tuple[str, tuple[str, ...]]], hit: RetrievedChunk) -> bool:
@@ -188,14 +212,20 @@ class AblationConfig:
     rrf_k: int = 60
     final_top_n: int = 50
     rerank_top_k: int | None = 5  # None → 不 rerank，取 fused top-rerank-top-k
+    # 可选：在 query 前加 hint 前缀（如 "[3GPP NR 5G] "），用于压制 LTE 36.* 系列误检索。
+    # 同时作用于 dense embed 输入、BM25 query 与 rerank query — 一致才能反映"端到端 query 转换"。
+    query_prefix: str = ""
 
     @property
     def label(self) -> str:
         rk = "no-rerank" if self.rerank_top_k is None else f"rerank{self.rerank_top_k}"
-        return (
+        base = (
             f"d{self.dense_top_k}/s{self.sparse_top_k}/rrf{self.rrf_k}/"
             f"top{self.final_top_n}/{rk}"
         )
+        if self.query_prefix:
+            base += f"/prefix={self.query_prefix.strip()!r}"
+        return base
 
 
 @dataclass(slots=True)
@@ -271,9 +301,11 @@ async def _retrieve_once(
     遇到 RetrievalError 上游异常 → 对应 stage 计 0 hits 不挂；timings 仍记 elapsed。
     """
     timings: dict[str, float] = {}
+    query = f"{config.query_prefix}{item.question}" if config.query_prefix else item.question
+
     t0 = time.perf_counter()
     try:
-        d = await dense.retrieve(item.question, top_k=config.dense_top_k)
+        d = await dense.retrieve(query, top_k=config.dense_top_k)
     except RetrievalError as exc:
         log.warning("dense failed for %s: %s", item.id, exc)
         d = []
@@ -281,7 +313,7 @@ async def _retrieve_once(
 
     t1 = time.perf_counter()
     try:
-        sp = await asyncio.to_thread(sparse.retrieve, item.question, top_k=config.sparse_top_k)
+        sp = await asyncio.to_thread(sparse.retrieve, query, top_k=config.sparse_top_k)
     except RetrievalError as exc:
         log.warning("sparse failed for %s: %s", item.id, exc)
         sp = []
@@ -300,7 +332,7 @@ async def _retrieve_once(
 
     t3 = time.perf_counter()
     try:
-        reranked = await reranker.rerank(item.question, fused, top_k=config.rerank_top_k)
+        reranked = await reranker.rerank(query, fused, top_k=config.rerank_top_k)
     except RetrievalError as exc:
         log.warning("rerank failed for %s: %s; falling back to fused", item.id, exc)
         reranked = fused[: config.rerank_top_k]
@@ -413,7 +445,7 @@ def write_markdown(
     notes: str = "",
 ) -> None:
     lines: list[str] = []
-    lines.append("# M7.5 Retrieval Ablation 报告")
+    lines.append("# Retrieval Ablation 报告")
     lines.append("")
     lines.append("- 生成脚本：`backend/scripts/dev/retrieval_ablation.py`")
     lines.append(f"- golden：`{golden_path}`")
@@ -569,6 +601,20 @@ _PRESET_CONFIGS: dict[str, AblationConfig] = {
         rrf_k=100,
         final_top_n=50,
         rerank_top_k=5,
+    ),
+    # M7.6 实验：在 wide_dense_rerank5 之上加 "[3GPP NR 5G]" 前缀。Motivation:
+    # M7.5 失败题里 hand-multi-001 / hand-multi-004 / hand-proc-005 都被 36.* (LTE) 系列
+    # 同名 chunk 抢答（PUCCH / PDSCH / PRACH 在 LTE 与 NR 概念名相同）。hand_crafted
+    # 56 题全部是 5G NR；理论上前缀能压制 LTE 系列。生产 agent 走 classify→rewrite，
+    # 不会用这个 hack —— 本配置仅用于诊断"显式 spec-series 提示能挽回多少"。
+    "wide_dense_nrhint_rerank5": AblationConfig(
+        name="wide_dense_nrhint_rerank5",
+        dense_top_k=50,
+        sparse_top_k=50,
+        rrf_k=60,
+        final_top_n=80,
+        rerank_top_k=5,
+        query_prefix="[3GPP NR 5G new radio] ",
     ),
 }
 

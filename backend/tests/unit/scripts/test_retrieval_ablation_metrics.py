@@ -142,6 +142,56 @@ class TestAblationConfigLabel:
         )
         assert cfg.label == "d50/s20/rrf30/top40/no-rerank"
 
+    def test_label_includes_query_prefix(self) -> None:
+        cfg = AblationConfig(
+            name="t3",
+            dense_top_k=50,
+            sparse_top_k=50,
+            rrf_k=60,
+            final_top_n=80,
+            rerank_top_k=5,
+            query_prefix="[NR] ",
+        )
+        assert "prefix=" in cfg.label
+
+
+class TestMergedChunkSemantics:
+    """Chunker 把 §4.4.4.3 / §4.4.4.4 / §4.4.4.5 合并到 §4.4.4 时，chunk 的
+    section_title 形如 ``<merged: 4.4.4.3 / 4.4.4.4 / 4.4.4.5>``，且 chunk 内容
+    实际包含这些子节正文。原 metric 仅看 hit_path 前缀会把这种 chunk 命中 expected
+    子节误判为 miss；此哨兵守住 M7.6 修正后的等价覆盖语义。"""
+
+    def _merged_chunk(self, spec_id: str, clause: str, merged: str) -> RetrievedChunk:
+        sp = tuple(s for s in clause.split(".") if s) if clause else ()
+        return RetrievedChunk(
+            chunk_id="merged",
+            spec_id=spec_id,
+            section_path=sp,
+            section_title=f"<merged: {merged}>",
+            chunk_type="text",
+            content="x",
+        )
+
+    def test_merged_child_clause_is_hit(self) -> None:
+        c = self._merged_chunk("38.211", "4.4.4", "4.4.4.3 / 4.4.4.4 / 4.4.4.5")
+        assert is_section_hit(("38.211", ("4.4.4.3",)), c) is True
+        assert is_section_hit(("38.211", ("4.4.4.5",)), c) is True
+
+    def test_clause_outside_merged_set_is_miss(self) -> None:
+        c = self._merged_chunk("38.211", "4.4.4", "4.4.4.3 / 4.4.4.4")
+        # 4.4.4.1 不在 merged 列表里 → 不算 hit
+        assert is_section_hit(("38.211", ("4.4.4.1",)), c) is False
+
+    def test_merged_with_top_level_subsections(self) -> None:
+        # 38.211 §4 chunk title=<merged: 4.1 / 4.2> → expected '4.2' 应命中
+        c = self._merged_chunk("38.211", "4", "4.1 / 4.2")
+        assert is_section_hit(("38.211", ("4.2",)), c) is True
+        assert is_section_hit(("38.211", ("4.3",)), c) is False
+
+    def test_merged_wrong_spec_still_miss(self) -> None:
+        c = self._merged_chunk("38.211", "6.3.2.5", "6.3.2.5.1 / 6.3.2.5.2")
+        assert is_section_hit(("38.212", ("6.3.2.5.1",)), c) is False
+
 
 class TestLoadGolden:
     def test_load_minimal(self, tmp_path) -> None:
