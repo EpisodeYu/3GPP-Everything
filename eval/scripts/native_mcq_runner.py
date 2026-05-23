@@ -1,7 +1,7 @@
 """TeleQnA 原生选择题对照评测（M7.2）。
 
 目的：让 LLM **不带 RAG** 直接做选择题，得到模型"裸知识"对 telecom 题的准确率
-基线。对照两个模型：mimo-v2.5 + glm-5.1（都在 LiteLLM 中），均 temperature=0。
+基线。对照两个模型：mimo-v2.5 + deepseek-v4-pro（都在 LiteLLM 中），均 temperature=0。
 报告 LLM 选对 %，作为 RAG 端到端指标的下限锚（"RAG 至少要打过裸 LLM"）。
 
 输入：`eval/teleqna/data/filtered/filtered.jsonl`（whitelist 命中的 17 篇相关题）
@@ -531,7 +531,7 @@ def main(
         datefmt="%H:%M:%S",
     )
     s = get_settings()
-    models = models or [s.llm_light_model, s.llm_judge_model]  # mimo-v2.5, glm-5.1
+    models = models or [s.llm_light_model, s.llm_judge_model]  # mimo-v2.5, deepseek-v4-pro
     ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     out_dir = out_base / ts
     return asyncio.run(

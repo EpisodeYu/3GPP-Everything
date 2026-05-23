@@ -14,8 +14,9 @@ false-negative：
 - INVALID：完全没拒答，把伪前提当真在解释
 
 接口约定：
-- judge LLM：默认 `glm-5.1` + temperature=0.01 + function_calling（与 ragas judge 同一管线，
-  避免 ragas 1e-8 那个坑；详见 06-md §12 M7.2 "2026-05-20 GLM 温度修法"）
+- judge LLM：默认 `deepseek-v4-pro` + temperature=0.01 + function_calling（与 ragas judge
+  同一管线，避免 ragas 1e-8 那个坑；详见 06-md §12 M7.2 "2026-05-20 GLM 温度修法"；
+  2026-05-23 从 glm-5.1 切到 deepseek-v4-pro，成本降 ~50%/75%）
 - 单题异常隔离：任何异常 → verdict=None, reason 含错误摘要；不挂 runner
 - 仅对 `item.must_say_not_found and answer` 调用；其余 item 不打扰 LLM
 
@@ -151,7 +152,7 @@ class NegativeJudge:
 
 
 def build_default_negative_judge(settings: EvalSettings | None = None) -> NegativeJudge:
-    """按 06-md §4.1 默认：judge=glm-5.1（含 1e-8 → 0.01 workaround）。"""
+    """按 06-md §4.1 默认：judge=deepseek-v4-pro（含 1e-8 → 0.01 workaround，遗留自 GLM 时期）。"""
     s = settings or get_settings()
     if not s.litellm_api_key:
         raise NegativeJudgeError("LITELLM_API_KEY missing; negative judge LLM 无法初始化")

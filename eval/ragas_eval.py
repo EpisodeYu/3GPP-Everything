@@ -1,9 +1,10 @@
 """Ragas 接入（M7.2）：在 eval.runner 已生成的 (item, AgentResponse) 上算 4 metric。
 
 接口约定（详见 docs/03-development/06-evaluation-and-observability.md §5）：
-- judge LLM：`glm-5.1`（temperature=0.01）；与 Agent 用的 `mimo-v2.5-pro` 错开避免同源偏差。
-  注：langchain_openai 把 `temperature=0` 编码成 `1e-08`，GLM provider 视为越界（开区间 (0,1)）
-  返回 400；0.01 是它能接受的最低值，对 judge 的"近似贪心"特性影响可忽略
+- judge LLM：`deepseek-v4-pro`（temperature=0.01）；与 Agent 用的 `mimo-v2.5-pro`
+  错开避免同源偏差。2026-05-23 起从 `glm-5.1` 切到 `deepseek-v4-pro`（成本 ≈ -50%/-75%）。
+  注：langchain_openai 把 `temperature=0` 编码成 `1e-08`，沿用 0.01 是为兼容 GLM 时
+  期遗留的 provider 容差（DeepSeek 自身接受 0；保留 0.01 让 judge 输出保持"近似贪心"特性）
 - 评估 embedding：`voyage-4-large`（与 RAG 索引同款，走 LiteLLM OpenAI 兼容端点）
 - 4 metric：faithfulness / answer_relevancy / context_recall / context_precision
 - 单题异常隔离：任一 metric 计算失败 → log warning + 该项填 None；不挂整个 runner
@@ -220,7 +221,7 @@ def _coerce_score(raw: Any) -> float | None:
 
 
 def build_default_ragas_scorer(settings: EvalSettings | None = None) -> RagasScorer:
-    """按 06-...md §5 默认：judge=glm-5.1 + embedding=voyage-4-large，都走 LiteLLM。
+    """按 06-...md §5 默认：judge=deepseek-v4-pro + embedding=voyage-4-large，都走 LiteLLM。
 
     缺 `LITELLM_API_KEY` → 抛 RagasError；缺 ragas / langchain-openai 包 → 同。
     """

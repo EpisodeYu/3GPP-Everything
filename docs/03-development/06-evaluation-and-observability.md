@@ -404,12 +404,12 @@ ds = Dataset.from_list([
 ragas_scores = evaluate(ds, metrics=[faithfulness, answer_relevancy, context_recall, context_precision])
 ```
 
-**Ragas 用的 LLM**（评估时本身也要调 LLM）：建议**用与 Agent 不同**的模型避免同源偏差。例如 Agent 用 `mimo-v2.5-pro`，Ragas 评估用 `glm-5.1`（都在 LiteLLM 中）。
+**Ragas 用的 LLM**（评估时本身也要调 LLM）：建议**用与 Agent 不同**的模型避免同源偏差。例如 Agent 用 `mimo-v2.5-pro`，Ragas 评估用 `deepseek-v4-pro`（都在 LiteLLM 中。M7.7 / 2026-05-23 起从 `glm-5.1` 切到 `deepseek-v4-pro`，单价 ¥6/¥24 → ¥3/¥6 per M）。
 
 ```python
 import os
 os.environ["RAGAS_LLM"] = "langchain_openai.ChatOpenAI"
-ragas_llm = ChatOpenAI(model="glm-5.1", base_url=LITELLM_BASE, api_key=LITELLM_KEY)
+ragas_llm = ChatOpenAI(model="deepseek-v4-pro", base_url=LITELLM_BASE, api_key=LITELLM_KEY)
 ragas_embed = ... # 同 RAG 用的 embedding，或独立的
 ```
 
@@ -622,7 +622,7 @@ async def main():
 
 - `LLMPrice / EmbeddingPrice / RerankPrice / WebSearchPrice` dataclass，`billed=False`
   标记免费区（cost=0 但 token 仍写入 ApiUsage 列）
-- `_LLM_PRICES`：mimo-v2.5-pro / mimo-v2.5 / glm-5.1 / glm-4-plus
+- `_LLM_PRICES`：mimo-v2.5-pro / mimo-v2.5 / deepseek-v4-pro / deepseek-v4-flash / glm-5.1 / glm-4.7（GLM 历史条目保留用于 api_usage 旧行展示）
 - `_EMBEDDING_PRICES`：voyage-4-large（free）/ voyage-3.5（free）/ embedding-3
 - `_RERANK_PRICES`：rerank-2.5（free）/ rerank-2（free）
 - `_WEB_SEARCH_PRICES`：tavily-search（$0.01/call）
@@ -787,7 +787,7 @@ async def main():
 | 金标准集主观偏差 | 一人写一人评 | 标注规范文档化；M7 期请第二人 sanity check 10 题 |
 | Ragas 评分本身不稳 | LLM 评估随机性 | 评估固定 temperature=0；M7 暂不多跑取均值（成本控制 Q1） |
 | Langfuse Cloud 网络抖动 | 国内访问 | 写入 retry + 本地落盘 fallback；监控 ingest 失败率；缺 key 时 runner 仍可跑（M7.3 容忍） |
-| 评测 LLM 与 Agent LLM 同源偏差 | 都用 mimo | 明确 Ragas judge 用 `glm-5.1`（已在 LiteLLM） |
+| 评测 LLM 与 Agent LLM 同源偏差 | 都用 mimo | 明确 Ragas judge 用 `deepseek-v4-pro`（M7.7 起从 `glm-5.1` 换；都在 LiteLLM 中） |
 | CI eval 超时 | daily 20 题但 Agent 慢 | daily 子集偏 hand_crafted 高信号题；并发 2-3 题；timeout 30min |
 | 全集每周一次 + daily 20 题预算超支 | 模型涨价 / 题目复杂化 | M7.4 alerts 仅 log；预算超 ¥1000/月 → 触发 §5.10 上报，降配 daily 隔日跑 |
 

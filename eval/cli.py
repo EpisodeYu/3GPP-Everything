@@ -399,14 +399,14 @@ def native_mcq_run(
     models: list[str] = typer.Option(
         [],
         "--model",
-        help="可重复；不传 → 默认 [mimo-v2.5, glm-5.1]",
+        help="可重复；不传 → 默认 [mimo-v2.5, deepseek-v4-pro]",
     ),
     limit: int = typer.Option(0, "--limit", help="0 = 全跑；>0 = 前 N 题（spike 用）"),
     rpm: int = typer.Option(60, "--rpm"),
     concurrent: int = typer.Option(8, "--concurrent"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
-    """裸 LLM 选择题对照：mimo-v2.5 + glm-5.1 各跑一遍 filtered.jsonl，输出准确率对照。
+    """裸 LLM 选择题对照：mimo-v2.5 + deepseek-v4-pro 各跑一遍 filtered.jsonl，输出准确率对照。
 
     用途：作为 RAG 端到端指标的下限锚（"RAG 至少要打过裸 LLM"）。
     报告归档 `eval-results/m7-native-mcq/{ts}/{report.md, results.json}`。

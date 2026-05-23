@@ -79,8 +79,23 @@ _LLM_PRICES: dict[str, LLMPrice] = {
     # Mimo（USD 口径，与 LiteLLM proxy 上的 mimo-v2.5 系列对齐）
     "mimo-v2.5-pro": LLMPrice("mimo-v2.5-pro", 1.0 / 1e6, 3.0 / 1e6),
     "mimo-v2.5": LLMPrice("mimo-v2.5", 0.4 / 1e6, 2.0 / 1e6),
+    # DeepSeek V4（M7.7 2026-05-23 替代 GLM 当 judge；¥/M cache-miss 价口径，与
+    # GLM 同样走 _rmb_per_m_to_usd_per_token 换算）
+    # 注：v4-pro / v4-flash 各自还有 cache-hit 价 ¥0.025 / ¥0.02 per M input，
+    # 当下统一按 cache-miss 计（保守、可观测；judge 短 prompt 缓存命中率不稳定）
+    "deepseek-v4-pro": LLMPrice(
+        "deepseek-v4-pro",
+        _rmb_per_m_to_usd_per_token(3.0),
+        _rmb_per_m_to_usd_per_token(6.0),
+    ),
+    "deepseek-v4-flash": LLMPrice(
+        "deepseek-v4-flash",
+        _rmb_per_m_to_usd_per_token(1.0),
+        _rmb_per_m_to_usd_per_token(2.0),
+    ),
     # GLM（智谱开放平台短输入档 [0, 32K)，¥/M → USD/token）
-    # judge 用，避免与 mimo 同源偏差（详见 06-... §3.4 / §5）
+    # M7.7 起 judge 已切到 deepseek-v4-pro；GLM 条目保留只为 api_usage 历史行
+    # （/admin/stats 仍能正确显示 M7.4-M7.6 期间的 cost）
     "glm-5.1": LLMPrice(
         "glm-5.1",
         _rmb_per_m_to_usd_per_token(6.0),

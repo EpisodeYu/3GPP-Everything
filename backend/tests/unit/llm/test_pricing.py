@@ -32,11 +32,23 @@ class TestLLMPrice:
         # mimo-v2.5-pro: 1.0/M input, 3.0/M output → 1 + 3 = 4 USD
         assert math.isclose(cost, 4.0, rel_tol=1e-6)
 
-    def test_glm_5_1_used_as_judge(self) -> None:
-        # docs/03-development/06 §3.4：judge=glm-5.1
-        # 智谱短输入档 [0, 32K)：¥6/M input, ¥24/M output；÷ 7.2 → USD/M
+    def test_deepseek_v4_pro_used_as_judge(self) -> None:
+        # docs/03-development/06 §3.4：M7.7 起 judge=deepseek-v4-pro
+        # cache-miss 档：¥3/M input, ¥6/M output；÷ 7.2 → USD/M
+        cost = llm_cost_usd("deepseek-v4-pro", input_tokens=2_000_000, output_tokens=500_000)
+        # input: 3/7.2 × 2 = 0.8333；output: 6/7.2 × 0.5 = 0.4167；total ≈ 1.25
+        assert math.isclose(cost, (3.0 * 2 + 6.0 * 0.5) / 7.2, rel_tol=1e-6)
+
+    def test_deepseek_v4_flash_cheap_path(self) -> None:
+        # cache-miss 档：¥1/M input, ¥2/M output
+        cost = llm_cost_usd("deepseek-v4-flash", input_tokens=1_000_000, output_tokens=1_000_000)
+        # (1 + 2) / 7.2 ≈ 0.4167
+        assert math.isclose(cost, 3.0 / 7.2, rel_tol=1e-6)
+
+    def test_glm_5_1_legacy_entry_preserved(self) -> None:
+        # judge 模型 M7.7 已切到 deepseek-v4-pro；GLM 单价表条目保留以便 /admin/stats
+        # 正确显示 M7.4-M7.6 期间累积的 api_usage 行（历史 cost 不被改写为 0）
         cost = llm_cost_usd("glm-5.1", input_tokens=2_000_000, output_tokens=500_000)
-        # input: 6/7.2 × 2 = 1.6667；output: 24/7.2 × 0.5 = 1.6667；total ≈ 3.3333
         assert math.isclose(cost, (6.0 * 2 + 24.0 * 0.5) / 7.2, rel_tol=1e-6)
 
     def test_glm_4_7_cheapest_short_output_tier(self) -> None:
