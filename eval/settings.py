@@ -71,12 +71,15 @@ class EvalSettings(BaseSettings):
     # M3 LLM 用途：
     # - T2 转化：mimo-v2.5-pro（用户显式选择，700M token 余量）
     # - T6 旁证 MCQ runner：mimo-v2.5 + judge 模型 各跑
-    # judge 2026-05-23 起从 glm-5.1（¥6/¥24 per M）换成 deepseek-v4-pro（¥3/¥6
-    # per M，便宜约 50%/75%）。v4-pro 是 reasoning 模型，judge prompts 不依赖
-    # reasoning_content 字段，sample 一次 OK 即可；详见 handoff 2026-05-23-m7.7。
+    # llm_judge_model 2026-05-23 起从 glm-5.1（¥6/¥24 per M）换成 deepseek-v4-pro
+    # （¥3/¥6 per M，便宜约 50%/75%）。v4-pro 是 reasoning 模型；ragas 走 JSON
+    # schema OK，但 langchain_openai.with_structured_output 走 function_calling
+    # 时 DeepSeek 返回 "Thinking mode does not support this tool_choice" 400 →
+    # 故 negative_judge 单独走 llm_negative_judge_model（不走 reasoning 的 mimo-v2.5-pro）。
     llm_agent_model: str = Field(default="mimo-v2.5-pro")
     llm_light_model: str = Field(default="mimo-v2.5")
     llm_judge_model: str = Field(default="deepseek-v4-pro")
+    llm_negative_judge_model: str = Field(default="mimo-v2.5-pro")
 
     # M7.3 Langfuse Dataset / Trace 上报；缺任一 key 即 disable
     langfuse_public_key: str = Field(default="")

@@ -42,10 +42,16 @@ from pathlib import Path
 
 from eval.langfuse_dataset import (
     get_client,
-    make_eval_trace_id,
     push_golden_to_langfuse,
     push_run_score,
 )
+from eval.runner import (
+    AgentResponse,
+    _emit_langfuse_experiment_span,
+    _link_trace_to_dataset_run,
+    _resolve_dataset_id,
+)
+from eval.runner_retrieval import load_golden
 from eval.settings import EvalSettings
 
 log = logging.getLogger("lf_cleanup")
@@ -116,23 +122,60 @@ def _push_run(
     cli,
     results_path: Path,
     *,
+    golden_path: Path,
     run_label: str,
+    dataset_name: str = "tgpp-golden-v1",
     dry_run: bool,
 ) -> int:
+    """创建真 trace + span + dataset_run_item + scores（runner.py 同一管线复用）。
+
+    旧实现 (`make_eval_trace_id` + `push_run_score`) 生成 seed-based 假 trace_id
+    但不创建 trace 实体，Cloud 收到的 score 是 orphan → 全部过滤丢弃。
+    """
     with results_path.open() as f:
         data = json.load(f)
     rows = data.get("results") or []
-    log.info("pushing %d trace scores for run_label=%s", len(rows), run_label)
+    items = {it.id: it for it in load_golden(golden_path)}
+    log.info("pushing %d trace+scores for run_label=%s", len(rows), run_label)
+
+    dataset_id = _resolve_dataset_id(cli, dataset_name) if not dry_run else None
     pushed = 0
     for r in rows:
         gid = r["item_id"]
+        item = items.get(gid)
+        if not item:
+            log.warning("item %s missing in golden; skipping", gid)
+            continue
         if dry_run:
             pushed += 1
             continue
-        trace_id = make_eval_trace_id(run_label, gid, client=cli)
-        if not trace_id:
-            log.warning("no trace_id for %s, skipping", gid)
+        # Rehydrate AgentResponse for the experiment span input/output
+        resp = AgentResponse(
+            answer=r.get("answer", "") or "",
+            citations=r.get("citations") or [],
+            chunks_hit=[],
+            chunks_rerank=[],
+            terminal_event=r.get("terminal_event", "final"),
+            duration_ms=int(r.get("duration_ms") or 0),
+        )
+        emit = _emit_langfuse_experiment_span(
+            cli,
+            item=item,
+            resp=resp,
+            dataset_name=dataset_name,
+            dataset_id=dataset_id,
+            run_label=run_label,
+        )
+        if not emit:
             continue
+        trace_id, _obs_id = emit
+        _link_trace_to_dataset_run(
+            cli,
+            trace_id=trace_id,
+            dataset_name=dataset_name,
+            dataset_item_id=gid,
+            run_label=run_label,
+        )
         push_run_score(
             trace_id,
             {
@@ -147,7 +190,7 @@ def _push_run(
                 "negative_judge_pass": _negative_pass_score(r.get("negative_judge_verdict")),
                 "latency_ms": r.get("duration_ms"),
             },
-            comment="M8 baseline (judge=deepseek-v4-pro; golden=M7.7+)",
+            comment="M8 baseline (judge=deepseek-v4-pro for ragas; mimo-v2.5-pro for negative; golden=M7.7+)",
             metadata={
                 "item_id": gid,
                 "category": r.get("category"),
@@ -209,10 +252,16 @@ def main() -> int:
         if not args.dry_run:
             time.sleep(2)
     if args.push_run:
-        if not args.results:
-            print("ERROR: --push-run requires --results", file=sys.stderr)
+        if not args.results or not args.golden:
+            print("ERROR: --push-run requires --results and --golden", file=sys.stderr)
             return 2
-        n = _push_run(cli, args.results, run_label=args.run_label, dry_run=args.dry_run)
+        n = _push_run(
+            cli,
+            args.results,
+            golden_path=args.golden,
+            run_label=args.run_label,
+            dry_run=args.dry_run,
+        )
         actions_done.append(
             f"push_run: {n} traces+scores {'(dry-run)' if args.dry_run else 'pushed'}"
         )

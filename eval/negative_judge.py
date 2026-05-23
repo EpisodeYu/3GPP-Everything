@@ -152,7 +152,10 @@ class NegativeJudge:
 
 
 def build_default_negative_judge(settings: EvalSettings | None = None) -> NegativeJudge:
-    """按 06-md §4.1 默认：judge=deepseek-v4-pro（含 1e-8 → 0.01 workaround，遗留自 GLM 时期）。"""
+    """按 06-md §4.1 默认：negative_judge 用 `llm_negative_judge_model`（默认
+    mimo-v2.5-pro）走 function_calling；与 ragas judge (`llm_judge_model`,
+    默认 deepseek-v4-pro) 错开，因为 deepseek-v4 系列 reasoning mode 不支持
+    `tool_choice` → with_structured_output 会 400。"""
     s = settings or get_settings()
     if not s.litellm_api_key:
         raise NegativeJudgeError("LITELLM_API_KEY missing; negative judge LLM 无法初始化")
@@ -164,7 +167,7 @@ def build_default_negative_judge(settings: EvalSettings | None = None) -> Negati
         ) from exc
 
     llm = ChatOpenAI(
-        model=s.llm_judge_model,
+        model=s.llm_negative_judge_model,
         base_url=s.resolved_litellm_base_url,
         api_key=s.litellm_api_key,
         temperature=0.01,

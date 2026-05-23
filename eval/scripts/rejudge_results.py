@@ -88,10 +88,15 @@ def _section_match(item: GoldenItem, retrieved_sections: list[str]) -> float | N
         for sec in es.sections:
             segs = tuple(s for s in str(sec).split(".") if s)
             expected.append((es.spec_id, segs))
+    # 从 retrieved_sections 提取裸 spec_ids（fallback + 整体 spec 匹配都需要）
+    retrieved_spec_ids = []
+    for rs in retrieved_sections or []:
+        rs_s = str(rs)
+        retrieved_spec_ids.append(rs_s.split(" §", 1)[0].strip() if " §" in rs_s else rs_s)
     if not expected:
         # expected_specs 存在但无 sections → fallback 到 spec_match
         return _spec_match(
-            [{"spec_id": e.spec_id} for e in item.expected_specs], retrieved_sections
+            [{"spec_id": e.spec_id} for e in item.expected_specs], retrieved_spec_ids
         )
     # 解析 retrieved_sections 形如 "23.501 §5.2.1" 或裸 spec
     for rs in retrieved_sections or []:
@@ -201,7 +206,7 @@ def _do_negative_judge(
     if judge is None or not item.must_say_not_found:
         return None, None
     try:
-        out = judge.judge(item=item, answer=resp.answer)
+        out = judge.score_item(item, resp)
         return out.get("verdict") or None, out.get("reason") or None
     except Exception as exc:
         log.warning("negative_judge failed for %s: %s", item.id, exc)
