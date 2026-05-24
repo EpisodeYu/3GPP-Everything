@@ -2,7 +2,7 @@
 
 > 基于 3GPP 规范文档的生产级 RAG Agent —— 让你像查代码一样查协议。
 
-[![Status](https://img.shields.io/badge/status-M7%20评测扩展中-blue)]() [![Index](https://img.shields.io/badge/index-1270%20specs%20%2F%20394k%20chunks-success)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-3%20parts-orange)](./docs/README.md)
+[![Status](https://img.shields.io/badge/status-M5%20前端%20%2B%20M8%20上线准备-blue)]() [![Index](https://img.shields.io/badge/index-1270%20specs%20%2F%20394k%20chunks-success)]() [![Golden](https://img.shields.io/badge/golden-175%20items-informational)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-3%20parts-orange)](./docs/README.md)
 
 ## 是什么
 
@@ -19,7 +19,7 @@
 
 ```
 M0 准备 ─ M1 数据接入 ─ M2 索引 POC ─ M3 维度决胜 ─ M4 Agent+后端 ─ M6 全量索引 ─ M7 评测扩展 ─ M5 前端 ─ M8 上线
-   ✅        ✅           ✅            ✅(1024)      ✅              ✅(1270 specs)  ⏳ 进行中     ⏸ 与 M7 并行
+   ✅        ✅           ✅            ✅(1024)      ✅              ✅(1270 specs)  ✅             ⏳ 即将开工   ⏳ baseline 就位
 ```
 
 **阶段性产出**：
@@ -30,8 +30,14 @@ M0 准备 ─ M1 数据接入 ─ M2 索引 POC ─ M3 维度决胜 ─ M4 Agent
 | M4 (2026-05-18) | LangGraph 主干 9 节点 + self-RAG + 工具 dispatch + dual-path（simple/complex/raw_lookup）；FastAPI 全套路由（auth/sessions/chat SSE/checkpoint/reader/tools/admin/health）；176 unit + 80 integration 全绿 |
 | M6 (2026-05-17) | GSMA Rel-18+Rel-19 5G 系列 TS **1270 篇**全量索引：394,859 chunks 入 `tgpp_chunks_voyage_d1024` + BM25 持久化（by_spec/jsonl）+ PG `chunks_meta`；Voyage 94.4M tokens / 9.5h |
 | M7.0 (2026-05-20) | 金标准 `eval/golden/v1.yaml` 扩到 **175 题**（119 TeleQnA 转化 + 56 手写） |
+| M7.5 (2026-05-22) | retrieval ablation runner + 默认参数校准；175 题 post-fix baseline（M8 调优起点） |
+| M7.6 (2026-05-24) | `.github/workflows/eval-{daily,weekly}.yml` 落地：cron + workflow_dispatch + 阈值未达自动开 issue + artifact 上传；judge 从 `glm-5.1` 升 `deepseek-v4-pro`（与生成模型异源） |
+| M7.7+ (2026-05-24) | M8 baseline (`eval-results/m8-baseline/`) + Langfuse Cloud 推 175 dataset items + 1 dataset run，留作 M8 调优锚 |
+| M5 规划 (2026-05-24) | 前端规划同步：拆 **M5.0~M5.6** 七段子里程碑（骨架→AppShell→SSE 流式核心→引用 chip + Reader→Checkpoint UX→Admin→i18n + Docker）；详见 [`docs/03-development/05-frontend.md §0`](./docs/03-development/05-frontend.md) |
 
-**进行中**：M7.1+ 端到端 RAG runner（HTTP `/chat` SSE → Ragas → Langfuse Dataset → Daily/Weekly CI）。
+**即将开工**：M5 Flutter 前端（M5.0 骨架先行：`flutter create` + Riverpod + go_router + dio + 黑白主调主题 + 登录页 + AuthRedirect）。
+
+**并行准备**：M8 上线（baseline 已建立，生产 Compose + Nginx + Let's Encrypt + 备份/回滚演练待启）。
 
 里程碑按"完成度门禁"推进（**不绑定时间表**）：上一个里程碑的门禁未全绿，不进下一个。
 完整里程碑与"必须自动化 / 必须人审"清单见 [`docs/03-development/00-overview.md`](./docs/03-development/00-overview.md)。
@@ -59,7 +65,8 @@ M0 准备 ─ M1 数据接入 ─ M2 索引 POC ─ M3 维度决胜 ─ M4 Agent
 | **Vision**（索引期图片描述） | `mimo-v2.5` | 小米（本机 LiteLLM） | 方案 E：单次调用同时输出 description + 结构化字段（figure_kind / visible_labels / visible_acronyms / spec_role）|
 | **Embedding** | `voyage-4-large` @ **1024 维** | Voyage AI | M3 决胜（MRL，200M tokens 免费）|
 | **Reranker** | `rerank-2.5` | Voyage AI | top-50 → top-5；200M tokens 免费 |
-| **Eval Judge** | `glm-5.1` | 智谱（本机 LiteLLM） | Ragas faithfulness / answer relevancy；与生成模型异源避免 self-bias |
+| **Eval Judge** | `deepseek-v4-pro` | DeepSeek（本机 LiteLLM） | Ragas faithfulness / answer relevancy / answer correctness；与生成模型异源避免 self-bias（M7.6 从 `glm-5.1` 升级） |
+| **Negative Judge** | `mimo-v2.5-pro` | 小米（本机 LiteLLM） | 拒答题 VALID/PARTIAL/INVALID 三档判别（M7.3 引入，substring → LLM judge） |
 
 > 所有 LLM 统一走本机 [LiteLLM](https://github.com/BerriAI/litellm) proxy（OpenAI 协议适配），LangGraph 节点零额外抽象。
 
@@ -78,10 +85,10 @@ M0 准备 ─ M1 数据接入 ─ M2 索引 POC ─ M3 维度决胜 ─ M4 Agent
 | 层 | 选型 |
 |---|---|
 | 后端 | FastAPI + SSE + Pydantic v2 + python-jose（JWT + refresh + RBAC） |
-| 前端 | Flutter 3.x（Web + Android 同码） + Riverpod 2.x + go_router + dio (SSE) + flutter_markdown_plus + flutter_math_fork |
+| 前端 | Flutter 3.x（Web + Android 同码） + Riverpod 2.x + go_router + dio (SSE) + flutter_markdown_plus + flutter_math_fork；**黑白主调 + 冷调蓝 accent**（参考 Google AI Studio / Grok mobile） |
 | Web 搜索（用户显式触发） | Tavily |
-| 监控 | Langfuse Cloud（每节点 span + token stream）|
-| 评测 | Ragas + 175 题金标准 YAML + TeleQnA 原生 MCQ + Telco-DPR 风格 retrieval-only |
+| 监控 | Langfuse Cloud（每节点 span + token stream + dataset run）|
+| 评测 | Ragas + 175 题金标准 YAML + TeleQnA 原生 MCQ + Telco-DPR 风格 retrieval-only；`eval-{daily,weekly}.yml` GH Actions CI（阈值未达自动开 issue） |
 | CI / 部署 | GitHub Actions + Docker Compose + Nginx + Let's Encrypt |
 | Lint / Type / Test | Ruff + Black + MyPy + Pytest + pytest-asyncio + httpx |
 
@@ -261,11 +268,11 @@ uv run --project eval python -m eval.cli golden stats    -f eval/golden/v1.yaml
 # ── 测试 / lint ─────────────────────────────────────────
 make lint                                             # ruff + black + mypy
 cd backend    && uv run pytest -m unit                # 176 unit
-cd backend    && uv run pytest -m integration         # 80 + 21 integration
+cd backend    && uv run pytest -m integration         # 86 + 20 integration (含 F-1~F-6 hotfix 后)
 cd ingestion  && uv run pytest                        # 292 passed, 6 skipped
 ```
 
-> Flutter 前端 (`frontend/`) 当前为骨架，M5 启用（与 M7 评测扩展并行）。
+> Flutter 前端 (`frontend/`) 当前为骨架（只保留 M0 nginx placeholder Dockerfile），M5 即将开工；子里程碑拆分见 [`docs/03-development/05-frontend.md §0`](./docs/03-development/05-frontend.md)。
 
 ## 项目结构
 
@@ -281,11 +288,11 @@ cd ingestion  && uv run pytest                        # 292 passed, 6 skipped
 │   │   └── llm/           ← LiteLLM client + pricing
 │   └── alembic/
 ├── ingestion/             ← HF 加载 + Docling 兜底 + Vision + chunker + indexer
-├── frontend/              ← Flutter Web + Android（M5 启用）
-├── eval/                  ← 金标准 YAML + TeleQnA 转化 + Ragas runner（M7 进行中）
-├── eval-results/          ← M2/M3/M6 retrieval baseline 报告
+├── frontend/              ← Flutter Web + Android（M5.0~M5.6 拆分推进）
+├── eval/                  ← 金标准 175 题 + TeleQnA 转化 + Ragas runner + rejudge + Langfuse 推送
+├── eval-results/          ← M2/M3/M6 retrieval baseline + M7.5/M8 baseline 报告
 ├── deploy/                ← Docker Compose / Nginx / 脚本
-├── .github/workflows/     ← CI / nightly eval / deploy
+├── .github/workflows/     ← CI / eval-daily / eval-weekly / deploy
 ├── .env.example
 └── Makefile
 ```
@@ -303,10 +310,10 @@ cd ingestion  && uv run pytest                        # 292 passed, 6 skipped
 完整版见 [`docs/01-requirements.md §6`](./docs/01-requirements.md#6-验收标准高阶)。
 
 - ✅ GSMA Rel-18 + Rel-19 5G 系列 TS（1270 篇）完成索引
-- ⏳ 金标准评测 ≥120 题：faithfulness ≥ 0.85、context recall ≥ 0.80（M7 nightly 跑宽松版 0.75/0.65；M8 上线收紧到严格版）
-- ⏸ Web + Android 端均可走完"提问 → 流式响应 → 看引用 → 跳章节"（M5）
-- ✅ Docker Compose 一键拉起；⏸ Nginx + HTTPS 公网可访问（M8）
-- ⏳ CI 全绿：lint + unit + integration + RAG eval
+- ✅ 金标准 175 题落地；`eval-{daily,weekly}` CI 已就位；M8 baseline + Langfuse dataset run 推送完毕（连跑 2 次 ≥ 严格阈值留到 M8 backend 公网部署后跑）
+- ⏳ Web + Android 端均可走完"提问 → 流式响应 → 看引用 → 跳章节"（M5 即将开工）
+- ✅ Docker Compose 一键拉起；⏳ Nginx + HTTPS 公网可访问（M8）
+- ⏳ CI 全绿：lint + unit + integration + RAG eval（daily/weekly cron 已就位）
 
 ## 不在本期范围
 
@@ -326,10 +333,10 @@ cd ingestion  && uv run pytest                        # 292 passed, 6 skipped
 
 A production-grade RAG agent over 3GPP specifications.
 
-- **Stack**: LangGraph (orchestration) + LlamaIndex (retrieval) + LangChain (tools); FastAPI + SSE backend; Flutter Web/Android frontend
-- **Models**: `mimo-v2.5-pro` / `mimo-v2.5` (local LiteLLM, omni multimodal) + Voyage `voyage-4-large` @ 1024d (MRL-truncated) + `rerank-2.5`
+- **Stack**: LangGraph (orchestration) + LlamaIndex (retrieval) + LangChain (tools); FastAPI + SSE backend; Flutter Web/Android frontend (mono / cool-blue accent, AI-Studio-like)
+- **Models**: `mimo-v2.5-pro` / `mimo-v2.5` (local LiteLLM, omni multimodal) + Voyage `voyage-4-large` @ 1024d (MRL-truncated) + `rerank-2.5`; judge `deepseek-v4-pro` (cross-vendor anti self-bias)
 - **RAG strategy**: GSMA/3GPP HF dataset → small2big chunking (target 250 / max 400 / overlap 50 Voyage tokens, atomic blocks for tables/formulas/ASN.1/figures) → mimo-v2.5 Vision for figures → hybrid retrieval (Qdrant dense + LlamaIndex BM25 + RRF) → Voyage rerank → LangGraph dual-path (simple fast / complex with HyDE+multi-query+self-RAG / raw lookup)
 - **Grounding**: strict citation-only generation; web search only when explicitly invoked; self-RAG verifier with cap-2 retry
-- **Status (2026-05-20)**: M0–M4 + M6 done (1270 specs / 394,859 chunks indexed); M7 evaluation expansion in progress (golden set 175 items); M5 Flutter frontend in parallel
+- **Status (2026-05-24)**: M0–M4, M6, M7 done (1270 specs / 394,859 chunks indexed; 175-item golden + daily/weekly CI; M8 baseline + Langfuse dataset run pushed). **M5 Flutter frontend starting (M5.0~M5.6 sub-milestones planned); M8 deploy preparation in parallel.**
 
 See [`docs/`](./docs/) for the full plan.
