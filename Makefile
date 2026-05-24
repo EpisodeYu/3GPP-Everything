@@ -68,6 +68,10 @@ web-smoke-chrome:         ## 真 Chrome (headed) + chromedriver smoke；Linux he
 		--target=integration_test/login_flow_test.dart \
 		-d chrome --browser-name=chrome --web-port=8088
 
+web-smoke-chrome-headless: ## 等价 web-smoke-chrome，但用 CHROME_EXECUTABLE wrapper 强制 --headless=new；headless Linux server / CI 用
+	CHROME_EXECUTABLE=$(CURDIR)/frontend/scripts/chrome-headless-wrapper.sh \
+		$(MAKE) web-smoke-chrome
+
 web-run:                  ## dev 起 Chrome 调试 (默认 8080 端口；确保后端 ALLOWED_ORIGINS 含此 origin)
 	cd frontend && $(FLUTTER) run -d chrome --web-port=8080 \
 		--dart-define=API_BASE_URL=$(API_BASE_URL)
