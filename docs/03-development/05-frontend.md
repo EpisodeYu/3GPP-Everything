@@ -24,13 +24,13 @@
 
 > 每条标 `[M5.x]` 关联 §0 子里程碑。完成后把 `[ ]` 替换为 `[x]`。
 
-- [ ] `[M5.0]` Flutter 3.x 项目骨架（Web + Android target）
-- [ ] `[M5.0]` Riverpod 2.x 状态管理；go_router 路由；dio HTTP；自定义 SSE 解析器（M5.2 实装）
-- [ ] `[M5.0/M5.1/M5.2/M5.5]` 4 个核心页面：登录 / 聊天 / 章节阅读器 / 管理后台
+- [x] `[M5.0]` Flutter 3.x 项目骨架（Web + Android target）
+- [x] `[M5.0]` Riverpod 2.x 状态管理；go_router 路由；dio HTTP；自定义 SSE 解析器（M5.2 实装）
+- [ ] `[M5.0/M5.1/M5.2/M5.5]` 4 个核心页面：登录 / 聊天 / 章节阅读器 / 管理后台（M5.0 已落：登录页 + 聊天占位页）
 - [ ] `[M5.2]` 流式 UX：节点状态行 + token 流 + chunks 预览 + 一键取消
 - [ ] `[M5.2/M5.3]` Markdown + LaTeX + 表格 / 引用 chip / 章节跳转锚点
-- [ ] `[M5.6]` 中英 i18n、浅深色主题
-- [ ] `[M5.0]` 手写 Dart client（freezed + json_serializable + dio），不引 openapi_generator
+- [ ] `[M5.6]` 中英 i18n、浅深色主题（M5.0 已落：light/dark Material3 黑白主调，切换器 M5.6 加）
+- [x] `[M5.0]` 手写 Dart client（freezed + json_serializable + dio），不引 openapi_generator（M5.0 仅 auth：手写无 freezed；codegen 推迟到 M5.2 真用到 union/SSE event 时）
 - [ ] `[M5.6]` 部署：`docker build` 产物 → nginx 静态托管
 
 ## 2. 模块拆分
