@@ -25,12 +25,12 @@
 > 每条标 `[M5.x]` 关联 §0 子里程碑。完成后把 `[ ]` 替换为 `[x]`。
 
 - [x] `[M5.0]` Flutter 3.x 项目骨架（Web + Android target）
-- [x] `[M5.0/M5.1/M5.2]` Riverpod 2.x 状态管理；go_router 路由（M5.1 起 ShellRoute + 响应式 nav）；dio HTTP；自定义 SSE 解析器（M5.2 落：`sse_client.dart` + `messages_api.dart` 10 类事件 sealed-style + `ChatController` 状态机）
-- [ ] `[M5.0/M5.1/M5.2/M5.5]` 4 个核心页面：登录 / 聊天 / 章节阅读器 / 管理后台（M5.0 + M5.1 + M5.2 已落：登录页 + AppShell + 会话列表 + SSE 流式聊天页；章节阅读器 M5.3、管理后台 M5.5）
+- [x] `[M5.0/M5.1/M5.2]` Riverpod 2.x 状态管理；go_router 路由（M5.1 起 ShellRoute + 响应式 nav；M5.3 reader 走平级路由 + 支持 `#chunk-{id}` fragment）；dio HTTP；自定义 SSE 解析器（M5.2 落：`sse_client.dart` + `messages_api.dart` 10 类事件 sealed-style + `ChatController` 状态机）
+- [x] `[M5.0/M5.1/M5.2/M5.3/M5.5]` 4 个核心页面中已落 3 个：登录 / 聊天 / 章节阅读器（M5.3 完成：spec overview + section view + toc drawer + 搜索 + `#chunk-{id}` 锚点 3s 高亮）；管理后台 M5.5
 - [x] `[M5.2]` 流式 UX：节点状态行 + token 流 + chunks 预览 + 一键取消
-- [ ] `[M5.2/M5.3]` Markdown + LaTeX + 表格 / 引用 chip / 章节跳转锚点（M5.2 已落：`flutter_markdown_plus` + 块级 `$$…$$` LaTeX；引用 chip / 跳转锚点 M5.3）
+- [x] `[M5.2/M5.3]` Markdown + LaTeX + 表格 / 引用 chip / 章节跳转锚点（M5.2 落：`flutter_markdown_plus` + 块级 `$$…$$` LaTeX；M5.3 落：`CitationInlineSyntax` 把 `[<spec> §<sec> ¶<rank>]` 渲染成可点 chip + bottom sheet 拉 `GET /chunks/{id}` 上下文 + "跳到完整章节" 按钮；长按复制；表格沿用 markdown 默认渲染）
 - [ ] `[M5.6]` 中英 i18n、浅深色主题（M5.0 已落：light/dark Material3 黑白主调，切换器 M5.6 加）
-- [x] `[M5.0]` 手写 Dart client（freezed + json_serializable + dio），不引 openapi_generator（M5.0 + M5.2 现状：仍手写无 freezed；SSE event sealed-style + chat/message model 都用手写 fromJson 完成；codegen 仍可推迟）
+- [x] `[M5.0]` 手写 Dart client（freezed + json_serializable + dio），不引 openapi_generator（M5.0–M5.3 现状：仍手写无 freezed；SSE event sealed-style + chat/message / docs 全部手写 fromJson 完成；codegen 仍可推迟）
 - [ ] `[M5.6]` 部署：`docker build` 产物 → nginx 静态托管
 
 ## 2. 模块拆分

@@ -6,6 +6,7 @@ import '../domain/auth/auth_controller.dart';
 import '../domain/auth/auth_state.dart';
 import '../features/auth/login_page.dart';
 import '../features/chat/chat_page.dart';
+import '../features/reader/reader_page.dart';
 import '../features/shell/app_shell.dart';
 
 const _publicRoutes = <String>{'/login'};
@@ -57,6 +58,34 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      // Reader 与 AppShell 平级：自带 AppBar + 左侧 TocDrawer，避免双 Drawer 嵌套。
+      // 顶部 AppBar back 按钮回 /chat。
+      GoRoute(
+        path: '/reader/:spec',
+        builder: (_, s) => ReaderPage(
+          specId: s.pathParameters['spec']!,
+          activeChunkId: _parseChunkAnchor(s.uri.fragment),
+        ),
+      ),
+      GoRoute(
+        path: '/reader/:spec/:section',
+        builder: (_, s) => ReaderPage(
+          specId: s.pathParameters['spec']!,
+          sectionPath: s.pathParameters['section'],
+          activeChunkId: _parseChunkAnchor(s.uri.fragment),
+        ),
+      ),
     ],
   );
 });
+
+/// URL fragment `chunk-xxx` → `xxx`；不匹配 → null。
+///
+/// 用 fragment 而非 query 是因为 go_router state 的 `uri.fragment` 在路径切换时
+/// 即使 path 相同也会让 ReaderPage 重建（key 中绑 fragment），触发滚到锚点 +
+/// 高亮淡出。
+String? _parseChunkAnchor(String fragment) {
+  if (fragment.isEmpty) return null;
+  if (fragment.startsWith('chunk-')) return fragment.substring(6);
+  return null;
+}

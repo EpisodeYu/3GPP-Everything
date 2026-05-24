@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/api/docs_api.dart';
 import '../../data/api/sessions_api.dart';
 import '../../domain/auth/auth_controller.dart';
 import '../../domain/auth/auth_state.dart';
@@ -72,12 +73,21 @@ class _SessionsSidebar extends ConsumerWidget {
       children: [
         const _SidebarHeader(),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
           child: FilledButton.icon(
             key: const Key('sidebar_new_session'),
             onPressed: () => _onCreate(context, ref),
             icon: const Icon(Icons.add),
             label: const Text('新会话'),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: OutlinedButton.icon(
+            key: const Key('sidebar_open_reader'),
+            onPressed: () => _onOpenReader(context, ref),
+            icon: const Icon(Icons.menu_book_outlined),
+            label: const Text('阅读器'),
           ),
         ),
         const Divider(height: 1),
@@ -110,6 +120,17 @@ class _SessionsSidebar extends ConsumerWidget {
   String? _currentSidFromRoute(BuildContext context) {
     final state = GoRouterState.of(context);
     return state.pathParameters['sid'];
+  }
+
+  Future<void> _onOpenReader(BuildContext context, WidgetRef ref) async {
+    _closeDrawerIfOpen(context);
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (_) => const _DocPickerDialog(),
+    );
+    if (picked == null || picked.isEmpty) return;
+    if (!context.mounted) return;
+    context.go('/reader/${Uri.encodeComponent(picked)}');
   }
 
   Future<void> _onCreate(BuildContext context, WidgetRef ref) async {
@@ -217,6 +238,117 @@ class _SessionsSidebar extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }
+
+/// 阅读器入口：从 `GET /docs` 拉已索引文档列表，按 spec_id 模糊过滤，
+/// 选中后 Navigator.pop(specId) → AppShell 把它 push 进 `/reader/{spec}`。
+class _DocPickerDialog extends ConsumerStatefulWidget {
+  const _DocPickerDialog();
+
+  @override
+  ConsumerState<_DocPickerDialog> createState() => _DocPickerDialogState();
+}
+
+class _DocPickerDialogState extends ConsumerState<_DocPickerDialog> {
+  final TextEditingController _filterCtrl = TextEditingController();
+  String _filter = '';
+
+  @override
+  void dispose() {
+    _filterCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(_docsListProvider);
+    return AlertDialog(
+      title: const Text('选择文档'),
+      content: SizedBox(
+        width: 420,
+        height: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const Key('doc_picker_filter'),
+              controller: _filterCtrl,
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: '按 spec_id 过滤（如 23.501）',
+                prefixIcon: Icon(Icons.search, size: 18),
+              ),
+              onChanged: (v) => setState(() => _filter = v.trim().toLowerCase()),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: async.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(
+                      '加载文档列表失败：$e',
+                      key: const Key('doc_picker_error'),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                data: (resp) {
+                  final filtered = _filter.isEmpty
+                      ? resp.items
+                      : resp.items
+                          .where(
+                            (d) => d.specId.toLowerCase().contains(_filter) ||
+                                d.title.toLowerCase().contains(_filter),
+                          )
+                          .toList();
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Text(
+                        resp.items.isEmpty ? '还没有任何已索引文档' : '没有匹配的文档',
+                        key: const Key('doc_picker_empty'),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    key: const Key('doc_picker_list'),
+                    itemCount: filtered.length,
+                    itemBuilder: (ctx, i) {
+                      final d = filtered[i];
+                      return ListTile(
+                        key: Key('doc_picker_tile_${d.specId}'),
+                        dense: true,
+                        title: Text(d.specId),
+                        subtitle: Text(
+                          '${d.release} · series ${d.series} · ${d.chunkCount} chunks',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onTap: () => Navigator.of(context).pop(d.specId),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          key: const Key('doc_picker_cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+      ],
+    );
+  }
+}
+
+final _docsListProvider =
+    FutureProvider.autoDispose<DocListResponse>((ref) async {
+  return ref.watch(docsApiProvider).list();
+});
 
 class _SidebarHeader extends StatelessWidget {
   const _SidebarHeader();

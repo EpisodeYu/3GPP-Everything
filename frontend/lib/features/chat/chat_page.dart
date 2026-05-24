@@ -265,6 +265,7 @@ class _MessagesList extends StatelessWidget {
         role: m.role,
         content: m.content,
         status: m.status,
+        citations: m.citations,
       ));
     }
     final run = state.run;

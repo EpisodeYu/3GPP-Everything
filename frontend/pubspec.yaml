@@ -18,6 +18,9 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   flutter_markdown_plus: ^1.0.0
   flutter_math_fork: ^0.7.2
+  # markdown：flutter_markdown_plus 的传递依赖，显式列出是因为 M5.3 CitationInlineSyntax 直接
+  # 引用 `package:markdown` 的 InlineSyntax / Element 类型（depend_on_referenced_packages lint）。
+  markdown: ^7.3.0
 
 dev_dependencies:
   flutter_test:
