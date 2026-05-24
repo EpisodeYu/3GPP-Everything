@@ -6,6 +6,7 @@ import '../domain/auth/auth_controller.dart';
 import '../domain/auth/auth_state.dart';
 import '../features/auth/login_page.dart';
 import '../features/chat/chat_page.dart';
+import '../features/shell/app_shell.dart';
 
 const _publicRoutes = <String>{'/login'};
 
@@ -43,7 +44,19 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (_, _) => const LoginPage()),
-      GoRoute(path: '/chat', builder: (_, _) => const ChatPage()),
+      ShellRoute(
+        builder: (_, _, child) => AppShell(child: child),
+        routes: [
+          GoRoute(
+            path: '/chat',
+            builder: (_, _) => const ChatPage(),
+          ),
+          GoRoute(
+            path: '/sessions/:sid',
+            builder: (_, s) => ChatPage(sessionId: s.pathParameters['sid']),
+          ),
+        ],
+      ),
     ],
   );
 });
