@@ -139,6 +139,13 @@ jobs:
 
 ### 2.3 `.github/workflows/nightly-eval.yml`
 
+> **2026-05-24 落地修订（M7.6）**：实际落了两份 — `.github/workflows/eval-daily.yml`
+> （cron `0 18 * * *` UTC = 02:00 UTC+8）跑 daily 子集 + `.github/workflows/eval-weekly.yml`
+> （cron `0 19 * * 0` UTC = 周一 03:00 UTC+8）跑全集。下面 yaml 是初版设计，按实际
+> 落地文件为准。阈值开 issue 路径走 `actions/github-script@v7` + labels `eval/auto`；
+> mock 验证 `gh workflow run eval-{daily,weekly}.yml -f mock_issue=true`。
+> 详见 `06-...md §0 / §12 M7.6` 与 `docs/04-handoff/2026-05-24-m7-complete.md`。
+
 ```yaml
 name: nightly-eval
 on:
@@ -567,7 +574,7 @@ echo "backup done: $BACKUP_DIR"
 > 标注：`[auto]` = Agent 自跑可判定；`[human]` = 必须人介入（生产部署、域名、首次上线、回滚演练）。
 
 - [ ] `[auto]` PR opened 时 CI 全部 job 跑通；< 15 分钟总耗时
-- [ ] `[auto]` Nightly eval 跑通；阈值未达开 issue
+- [x] `[auto]` Nightly eval 跑通；阈值未达开 issue — M7.6 落地 2026-05-24（`eval-daily.yml` + `eval-weekly.yml`；连跑 2 次 ≥ D13 第一档验收待 backend 对 CI 可达后补，见 `06-...md §12 M7.6`）
 - [ ] `[human]` `deploy.yml` 手动触发后 GHCR 有镜像、生产成功拉新版（生产部署必须人 approve，这是 `CLAUDE.md §5.3 / 5.4` 触发）
 - [ ] `[human]` `https://tgpp.example.com/health` 200（域名/证书涉外部账号）
 - [ ] `[human]` SSE 在生产域名下顺畅（token 流不卡顿）—— 由人在浏览器实测

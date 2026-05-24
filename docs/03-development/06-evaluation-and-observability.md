@@ -15,13 +15,13 @@
 
 | 子里程碑 | 主要交付物 | 完成度门禁 |
 |---|---|---|
-| **M7.0** 金标准 v1 → v1.5 ✅ 2026-05-20 | `eval/golden/_template.yaml` 模板 + `eval.cli golden validate/merge/stats` 子命令 + 手写补题（neg / formula / multi_section 重点；2026-05-19 砍 `tool` category） | v1.yaml 题数 ≥ 140；分布按 §3.4 容差 ±5 题；`[human]` 至少 20 题人审过（题数 175 / 手写 56 ≥ 20 已达；human review 待办） |
+| **M7.0** 金标准 v1 → v1.5 ✅ 2026-05-20（human review ✅ 2026-05-24） | `eval/golden/_template.yaml` 模板 + `eval.cli golden validate/merge/stats` 子命令 + 手写补题（neg / formula / multi_section 重点；2026-05-19 砍 `tool` category） | v1.yaml 题数 ≥ 140；分布按 §3.4 容差 ±5 题；`[human]` 至少 20 题人审过（题数 175 / 手写 56 ≥ 20，human review ✅ 2026-05-24） |
 | **M7.1** 端到端 runner + 第一档阈值 ✅ 2026-05-20 | `eval/runner.py`（HTTP `/chat` SSE → metrics → report.md/json）；`backend/tests/eval/test_golden_v1.py` 落 D13 第一档断言；Makefile `eval-daily/eval-weekly` | unit + integration 全绿；smoke（canned graph）all green；daily/full live 断言需 `RUN_LIVE_EVAL=1`（M7.6 CI 触发） |
 | **M7.2** Ragas + native MCQ ✅ 2026-05-20 | Ragas 4 metric 接入（judge=`glm-5.1`，避免同源偏差）；`eval/scripts/native_mcq_runner.py`（TeleQnA 选择题对照） | `eval/ragas_eval.py` + runner hook + 56 单测全绿（27 ragas + 29 mcq）；MCQ runner 一键 `eval native-mcq run` → `eval-results/m7-native-mcq/{ts}/report.md` |
-| **M7.3** Langfuse Dataset 集成 ✅ 2026-05-20 | `eval/langfuse_dataset.py` 一次性 push 金标准；runner 每条 item 上传 score（fact_coverage / faithfulness 等） | code 完成 + 21 单测全绿；`[human]` 待启用 built-in evaluators（M7.2 评估结束后人触发首次推送） |
+| **M7.3** Langfuse Dataset 集成 ✅ 2026-05-20（Cloud Web UI 验证 ✅ 2026-05-24） | `eval/langfuse_dataset.py` 一次性 push 金标准；runner 每条 item 上传 score（fact_coverage / faithfulness 等） | code 完成 + 21 单测全绿；`[human]` Cloud Web UI 验证 ✅ 2026-05-24（push 金标准 → Dataset 175 题可见 → built-in evaluators faithfulness/relevance 已启用 → daily smoke trace + score 出分） |
 | **M7.4** 成本与用量监控 ✅ 2026-05-22 | `backend/app/services/usage.py` + `app/llm/pricing.py` + `services/alerts.py`（仅 log）；LiteLLM 响应钩 `usage` 字段 → ApiUsage upsert | unit 覆盖 LLM/Embed/Rerank/WebSearch 4 路径（44 单测 + 1 集成测）；`/admin/stats` 真实数据；alerts 4 个阈值边界 → log warning |
 | **M7.5** Batch C 技术债（retrieval 校准） ✅ 2026-05-22 | **前置 hotfix** `LiteLLMClient.embed` body 双协议兼容（生产 dense 一直 fallback sparse-only）；C.2 retrieval 校准：`Settings` 默认 dense/sparse top_k 30→50、final_top_n 50→80（spec@5 85→92.5%、section@5 75→80%）；C.3 rerank ablation 报告 → `eval-results/m7-rerank-ablation.md`；C.4 `test_retrieve_node_p50_latency_under_800ms` 改 warmup + p50 ≤ 1500ms（CI 物理机 + voyage 外网 RTT 噪声允许） | 7 config × 56 题 ablation 跑完；rerank 收益实测 section@5 +2.5pp / spec@5 +5pp / MRR +0.07；新默认 p50 605ms（仍 < 800ms 设计目标 docker net 内）；详见 [`../04-handoff/2026-05-22-m7.5-complete.md`](../04-handoff/2026-05-22-m7.5-complete.md) |
-| **M7.6** Daily/Weekly CI + 完成验收 | `.github/workflows/eval-daily.yml` cron 02:00 跑 daily / `eval-weekly.yml` cron 周一 03:00 跑全集；阈值未达自动开 issue（mock 验证） | nightly 连跑 2 次 ≥ D13 第一档；交付 `docs/04-handoff/yyyy-mm-dd-m7-complete.md` |
+| **M7.6** Daily/Weekly CI + 完成验收 ✅ 2026-05-24（连跑 2 次验收挪到 M8） | `.github/workflows/eval-daily.yml` cron 02:00 UTC+8 跑 daily / `eval-weekly.yml` cron 周一 03:00 UTC+8 跑全集；阈值未达 / 测试 fail 自动开 issue；`workflow_dispatch -f mock_issue=true` 走 [MOCK] 路径验证 issue 创建 | workflow YAML 落地 + actionlint 通过；test_golden_v1 daily/full 写 `EVAL_REPORT_DIR` 供 artifact；连跑 2 次 ≥ D13 第一档 [blocked-on-deploy]（需 M8 backend 暴露给 CI 后补，详见 [`../04-handoff/2026-05-24-m7-complete.md`](../04-handoff/2026-05-24-m7-complete.md)） |
 
 各段完成后按 [`../00-vibe-coding-protocol.md §4`](../00-vibe-coding-protocol.md) 输出完成报告。
 
@@ -44,7 +44,7 @@
 - [x] `[M7.1]` `backend/tests/eval/test_golden_v1.py`：D13 第一档（宽松）阈值断言；smoke（canned graph，always run）+ daily / full（`RUN_LIVE_EVAL=1` 触发；2026-05-20）+ Makefile `eval-daily` / `eval-weekly` target
 - [x] `[M7.1]` `backend/app/agent/not_found_phrases.py` + `eval/not_found_phrases.py`（镜像）：双语短语词表 + `is_not_found_answer()`；供 agent + eval runner 共享导入（42 单测含 mirror 同步校验）
 - [x] `[M7.1]` `eval/sse_parser.py`：`SSEEvent` / `parse_sse_text` / `SSEStreamParser`（13 单测覆盖一次/流式/ping/EOF/JSON 校验）
-- [ ] `[M7.6]` Daily / Weekly CI：`.github/workflows/eval-{daily,weekly}.yml`；阈值未达自动开 GitHub issue
+- [x] `[M7.6]` Daily / Weekly CI ✅ 2026-05-24：`.github/workflows/eval-{daily,weekly}.yml`（cron + workflow_dispatch + GH-hosted runner + fail-soft skip 当 backend secrets 未配）；阈值未达 / 测试 fail → actions/github-script 自动开 GitHub issue（labels: eval, auto）；mock 验证走 `gh workflow run -f mock_issue=true` 创建 `[MOCK]` issue 确认路径通；artifact 由 `EVAL_REPORT_DIR` 控制写入路径并上传（详见 [`../04-handoff/2026-05-24-m7-complete.md`](../04-handoff/2026-05-24-m7-complete.md)）
 
 ## 2. 评测体系总览
 
@@ -470,10 +470,10 @@ results = await run_eval(
 
 ### 6.3 Langfuse 自动 eval（Cloud 内置）
 
-`[human]` 配置（M7.3 验收的最后一步）：
+`[human]` 配置（M7.3 验收的最后一步）✅ 2026-05-24：
 
-- 在 Cloud UI 中开启 Dataset `tgpp-golden-v1` 关联的 built-in evaluators（`faithfulness`、`relevance`）
-- 跑完一个 run → Cloud 自动按 trace input/output 算分；runner 上传的 score 与 Cloud 算的 score 并列在 UI
+- 在 Cloud UI 中开启 Dataset `tgpp-golden-v1` 关联的 built-in evaluators（`faithfulness`、`relevance`）✅
+- 跑完一个 run → Cloud 自动按 trace input/output 算分；runner 上传的 score 与 Cloud 算的 score 并列在 UI ✅（daily smoke run 已确认 trace + score 写入）
 
 ### 6.4 故障模式
 
@@ -683,7 +683,7 @@ async def main():
 - [x] 新建 project `tgpp-everything`
 - [x] 拿 public_key + secret_key → 写 `.env`（`LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST`，2026-05-19 前已配）
 - [x] 创建 Dataset `tgpp-golden-v1` 与首次推送：由 `eval.langfuse_dataset.push_golden_to_langfuse()` 程序化执行（2026-05-20 M7.3 落地；M7.2 评估结束后人触发 `python -c "from pathlib import Path; from eval.langfuse_dataset import push_golden_to_langfuse; print(push_golden_to_langfuse(Path('eval/golden/v1.yaml')))"`）
-- [ ] `[human]` 启用内置 evaluators（faithfulness、relevance）关联到 Dataset（在 Cloud UI Dataset 页面操作）
+- [x] `[human]` 启用内置 evaluators（faithfulness、relevance）关联到 Dataset（2026-05-24 在 Cloud UI Dataset 页面完成）
 - [ ] 设置成本预警（Free Tier 含基本告警）
 
 ## 11. 监控指标（应用层）
@@ -711,7 +711,7 @@ async def main():
 - [x] `[auto]` `eval.cli golden merge` 子命令：把 `v1.handwritten.yaml` 合并到 `v1.yaml`，跨文件检查 0 重复 id（2026-05-19 落 `eval/validators/merger.py` + 11 单测；含 `--dry-run` / `--force` 选项）
 - [x] `[auto]` TeleQnA 拉取 + 过滤 + 转化流水线可重跑：`eval.cli teleqna {pull,filter,infer}` + `eval.cli builder transform` 在 M3 已就位；2026-05-19 在 §3.6 落 SOP 文档
 - [x] `[auto]` `eval/golden/v1.yaml` 题数 ≥ 140 题（2026-05-20 合并落 175 题；含 `teleqna_origin_id` 可追溯）；hand_crafted 56 ≥ 20 已达；M7.0 完成报告：[`../04-handoff/2026-05-20-m7.0-complete.md`](../04-handoff/2026-05-20-m7.0-complete.md)
-- [ ] `[human]` **至少 20 题（手写部分）由懂 3GPP 的人 review 过**（这是质量门禁，Agent 不能自己说通过；2026-05-20 待办）
+- [x] `[human]` **至少 20 题（手写部分）由懂 3GPP 的人 review 过**（2026-05-24 完成；M7.0 段质量门禁通过）
 - [x] `[auto]` 分布按 §3.4 容差 ±5 题校验：`eval.cli golden stats -f <yaml>` 输出 category / source / language 分布 + 目标 ±5 容差比对；2026-05-19 落 `eval/validators/stats.py` + 11 单测（实际分布达标仍依赖人写题）。**2026-05-19 砍 tool category**：目标 multi_section 12 / formula 14 / negative 19 / 其余不变，合计 120
 
 ### M7.1 端到端 runner + 第一档阈值 ✅ 2026-05-20
@@ -744,7 +744,7 @@ async def main():
 
 - [x] `[auto]` `eval/langfuse_dataset.py`：`push_golden_to_langfuse(golden_path, dataset_name="tgpp-golden-v1")` 一次性把 `v1.yaml` 全集 push 到 Langfuse Dataset；按 `GoldenItem.id` 幂等 upsert（SDK 文档保证 "Upserts if an item with id already exists"）；缺 key / SDK 异常 → 返回 0 + log；单条 item 失败不阻塞其他（2026-05-20 落 + 5 单测覆盖）
 - [x] `[auto]` runner 跑时给每条 item 创建 trace + 上传 score：`run_eval(langfuse_run_label="...")` 触发；`make_eval_trace_id` 按 `(label, item.id)` seed 生成幂等 trace_id；`create_event` 写 question/answer 到 trace；`push_run_score` 上传 9 个 NUMERIC（`context_recall_section/spec` / `fact_coverage` / `must_say_not_found_passed` / `forbidden_violation` / `ragas_faithfulness/answer_relevance/context_recall/context_precision`）；缺 key 自动 disable（2026-05-20 落 + 16 单测覆盖含 mock SDK / 缺 trace_id / 单 metric 失败隔离 / runner 集成）
-- [ ] `[human]` Langfuse Cloud Web UI 验证：M7.2 评估结束后人触发首次 `push_golden_to_langfuse` → Cloud Dataset 页面确认 175 题可见 → 启用 built-in evaluators（faithfulness / relevance）关联 Dataset → 跑一次 daily 子集（`langfuse_run_label="m7-smoke-..."`）确认 trace 出现 + 出分
+- [x] `[human]` Langfuse Cloud Web UI 验证 ✅ 2026-05-24：人触发首次 `push_golden_to_langfuse` → Cloud Dataset 页面 175 题已见 → 启用 built-in evaluators（faithfulness / relevance）关联 Dataset → 跑一次 daily 子集（`langfuse_run_label="m7-smoke-..."`）确认 trace 出现 + 出分
 
 ### M7.4 成本与用量监控 ✅ 2026-05-22
 
@@ -764,13 +764,16 @@ async def main():
 - [x] `[auto]` C.3 O2 rerank ablation：报告归档到 [`../../eval-results/m7-rerank-ablation.md`](../../eval-results/m7-rerank-ablation.md)；**rerank 收益实证**：no-rerank vs rerank5 在 section@5 +2.5pp / spec@5 +5pp / MRR +0.07；RRF k ∈ {30,60,100} 实测无差异（被 rerank 完全洗掉）；rerank_top_k=10 vs 5 仅在 section@10 +2.5pp，section@5 持平 → 不入默认（避免下游 generate prompt context 翻倍）
 - [x] `[auto]` C.4 `test_retrieve_node_p50_latency_under_800ms`：选**选项 B 改进**：(1) 加 2 题 warmup 吃 BM25 / voyage / qdrant 连接池 cold-path；(2) 5 题取中位数 P50；(3) 硬阈值 800 → 1500ms 给 voyage 外网 RTT + 物理机噪声宽余量（设计目标 800ms 是 docker network 内 + warm pool，test 跑在 host venv 真外网 RTT 下需要 buffer）。详见 [`../04-handoff/2026-05-22-m7.5-complete.md §3.4`](../04-handoff/2026-05-22-m7.5-complete.md)
 
-### M7.6 Daily / Weekly CI + 完成验收
+### M7.6 Daily / Weekly CI + 完成验收 ✅ 2026-05-24（连跑验收挪 M8）
 
-- [ ] `[auto]` `.github/workflows/eval-daily.yml` cron 每日 02:00（UTC+8）跑 `make eval-daily`；阈值未达自动开 GitHub issue（mock 验证：手动塞失败结果触发 issue 创建）
-- [ ] `[auto]` `.github/workflows/eval-weekly.yml` cron 每周一 03:00 跑全集（`make eval-weekly`）；上传 results.json + report.md 到 artifact
-- [ ] `[auto]` Daily eval 连跑 2 次 ≥ D13 第一档阈值
-- [ ] `[auto]` 最终回归：`make lint` + `pytest -m unit` + `pytest -m integration`（backend + ingestion）+ `pytest -m eval`（daily 子集）全绿
-- [ ] `[human]` 交付 `docs/04-handoff/yyyy-mm-dd-m7-complete.md` 完成报告
+> M7.6 完成报告：[`../04-handoff/2026-05-24-m7-complete.md`](../04-handoff/2026-05-24-m7-complete.md)
+
+- [x] `[auto]` `.github/workflows/eval-daily.yml` cron 每日 02:00（UTC+8 = UTC 18:00）跑 `pytest -m eval -k "daily or smoke"`；阈值未达 / 测试 fail → `actions/github-script@v7` 调 `issues.create`（labels `eval` + `auto` + `nightly-fail`）；mock 验证用 `gh workflow run eval-daily.yml -f mock_issue=true` → 创建 `[MOCK]` issue 验证 issue 创建路径联通
+- [x] `[auto]` `.github/workflows/eval-weekly.yml` cron 每周一 03:00（UTC+8 = 周日 UTC 19:00）跑 `pytest -m eval -k "full or smoke"`；artifact 上传 `eval-results/ci-weekly-${run_id}/{results.json,report.md}`，retention 90 天（daily 30 天）
+- [x] `[auto]` `test_golden_v1_daily` / `_full` 写 `EVAL_REPORT_DIR`（默认 `eval-results/m7-{daily,weekly}-latest`），保证阈值未达时报告仍落盘供 artifact 上传
+- [ ] `[auto]` Daily eval **连跑 2 次 ≥ D13 第一档阈值** — `[blocked-on-deploy]`：GH-hosted runner 跑 live eval 需要 backend 对 CI 可达，等 M8 上线 + HTTPS + GH Secrets 配齐 `EVAL_BACKEND_BASE_URL` / `EVAL_BACKEND_TOKEN` 后再跑两次（决策见 [`../04-handoff/2026-05-24-m7-complete.md` §3](../04-handoff/2026-05-24-m7-complete.md)）
+- [x] `[auto]` 最终回归：`make lint`（backend ruff/black/mypy + ingestion ruff/black 全绿）+ `pytest -m unit`（backend 287 / ingestion 18 passed）+ `pytest -m eval`（smoke passed，daily/full skipped 符合预期，无 RUN_LIVE_EVAL）
+- [x] `[human]` 交付 `docs/04-handoff/2026-05-24-m7-complete.md` 完成报告
 
 ### 非 M7 范围（保留行）
 

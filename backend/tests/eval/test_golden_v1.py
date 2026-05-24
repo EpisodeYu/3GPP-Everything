@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from eval.runner import EvalResult, run_eval
+from eval.runner import EvalResult, run_eval, write_report
 from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import AIMessageChunk
 
@@ -209,6 +209,21 @@ items:
 # === D13 第一档：宽松 daily / 严格档 placeholder ===
 
 _RUN_LIVE = os.getenv("RUN_LIVE_EVAL") == "1"
+
+
+def _maybe_write_report(results: list[EvalResult], *, default: str) -> None:
+    """落 results.json + report.md 到 EVAL_REPORT_DIR（M7.6 CI 上传 artifact 用）。
+
+    本地不带 EVAL_REPORT_DIR 时落到 `default` 路径下，便于人翻历史 daily/weekly 报告。
+    异常吞掉只 log（不能让磁盘问题把评测断言流程打断）。
+    """
+    outdir = Path(os.getenv("EVAL_REPORT_DIR") or default)
+    try:
+        write_report(results, outdir)
+    except Exception as e:
+        print(f"[eval] write_report failed (outdir={outdir}): {e}")
+
+
 _LIVE_SKIP_REASON = (
     "需要 RUN_LIVE_EVAL=1 + 真 backend（带 LITELLM_API_KEY 等）；M7.6 CI 才正式触发。"
 )
@@ -241,6 +256,10 @@ async def test_golden_v1_daily() -> None:
             source_filter="hand_crafted",
             negative_judge=judge,
         )
+
+    # M7.6 CI: 写 results.json + report.md 供 GH Actions artifact 上传；
+    # 放在 assert 之前，保证阈值未达时报告仍能落盘
+    _maybe_write_report(results, default="eval-results/m7-daily-latest")
 
     assert len(results) >= 20, f"daily 子集 < 20: {len(results)}"
 
@@ -281,6 +300,8 @@ async def test_golden_v1_full() -> None:
 
     async with httpx.AsyncClient(base_url=base_url, timeout=60) as client:
         results = await run_eval(GOLDEN_V1, client=client, auth_token=token)
+
+    _maybe_write_report(results, default="eval-results/m7-weekly-latest")
 
     assert len(results) >= 140, f"全集题数不足 140: {len(results)}"
 
