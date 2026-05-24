@@ -18,7 +18,10 @@ frontend/android/.gradle/
 .env
 .env.local
 *.log
-data/
+# repo-root /data 是 HF 缓存 / 索引中间产物挂载点；前面加 / 锚定只匹配根，
+# 不误伤 Flutter `frontend/lib/data/` / `frontend/test/data/`（M5.0 漏 commit 的根因）。
+/data/
+deploy/data/
 eval-results/
 
 # eval 中间产物（v1.yaml 入库，draft / spike / 失败 / 跳过 jsonl 不入库）
