@@ -1,14 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tgpp/data/api/checkpoint_api.dart';
 import 'package:tgpp/data/api/sessions_api.dart';
 import 'package:tgpp/domain/session/sessions_controller.dart';
 
+import '../../support/fake_checkpoint_api.dart';
 import '../../support/fake_sessions_api.dart';
 
-ProviderContainer _container(FakeSessionsApi api) {
+ProviderContainer _container(
+  FakeSessionsApi api, {
+  FakeCheckpointApi? checkpoint,
+}) {
   final container = ProviderContainer(
     overrides: [
       sessionsApiProvider.overrideWithValue(api),
+      checkpointApiProvider.overrideWithValue(checkpoint ?? FakeCheckpointApi()),
     ],
   );
   addTearDown(container.dispose);
@@ -97,6 +103,53 @@ void main() {
       expect(items[0].id, 'a');
       expect(items[0].title, '新标题');
       expect(items[1].id, 'b');
+    });
+
+    test('fork 成功后：旧 session 状态 → archived_branch，新 session 插到列表头',
+        () async {
+      final api = FakeSessionsApi(initial: [
+        buildSession(id: 'src', title: '主线'),
+        buildSession(id: 'other', title: '其他'),
+      ]);
+      final ckpt = FakeCheckpointApi();
+      final container = _container(api, checkpoint: ckpt);
+      await container.read(sessionsControllerProvider.future);
+
+      final created =
+          await container.read(sessionsControllerProvider.notifier).fork(
+                sid: 'src',
+                checkpointId: 'cp-1',
+                newUserMessage: '换个问法',
+              );
+
+      expect(created.id, 'fork-of-src');
+      expect(ckpt.forkCalls, 1);
+      expect(ckpt.lastForkCheckpointId, 'cp-1');
+      expect(ckpt.lastForkNewUserMessage, '换个问法');
+
+      final items = container.read(sessionsControllerProvider).value!;
+      expect(items.first.id, 'fork-of-src');
+      // src 仍在列表里，但 status 已经被改为 archived_branch
+      final src = items.firstWhere((s) => s.id == 'src');
+      expect(src.status, 'archived_branch');
+      expect(items.length, 3);
+    });
+
+    test('fork 失败时不会修改 sessions 列表', () async {
+      final api = FakeSessionsApi(initial: [buildSession(id: 'src')]);
+      final ckpt = FakeCheckpointApi()..failNextOp = 'fork';
+      final container = _container(api, checkpoint: ckpt);
+      await container.read(sessionsControllerProvider.future);
+
+      await expectLater(
+        container
+            .read(sessionsControllerProvider.notifier)
+            .fork(sid: 'src', checkpointId: 'cp-1'),
+        throwsA(isA<CheckpointFakeError>()),
+      );
+      final items = container.read(sessionsControllerProvider).value!;
+      expect(items.length, 1);
+      expect(items.single.status, 'active');
     });
   });
 }

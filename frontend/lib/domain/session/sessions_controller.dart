@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/api/checkpoint_api.dart';
 import '../../data/api/sessions_api.dart';
 
 /// 管理当前用户的会话列表。
@@ -60,6 +61,47 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
       rethrow;
     }
   }
+
+  /// 从指定 checkpoint 分叉出新会话（M5.4）。成功后：
+  /// - 旧 sid 在列表里 status 改成 `archived_branch`（视觉灰度 / "分叉历史" 分组）
+  /// - 新会话插到列表头
+  ///
+  /// 失败时不修改列表，[CheckpointApi.fork] 的异常向上抛由调用方提示。
+  Future<SessionOut> fork({
+    required String sid,
+    required String checkpointId,
+    String? newUserMessage,
+    String? title,
+  }) async {
+    final api = ref.read(checkpointApiProvider);
+    final resp = await api.fork(
+      sid,
+      checkpointId: checkpointId,
+      newUserMessage: newUserMessage,
+      title: title,
+    );
+    final prev = state.value ?? const <SessionOut>[];
+    state = AsyncData([
+      resp.newSession,
+      for (final s in prev)
+        if (s.id == sid) _withStatus(s, 'archived_branch') else s,
+    ]);
+    return resp.newSession;
+  }
+
+  /// 局部 SessionOut copy（仅改 status 字段，避免给 SessionOut 加 copyWith 触发面更广的改动）。
+  SessionOut _withStatus(SessionOut s, String status) => SessionOut(
+        id: s.id,
+        userId: s.userId,
+        title: s.title,
+        modeDefault: s.modeDefault,
+        status: status,
+        forkedFromSessionId: s.forkedFromSessionId,
+        forkedFromCheckpointId: s.forkedFromCheckpointId,
+        lastMessageAt: s.lastMessageAt,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      );
 }
 
 final sessionsControllerProvider =

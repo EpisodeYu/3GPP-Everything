@@ -19,7 +19,9 @@ class FakeMessagesApi implements MessagesApi {
   /// 默认要 emit 的事件序列。若 [onSend] 不为 null，[onSend] 接管。
   final List<ChatEvent> events;
   final Duration delay;
-  final List<MessageOut> history;
+
+  /// 测试可在 build 之后修改它来模拟 PG 状态变化（如 resume / rollback 后的 refetch）。
+  List<MessageOut> history;
 
   /// 让单测拿到 send 参数 + 决定 emit 哪些事件。
   Stream<ChatEvent> Function(String sid, SendMessageBody body)? onSend;

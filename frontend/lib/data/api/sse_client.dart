@@ -116,9 +116,16 @@ List<SseFrame> parseSseLines(Iterable<String> lines) {
 /// ```
 Stream<SseFrame> sseFramesFromBytes(Stream<List<int>> bytes) async* {
   final parser = SseLineParser();
-  // utf8.decoder 是 Converter<List<int>, String>，对 Stream<List<int>> 解码成 Stream<String>；
-  // LineSplitter 在分块流上正确缓冲跨块的半行，按 \n / \r\n 切。
-  await for (final line in bytes.transform(utf8.decoder).transform(const LineSplitter())) {
+  // dio 的 ResponseBody.stream 是 Stream<Uint8List>；Dart 3.x Stream.transform 在
+  // 运行时按 Stream<T> 的 T 做 transformer 类型检查，而 `utf8.decoder` 是
+  // StreamTransformer<List<int>, String>，不是 <Uint8List, ...>。显式
+  // .cast<List<int>>() 拿到 element 类型固定为 List<int> 的包装流，避免该检查
+  // 在 Stream<Uint8List> 上报 "Utf8Decoder is not a subtype of
+  // StreamTransformer<Uint8List, String>"。
+  await for (final line in bytes
+      .cast<List<int>>()
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())) {
     final frame = parser.feed(line);
     if (frame != null) yield frame;
   }

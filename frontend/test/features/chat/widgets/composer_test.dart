@@ -96,4 +96,63 @@ void main() {
     await tester.pump();
     expect(lastMode, 'raw_lookup');
   });
+
+  // ---------- M5.4 checkpoint UX ----------
+
+  testWidgets('isRunning=true + onPause 提供：暂停 + 取消 双按钮同时存在', (tester) async {
+    var paused = 0;
+    var cancelled = 0;
+    await tester.pumpWidget(_wrap(Composer(
+      onSend: (_) {},
+      onCancel: () => cancelled++,
+      isRunning: true,
+      onPause: () => paused++,
+    )));
+    expect(find.byKey(const Key('composer_pause')), findsOneWidget);
+    expect(find.byKey(const Key('composer_cancel')), findsOneWidget);
+    expect(find.byKey(const Key('composer_send')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('composer_pause')));
+    await tester.pump();
+    expect(paused, 1);
+    expect(cancelled, 0);
+
+    await tester.tap(find.byKey(const Key('composer_cancel')));
+    await tester.pump();
+    expect(cancelled, 1);
+  });
+
+  testWidgets('isPaused=true：恢复 + 取消 双按钮，输入框禁用 + hint 变化', (tester) async {
+    var resumed = 0;
+    await tester.pumpWidget(_wrap(Composer(
+      onSend: (_) {},
+      onCancel: () {},
+      isRunning: false,
+      isPaused: true,
+      onResume: () => resumed++,
+    )));
+    expect(find.byKey(const Key('composer_resume')), findsOneWidget);
+    expect(find.byKey(const Key('composer_cancel')), findsOneWidget);
+    expect(find.byKey(const Key('composer_send')), findsNothing);
+    expect(find.byKey(const Key('composer_pause')), findsNothing);
+
+    final input = tester.widget<TextField>(find.byKey(const Key('composer_input')));
+    expect(input.enabled, false);
+    expect(find.text('会话已暂停，点恢复继续'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('composer_resume')));
+    await tester.pump();
+    expect(resumed, 1);
+  });
+
+  testWidgets('isRunning=true 但 onPause=null：只显示取消按钮（向后兼容）',
+      (tester) async {
+    await tester.pumpWidget(_wrap(Composer(
+      onSend: (_) {},
+      onCancel: () {},
+      isRunning: true,
+    )));
+    expect(find.byKey(const Key('composer_cancel')), findsOneWidget);
+    expect(find.byKey(const Key('composer_pause')), findsNothing);
+  });
 }

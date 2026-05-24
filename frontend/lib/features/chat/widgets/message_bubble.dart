@@ -203,9 +203,13 @@ class _MarkdownWithMath extends StatelessWidget {
     final byRank = <int, MessageCitationOut>{
       for (final c in citations) c.rank: c,
     };
+    // selectable=false：M5.4 起长按 → 菜单（复制 / thumb / 收藏 / 笔记 / 反馈）
+    // 抢占了 MarkdownBody 内置 selectable 的 LongPressGestureRecognizer，
+    // 把 selectable 关掉以让父级 GestureDetector 在 arena 里赢下来；
+    // 用户复制走菜单里的"复制全文"。
     return MarkdownBody(
       data: md,
-      selectable: true,
+      selectable: false,
       shrinkWrap: true,
       inlineSyntaxes: [CitationInlineSyntax()],
       builders: {

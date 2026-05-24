@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/api/checkpoint_api.dart';
 import '../../data/api/messages_api.dart';
 
 /// 一轮对话流的当前 run 状态。
 ///
 /// 用 enum 描述 SSE 流式生命周期，状态机锚点：
-/// `docs/03-development/05-frontend.md §5.1`。
+/// `docs/03-development/05-frontend.md §5.1` + §5.5（M5.4 暂停）。
 enum RunStatus {
   /// 还没发过 / 上一轮已彻底收尾，UI 处于可输入态。
   idle,
@@ -18,6 +19,10 @@ enum RunStatus {
 
   /// 用户点了取消，等后端 cancelled / error / end 收尾。
   cancelling,
+
+  /// 用户点了暂停（M5.4）：保留 checkpoint + run 状态；composer 显示"恢复"按钮。
+  /// 后端把 session.status 落到 `paused`，SSE 流会自然 onDone，但不算错误。
+  paused,
 
   /// `final` event 到了，本轮成功。
   done,
@@ -152,16 +157,35 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
   StreamSubscription<ChatEvent>? _sub;
   CancelToken? _cancelToken;
 
+  /// 标记当前流来自 resume：final 时走 PG refetch 路径，避免 stub / 重复消息。
+  bool _isResume = false;
+
   @override
   Future<SessionChatState> build(String sid) async {
     ref.onDispose(() {
       _sub?.cancel();
       _cancelToken?.cancel('controller_dispose');
     });
+    return _loadHistoryFromPg();
+  }
+
+  /// 从 PG 拉一次历史消息；过滤 paused session 残留的空 stub assistant
+  /// （`role=assistant && status=ok && content=''`，由 send → pause 路径产生）。
+  Future<SessionChatState> _loadHistoryFromPg() async {
     final api = ref.read(messagesApiProvider);
     try {
-      final resp = await api.list(sid);
-      return SessionChatState(history: resp.items, run: const ChatRunState.idle());
+      final resp = await api.list(arg);
+      final filtered = resp.items
+          .where(
+            (m) => !(m.role == 'assistant' &&
+                m.status == 'ok' &&
+                m.content.isEmpty),
+          )
+          .toList();
+      return SessionChatState(
+        history: filtered,
+        run: const ChatRunState.idle(),
+      );
     } on Object {
       // 新会话第一次进来或 API 偶发失败：用空 history 启动，让用户能直接发问；
       // 错误向上抛会让 AsyncNotifier 落 error 态，UI 反而看不到 composer。
@@ -182,6 +206,7 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
     final api = ref.read(messagesApiProvider);
     final cancelToken = CancelToken();
     _cancelToken = cancelToken;
+    _isResume = false;
 
     state = AsyncData(
       current.copyWith(
@@ -234,6 +259,99 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
       }
     }
     _cancelToken?.cancel('user_cancel');
+  }
+
+  /// 暂停正在跑的 run（M5.4）。保留 run 状态（partialAnswer / nodes / chunksHit）。
+  ///
+  /// 后端会把 session.status 标 `paused`、写 checkpoint，本地状态机切到
+  /// [RunStatus.paused]；onStreamDone 会在 paused 态下静默退出，不再标 error。
+  Future<void> pause() async {
+    final current = state.value;
+    if (current == null) return;
+    final run = current.run;
+    if (run.status != RunStatus.streaming) return;
+    final runId = run.runId;
+    if (runId == null) return;
+
+    state = AsyncData(current.copyWith(
+      run: run.copyWith(status: RunStatus.paused),
+    ));
+    try {
+      await ref.read(checkpointApiProvider).pause(arg, runId);
+    } on Object catch (e) {
+      // pause API 失败 → 回退到 streaming + 显示错误
+      final cur = state.value;
+      if (cur == null) return;
+      state = AsyncData(cur.copyWith(
+        run: cur.run.copyWith(
+          status: RunStatus.streaming,
+          errorMessage: 'pause_failed: $e',
+        ),
+      ));
+    }
+  }
+
+  /// 续跑暂停 / 关浏览器重进的 paused 会话（M5.4）。
+  ///
+  /// 入口允许 `paused` / `idle` / `error` / `done` / `cancelled` 状态；
+  /// 阻止 `streaming` / `cancelling`。final 后从 PG refetch history，
+  /// 把后端在 stub assistant 上 UPDATE 的 content 拉回来。
+  Future<void> resume() async {
+    final current = state.value;
+    if (current == null) return;
+    final run = current.run;
+    if (run.status == RunStatus.streaming || run.status == RunStatus.cancelling) {
+      return;
+    }
+
+    final api = ref.read(checkpointApiProvider);
+    final cancelToken = CancelToken();
+    _cancelToken = cancelToken;
+    _isResume = true;
+
+    state = AsyncData(current.copyWith(
+      run: run.copyWith(status: RunStatus.streaming),
+    ));
+
+    final completer = Completer<void>();
+    _sub = api.resume(arg, cancelToken: cancelToken).listen(
+      _onEvent,
+      onError: (Object e, StackTrace st) {
+        _markError(e.toString());
+        if (!completer.isCompleted) completer.complete();
+      },
+      onDone: () {
+        _onStreamDone();
+        if (!completer.isCompleted) completer.complete();
+      },
+      cancelOnError: true,
+    );
+
+    await completer.future;
+  }
+
+  /// 删除会话最后 N 轮 messages + LangGraph checkpoint（M5.4）。
+  ///
+  /// 调用方式：会话设置菜单"删除最后 N 轮"→ slider → 二次确认 → 此函数。
+  /// 当前 run 仍在跑 → 抛 [StateError]，UX 上应先 pause / cancel 再 rollback。
+  Future<RollbackResponse> rollback(int lastN) async {
+    final current = state.value;
+    if (current == null) {
+      throw StateError('chat_not_loaded');
+    }
+    if (current.run.isRunning) {
+      throw StateError('rollback_with_inflight_run');
+    }
+    final api = ref.read(checkpointApiProvider);
+    final resp = await api.rollback(arg, lastN: lastN);
+    // 后端已 cascade 删了 message_citations；前端从 PG 刷一次保证一致
+    state = AsyncData(await _loadHistoryFromPg());
+    return resp;
+  }
+
+  /// 拉取 checkpoint 列表（fork 之前需要拿一个 checkpoint_id）。M5.4。
+  Future<CheckpointListResponse> listCheckpoints() async {
+    return ref.read(checkpointApiProvider).list(arg);
   }
 
   void _onEvent(ChatEvent evt) {
@@ -312,6 +430,10 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
     final current = state.value;
     if (current == null) return;
     final run = current.run;
+    // paused：后端在 pause 后会自然关流，保留 run 状态等 resume，不算错误
+    if (run.status == RunStatus.paused) {
+      return;
+    }
     // 已经在 _onEvent 里走到终态的（done / cancelled / error），_flushDoneToHistory 已经处理
     if (run.status == RunStatus.streaming || run.status == RunStatus.cancelling) {
       // 流意外断了但没收到 final / cancelled / error
@@ -329,11 +451,12 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
     ));
   }
 
-  /// final/cancelled/error + end 后把这一轮固化为两条 MessageOut（user + assistant）
-  /// 推进 history；run 复位到 idle。
+  /// final/cancelled/error + end 后把这一轮固化为 history；run 复位到 idle。
   ///
-  /// 后端在 final 时已经 UPDATE 了 assistant message 的 content；这里前端不重新拉 history，
-  /// 而是用收到的 SSE 数据本地拼一份等价的 MessageOut，省一次 round-trip。
+  /// 路径分两类：
+  /// 1. send → final / cancelled：本地拼 user + assistant，省一次 round-trip
+  /// 2. resume → final（[_isResume]=true）：后端已 UPDATE stub assistant 的 content，
+  ///    从 PG refetch history 把它拉回来，避免 stub 重复 / 内容空两个问题
   void _flushDoneToHistory() {
     final current = state.value;
     if (current == null) return;
@@ -341,6 +464,17 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
     // 错误态不固化到 history：history 只反映"成功完成 / 被用户主动取消"的 turn；
     // 错误让 errorMessage 留在 run 上让 UI 提示并允许重发。
     if (run.status != RunStatus.done && run.status != RunStatus.cancelled) {
+      return;
+    }
+    if (_isResume) {
+      _isResume = false;
+      unawaited(() async {
+        try {
+          state = AsyncData(await _loadHistoryFromPg());
+        } on Object {
+          state = AsyncData(current.copyWith(run: const ChatRunState.idle()));
+        }
+      }());
       return;
     }
     if (run.userInput.isEmpty) {
