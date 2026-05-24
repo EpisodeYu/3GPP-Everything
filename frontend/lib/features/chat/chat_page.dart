@@ -4,14 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/api/sessions_api.dart';
 import '../../domain/session/sessions_controller.dart';
+import 'chat_controller.dart';
+import 'widgets/composer.dart';
+import 'widgets/message_bubble.dart';
+import 'widgets/node_status_strip.dart';
 
-/// M5.1 占位聊天页。
+/// M5.2 起接通 SSE 流式问答。
 ///
-/// - 无 sessionId（`/chat`）：欢迎/引导页，给个"创建第一个会话"按钮
-/// - 有 sessionId（`/sessions/:sid`）：找到会话标题 + 占位文案；
-///   找不到（已删除 / 拼错路径）→ 提示并提供回 `/chat` 入口
-///
-/// 真消息列表、Composer、SSE 流接入留给 M5.2。
+/// - 无 sessionId（`/chat`）：欢迎/引导页
+/// - 有 sessionId（`/sessions/:sid`）：找到会话 → ChatView；找不到 → 提示返回
 class ChatPage extends ConsumerWidget {
   const ChatPage({super.key, this.sessionId});
 
@@ -29,7 +30,7 @@ class ChatPage extends ConsumerWidget {
         if (s == null) {
           return const _MissingSessionPane();
         }
-        return _SessionPlaceholder(session: s);
+        return _ChatView(session: s);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('会话加载失败：$e')),
@@ -63,7 +64,7 @@ class _WelcomePane extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '从左侧选会话，或点下方按钮创建一个空会话。\nM5.2 起会接入流式问答。',
+                '从左侧选会话，或点下方按钮创建一个空会话。\n创建后可直接发问，agent 会流式回答 + 给引用。',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
@@ -124,39 +125,198 @@ class _MissingSessionPane extends StatelessWidget {
   }
 }
 
-class _SessionPlaceholder extends StatelessWidget {
-  const _SessionPlaceholder({required this.session});
+class _ChatView extends ConsumerStatefulWidget {
+  const _ChatView({required this.session});
+  final SessionOut session;
 
+  @override
+  ConsumerState<_ChatView> createState() => _ChatViewState();
+}
+
+class _ChatViewState extends ConsumerState<_ChatView> {
+  late String _mode;
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _mode = widget.session.modeDefault;
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (!_scroll.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sid = widget.session.id;
+    final isArchived = widget.session.isArchivedBranch;
+    final stateAsync = ref.watch(chatControllerProvider(sid));
+
+    ref.listen<AsyncValue<SessionChatState>>(
+      chatControllerProvider(sid),
+      (_, _) => _scrollToBottom(),
+    );
+
+    return Column(
+      children: [
+        _Header(session: widget.session),
+        const Divider(height: 1),
+        Expanded(
+          child: stateAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('加载失败：$e')),
+            data: (s) => _MessagesList(
+              scroll: _scroll,
+              state: s,
+            ),
+          ),
+        ),
+        stateAsync.maybeWhen(
+          data: (s) => NodeStatusStrip(nodes: s.run.nodes),
+          orElse: () => const SizedBox.shrink(),
+        ),
+        if (stateAsync.value?.run.status == RunStatus.error)
+          _ErrorBanner(message: stateAsync.value!.run.errorMessage ?? 'unknown'),
+        const Divider(height: 1),
+        if (isArchived)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              '这是从主线 fork 出的历史分支，只读。',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+          )
+        else
+          Composer(
+            onSend: (text) => ref
+                .read(chatControllerProvider(sid).notifier)
+                .send(text, mode: _mode),
+            onCancel: () =>
+                ref.read(chatControllerProvider(sid).notifier).cancel(),
+            isRunning: stateAsync.value?.run.isRunning ?? false,
+            mode: _mode,
+            onModeChanged: (m) => setState(() => _mode = m),
+          ),
+      ],
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.session});
   final SessionOut session;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Row(
         children: [
-          Text(
-            session.displayTitle,
-            key: const Key('session_placeholder_title'),
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'mode=${session.modeDefault} · status=${session.status}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 24),
           Expanded(
-            child: Center(
-              child: Text(
-                '聊天界面即将上线\nM5.2 会接入 SSE 流式问答 + 引用 chip',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  session.displayTitle,
+                  key: const Key('chat_header_title'),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'mode=${session.modeDefault} · status=${session.status}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MessagesList extends StatelessWidget {
+  const _MessagesList({required this.scroll, required this.state});
+
+  final ScrollController scroll;
+  final SessionChatState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <Widget>[];
+    for (final m in state.history) {
+      items.add(MessageBubble(
+        key: ValueKey('msg-${m.id}'),
+        role: m.role,
+        content: m.content,
+        status: m.status,
+      ));
+    }
+    final run = state.run;
+    if (run.status == RunStatus.streaming || run.status == RunStatus.cancelling) {
+      if (run.userInput.isNotEmpty) {
+        items.add(MessageBubble(
+          key: const Key('msg-streaming-user'),
+          role: 'user',
+          content: run.userInput,
+        ));
+      }
+      items.add(StreamingAssistantBubble(
+        key: const Key('msg-streaming-assistant'),
+        partial: run.partialAnswer,
+      ));
+    }
+
+    if (items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            '在下面输入框开始问答',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+    return ListView(
+      key: const Key('messages_list'),
+      controller: scroll,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      children: items,
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.errorContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(
+        '出错了：$message',
+        key: const Key('chat_error_banner'),
+        style: TextStyle(color: theme.colorScheme.onErrorContainer),
       ),
     );
   }

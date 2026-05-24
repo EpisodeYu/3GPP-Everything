@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:tgpp/core/router.dart';
 import 'package:tgpp/core/theme.dart';
 import 'package:tgpp/data/api/auth_api.dart';
+import 'package:tgpp/data/api/messages_api.dart';
 import 'package:tgpp/data/api/sessions_api.dart';
 import 'package:tgpp/domain/auth/auth_controller.dart';
 import 'package:tgpp/domain/auth/auth_state.dart';
@@ -40,6 +43,57 @@ class _EmptySessionsApi implements SessionsApi {
   Future<void> delete(String sid) async {}
 }
 
+/// 给 chat-flow smoke 用：固定返回一个 session 让登录后直接进 ChatView。
+class _OneSessionApi implements SessionsApi {
+  _OneSessionApi(this.session);
+  final SessionOut session;
+
+  @override
+  Future<SessionListResponse> list({int page = 1, int pageSize = 200}) async =>
+      SessionListResponse(items: [session], total: 1);
+
+  @override
+  Future<SessionOut> create({String title = '', String modeDefault = 'qa'}) async =>
+      session;
+
+  @override
+  Future<SessionOut> get(String sid) async => session;
+
+  @override
+  Future<SessionOut> patch(String sid, {String? title, String? modeDefault}) async =>
+      session;
+
+  @override
+  Future<void> delete(String sid) async {}
+}
+
+/// Scripted MessagesApi：把单测里调好的事件序列原样吐到 SSE。
+class _ScriptedMessagesApi implements MessagesApi {
+  _ScriptedMessagesApi(this._controller);
+
+  /// 测试自己 add 事件 / close，从而控制 send → token → final + cancel 的节奏。
+  final StreamController<ChatEvent> _controller;
+
+  String? lastCancelledRunId;
+
+  @override
+  Future<MessageListResponse> list(String sid, {int page = 1, int pageSize = 200}) async =>
+      const MessageListResponse(items: [], total: 0);
+
+  @override
+  Stream<ChatEvent> sendMessage(
+    String sid,
+    SendMessageBody body, {
+    dynamic cancelToken,
+  }) =>
+      _controller.stream;
+
+  @override
+  Future<void> cancelRun(String sid, String runId) async {
+    lastCancelledRunId = runId;
+  }
+}
+
 class _ScriptedAuthController extends AuthController {
   @override
   Future<AuthState> build() async => const AuthAnonymous();
@@ -71,6 +125,25 @@ class _ScriptedAuthController extends AuthController {
   }
 }
 
+/// 已登录的 AuthController：build() 直接返回 authenticated，跳过 login 页。
+class _AuthedController extends AuthController {
+  @override
+  Future<AuthState> build() async => AuthAuthenticated(
+        Me(
+          id: '00000000-0000-0000-0000-000000000002',
+          username: 'admin',
+          role: 'admin',
+          isActive: true,
+          createdAt: DateTime.utc(2026, 5, 24),
+        ),
+      );
+
+  @override
+  Future<void> logout() async {
+    state = const AsyncData(AuthAnonymous());
+  }
+}
+
 class _ScopedApp extends ConsumerWidget {
   const _ScopedApp();
 
@@ -90,8 +163,7 @@ class _ScopedApp extends ConsumerWidget {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('login → /chat → logout → /login，端到端在真浏览器跑通',
-      (tester) async {
+  testWidgets('login → /chat → logout → /login，端到端在真浏览器跑通', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -128,5 +200,75 @@ void main() {
 
     expect(find.byKey(const Key('login_username')), findsOneWidget,
         reason: 'logout 后应被 redirect 回 /login');
+  });
+
+  testWidgets('M5.2 chat flow：选会话 → 发问 → 流式 token → 取消 → 收尾',
+      (tester) async {
+    final session = SessionOut(
+      id: 'sess-chat-1',
+      userId: 'user-1',
+      title: 'PDU Session 流程',
+      modeDefault: 'qa',
+      status: 'active',
+      createdAt: DateTime.utc(2026, 5, 24),
+      updatedAt: DateTime.utc(2026, 5, 24),
+    );
+    final controller = StreamController<ChatEvent>();
+    final msgApi = _ScriptedMessagesApi(controller);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(_AuthedController.new),
+          sessionsApiProvider.overrideWithValue(_OneSessionApi(session)),
+          messagesApiProvider.overrideWithValue(msgApi),
+        ],
+        child: const _ScopedApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sessionTile = find.byKey(Key('session_tile_${session.id}'));
+    expect(sessionTile, findsOneWidget,
+        reason: 'sidebar 应展示 _OneSessionApi 返回的那条会话');
+    await tester.tap(sessionTile);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('composer_input')), findsOneWidget);
+
+    // ---- 发 → token 流 → 收一段 → 用户点取消 → CancelledEvent + End ----
+    await tester.enterText(find.byKey(const Key('composer_input')), '你好');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('composer_send')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('composer_cancel')), findsOneWidget,
+        reason: 'send 之后按钮应切到取消');
+
+    controller.add(const RunStartEvent(
+      runId: 'run-1', sessionId: 'sess-chat-1', messageId: 'asst-1',
+    ));
+    controller.add(const TokenEvent(delta: 'Hi '));
+    controller.add(const TokenEvent(delta: 'there'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hi there'), findsOneWidget,
+        reason: 'token 累积应即时显示在 assistant 气泡里');
+
+    // 中途取消：用户点取消按钮，应触发 cancelRun(run-1)
+    await tester.tap(find.byKey(const Key('composer_cancel')));
+    await tester.pumpAndSettle();
+    expect(msgApi.lastCancelledRunId, 'run-1');
+
+    // 后端回吐 cancelled + end → 流自然收尾，按钮回到发送
+    controller.add(const CancelledEvent(reason: 'user_cancelled'));
+    controller.add(const EndEvent());
+    await controller.close();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('composer_send')), findsOneWidget,
+        reason: 'cancelled + end 后 composer 回到 idle');
+    expect(find.text('你好'), findsOneWidget,
+        reason: '用户消息应固化进 history');
+    expect(find.text('Hi there'), findsOneWidget,
+        reason: 'cancelled 时已累积的 partialAnswer 也应固化');
   });
 }
