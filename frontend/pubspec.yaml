@@ -11,6 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.5.1
   go_router: ^14.6.0
@@ -24,6 +26,14 @@ dependencies:
   # M5.5：Langfuse 外链；Web/Android 共用，Android 需 AndroidManifest queries (intent-filter)，
   # 但 https/http scheme 默认就在 url_launcher 内置 queries 里，无需手改 manifest。
   url_launcher: ^6.3.1
+  # M5.6：i18n + 主题/语言偏好持久化。
+  # - intl 是 flutter_localizations 的强制版本传递（^0.19.0 与 Flutter 3.44 一致）。
+  # - shared_preferences：非敏感偏好（theme mode / locale），与 token_store 用的
+  #   flutter_secure_storage 分开存。
+  # intl pin 跟 flutter_localizations SDK 走（Flutter 3.44 → 0.20.2），
+  # 不要写 ^0.19.0 触发 version solving 冲突。
+  intl: ^0.20.2
+  shared_preferences: ^2.3.2
 
 dev_dependencies:
   flutter_test:
@@ -34,3 +44,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # M5.6：开启 gen_l10n 自动从 lib/core/l10n/*.arb 生成 AppLocalizations。
+  # 详细规则见 frontend/l10n.yaml。
+  generate: true

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import '../../../core/l10n/app_localizations.dart';
 import '../../../data/api/messages_api.dart';
 import 'citation_chip.dart';
 
@@ -67,7 +68,9 @@ class MessageBubble extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    status == 'cancelled' ? '已取消' : '失败',
+                    status == 'cancelled'
+                        ? AppLocalizations.of(context).messageStatusCancelled
+                        : AppLocalizations.of(context).messageStatusFailed,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.error,
                     ),

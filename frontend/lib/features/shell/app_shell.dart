@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/app_localizations.dart';
 import '../../data/api/docs_api.dart';
 import '../../data/api/sessions_api.dart';
 import '../../domain/auth/auth_controller.dart';
 import '../../domain/auth/auth_state.dart';
+import '../../domain/prefs/prefs_controller.dart';
 import '../../domain/session/sessions_controller.dart';
 
 /// 响应式 AppShell：
@@ -67,6 +69,7 @@ class _SessionsSidebar extends ConsumerWidget {
           orElse: () => null,
         );
     final currentSid = _currentSidFromRoute(context);
+    final t = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -78,7 +81,7 @@ class _SessionsSidebar extends ConsumerWidget {
             key: const Key('sidebar_new_session'),
             onPressed: () => _onCreate(context, ref),
             icon: const Icon(Icons.add),
-            label: const Text('新会话'),
+            label: Text(t.sidebarNewSession),
           ),
         ),
         Padding(
@@ -87,7 +90,7 @@ class _SessionsSidebar extends ConsumerWidget {
             key: const Key('sidebar_open_reader'),
             onPressed: () => _onOpenReader(context, ref),
             icon: const Icon(Icons.menu_book_outlined),
-            label: const Text('阅读器'),
+            label: Text(t.sidebarOpenReader),
           ),
         ),
         // 仅 admin 可见的管理后台入口（M5.5）。后端 `/admin/*` 403 是兜底防线。
@@ -101,7 +104,7 @@ class _SessionsSidebar extends ConsumerWidget {
                 context.go('/admin');
               },
               icon: const Icon(Icons.admin_panel_settings_outlined),
-              label: const Text('管理后台'),
+              label: Text(t.sidebarOpenAdmin),
             ),
           ),
         const Divider(height: 1),
@@ -148,6 +151,7 @@ class _SessionsSidebar extends ConsumerWidget {
   }
 
   Future<void> _onCreate(BuildContext context, WidgetRef ref) async {
+    final t = AppLocalizations.of(context);
     try {
       final created =
           await ref.read(sessionsControllerProvider.notifier).createBlank();
@@ -155,7 +159,7 @@ class _SessionsSidebar extends ConsumerWidget {
       _closeDrawerIfOpen(context);
       context.go('/sessions/${created.id}');
     } on Object catch (e) {
-      _snack(context, '创建会话失败：$e');
+      _snack(context, t.snackbarCreateSessionFailed('$e'));
     }
   }
 
@@ -169,26 +173,27 @@ class _SessionsSidebar extends ConsumerWidget {
     WidgetRef ref,
     SessionOut s,
   ) async {
+    final t = AppLocalizations.of(context);
     final controller = TextEditingController(text: s.title);
     final newTitle = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('重命名会话'),
+        title: Text(t.renameDialogTitle),
         content: TextField(
           key: const Key('rename_input'),
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: '新标题'),
+          decoration: InputDecoration(labelText: t.renameDialogLabel),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
+            child: Text(t.renameDialogCancel),
           ),
           FilledButton(
             key: const Key('rename_confirm'),
             onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('保存'),
+            child: Text(t.renameDialogSave),
           ),
         ],
       ),
@@ -197,7 +202,7 @@ class _SessionsSidebar extends ConsumerWidget {
     try {
       await ref.read(sessionsControllerProvider.notifier).rename(s.id, newTitle);
     } on Object catch (e) {
-      if (context.mounted) _snack(context, '重命名失败：$e');
+      if (context.mounted) _snack(context, t.snackbarRenameFailed('$e'));
     }
   }
 
@@ -206,15 +211,16 @@ class _SessionsSidebar extends ConsumerWidget {
     WidgetRef ref,
     SessionOut s,
   ) async {
+    final t = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除会话'),
-        content: Text('确认删除「${s.displayTitle}」？此操作不可撤销。'),
+        title: Text(t.deleteDialogTitle),
+        content: Text(t.deleteDialogContent(s.displayTitle)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('取消'),
+            child: Text(t.deleteDialogCancel),
           ),
           FilledButton(
             key: const Key('delete_confirm'),
@@ -222,7 +228,7 @@ class _SessionsSidebar extends ConsumerWidget {
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('删除'),
+            child: Text(t.deleteDialogConfirm),
           ),
         ],
       ),
@@ -237,7 +243,7 @@ class _SessionsSidebar extends ConsumerWidget {
         context.go('/chat');
       }
     } on Object catch (e) {
-      if (context.mounted) _snack(context, '删除失败：$e');
+      if (context.mounted) _snack(context, t.snackbarDeleteFailed('$e'));
     }
   }
 
@@ -364,13 +370,19 @@ final _docsListProvider =
   return ref.watch(docsApiProvider).list();
 });
 
-class _SidebarHeader extends StatelessWidget {
+/// Sidebar header：title + 主题切换 + 语言切换。
+///
+/// 切换按钮放在 sidebar 顶部是为了让宽屏（无 AppBar）和窄屏（Drawer 抽出）
+/// 都能就近触达，避免再在 ChatPage / ReaderPage 各自 Scaffold AppBar action 里
+/// 重复一份。
+class _SidebarHeader extends ConsumerWidget {
   const _SidebarHeader();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
       child: Row(
         children: [
           Icon(
@@ -380,13 +392,99 @@ class _SidebarHeader extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '3GPP Everything',
+              t.appTitle,
               style: Theme.of(context).textTheme.titleMedium,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          const _LanguageSwitcher(),
+          const _ThemeSwitcher(),
         ],
       ),
+    );
+  }
+}
+
+class _ThemeSwitcher extends ConsumerWidget {
+  const _ThemeSwitcher();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final mode = ref.watch(prefsControllerProvider).themeMode;
+    return PopupMenuButton<ThemeMode>(
+      key: const Key('theme_switcher'),
+      tooltip: t.themeTooltip,
+      icon: Icon(switch (mode) {
+        ThemeMode.light => Icons.light_mode_outlined,
+        ThemeMode.dark => Icons.dark_mode_outlined,
+        ThemeMode.system => Icons.brightness_auto_outlined,
+      }),
+      itemBuilder: (_) => [
+        CheckedPopupMenuItem(
+          key: const Key('theme_system'),
+          value: ThemeMode.system,
+          checked: mode == ThemeMode.system,
+          child: Text(t.themeSystem),
+        ),
+        CheckedPopupMenuItem(
+          key: const Key('theme_light'),
+          value: ThemeMode.light,
+          checked: mode == ThemeMode.light,
+          child: Text(t.themeLight),
+        ),
+        CheckedPopupMenuItem(
+          key: const Key('theme_dark'),
+          value: ThemeMode.dark,
+          checked: mode == ThemeMode.dark,
+          child: Text(t.themeDark),
+        ),
+      ],
+      onSelected: (m) =>
+          ref.read(prefsControllerProvider.notifier).setThemeMode(m),
+    );
+  }
+}
+
+class _LanguageSwitcher extends ConsumerWidget {
+  const _LanguageSwitcher();
+
+  /// PopupMenuButton 把 `null` value 当作"用户取消"路径（不触发 onSelected），
+  /// 因此用 sentinel 字符串 [_systemTag] 代表"跟随系统"，onSelected 里映射回 null。
+  static const String _systemTag = '__system__';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final locale = ref.watch(prefsControllerProvider).locale;
+    return PopupMenuButton<String>(
+      key: const Key('language_switcher'),
+      tooltip: t.languageTooltip,
+      icon: const Icon(Icons.translate_outlined),
+      itemBuilder: (_) => [
+        CheckedPopupMenuItem<String>(
+          key: const Key('language_system'),
+          value: _systemTag,
+          checked: locale == null,
+          child: Text(t.themeSystem),
+        ),
+        CheckedPopupMenuItem<String>(
+          key: const Key('language_en'),
+          value: 'en',
+          checked: locale?.languageCode == 'en',
+          child: Text(t.languageEnglish),
+        ),
+        CheckedPopupMenuItem<String>(
+          key: const Key('language_zh'),
+          value: 'zh',
+          checked: locale?.languageCode == 'zh',
+          child: Text(t.languageChinese),
+        ),
+      ],
+      onSelected: (tag) {
+        final next = tag == _systemTag ? null : Locale(tag);
+        ref.read(prefsControllerProvider.notifier).setLocale(next);
+      },
     );
   }
 }
@@ -404,6 +502,7 @@ class _SidebarFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
@@ -418,7 +517,7 @@ class _SidebarFooter extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'role=${role ?? '-'}',
+                  t.sidebarRoleLabel(role ?? '-'),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -426,7 +525,7 @@ class _SidebarFooter extends StatelessWidget {
           ),
           IconButton(
             key: const Key('sidebar_logout'),
-            tooltip: '退出登录',
+            tooltip: t.sidebarLogout,
             onPressed: onLogout,
             icon: const Icon(Icons.logout),
           ),
@@ -444,13 +543,14 @@ class _SidebarError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            '加载会话失败',
+            t.sidebarSessionsLoadError,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 8),
@@ -463,7 +563,7 @@ class _SidebarError extends StatelessWidget {
           OutlinedButton(
             key: const Key('sidebar_retry'),
             onPressed: onRetry,
-            child: const Text('重试'),
+            child: Text(t.sidebarRetry),
           ),
         ],
       ),
@@ -488,12 +588,13 @@ class _SessionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     if (items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Center(
           child: Text(
-            '还没有会话，点上方"新会话"开始。',
+            t.sidebarSessionsEmpty,
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
@@ -520,11 +621,11 @@ class _SessionList extends StatelessWidget {
             onDelete: () => onDelete(s),
           ),
         if (archived.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
             child: Text(
-              '分叉历史',
-              style: TextStyle(fontSize: 11, color: Colors.grey),
+              t.sidebarArchivedGroup,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
             ),
           ),
           for (final s in archived)
@@ -584,11 +685,19 @@ class _SessionTile extends StatelessWidget {
         onTap: onTap,
         trailing: PopupMenuButton<String>(
           key: Key('session_menu_${session.id}'),
-          tooltip: '会话操作',
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'rename', child: Text('重命名')),
-            PopupMenuItem(value: 'delete', child: Text('删除')),
-          ],
+          itemBuilder: (ctx) {
+            final t = AppLocalizations.of(ctx);
+            return [
+              PopupMenuItem(
+                value: 'rename',
+                child: Text(t.sidebarSessionMenuRename),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: Text(t.sidebarSessionMenuDelete),
+              ),
+            ];
+          },
           onSelected: (v) {
             switch (v) {
               case 'rename':

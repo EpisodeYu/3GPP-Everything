@@ -1,0 +1,69 @@
+{
+  "@@locale": "en",
+  "appTitle": "3GPP Everything",
+
+  "loginSubtitle": "Sign in to continue",
+  "loginUsernameLabel": "Username",
+  "loginPasswordLabel": "Password",
+  "loginUsernameRequired": "Please enter a username",
+  "loginPasswordRequired": "Please enter a password",
+  "loginSubmit": "Sign in",
+  "bootstrapToggle": "First deployment? Create an admin",
+  "bootstrapInviteLabel": "Invite code (BOOTSTRAP_ADMIN_INVITE_CODE)",
+  "bootstrapSubmit": "Create admin & sign in",
+
+  "sidebarNewSession": "New session",
+  "sidebarOpenReader": "Reader",
+  "sidebarOpenAdmin": "Admin",
+  "sidebarLogout": "Sign out",
+  "sidebarSessionsEmpty": "No sessions yet. Tap \"New session\" above to start.",
+  "sidebarSessionsLoadError": "Failed to load sessions",
+  "sidebarRetry": "Retry",
+  "sidebarArchivedGroup": "Forked history",
+  "sidebarSessionMenuRename": "Rename",
+  "sidebarSessionMenuDelete": "Delete",
+  "sidebarRoleLabel": "role={role}",
+  "@sidebarRoleLabel": {
+    "placeholders": {
+      "role": { "type": "String" }
+    }
+  },
+
+  "renameDialogTitle": "Rename session",
+  "renameDialogLabel": "New title",
+  "renameDialogCancel": "Cancel",
+  "renameDialogSave": "Save",
+
+  "deleteDialogTitle": "Delete session",
+  "deleteDialogContent": "Delete \"{title}\"? This action cannot be undone.",
+  "@deleteDialogContent": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "deleteDialogCancel": "Cancel",
+  "deleteDialogConfirm": "Delete",
+
+  "chatEmptyTitle": "Start a new conversation",
+  "messageStatusCancelled": "Cancelled",
+  "messageStatusFailed": "Failed",
+
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeSystem": "Follow system",
+  "themeTooltip": "Theme",
+  "languageEnglish": "English",
+  "languageChinese": "中文",
+  "languageTooltip": "Language",
+
+  "snackbarCreateSessionFailed": "Failed to create session: {error}",
+  "@snackbarCreateSessionFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "snackbarRenameFailed": "Failed to rename: {error}",
+  "@snackbarRenameFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "snackbarDeleteFailed": "Failed to delete: {error}",
+  "@snackbarDeleteFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  }
+}

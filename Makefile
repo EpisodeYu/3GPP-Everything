@@ -1,5 +1,6 @@
 .PHONY: help dev lint test test-unit test-int eval eval-daily eval-weekly down ingest-poc fmt \
-        web-deps web-analyze web-test web-smoke web-smoke-chrome web-run web-build apk-build
+        web-deps web-analyze web-test web-smoke web-smoke-chrome web-run web-build web-docker apk-build \
+        check-openapi-diff
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-20s %s\n", $$1, $$2}'
@@ -78,8 +79,24 @@ web-run:                  ## dev 起 Chrome 调试 (默认 8080 端口；确保�
 
 web-build:                ## 产线 web 构建 → frontend/build/web (供 Dockerfile + nginx)
 	cd frontend && $(FLUTTER) build web --release \
-		--dart-define=API_BASE_URL=$(API_BASE_URL)
+		--dart-define=API_BASE_URL=$(API_BASE_URL) \
+		--dart-define=LANGFUSE_URL=$(LANGFUSE_URL)
+
+# M5.6：先 build → 再 docker build。镜像本身只装 nginx + 静态产物 ~20MB，
+# 不在镜像里装 Flutter SDK，理由见 frontend/Dockerfile 顶部注释。
+LANGFUSE_URL ?= https://cloud.langfuse.com
+
+web-docker:               ## 先 web-build 再 docker build -t tgpp-web frontend/
+	$(MAKE) web-build
+	docker build -t tgpp-web frontend/
+
+# M5.6 docs §14 [auto] 最后一条：把后端 /openapi.json 字段集与 Dart client
+# fromJson 解析字段集 diff，schema 漂移 → exit 非零让 CI 失败。
+# 必须在 backend 子目录跑 uv run，因 pyproject 在那里。
+check-openapi-diff:       ## 比对后端 openapi.json 与前端 Dart client fromJson 字段集
+	cd backend && uv run python ../scripts/check_openapi_diff.py
 
 apk-build:                ## 真机 Android APK；在 Windows 上跑，按 docs 05 §13 用本机 IP 覆盖 API_BASE_URL
 	cd frontend && $(FLUTTER) build apk --release \
-		--dart-define=API_BASE_URL=$(API_BASE_URL)
+		--dart-define=API_BASE_URL=$(API_BASE_URL) \
+		--dart-define=LANGFUSE_URL=$(LANGFUSE_URL)

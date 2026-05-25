@@ -9,6 +9,7 @@ import 'package:tgpp/features/chat/chat_page.dart';
 
 import '../../support/fake_messages_api.dart';
 import '../../support/fake_sessions_api.dart';
+import '../../support/localized.dart';
 
 Future<({FakeSessionsApi sessions, FakeMessagesApi messages})> _pump(
   WidgetTester tester, {
@@ -24,7 +25,9 @@ Future<({FakeSessionsApi sessions, FakeMessagesApi messages})> _pump(
         sessionsApiProvider.overrideWithValue(sessions),
         messagesApiProvider.overrideWithValue(messages),
       ],
-      child: MaterialApp(home: Scaffold(body: ChatPage(sessionId: sessionId))),
+      child: localizedMaterialApp(
+        home: Scaffold(body: ChatPage(sessionId: sessionId)),
+      ),
     ),
   );
   await tester.pumpAndSettle();

@@ -16,7 +16,7 @@
 | **M5.3** 引用 chip + Reader | 自定义 markdown inline syntax 把 `[<spec_id> §<section_path> ¶<rank>]` 渲染成可点击 chip + bottom sheet；`/reader/{spec}` + `/reader/{spec}/{section}` 章节树 drawer + 内容渲染 + `#chunk-{chunk_id}` 锚点高亮 3s 淡出 | 引用 chip widget test；Reader 章节树/搜索/锚点 widget test |
 | **M5.4** Checkpoint UX ✅ 2026-05-24 | 暂停按钮 + 暂停 banner + 恢复续跑；assistant 长按菜单（复制 / thumb / 收藏 / 笔记 / 反馈）；用户消息长按 "从这里重问" → fork；会话设置 "删除最后 N 轮" → rollback；archived_branch 视觉灰度 + 只读 banner + "回到主线" 按钮 | ✅ `flutter analyze` 0 / `flutter test` 136 全绿；checkpoint 5 路由前端 API + UI 集成测；ChatController 状态机增 `paused` 态覆盖；详见 [`../04-handoff/2026-05-24-m5.4-completion.md`](../04-handoff/2026-05-24-m5.4-completion.md) |
 | **M5.5** Admin 后台 ✅ 2026-05-25 | 仅 `role=admin` 可见入口 + 文档表（release/series 过滤）+ 任务面板轮询（progress + log_tail）+ 统计页 + 重建索引弹框 + Langfuse 外链 | ✅ `flutter analyze` 0 / `flutter test` 154 全绿；RBAC widget test（admin/user 各 1）；admin 4 路由 widget 集成测（4 个 tab + 重建弹框成功/取消/错误 + 统计错误）；AdminApi 7 case 含 403 兜底；前端隐藏 + 后端 403 双重防线。详见 [`../04-handoff/2026-05-25-m5.5-completion.md`](../04-handoff/2026-05-25-m5.5-completion.md) |
-| **M5.6** i18n + 主题切换 + golden + Docker | ARB zh/en + 右上角语言/主题切换 + shared_preferences 持久化；golden test（聊天气泡 light/dark × zh/en 4 张）；`integration_test` mock 跑 send→token→final；`frontend/Dockerfile` 换 web build + nginx | §14 所有 `[auto]` 项全绿；`make web-build` / `docker build -t tgpp-web .` 双路径通 |
+| **M5.6** i18n + 主题切换 + golden + Docker ✅ 2026-05-25 | ARB zh/en + 右上角语言/主题切换 + shared_preferences 持久化；golden test（聊天气泡 light/dark × zh/en 4 张）；`integration_test` mock 跑 send→token→final；`frontend/Dockerfile` 换 web build + nginx | ✅ `flutter analyze` 0 / `flutter test` 168 全绿（含 4 张 golden）/ `web-smoke` 全绿 / `make web-build` + `make web-docker` 双路径通 / `make check-openapi-diff` 通过；frontend-ci workflow 上线；schema 漂移 CI 兜底。详见 [`../04-handoff/2026-05-25-m5.6-completion.md`](../04-handoff/2026-05-25-m5.6-completion.md) |
 
 > 各段完成后按 [`../00-vibe-coding-protocol.md §4`](../00-vibe-coding-protocol.md) 输出完成报告到 `docs/04-handoff/2026-05-2x-m5.x-completion.md`。
 
@@ -29,9 +29,9 @@
 - [x] `[M5.0/M5.1/M5.2/M5.3/M5.4/M5.5]` 4 个核心页面已落齐：登录 / 聊天 / 章节阅读器（M5.3 完成：spec overview + section view + toc drawer + 搜索 + `#chunk-{id}` 锚点 3s 高亮）；管理后台 M5.5（4 个 Tab：文档表 / 任务面板轮询 / 统计 / 工具含重建索引弹框 + Langfuse 外链）；M5.4 在聊天页加 paused banner + archived_branch "回到主线" + 长按菜单（assistant 复制/thumb/收藏/笔记/反馈 · user 复制/"从这里重问"）+ 会话设置"删除最后 N 轮" 入口
 - [x] `[M5.2/M5.4]` 流式 UX：节点状态行 + token 流 + chunks 预览 + 一键取消；M5.4 加 暂停 / 恢复 双按钮（streaming → `暂停 · 取消` / paused → `恢复 · 取消`）
 - [x] `[M5.2/M5.3]` Markdown + LaTeX + 表格 / 引用 chip / 章节跳转锚点（M5.2 落：`flutter_markdown_plus` + 块级 `$$…$$` LaTeX；M5.3 落：`CitationInlineSyntax` 把 `[<spec> §<sec> ¶<rank>]` 渲染成可点 chip + bottom sheet 拉 `GET /chunks/{id}` 上下文 + "跳到完整章节" 按钮；长按复制；表格沿用 markdown 默认渲染；M5.4 起 MarkdownBody `selectable: false`，让长按交给父级 GestureDetector，复制走 message 长按菜单）
-- [ ] `[M5.6]` 中英 i18n、浅深色主题（M5.0 已落：light/dark Material3 黑白主调，切换器 M5.6 加）
-- [x] `[M5.0/M5.4/M5.5]` 手写 Dart client（freezed + json_serializable + dio），不引 openapi_generator（M5.0–M5.5 现状：仍手写无 freezed；SSE event sealed-style + chat/message / docs / checkpoint / favorites / notes / feedback / admin 全部手写 fromJson 完成；codegen 仍可推迟）
-- [ ] `[M5.6]` 部署：`docker build` 产物 → nginx 静态托管
+- [x] `[M5.6]` 中英 i18n、浅深色主题（M5.0 落 light/dark Material3 黑白主调；M5.6 落 ARB zh/en + sidebar header `_LanguageSwitcher`/`_ThemeSwitcher` PopupMenuButton + `PrefsController` + `shared_preferences` 持久化，重启保留选择）
+- [x] `[M5.0/M5.4/M5.5/M5.6]` 手写 Dart client（手写 fromJson + dio），不引 freezed/openapi_generator；M5.6 加 `scripts/check_openapi_diff.py` 兜底：扫 `lib/data/api/*.dart` factory + OpenAPI `components.schemas`，前端漏读字段 → fail，未识别 schema → warn；进 `.github/workflows/frontend-ci.yml`
+- [x] `[M5.6]` 部署：`frontend/Dockerfile` 单阶段 `nginx:1.27-alpine` + `nginx/default.conf`（SPA `try_files` + gzip + 长 cache）；`make web-docker` = `web-build` + `docker build -t tgpp-web frontend/`；CI 跑 docker smoke（`/` + `/admin` 200）
 
 ## 2. 模块拆分
 
@@ -104,11 +104,11 @@ dependencies:
   go_router: ^14.6.0
   dio: ^5.7.0
   flutter_secure_storage: ^9.2.2
-  shared_preferences: ^2.3.0    # 主题 / 语言偏好（非敏感）
+  shared_preferences: ^2.3.2    # M5.6 起：主题 / 语言偏好（非敏感），与 secure_storage 分管
   flutter_markdown_plus: ^1.0.0
   flutter_math_fork: ^0.7.2
   url_launcher: ^6.3.1          # M5.5 起：Langfuse 外链 + 未来 spec doc 外链
-  intl: ^0.19.0
+  intl: ^0.20.2                 # M5.6 起：Flutter 3.44 把 intl pin 死 0.20.2，不写 ^0.19
   json_annotation: ^4.9.0
   freezed_annotation: ^2.4.4
   fluttertoast: ^8.2.6
@@ -371,9 +371,9 @@ app_zh.arb        # 中文
 > 标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人介入（UX 体验由人主审，这是 §M5 关键决策点）。
 
 - [x] `[auto]` `flutter analyze` 0 警告 0 错误（M5.0 起每子里程碑保持）
-- [x] `[auto]` `flutter test` 全绿（M5.5 共 154 case：unit + widget + integration smoke；golden test M5.6 加）
-- [x] `[auto]` `flutter test integration_test/` 跑通 mock API 下的完整 send → token → final 流程（M5.2 落，M5.4/M5.5 回归仍绿）
-- [ ] `[auto]` 手写 Dart client 字段与后端 `/openapi.json` 字段一一对齐（CI 跑 `scripts/check_openapi_diff.py`） — M5.6 接 CI
+- [x] `[auto]` `flutter test` 全绿（M5.6 共 168 case：unit + widget + integration smoke + 4 张 golden（聊天气泡 light/dark × zh/en））
+- [x] `[auto]` `flutter test integration_test/` 跑通 mock API 下的完整 send → token → final 流程（M5.2 落，M5.4/M5.5/M5.6 回归仍绿）
+- [x] `[auto]` 手写 Dart client 字段与后端 `/openapi.json` 字段一一对齐（`scripts/check_openapi_diff.py` + `.github/workflows/frontend-ci.yml`；alias 表见脚本顶部 `DART_TO_BACKEND_ALIAS`）
 - [ ] `[human]` Chrome / Edge 实测：登录 → 创建会话 → 流式问答 → 看引用 → 跳阅读器 → 高亮 → 取消正在进行的问答 → 收藏 / 笔记 / 反馈
 - [ ] `[human]` Checkpoint 闭环实测：跑中暂停 → 关浏览器 → 重进会话点恢复 → SSE 续跑后续节点；从历史 user 消息 fork → 跳转新会话 → 老会话进入 "分叉历史" 分组只读；删除最后 N 轮后剩余消息状态正确
 - [ ] `[human]` Windows Android 真机实测：人在 Windows 上 `flutter build apk --release --dart-define=API_BASE_URL=http://<dev-ip>:8002/api/v1`，安装到真机，跑同 Web 完整流程（交互可简陋，能用即可）
@@ -382,4 +382,21 @@ app_zh.arb        # 中文
 
 ## 15. 完成后下一步
 
-→ `06-evaluation-and-observability.md` 把质量保证体系搭起来。
+M5.6 后 M5 全部交付物 (`[auto]`) 完工：
+
+- `flutter analyze` 0 警告
+- `flutter test` 168 全绿（含 4 张 golden）
+- `web-smoke`（mock send→token→cancel）跑通
+- `make web-build` 产线打包 OK
+- `make web-docker` → `tgpp-web` 镜像 docker run smoke OK（`/` + `/admin` 200）
+- `make check-openapi-diff` 在 CI（`frontend-ci`）兜底 schema 漂移
+
+剩 `[human]` 体验项（路线已写在 docs §14；不阻塞 M7 推进）：
+
+- Chrome 实测：登录 → SSE 流式问答 → 引用 chip → reader 锚点 → 取消/收藏/笔记/反馈
+- Checkpoint 闭环实测：跑中暂停 → 关浏览器 → 重进会话点恢复 → fork 历史 → 删除最后 N 轮
+- Windows Android 真机实测：`flutter build apk --release --dart-define=API_BASE_URL=http://<dev-ip>:8002/api/v1`
+- 切中/英、light/dark 后跑回归
+- 管理后台：拉取任务 + 进度 + 跳 Langfuse
+
+→ `06-evaluation-and-observability.md` 进 M7 把质量保证 / 监控体系搭起来。

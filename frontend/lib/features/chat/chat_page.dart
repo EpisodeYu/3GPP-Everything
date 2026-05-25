@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/app_localizations.dart';
 import '../../data/api/favorites_api.dart';
 import '../../data/api/feedback_api.dart';
 import '../../data/api/messages_api.dart';
@@ -64,7 +65,7 @@ class _WelcomePane extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                '开始一个新会话',
+                AppLocalizations.of(context).chatEmptyTitle,
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 8),
@@ -78,7 +79,7 @@ class _WelcomePane extends ConsumerWidget {
                 key: const Key('welcome_new_session'),
                 onPressed: () => _onCreate(context, ref),
                 icon: const Icon(Icons.add),
-                label: const Text('新会话'),
+                label: Text(AppLocalizations.of(context).sidebarNewSession),
               ),
             ],
           ),

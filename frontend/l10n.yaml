@@ -1,0 +1,10 @@
+# Flutter gen_l10n 配置（M5.6）。
+# arb-dir 指向 lib/core/l10n，与 docs 05-frontend.md §9 模块拆分对齐。
+# Flutter 3.44 起 synthetic-package 默认 false → 生成代码落到 arb-dir 下，
+# 运行时 import 'core/l10n/app_localizations.dart'；生成产物 commit 进 git，
+# 避免每次 build / CI 都额外跑 gen-l10n。
+arb-dir: lib/core/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false

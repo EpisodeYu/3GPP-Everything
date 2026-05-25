@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/l10n/app_localizations.dart';
 import '../../domain/auth/auth_controller.dart';
 import '../../domain/auth/auth_state.dart';
 
@@ -34,6 +35,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       data: (s) => s is AuthAnonymous ? s.errorMessage : null,
       orElse: () => null,
     );
+    final t = AppLocalizations.of(context);
 
     return Scaffold(
       body: Center(
@@ -48,13 +50,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    '3GPP Everything',
+                    t.appTitle,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '登录以继续',
+                    t.loginSubtitle,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
@@ -64,9 +66,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     controller: _username,
                     enabled: !loading,
                     autofillHints: const [AutofillHints.username],
-                    decoration: const InputDecoration(labelText: '用户名'),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? '请输入用户名' : null,
+                    decoration: InputDecoration(labelText: t.loginUsernameLabel),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? t.loginUsernameRequired
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -75,9 +78,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     enabled: !loading,
                     obscureText: true,
                     autofillHints: const [AutofillHints.password],
-                    decoration: const InputDecoration(labelText: '密码'),
-                    validator: (v) =>
-                        (v == null || v.isEmpty) ? '请输入密码' : null,
+                    decoration: InputDecoration(labelText: t.loginPasswordLabel),
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? t.loginPasswordRequired
+                        : null,
                   ),
                   if (errorMessage != null) ...[
                     const SizedBox(height: 12),
@@ -99,7 +103,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('登录'),
+                        : Text(t.loginSubmit),
                   ),
                   const SizedBox(height: 24),
                   _BootstrapPanel(
@@ -155,12 +159,13 @@ class _BootstrapPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Card(
       child: Column(
         children: [
           ListTile(
             key: const Key('bootstrap_toggle'),
-            title: const Text('首次部署？创建管理员'),
+            title: Text(t.bootstrapToggle),
             trailing: Icon(isOpen ? Icons.expand_less : Icons.expand_more),
             onTap: onToggle,
           ),
@@ -175,15 +180,15 @@ class _BootstrapPanel extends StatelessWidget {
                     controller: inviteCodeController,
                     enabled: !loading,
                     obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: '邀请码 (BOOTSTRAP_ADMIN_INVITE_CODE)',
+                    decoration: InputDecoration(
+                      labelText: t.bootstrapInviteLabel,
                     ),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton(
                     key: const Key('bootstrap_submit'),
                     onPressed: loading ? null : onSubmit,
-                    child: const Text('创建管理员并登录'),
+                    child: Text(t.bootstrapSubmit),
                   ),
                 ],
               ),

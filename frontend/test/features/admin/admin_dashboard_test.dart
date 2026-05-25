@@ -10,6 +10,7 @@ import 'package:tgpp/features/admin/admin_dashboard.dart';
 
 import '../../support/fake_admin_api.dart';
 import '../../support/fake_docs_api.dart';
+import '../../support/localized.dart';
 
 /// Admin 4 路由集成测：dashboard 渲染 4 个 tab；每个 tab 切到时调对应 API。
 ///
@@ -56,7 +57,7 @@ Future<void> _pumpDashboard(
         docsApiProvider.overrideWithValue(docsApi ?? FakeDocsApi()),
         authControllerProvider.overrideWith(authCtor),
       ],
-      child: const MaterialApp(home: AdminDashboard()),
+      child: localizedMaterialApp(home: const AdminDashboard()),
     ),
   );
   await tester.pumpAndSettle();

@@ -1,6 +1,16 @@
-build/
+# 默认排除大体积 / 平台特定产物，让 docker build context 保持小。
+build/*
+# 例外：build/web 是 Dockerfile 直接 COPY 的产物（见 Dockerfile 注释）。
+!build/web
 .dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.idea/
+.vscode/
+*.iml
 android/.gradle/
-android/build/
-ios/build/
-test/
+android/local.properties
+ios/Pods/
+test/features/**/goldens/
+coverage/

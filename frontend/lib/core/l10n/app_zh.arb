@@ -1,0 +1,52 @@
+{
+  "@@locale": "zh",
+  "appTitle": "3GPP Everything",
+
+  "loginSubtitle": "登录以继续",
+  "loginUsernameLabel": "用户名",
+  "loginPasswordLabel": "密码",
+  "loginUsernameRequired": "请输入用户名",
+  "loginPasswordRequired": "请输入密码",
+  "loginSubmit": "登录",
+  "bootstrapToggle": "首次部署？创建管理员",
+  "bootstrapInviteLabel": "邀请码 (BOOTSTRAP_ADMIN_INVITE_CODE)",
+  "bootstrapSubmit": "创建管理员并登录",
+
+  "sidebarNewSession": "新会话",
+  "sidebarOpenReader": "阅读器",
+  "sidebarOpenAdmin": "管理后台",
+  "sidebarLogout": "退出登录",
+  "sidebarSessionsEmpty": "还没有会话，点上方\"新会话\"开始。",
+  "sidebarSessionsLoadError": "加载会话失败",
+  "sidebarRetry": "重试",
+  "sidebarArchivedGroup": "分叉历史",
+  "sidebarSessionMenuRename": "重命名",
+  "sidebarSessionMenuDelete": "删除",
+  "sidebarRoleLabel": "role={role}",
+
+  "renameDialogTitle": "重命名会话",
+  "renameDialogLabel": "新标题",
+  "renameDialogCancel": "取消",
+  "renameDialogSave": "保存",
+
+  "deleteDialogTitle": "删除会话",
+  "deleteDialogContent": "确认删除「{title}」？此操作不可撤销。",
+  "deleteDialogCancel": "取消",
+  "deleteDialogConfirm": "删除",
+
+  "chatEmptyTitle": "开始一个新会话",
+  "messageStatusCancelled": "已取消",
+  "messageStatusFailed": "失败",
+
+  "themeLight": "浅色",
+  "themeDark": "深色",
+  "themeSystem": "跟随系统",
+  "themeTooltip": "主题",
+  "languageEnglish": "English",
+  "languageChinese": "中文",
+  "languageTooltip": "语言",
+
+  "snackbarCreateSessionFailed": "创建会话失败：{error}",
+  "snackbarRenameFailed": "重命名失败：{error}",
+  "snackbarDeleteFailed": "删除失败：{error}"
+}

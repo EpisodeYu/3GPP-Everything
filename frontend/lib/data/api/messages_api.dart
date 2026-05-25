@@ -244,6 +244,8 @@ class MessageCitationOut {
     required this.specId,
     required this.sectionPath,
     this.rerankScore,
+    this.charOffsetStart,
+    this.charOffsetEnd,
   });
 
   factory MessageCitationOut.fromJson(Map<String, dynamic> j) => MessageCitationOut(
@@ -252,6 +254,8 @@ class MessageCitationOut {
         specId: (j['spec_id'] as String?) ?? '',
         sectionPath: (j['section_path'] as String?) ?? '',
         rerankScore: (j['rerank_score'] as num?)?.toDouble(),
+        charOffsetStart: (j['char_offset_start'] as num?)?.toInt(),
+        charOffsetEnd: (j['char_offset_end'] as num?)?.toInt(),
       );
 
   final String chunkId;
@@ -259,6 +263,11 @@ class MessageCitationOut {
   final String specId;
   final String sectionPath;
   final double? rerankScore;
+
+  /// 后端 `MessageCitationOut.char_offset_start/end`：本期 reader 未消费，
+  /// 留字段以满足 schema 漂移 CI 校验，M7+ 把"句子级高亮"做起来时再消费。
+  final int? charOffsetStart;
+  final int? charOffsetEnd;
 }
 
 /// 与后端 `MessageOut` 对齐（`backend/app/schemas/messages.py`）。

@@ -17,6 +17,7 @@ import '../../support/fake_checkpoint_api.dart';
 import '../../support/fake_favorites_notes_feedback.dart';
 import '../../support/fake_messages_api.dart';
 import '../../support/fake_sessions_api.dart';
+import '../../support/localized.dart';
 
 class _Pumped {
   _Pumped({
@@ -66,7 +67,9 @@ Future<_Pumped> _pump(
         notesApiProvider.overrideWithValue(notes),
         feedbackApiProvider.overrideWithValue(feedback),
       ],
-      child: MaterialApp(home: Scaffold(body: ChatPage(sessionId: sessionId))),
+      child: localizedMaterialApp(
+        home: Scaffold(body: ChatPage(sessionId: sessionId)),
+      ),
     ),
   );
   await tester.pumpAndSettle();

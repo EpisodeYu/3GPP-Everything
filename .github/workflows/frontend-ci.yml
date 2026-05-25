@@ -1,0 +1,92 @@
+name: frontend-ci
+
+# M5.6 — 前端 CI：analyze / test / web-build / openapi schema diff。
+#
+# 触发：所有 push 到 main + 所有 pull_request；frontend/** 与 scripts/check_openapi_diff.py
+#       变更才跑（用 paths 过滤），文档 / 后端独改不会拖时长。
+#
+# 锚：docs/03-development/05-frontend.md §0 M5.6 / §14。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "scripts/check_openapi_diff.py"
+      - "backend/app/schemas/**"
+      - "backend/app/api/**"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "scripts/check_openapi_diff.py"
+      - "backend/app/schemas/**"
+      - "backend/app/api/**"
+      - ".github/workflows/frontend-ci.yml"
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    name: flutter analyze + test + web-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.0
+          cache: true
+
+      - name: flutter pub get
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: flutter analyze (0 警告 0 错误)
+        working-directory: frontend
+        run: flutter analyze
+
+      - name: flutter test (含 golden)
+        working-directory: frontend
+        run: flutter test --reporter expanded
+
+      - name: flutter build web --release
+        working-directory: frontend
+        run: |
+          flutter build web --release \
+            --dart-define=API_BASE_URL=/api/v1 \
+            --dart-define=LANGFUSE_URL=https://cloud.langfuse.com
+
+      - name: docker build (frontend image)
+        run: docker build -t tgpp-web:ci frontend/
+
+      - name: docker smoke (curl / + /admin 都 200)
+        run: |
+          docker run --rm -d --name tgpp-web-ci -p 18082:80 tgpp-web:ci
+          sleep 2
+          curl -sSfL -o /dev/null http://127.0.0.1:18082/ || (docker logs tgpp-web-ci && exit 1)
+          curl -sSfL -o /dev/null http://127.0.0.1:18082/admin || (docker logs tgpp-web-ci && exit 1)
+          docker stop tgpp-web-ci
+
+  openapi-diff:
+    name: openapi schema ↔ Dart fromJson 字段集 diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install backend dev deps
+        working-directory: backend
+        run: uv sync --extra dev
+
+      - name: check_openapi_diff.py
+        working-directory: backend
+        run: uv run python ../scripts/check_openapi_diff.py

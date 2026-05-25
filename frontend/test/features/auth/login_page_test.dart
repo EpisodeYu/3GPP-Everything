@@ -5,6 +5,8 @@ import 'package:tgpp/domain/auth/auth_controller.dart';
 import 'package:tgpp/domain/auth/auth_state.dart';
 import 'package:tgpp/features/auth/login_page.dart';
 
+import '../../support/localized.dart';
+
 class _FakeAuthController extends AuthController {
   String? lastUsername;
   String? lastPassword;
@@ -50,7 +52,7 @@ Future<_FakeAuthController> _pumpLogin(WidgetTester tester) async {
       overrides: [
         authControllerProvider.overrideWith(() => fake),
       ],
-      child: const MaterialApp(home: LoginPage()),
+      child: localizedMaterialApp(home: const LoginPage()),
     ),
   );
   // AsyncNotifier 初始 state 是 AsyncLoading，build() 在 microtask 完成后才切到

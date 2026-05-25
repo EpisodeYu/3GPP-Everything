@@ -39,17 +39,22 @@ class TokenPair {
     required this.accessToken,
     required this.refreshToken,
     required this.expiresIn,
+    this.tokenType = 'bearer',
   });
 
   factory TokenPair.fromJson(Map<String, dynamic> json) => TokenPair(
         accessToken: json['access_token'] as String,
         refreshToken: json['refresh_token'] as String,
         expiresIn: json['expires_in'] as int,
+        tokenType: (json['token_type'] as String?) ?? 'bearer',
       );
 
   final String accessToken;
   final String refreshToken;
   final int expiresIn;
+
+  /// 后端 `TokenPair.token_type` Literal["bearer"]；带在 Bearer header 前。
+  final String tokenType;
 }
 
 /// 把后端 `ErrorOut`（详见 `backend/app/core/errors.py`）映射为一个轻量异常。

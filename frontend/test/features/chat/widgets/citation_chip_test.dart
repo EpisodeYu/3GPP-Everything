@@ -9,6 +9,7 @@ import 'package:tgpp/features/chat/widgets/citation_chip.dart';
 import 'package:tgpp/features/chat/widgets/message_bubble.dart';
 
 import '../../../support/fake_docs_api.dart';
+import '../../../support/localized.dart';
 
 Widget _wrap({
   required Widget child,
@@ -20,7 +21,7 @@ Widget _wrap({
       if (docs != null) docsApiProvider.overrideWithValue(docs),
       ...overrides,
     ],
-    child: MaterialApp(home: Scaffold(body: child)),
+    child: localizedMaterialApp(home: Scaffold(body: child)),
   );
 }
 

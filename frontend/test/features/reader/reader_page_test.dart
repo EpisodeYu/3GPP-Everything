@@ -6,6 +6,7 @@ import 'package:tgpp/data/api/docs_api.dart';
 import 'package:tgpp/features/reader/reader_page.dart';
 
 import '../../support/fake_docs_api.dart';
+import '../../support/localized.dart';
 
 GoRouter _router({
   required String location,
@@ -56,7 +57,7 @@ Widget _pumpApp({
 }) {
   return ProviderScope(
     overrides: [docsApiProvider.overrideWithValue(docs)],
-    child: MaterialApp.router(
+    child: localizedMaterialAppRouter(
       routerConfig: router,
     ),
   );

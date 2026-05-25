@@ -9,6 +9,7 @@ import 'package:tgpp/domain/auth/auth_state.dart';
 import 'package:tgpp/features/shell/app_shell.dart';
 
 import '../../support/fake_sessions_api.dart';
+import '../../support/localized.dart';
 
 /// RBAC widget test：sidebar 上 "管理后台" 入口对 admin 可见、对普通 user 隐藏。
 ///
@@ -81,7 +82,7 @@ Future<void> _pump(
         sessionsApiProvider.overrideWithValue(api),
         authControllerProvider.overrideWith(ctor),
       ],
-      child: MaterialApp.router(
+      child: localizedMaterialAppRouter(
         routerConfig: _adminTestRouter(initial: initial),
       ),
     ),

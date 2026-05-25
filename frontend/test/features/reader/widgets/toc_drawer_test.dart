@@ -5,11 +5,12 @@ import 'package:tgpp/data/api/docs_api.dart';
 import 'package:tgpp/features/reader/widgets/toc_drawer.dart';
 
 import '../../../support/fake_docs_api.dart';
+import '../../../support/localized.dart';
 
 Widget _wrap({required Widget child, required FakeDocsApi docs}) {
   return ProviderScope(
     overrides: [docsApiProvider.overrideWithValue(docs)],
-    child: MaterialApp(
+    child: localizedMaterialApp(
       home: Scaffold(body: SizedBox(width: 300, child: child)),
     ),
   );

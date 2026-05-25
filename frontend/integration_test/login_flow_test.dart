@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:tgpp/core/l10n/app_localizations.dart';
 import 'package:tgpp/core/router.dart';
 import 'package:tgpp/core/theme.dart';
 import 'package:tgpp/data/api/auth_api.dart';
@@ -154,6 +155,10 @@ class _ScopedApp extends ConsumerWidget {
       title: '3GPP Everything Smoke',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      // 写死 zh，与 M5.2 起 smoke 里 expect 中文文案对齐；不依赖宿主机 locale。
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

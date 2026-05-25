@@ -9,6 +9,7 @@ import 'package:tgpp/domain/auth/auth_state.dart';
 import 'package:tgpp/features/shell/app_shell.dart';
 
 import '../../support/fake_sessions_api.dart';
+import '../../support/localized.dart';
 
 class _StubAuthController extends AuthController {
   @override
@@ -73,7 +74,9 @@ Future<FakeSessionsApi> _pumpShell(
         sessionsApiProvider.overrideWithValue(api),
         authControllerProvider.overrideWith(_StubAuthController.new),
       ],
-      child: MaterialApp.router(routerConfig: _router(initial: initialRoute)),
+      child: localizedMaterialAppRouter(
+        routerConfig: _router(initial: initialRoute),
+      ),
     ),
   );
   await tester.pumpAndSettle();
