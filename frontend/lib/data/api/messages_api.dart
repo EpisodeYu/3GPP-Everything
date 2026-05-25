@@ -3,8 +3,11 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api_base.dart';
+import '../storage/token_store.dart';
 import 'dio_provider.dart';
 import 'sse_client.dart';
+import 'sse_transport.dart';
 
 /// POST `/sessions/{sid}/messages` body。
 class SendMessageBody {
@@ -337,9 +340,28 @@ class MessageListResponse {
 }
 
 class MessagesApi {
-  MessagesApi(this._dio);
+  /// [baseUrl] / [readAccessToken] / [refreshAccessToken] / [onAuthLost] 仅 web
+  /// Fetch SSE 路径用（见 `sse_transport_web.dart`）；io 路径靠 dio 自带 interceptor，
+  /// 故这些参数可选，默认无 token / 不刷新，保持单测 `MessagesApi(dio)` 调用不变。
+  MessagesApi(
+    this._dio, {
+    String? baseUrl,
+    Future<String?> Function()? readAccessToken,
+    Future<String?> Function()? refreshAccessToken,
+    void Function()? onAuthLost,
+  })  : _baseUrl = baseUrl ?? ApiBase.url,
+        _readAccessToken = readAccessToken ?? _noToken,
+        _refreshAccessToken = refreshAccessToken ?? _noToken,
+        _onAuthLost = onAuthLost ?? _noop;
 
   final Dio _dio;
+  final String _baseUrl;
+  final Future<String?> Function() _readAccessToken;
+  final Future<String?> Function() _refreshAccessToken;
+  final void Function() _onAuthLost;
+
+  static Future<String?> _noToken() async => null;
+  static void _noop() {}
 
   /// GET `/sessions/{sid}/messages`：拉历史消息（含 citations）。
   Future<MessageListResponse> list(
@@ -364,22 +386,19 @@ class MessagesApi {
     SendMessageBody body, {
     CancelToken? cancelToken,
   }) async* {
-    final resp = await _dio.post<ResponseBody>(
-      '/sessions/$sid/messages',
-      data: body.toJson(),
-      options: Options(
-        responseType: ResponseType.stream,
-        headers: {'Accept': 'text/event-stream'},
-        // SSE 一次 RAG 通常 20–60s，全量 generate 偶尔过 1 min。
-        // dio web 的 BrowserHttpClientAdapter 把 `Duration.zero` 当作"未 override"
-        // 处理 → 退化到 BaseOptions.receiveTimeout=30s 触发 receive timeout。
-        // 显式给一个超长有限值（24h）绕过该 web adapter 行为；io 端同样宽容。
-        receiveTimeout: const Duration(hours: 24),
-        sendTimeout: const Duration(hours: 24),
-      ),
+    // 平台相关的 SSE 传输：io 走 dio stream，web 走 Fetch + ReadableStream 真流式。
+    // 详见 `sse_transport.dart`。
+    final req = SseRequest(
+      dio: _dio,
+      baseUrl: _baseUrl,
+      path: '/sessions/$sid/messages',
+      jsonBody: body.toJson(),
       cancelToken: cancelToken,
+      readAccessToken: _readAccessToken,
+      refreshAccessToken: _refreshAccessToken,
+      onAuthLost: _onAuthLost,
     );
-    await for (final frame in sseFramesFromBytes(resp.data!.stream)) {
+    await for (final frame in openSseFrames(req)) {
       yield ChatEvent.fromFrame(frame);
     }
   }
@@ -391,5 +410,13 @@ class MessagesApi {
   }
 }
 
-final messagesApiProvider =
-    Provider<MessagesApi>((ref) => MessagesApi(ref.watch(dioProvider)));
+final messagesApiProvider = Provider<MessagesApi>((ref) {
+  final tokenStore = ref.read(tokenStoreProvider);
+  final refresher = ref.read(tokenRefresherProvider);
+  return MessagesApi(
+    ref.watch(dioProvider),
+    readAccessToken: tokenStore.readAccess,
+    refreshAccessToken: refresher.refresh,
+    onAuthLost: refresher.onAuthLost,
+  );
+});

@@ -289,7 +289,18 @@ class ChatController extends AsyncNotifier<ChatRunState> {
 
 ## 8. SSE 客户端
 
-Flutter Web 浏览器自带 `EventSource`，但 Android 上 dart:html 不可用；统一用 **dio + stream transformer**：
+> **2026-05-25 变更（pre-M8）**：dio 5.x 的 web adapter（`BrowserHttpClientAdapter` / XHR）
+> 不支持流式响应——整段 SSE 会缓冲到结束才交付，且 `Options.receiveTimeout=Duration.zero`
+> 被当作"未 override"退化到 30s 触发 `receive timeout`。改为**按平台分流**的传输层
+> （`sse_transport.dart` 门面 + 条件 import）：
+> - **io / Android / 桌面 / VM 测试**：仍走 dio `ResponseType.stream`，`receiveTimeout/sendTimeout` 显式 24h；
+> - **web**：改用浏览器 **Fetch API + ReadableStream**（`sse_transport_web.dart`，`dart:js_interop` + `package:web`）
+>   逐 chunk 读取 → 复用同一套 `sse_client.dart` 解析器，得到真正逐字流式；手动带 `Bearer`、
+>   401 调一次刷新重试（复用 `dio_provider.dart` 抽出的 `TokenRefresher`），`CancelToken` 桥接 `AbortController`。
+>
+> 解析器（`SseLineParser` / `sseFramesFromBytes`）与事件协议不变；下方代码示意保留为 io 路径写法。
+
+Flutter Web 浏览器自带 `EventSource`，但 Android 上 dart:html 不可用；io 路径用 **dio + stream transformer**：
 
 ```dart
 Stream<SseEvent> sendMessage(...) async* {

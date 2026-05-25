@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api_base.dart';
+import '../storage/token_store.dart';
 import 'dio_provider.dart';
 import 'messages_api.dart';
 import 'sessions_api.dart';
-import 'sse_client.dart';
+import 'sse_transport.dart';
 
 /// 与后端 `PauseResponse`（`backend/app/schemas/checkpoint.py`）对齐。
 class PauseResponse {
@@ -101,9 +103,28 @@ class RollbackResponse {
 /// 注意：`resume` 返回 SSE 流（与 `MessagesApi.sendMessage` 同款），调用方需要
 /// 自行 listen + cancelToken；不传 cancelToken 也能跑，但失去取消能力。
 class CheckpointApi {
-  CheckpointApi(this._dio);
+  /// [baseUrl] / [readAccessToken] / [refreshAccessToken] / [onAuthLost] 仅 web
+  /// Fetch SSE 路径（resume）用；io 路径靠 dio 自带 interceptor，故可选，保持单测
+  /// `CheckpointApi(dio)` 调用不变。见 `sse_transport.dart`。
+  CheckpointApi(
+    this._dio, {
+    String? baseUrl,
+    Future<String?> Function()? readAccessToken,
+    Future<String?> Function()? refreshAccessToken,
+    void Function()? onAuthLost,
+  })  : _baseUrl = baseUrl ?? ApiBase.url,
+        _readAccessToken = readAccessToken ?? _noToken,
+        _refreshAccessToken = refreshAccessToken ?? _noToken,
+        _onAuthLost = onAuthLost ?? _noop;
 
   final Dio _dio;
+  final String _baseUrl;
+  final Future<String?> Function() _readAccessToken;
+  final Future<String?> Function() _refreshAccessToken;
+  final void Function() _onAuthLost;
+
+  static Future<String?> _noToken() async => null;
+  static void _noop() {}
 
   /// POST `/sessions/{sid}/runs/{rid}/pause`。
   Future<PauseResponse> pause(String sid, String runId) async {
@@ -114,23 +135,21 @@ class CheckpointApi {
   }
 
   /// POST `/sessions/{sid}/resume` —— 返回 SSE 事件流，与 sendMessage 同款。
+  /// 平台相关传输见 `sse_transport.dart`（web 走 Fetch 真流式）。
   Stream<ChatEvent> resume(
     String sid, {
     CancelToken? cancelToken,
   }) async* {
-    final resp = await _dio.post<ResponseBody>(
-      '/sessions/$sid/resume',
-      options: Options(
-        responseType: ResponseType.stream,
-        headers: {'Accept': 'text/event-stream'},
-        // 见 messages_api.dart sendMessage：Duration.zero 在 dio web adapter 上
-        // 会退化到 BaseOptions 默认的 30s，触发 receive timeout。显式 24h 绕过。
-        receiveTimeout: const Duration(hours: 24),
-        sendTimeout: const Duration(hours: 24),
-      ),
+    final req = SseRequest(
+      dio: _dio,
+      baseUrl: _baseUrl,
+      path: '/sessions/$sid/resume',
       cancelToken: cancelToken,
+      readAccessToken: _readAccessToken,
+      refreshAccessToken: _refreshAccessToken,
+      onAuthLost: _onAuthLost,
     );
-    await for (final frame in sseFramesFromBytes(resp.data!.stream)) {
+    await for (final frame in openSseFrames(req)) {
       yield ChatEvent.fromFrame(frame);
     }
   }
@@ -172,5 +191,13 @@ class CheckpointApi {
   }
 }
 
-final checkpointApiProvider =
-    Provider<CheckpointApi>((ref) => CheckpointApi(ref.watch(dioProvider)));
+final checkpointApiProvider = Provider<CheckpointApi>((ref) {
+  final tokenStore = ref.read(tokenStoreProvider);
+  final refresher = ref.read(tokenRefresherProvider);
+  return CheckpointApi(
+    ref.watch(dioProvider),
+    readAccessToken: tokenStore.readAccess,
+    refreshAccessToken: refresher.refresh,
+    onAuthLost: refresher.onAuthLost,
+  );
+});

@@ -34,6 +34,10 @@ dependencies:
   # 不要写 ^0.19.0 触发 version solving 冲突。
   intl: ^0.20.2
   shared_preferences: ^2.3.2
+  # Web 真流式 SSE：sse_transport_web.dart 直接用 Fetch API + ReadableStream
+  # （dart:js_interop + package:web）。web 本是 Flutter 传递依赖，显式列出以满足
+  # depend_on_referenced_packages lint；非新框架、未引入新的外部依赖。
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:
