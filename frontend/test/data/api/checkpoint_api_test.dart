@@ -8,11 +8,22 @@ import 'package:tgpp/data/api/checkpoint_api.dart';
 import 'package:tgpp/data/api/messages_api.dart';
 
 class _Recorded {
-  _Recorded(this.method, this.path, this.queryParameters, this.data);
+  _Recorded(
+    this.method,
+    this.path,
+    this.queryParameters,
+    this.data, {
+    this.receiveTimeout,
+    this.sendTimeout,
+    this.responseType,
+  });
   final String method;
   final String path;
   final Map<String, dynamic> queryParameters;
   final Object? data;
+  final Duration? receiveTimeout;
+  final Duration? sendTimeout;
+  final ResponseType? responseType;
 }
 
 /// 极简 scripted adapter：按调用顺序消费 [scripts]，把每次请求记到 [calls]。
@@ -34,6 +45,9 @@ class _ScriptedAdapter implements HttpClientAdapter {
       options.path,
       Map<String, dynamic>.from(options.queryParameters),
       options.data,
+      receiveTimeout: options.receiveTimeout,
+      sendTimeout: options.sendTimeout,
+      responseType: options.responseType,
     ));
     final fn = scripts[_i++];
     return fn(options);
@@ -138,6 +152,12 @@ void main() {
       expect(events[3], isA<EndEvent>());
       expect(adapter.calls.single.method, 'POST');
       expect(adapter.calls.single.path, '/sessions/sid-r/resume');
+      // ↓ SSE 长跑 timeout 钉死（regression：dio web 上 Duration.zero 会退化到
+      // BaseOptions.receiveTimeout=30s 触发 receive timeout，必须显式给大值。
+      // 详见 checkpoint_api.dart resume 注释 + 2026-05-25 SSE timeout fix。）
+      expect(adapter.calls.single.responseType, ResponseType.stream);
+      expect(adapter.calls.single.receiveTimeout, const Duration(hours: 24));
+      expect(adapter.calls.single.sendTimeout, const Duration(hours: 24));
     });
 
     test('list GET /sessions/{sid}/checkpoints', () async {

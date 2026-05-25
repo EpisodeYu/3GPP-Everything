@@ -123,8 +123,10 @@ class CheckpointApi {
       options: Options(
         responseType: ResponseType.stream,
         headers: {'Accept': 'text/event-stream'},
-        // 续跑同样可能耗时，关掉 receive timeout
-        receiveTimeout: Duration.zero,
+        // 见 messages_api.dart sendMessage：Duration.zero 在 dio web adapter 上
+        // 会退化到 BaseOptions 默认的 30s，触发 receive timeout。显式 24h 绕过。
+        receiveTimeout: const Duration(hours: 24),
+        sendTimeout: const Duration(hours: 24),
       ),
       cancelToken: cancelToken,
     );

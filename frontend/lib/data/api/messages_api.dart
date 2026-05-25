@@ -370,8 +370,12 @@ class MessagesApi {
       options: Options(
         responseType: ResponseType.stream,
         headers: {'Accept': 'text/event-stream'},
-        // 一次 RAG 跑下来可能 60s+，把默认 30s receive timeout 关掉
-        receiveTimeout: Duration.zero,
+        // SSE 一次 RAG 通常 20–60s，全量 generate 偶尔过 1 min。
+        // dio web 的 BrowserHttpClientAdapter 把 `Duration.zero` 当作"未 override"
+        // 处理 → 退化到 BaseOptions.receiveTimeout=30s 触发 receive timeout。
+        // 显式给一个超长有限值（24h）绕过该 web adapter 行为；io 端同样宽容。
+        receiveTimeout: const Duration(hours: 24),
+        sendTimeout: const Duration(hours: 24),
       ),
       cancelToken: cancelToken,
     );
