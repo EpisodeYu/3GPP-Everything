@@ -26,6 +26,12 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 全站可选中复制：把路由主内容包进 SelectionArea（Flutter web/CanvasKit 下
+    // Text/Markdown 默认不可拖选）。放在这里（root Navigator 之下、有 Overlay 祖先）
+    // 而非 MaterialApp.builder —— 后者在 Navigator 之上，SelectionArea 找不到
+    // Overlay 会抛 "No Overlay widget found"。聊天气泡保留 `selectable:false`
+    // （长按菜单复用其手势），SelectionArea 走拖选手势，两者不冲突。
+    final selectableChild = SelectionArea(child: child);
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= wideBreakpoint;
@@ -38,7 +44,7 @@ class AppShell extends ConsumerWidget {
                   child: _SessionsSidebar(),
                 ),
                 const VerticalDivider(width: 1, thickness: 1),
-                Expanded(child: child),
+                Expanded(child: selectableChild),
               ],
             ),
           );
@@ -51,7 +57,7 @@ class AppShell extends ConsumerWidget {
             width: 300,
             child: SafeArea(child: _SessionsSidebar()),
           ),
-          body: child,
+          body: selectableChild,
         );
       },
     );

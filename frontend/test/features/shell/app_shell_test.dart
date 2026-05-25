@@ -98,6 +98,20 @@ void main() {
       expect(find.byType(Drawer), findsNothing);
     });
 
+    // 锚：2026-05-25 "全站文字可选中复制"。AppShell 把路由主内容包进 SelectionArea，
+    // 让 Flutter web（CanvasKit）下的 Text/Markdown 支持鼠标拖选 + 复制。
+    testWidgets('路由主内容被包进 SelectionArea（全站可选中）', (tester) async {
+      await _pumpShell(tester, size: const Size(1280, 800));
+
+      final content = find.text('session-a');
+      expect(content, findsOneWidget);
+      expect(
+        find.ancestor(of: content, matching: find.byType(SelectionArea)),
+        findsOneWidget,
+        reason: '路由内容必须在 SelectionArea 之下才支持选中复制',
+      );
+    });
+
     testWidgets('窄屏 (< 840) 渲染 AppBar + Drawer，打开 drawer 才能看到 sidebar 内容',
         (tester) async {
       await _pumpShell(tester, size: const Size(480, 800));
