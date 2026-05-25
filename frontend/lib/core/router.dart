@@ -4,12 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import '../domain/auth/auth_controller.dart';
 import '../domain/auth/auth_state.dart';
+import '../features/admin/admin_dashboard.dart';
 import '../features/auth/login_page.dart';
 import '../features/chat/chat_page.dart';
 import '../features/reader/reader_page.dart';
 import '../features/shell/app_shell.dart';
 
 const _publicRoutes = <String>{'/login'};
+const _adminRoutes = <String>{'/admin'};
 
 /// 监听 Riverpod 的 authState，触发 GoRouter 重新评估 redirect。
 class _AuthRefreshNotifier extends ChangeNotifier {
@@ -41,6 +43,12 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (!loggedIn && !goingPublic) return '/login';
       if (loggedIn && goingPublic) return '/chat';
+      // RBAC：非 admin 访问 /admin → 弹回 /chat。后端 403 是第二道防线。
+      if (value is AuthAuthenticated &&
+          _adminRoutes.contains(state.matchedLocation) &&
+          value.me.role != 'admin') {
+        return '/chat';
+      }
       return null;
     },
     routes: [
@@ -55,6 +63,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/sessions/:sid',
             builder: (_, s) => ChatPage(sessionId: s.pathParameters['sid']),
+          ),
+          GoRoute(
+            path: '/admin',
+            builder: (_, _) => const AdminDashboard(),
           ),
         ],
       ),

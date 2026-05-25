@@ -90,6 +90,20 @@ class _SessionsSidebar extends ConsumerWidget {
             label: const Text('阅读器'),
           ),
         ),
+        // 仅 admin 可见的管理后台入口（M5.5）。后端 `/admin/*` 403 是兜底防线。
+        if (me?.role == 'admin')
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: OutlinedButton.icon(
+              key: const Key('sidebar_open_admin'),
+              onPressed: () {
+                _closeDrawerIfOpen(context);
+                context.go('/admin');
+              },
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              label: const Text('管理后台'),
+            ),
+          ),
         const Divider(height: 1),
         Expanded(
           child: sessionsAsync.when(

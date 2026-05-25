@@ -21,6 +21,9 @@ dependencies:
   # markdown：flutter_markdown_plus 的传递依赖，显式列出是因为 M5.3 CitationInlineSyntax 直接
   # 引用 `package:markdown` 的 InlineSyntax / Element 类型（depend_on_referenced_packages lint）。
   markdown: ^7.3.0
+  # M5.5：Langfuse 外链；Web/Android 共用，Android 需 AndroidManifest queries (intent-filter)，
+  # 但 https/http scheme 默认就在 url_launcher 内置 queries 里，无需手改 manifest。
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

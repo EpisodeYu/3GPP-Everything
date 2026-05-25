@@ -15,7 +15,7 @@
 | **M5.2** SSE 流式核心 | `SseClient`（dio + stream transformer，按 §8）+ `ChatController` 状态机 + Composer + NodeStatusStrip + 取消按钮 + Markdown + LaTeX | SSE 解析单测覆盖 comment / multi-line data / blank-line 分隔；ChatController 状态机单测覆盖 10 类事件；Chrome 跑通一次完整 send → token → final + cancel |
 | **M5.3** 引用 chip + Reader | 自定义 markdown inline syntax 把 `[<spec_id> §<section_path> ¶<rank>]` 渲染成可点击 chip + bottom sheet；`/reader/{spec}` + `/reader/{spec}/{section}` 章节树 drawer + 内容渲染 + `#chunk-{chunk_id}` 锚点高亮 3s 淡出 | 引用 chip widget test；Reader 章节树/搜索/锚点 widget test |
 | **M5.4** Checkpoint UX ✅ 2026-05-24 | 暂停按钮 + 暂停 banner + 恢复续跑；assistant 长按菜单（复制 / thumb / 收藏 / 笔记 / 反馈）；用户消息长按 "从这里重问" → fork；会话设置 "删除最后 N 轮" → rollback；archived_branch 视觉灰度 + 只读 banner + "回到主线" 按钮 | ✅ `flutter analyze` 0 / `flutter test` 136 全绿；checkpoint 5 路由前端 API + UI 集成测；ChatController 状态机增 `paused` 态覆盖；详见 [`../04-handoff/2026-05-24-m5.4-completion.md`](../04-handoff/2026-05-24-m5.4-completion.md) |
-| **M5.5** Admin 后台 | 仅 `role=admin` 可见入口 + 文档表（release/series 过滤）+ 任务面板轮询（progress + log_tail）+ 统计页 + 重建索引弹框 + Langfuse 外链 | RBAC widget test；admin 4 路由集成测；前端隐藏 + 后端 403 兜底两道防线 |
+| **M5.5** Admin 后台 ✅ 2026-05-25 | 仅 `role=admin` 可见入口 + 文档表（release/series 过滤）+ 任务面板轮询（progress + log_tail）+ 统计页 + 重建索引弹框 + Langfuse 外链 | ✅ `flutter analyze` 0 / `flutter test` 154 全绿；RBAC widget test（admin/user 各 1）；admin 4 路由 widget 集成测（4 个 tab + 重建弹框成功/取消/错误 + 统计错误）；AdminApi 7 case 含 403 兜底；前端隐藏 + 后端 403 双重防线。详见 [`../04-handoff/2026-05-25-m5.5-completion.md`](../04-handoff/2026-05-25-m5.5-completion.md) |
 | **M5.6** i18n + 主题切换 + golden + Docker | ARB zh/en + 右上角语言/主题切换 + shared_preferences 持久化；golden test（聊天气泡 light/dark × zh/en 4 张）；`integration_test` mock 跑 send→token→final；`frontend/Dockerfile` 换 web build + nginx | §14 所有 `[auto]` 项全绿；`make web-build` / `docker build -t tgpp-web .` 双路径通 |
 
 > 各段完成后按 [`../00-vibe-coding-protocol.md §4`](../00-vibe-coding-protocol.md) 输出完成报告到 `docs/04-handoff/2026-05-2x-m5.x-completion.md`。
@@ -25,12 +25,12 @@
 > 每条标 `[M5.x]` 关联 §0 子里程碑。完成后把 `[ ]` 替换为 `[x]`。
 
 - [x] `[M5.0]` Flutter 3.x 项目骨架（Web + Android target）
-- [x] `[M5.0/M5.1/M5.2/M5.4]` Riverpod 2.x 状态管理；go_router 路由（M5.1 起 ShellRoute + 响应式 nav；M5.3 reader 走平级路由 + 支持 `#chunk-{id}` fragment）；dio HTTP；自定义 SSE 解析器（M5.2 落：`sse_client.dart` + `messages_api.dart` 10 类事件 sealed-style + `ChatController` 状态机；M5.4 加 `paused` 态 + `pause()/resume()/rollback()/listCheckpoints()` 方法 + 从 PG refetch 路径处理 resume 后 stub 清理）
-- [x] `[M5.0/M5.1/M5.2/M5.3/M5.4/M5.5]` 4 个核心页面中已落 3 个：登录 / 聊天 / 章节阅读器（M5.3 完成：spec overview + section view + toc drawer + 搜索 + `#chunk-{id}` 锚点 3s 高亮）；管理后台 M5.5；M5.4 在聊天页加 paused banner + archived_branch "回到主线" + 长按菜单（assistant 复制/thumb/收藏/笔记/反馈 · user 复制/"从这里重问"）+ 会话设置"删除最后 N 轮" 入口
+- [x] `[M5.0/M5.1/M5.2/M5.4]` Riverpod 2.x 状态管理；go_router 路由（M5.1 起 ShellRoute + 响应式 nav；M5.3 reader 走平级路由 + 支持 `#chunk-{id}` fragment；M5.5 加 `/admin` 子路由 + RBAC redirect）；dio HTTP；自定义 SSE 解析器（M5.2 落：`sse_client.dart` + `messages_api.dart` 10 类事件 sealed-style + `ChatController` 状态机；M5.4 加 `paused` 态 + `pause()/resume()/rollback()/listCheckpoints()` 方法 + 从 PG refetch 路径处理 resume 后 stub 清理）
+- [x] `[M5.0/M5.1/M5.2/M5.3/M5.4/M5.5]` 4 个核心页面已落齐：登录 / 聊天 / 章节阅读器（M5.3 完成：spec overview + section view + toc drawer + 搜索 + `#chunk-{id}` 锚点 3s 高亮）；管理后台 M5.5（4 个 Tab：文档表 / 任务面板轮询 / 统计 / 工具含重建索引弹框 + Langfuse 外链）；M5.4 在聊天页加 paused banner + archived_branch "回到主线" + 长按菜单（assistant 复制/thumb/收藏/笔记/反馈 · user 复制/"从这里重问"）+ 会话设置"删除最后 N 轮" 入口
 - [x] `[M5.2/M5.4]` 流式 UX：节点状态行 + token 流 + chunks 预览 + 一键取消；M5.4 加 暂停 / 恢复 双按钮（streaming → `暂停 · 取消` / paused → `恢复 · 取消`）
 - [x] `[M5.2/M5.3]` Markdown + LaTeX + 表格 / 引用 chip / 章节跳转锚点（M5.2 落：`flutter_markdown_plus` + 块级 `$$…$$` LaTeX；M5.3 落：`CitationInlineSyntax` 把 `[<spec> §<sec> ¶<rank>]` 渲染成可点 chip + bottom sheet 拉 `GET /chunks/{id}` 上下文 + "跳到完整章节" 按钮；长按复制；表格沿用 markdown 默认渲染；M5.4 起 MarkdownBody `selectable: false`，让长按交给父级 GestureDetector，复制走 message 长按菜单）
 - [ ] `[M5.6]` 中英 i18n、浅深色主题（M5.0 已落：light/dark Material3 黑白主调，切换器 M5.6 加）
-- [x] `[M5.0/M5.4]` 手写 Dart client（freezed + json_serializable + dio），不引 openapi_generator（M5.0–M5.4 现状：仍手写无 freezed；SSE event sealed-style + chat/message / docs / checkpoint / favorites / notes / feedback 全部手写 fromJson 完成；codegen 仍可推迟）
+- [x] `[M5.0/M5.4/M5.5]` 手写 Dart client（freezed + json_serializable + dio），不引 openapi_generator（M5.0–M5.5 现状：仍手写无 freezed；SSE event sealed-style + chat/message / docs / checkpoint / favorites / notes / feedback / admin 全部手写 fromJson 完成；codegen 仍可推迟）
 - [ ] `[M5.6]` 部署：`docker build` 产物 → nginx 静态托管
 
 ## 2. 模块拆分
@@ -107,7 +107,7 @@ dependencies:
   shared_preferences: ^2.3.0    # 主题 / 语言偏好（非敏感）
   flutter_markdown_plus: ^1.0.0
   flutter_math_fork: ^0.7.2
-  url_launcher: ^6.3.0
+  url_launcher: ^6.3.1          # M5.5 起：Langfuse 外链 + 未来 spec doc 外链
   intl: ^0.19.0
   json_annotation: ^4.9.0
   freezed_annotation: ^2.4.4
@@ -371,8 +371,8 @@ app_zh.arb        # 中文
 > 标注：`[auto]` = Agent 自跑可判定；`[human]` = 需要人介入（UX 体验由人主审，这是 §M5 关键决策点）。
 
 - [x] `[auto]` `flutter analyze` 0 警告 0 错误（M5.0 起每子里程碑保持）
-- [x] `[auto]` `flutter test` 全绿（M5.4 共 136 case：unit + widget + integration smoke；golden test M5.6 加）
-- [x] `[auto]` `flutter test integration_test/` 跑通 mock API 下的完整 send → token → final 流程（M5.2 落，M5.4 回归仍绿）
+- [x] `[auto]` `flutter test` 全绿（M5.5 共 154 case：unit + widget + integration smoke；golden test M5.6 加）
+- [x] `[auto]` `flutter test integration_test/` 跑通 mock API 下的完整 send → token → final 流程（M5.2 落，M5.4/M5.5 回归仍绿）
 - [ ] `[auto]` 手写 Dart client 字段与后端 `/openapi.json` 字段一一对齐（CI 跑 `scripts/check_openapi_diff.py`） — M5.6 接 CI
 - [ ] `[human]` Chrome / Edge 实测：登录 → 创建会话 → 流式问答 → 看引用 → 跳阅读器 → 高亮 → 取消正在进行的问答 → 收藏 / 笔记 / 反馈
 - [ ] `[human]` Checkpoint 闭环实测：跑中暂停 → 关浏览器 → 重进会话点恢复 → SSE 续跑后续节点；从历史 user 消息 fork → 跳转新会话 → 老会话进入 "分叉历史" 分组只读；删除最后 N 轮后剩余消息状态正确
