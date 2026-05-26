@@ -105,6 +105,17 @@ void main() {
       ) as md.Element;
       expect(el.attributes['rank'], '3');
     });
+
+    test('多部分 spec 带 -N 后缀也匹配（如 [36.523-1 §7.1.6.2.2]）', () {
+      final doc = md.Document(inlineSyntaxes: [CitationInlineSyntax()]);
+      final out = doc.parseInline('见 [36.523-1 §7.1.6.2.2] 节。');
+      final el = out.firstWhere(
+        (n) => n is md.Element && n.tag == 'citation',
+      ) as md.Element;
+      expect(el.attributes['spec'], '36.523-1');
+      expect(el.attributes['section'], '7.1.6.2.2');
+      expect(el.attributes['rank'], '0');
+    });
   });
 
   group('CitationChip widget', () {

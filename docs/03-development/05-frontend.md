@@ -233,7 +233,7 @@ class ChatController extends AsyncNotifier<ChatRunState> {
 ### 5.4 消息气泡 + 引用 chip
 
 每个 assistant 消息：
-- markdown 渲染（`flutter_markdown_plus`），自定义 `InlineSyntax` 把 `[<spec_id> §<section_path>( ¶<rank>)?]`（如 `[23.501 §5.6.1 ¶3]` 或 `[38.213 §8.1]`）解析为可点击 chip；正则 `\[\d+\.\d+ §[\d\.]+( ¶\d+)?\]`，`¶rank` 整段**可选**（generate 节点的 LLM 实际只稳定输出 `[spec §section]`，强制三段会让引用退化成普通文本），不与 markdown link `[text](url)` 冲突
+- markdown 渲染（`flutter_markdown_plus`），自定义 `InlineSyntax` 把 `[<spec_id> §<section_path>( ¶<rank>)?]`（如 `[23.501 §5.6.1 ¶3]` / `[38.213 §8.1]` / 多部分 spec `[36.523-1 §7.1.6.2.2]`）解析为可点击 chip；正则 `\[\d+\.\d+(-\d+)? §[\d\.]+( ¶\d+)?\]`：`¶rank` 整段**可选**（generate 节点的 LLM 实际只稳定输出 `[spec §section]`，强制三段会让引用退化成普通文本），spec 号 `-N` 后缀必须支持（测试规范 `36.523-1` 等），不与 markdown link `[text](url)` 冲突
 - chip **单击 → 直跳阅读器** `/reader/{spec}/{section}`（有 chunk_id 时带 `#chunk-{chunk_id}` 锚点）；不再弹底部 sheet（决策点 B3）
 - chip **hover → Tooltip 预览 chunk 上下文**（拉 `GET /chunks/{chunk_id}`，缺 chunk_id 时只显示 "spec §section（无 chunk 上下文）"；`waitDuration=300ms` 充当 debounce）
 - 长按 chip：复制引用文本

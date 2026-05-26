@@ -37,17 +37,20 @@ class CitationRef {
   final String rawText;
 }
 
-/// markdown 内联引用语法：`[23.501 §5.6.1 ¶3]` 或 `[38.213 §8.1]`（无 ¶rank）。
+/// markdown 内联引用语法：`[23.501 §5.6.1 ¶3]` / `[38.213 §8.1]`（无 ¶rank）/
+/// `[36.523-1 §7.1.6.2.2]`（多部分 spec 带 `-N` 后缀）。
 ///
 /// 设计要点：
-/// - 正则 `\[\d+\.\d+ §[\d\.]+( ¶\d+)?\]`，`¶rank` 整段可选——后端 generate 的 LLM
-///   实际只稳定输出 `[spec §section]`，强制三段会让引用退化成普通文本（无 chip）。
+/// - 正则 `\[\d+\.\d+(-\d+)? §[\d\.]+( ¶\d+)?\]`，`¶rank` 整段可选——后端 generate 的
+///   LLM 实际只稳定输出 `[spec §section]`，强制三段会让引用退化成普通文本（无 chip）。
 /// - 不与 markdown link `[text](url)` 冲突（后者括号内必跟 `(`）。
-/// - `\d+\.\d+` 允许 `23.501` / `38.331` / `33.501` 等 5G 系列编号。
+/// - spec 号 `\d+\.\d+(-\d+)?` 允许 `23.501` / `38.331`，以及多部分测试规范
+///   `36.523-1` / `38.523-2`（`-N` 后缀不可漏，否则整条引用不渲染）。
 class CitationInlineSyntax extends md.InlineSyntax {
   CitationInlineSyntax() : super(_pattern);
 
-  static const String _pattern = r'\[(\d+\.\d+) §([\d\.]+)(?: ¶(\d+))?\]';
+  static const String _pattern =
+      r'\[(\d+\.\d+(?:-\d+)?) §([\d\.]+)(?: ¶(\d+))?\]';
 
   @override
   bool onMatch(md.InlineParser parser, Match match) {
