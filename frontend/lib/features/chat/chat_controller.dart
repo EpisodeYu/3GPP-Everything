@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/api/checkpoint_api.dart';
 import '../../data/api/messages_api.dart';
+import '../../domain/auth/auth_controller.dart';
+import '../../domain/auth/auth_state.dart';
 
 /// 一轮对话流的当前 run 状态。
 ///
@@ -166,6 +168,13 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
       _sub?.cancel();
       _cancelToken?.cancel('controller_dispose');
     });
+
+    // 必须等待鉴权状态恢复。
+    final authState = await ref.watch(authControllerProvider.future);
+    if (authState is! AuthAuthenticated) {
+      return const SessionChatState.empty();
+    }
+
     return _loadHistoryFromPg();
   }
 

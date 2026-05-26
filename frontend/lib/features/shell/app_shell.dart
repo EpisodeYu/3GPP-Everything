@@ -373,6 +373,11 @@ class _DocPickerDialogState extends ConsumerState<_DocPickerDialog> {
 
 final _docsListProvider =
     FutureProvider.autoDispose<DocListResponse>((ref) async {
+  // 同样等待鉴权状态恢复，避免首屏加载时发起未授权请求。
+  final authState = await ref.watch(authControllerProvider.future);
+  if (authState is! AuthAuthenticated) {
+    return const DocListResponse(items: [], total: 0);
+  }
   return ref.watch(docsApiProvider).list();
 });
 

@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/api/checkpoint_api.dart';
 import '../../data/api/sessions_api.dart';
+import '../auth/auth_controller.dart';
+import '../auth/auth_state.dart';
 
 /// 管理当前用户的会话列表。
 ///
@@ -15,6 +17,14 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
 
   @override
   Future<List<SessionOut>> build() async {
+    // 必须等待鉴权状态恢复（从本地存储读取 token 并验证）。
+    // 否则在首屏加载时，SessionsController 可能在 AuthController 完成前
+    // 就发起请求，导致 401 错误。
+    final authState = await ref.watch(authControllerProvider.future);
+    if (authState is! AuthAuthenticated) {
+      return const [];
+    }
+
     final resp = await _api.list();
     return resp.items;
   }
