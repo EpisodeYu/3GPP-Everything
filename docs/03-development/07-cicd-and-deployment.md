@@ -5,12 +5,16 @@
 ## 1. 交付物
 
 - ✅ GitHub Actions workflows：`ci.yml`（PR 触发）+ `nightly-eval.yml`（每日跑全量评测）+ `deploy.yml`（手动触发或 main push 后部署）
-- ✅ 生产 Docker Compose：`deploy/docker-compose.prod.yml`
-- ✅ Nginx 反代配置：`deploy/nginx/{default.conf, tls.conf}` 支持 HTTPS、SSE、长连接
-- ✅ Let's Encrypt 自动续期（certbot 容器或宿主 cron）
-- ✅ 部署脚本：`deploy/scripts/{deploy.sh, backup.sh, restore.sh}`
+- ✅ 生产 Docker Compose：`deploy/docker-compose.prod.yml`（2026-05-26 M8 bootstrap 落地，本地 build，**仅业务容器 api + web + ingest**）
+- ✅ 入口 nginx + Let's Encrypt + 跨项目分流：抽到独立项目 **`~/infra/ingress/`**（不在本仓库；见 `docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md`）
+- ✅ 部署脚本：`deploy/scripts/{deploy,healthcheck,backup,restore}.sh`
+- ✅ Makefile 一键命令：`make prod-up / prod-deploy / prod-health / prod-backup`
 - ✅ 启动健康检查 + 滚动重启
-- ✅ 文档：`README.md` 部署章节 + runbook
+- ✅ 文档：`README.md` 部署章节 + runbook + handoff `docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md`
+
+> **2026-05-26 rev2**：原计划在本项目下管 nginx + Let's Encrypt（本文档 §4-§5）。落地时发现同台服务器已有另一个项目（DangDangDiary）占着 80 端口，遂把入口层抽离为独立的 `~/infra/ingress/` 项目：跨项目接管 80/443、统一管 Let's Encrypt、按 `server_name` 分流。
+> **本项目不再起 nginx / certbot 容器**，只起业务容器（api + web）。
+> **本文档 §4-§5 的 nginx / Let's Encrypt 配置块仅作概念参考**，权威实现以 `~/infra/ingress/` 的代码为准（见 `~/infra/ingress/README.md`）。
 
 ## 2. CI（GitHub Actions）
 
@@ -356,7 +360,7 @@ volumes:
 ```nginx
 server {
     listen 80;
-    server_name tgpp.example.com;
+    server_name 3gpp-everything.org;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -373,10 +377,10 @@ server {
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name tgpp.example.com;
+    server_name 3gpp-everything.org;
 
-    ssl_certificate     /etc/letsencrypt/live/tgpp.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/tgpp.example.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/3gpp-everything.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/3gpp-everything.org/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_session_cache shared:SSL:10m;
@@ -438,7 +442,7 @@ server {
 ```bash
 #!/usr/bin/env bash
 set -e
-DOMAIN=tgpp.example.com
+DOMAIN=3gpp-everything.org
 EMAIL=ops@example.com
 
 mkdir -p deploy/certbot/conf deploy/certbot/www
@@ -480,7 +484,7 @@ docker compose -f deploy/docker-compose.prod.yml up -d --remove-orphans
 ```bash
 #!/usr/bin/env bash
 for i in {1..30}; do
-  if curl -fsS https://tgpp.example.com/health >/dev/null; then
+  if curl -fsS https://3gpp-everything.org/health >/dev/null; then
     echo "API healthy"
     exit 0
   fi
@@ -535,15 +539,21 @@ echo "backup done: $BACKUP_DIR"
 
 ### 8.1 全新机器首次部署
 
+> 2026-05-26 M8 bootstrap rev2：详细 step-by-step + 故障排查见 `docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md`。
+
 1. `git clone` 项目
-2. 填好 `.env`
+2. `cp .env.example .env`，填齐 secrets；`ALLOWED_ORIGINS` 追加生产域名 `https://<DOMAIN>`
 3. 跑 `01-infrastructure.md §2` 的所有"共享服务命名空间"准备
-4. `docker compose -f deploy/docker-compose.prod.yml build`
-5. `./deploy/scripts/init-letsencrypt.sh`
-6. `docker compose -f deploy/docker-compose.prod.yml up -d`
-7. `curl https://tgpp.example.com/health` 验
-8. `POST /api/v1/auth/bootstrap-admin` 创建首个管理员
-9. （可选）`docker compose --profile ingest run --rm ingest python -m ingestion.cli pipeline-hf --releases 18,19 --provider $EMBEDDING_PROVIDER`
+4. 准备 `~/infra/ingress/` 项目（参考 `~/infra/ingress/README.md`）：填好 `.env` 的 `TGPP_DOMAIN` / `LETSENCRYPT_EMAIL` 等
+5. 加 Cloudflare DNS `A` 记录 `@ → PUBLIC_IP`（灰云）
+6. 服务器防火墙放行 80/443：`sudo ufw allow 80,443/tcp`
+7. `make prod-build`
+8. `make prod-up` 起业务容器（api + web；网络 `tgpp_tgpp-net` 由此创建）
+9. `cd ~/infra/ingress && ./scripts/init-letsencrypt.sh` 签证书（先 staging 后 prod）
+10. `cd ~/infra/ingress && docker compose up -d`
+11. `make prod-health` 验
+12. `POST /api/v1/auth/bootstrap-admin` 创建首个管理员（除非已有 admin）
+13. （可选）`docker compose --profile ingest -f deploy/docker-compose.prod.yml run --rm ingest python -m ingestion.cli pipeline-hf --releases 18,19 --provider $EMBEDDING_PROVIDER`
 
 ### 8.2 日常更新
 
@@ -575,10 +585,11 @@ echo "backup done: $BACKUP_DIR"
 
 - [ ] `[auto]` PR opened 时 CI 全部 job 跑通；< 15 分钟总耗时
 - [x] `[auto]` Nightly eval 跑通；阈值未达开 issue — M7.6 落地 2026-05-24（`eval-daily.yml` + `eval-weekly.yml`；连跑 2 次 ≥ D13 第一档验收待 backend 对 CI 可达后补，见 `06-...md §12 M7.6`）
-- [ ] `[human]` `deploy.yml` 手动触发后 GHCR 有镜像、生产成功拉新版（生产部署必须人 approve，这是 `CLAUDE.md §5.3 / 5.4` 触发）
-- [ ] `[human]` `https://tgpp.example.com/health` 200（域名/证书涉外部账号）
+- [ ] `[human]` `deploy.yml` 手动触发后 GHCR 有镜像、生产成功拉新版（生产部署必须人 approve，这是 `CLAUDE.md §5.3 / 5.4` 触发）—— **M8 暂用本地 build，GHCR 路径 v2 再启**
+- [x] `[auto]` M8 bootstrap 文件齐备：`deploy/docker-compose.prod.yml` + `deploy/nginx/*.template` + `deploy/scripts/{init-letsencrypt,deploy,healthcheck,backup,restore}.sh`（2026-05-26 落地）
+- [ ] `[human]` `https://3gpp-everything.org/health` 200（域名/证书涉外部账号；待 DNS 生效 + `make prod-init-cert` + `make prod-up`）
 - [ ] `[human]` SSE 在生产域名下顺畅（token 流不卡顿）—— 由人在浏览器实测
-- [ ] `[auto]` `init-letsencrypt.sh` 可重复执行不破坏现状（dry-run 与 staging 模式跑过）
+- [ ] `[human]` `init-letsencrypt.sh` 至少跑通一次（staging + prod 各一次）
 - [ ] `[auto]` `backup.sh` 输出可用的 dump 与 snapshot；`restore.sh` 在测试环境上 restore 成功（集成测/CI 跑）
 - [ ] `[auto]` 项目根 `README.md` 含完整部署 runbook（结构检查脚本可验证关键小节存在）
 - [ ] `[human]` **失败回滚演练 1 次**（部署上一版本 sha 成功）—— 必须由人执行并签字

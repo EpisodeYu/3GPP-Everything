@@ -1,0 +1,132 @@
+# M8 — 生产 Docker Compose。
+#
+# 锚：docs/03-development/07-cicd-and-deployment.md §3
+#       docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md
+#
+# 架构（2026-05-26 update）：
+#   公网 80/443 → ~/infra/ingress/nginx → tgpp-web:80 (本 compose) → tgpp-api:8002
+#   ingress 是独立项目（~/infra/ingress/），跨项目接管 80/443 + TLS 卸载 + Let's Encrypt。
+#   本 compose 只起业务容器，**不再起 nginx / certbot**。
+#
+# 与 dev (deploy/docker-compose.yml) 的关键差异：
+#   1. api / web 不暴露端口到宿主；由 ingress 通过 tgpp_tgpp-net 内部 DNS 直连
+#   2. api 去掉 --reload（uvicorn 不监听文件变更，省 CPU + 防热重载抖动）
+#   3. 源码不再 volume 挂载，全部用镜像内 COPY 出来的产物
+#   4. ingest 仍走 profile，按需 docker compose --profile ingest up
+#
+# 用法：
+#   # 1) 先在 host 上 build 前端静态产物（M5.6 决策：不在镜像里装 Flutter SDK）
+#   make web-build API_BASE_URL=/api/v1
+#
+#   # 2) 起 prod 业务容器（api + web + ingest profile）
+#   make prod-up
+#
+#   # 3) 起 ingress（首次需要先签证书，详见 ~/infra/ingress/scripts/init-letsencrypt.sh）
+#   cd ~/infra/ingress && docker compose up -d
+#
+# 资源：3.8GB 机器复用宿主 PG/Qdrant/Redis/LiteLLM，本 compose 几个容器实测应该都很轻：
+#   - api ~600MB（含 LangGraph + LlamaIndex + LlamaIndex BM25 内存 index）
+#   - web ~10MB（纯静态 nginx，仅项目内部反代 /api/v1/）
+# 不预设 mem_limit；上线后 docker stats 看实际再加。
+
+name: tgpp
+
+services:
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: tgpp-api:prod
+    container_name: tgpp-api
+    env_file: ../.env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      LITELLM_BASE_URL: http://litellm:4000/v1
+      APP_ENV: prod
+      APP_DEBUG: "false"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose: ["8002"]
+    volumes:
+      # 索引数据：BM25 jsonl / 原始 markdown / 中间产物。生产挂同样的目录，
+      # 不需要 ingest 时也得让 backend 能读到 BM25 jsonl 重建 retriever。
+      - ${INGEST_DATA_DIR:-./data}:/data/tgpp
+    networks:
+      - tgpp-net
+      - qdrant-net
+      - litellm-net
+    # 覆盖 backend/Dockerfile 里 dev 用的 `--reload`。
+    # workers=1 是保守值：3.8GB 内存 + 已有 PG/Qdrant/Redis/LiteLLM 同居；
+    # 实测 single worker QPS 够 M8 阶段单租户用，需要扩并发时改 --workers 2~3。
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002", "--workers", "1"]
+    healthcheck:
+      # backend Dockerfile 基于 python:3.11-slim，**没装 curl**；用 python 内置 urllib 替代。
+      # 注：原 docs §3 示例用 curl 是想象当然的写法；落地时 healthcheck 一直失败 →
+      # FailingStreak 涨到 retries 上限 → docker 判 unhealthy → depends_on web 起不来。
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health',timeout=3).status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # BM25 启动加载 394k chunks 实测 ~36s（pre-m8-validation-guide §0），留足 90s。
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: tgpp-web:prod
+    container_name: tgpp-web
+    # 仅 expose 不 publish：ingress 通过 tgpp_tgpp-net 内部 DNS 解析 `tgpp-web` 直连。
+    expose: ["80"]
+    networks: [tgpp-net]
+    depends_on:
+      api:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # 索引任务按需启动：docker compose --profile ingest -f deploy/docker-compose.prod.yml run --rm ingest ...
+  ingest:
+    build:
+      context: ../ingestion
+      dockerfile: Dockerfile
+    image: tgpp-ingest:prod
+    container_name: tgpp-ingest
+    env_file: ../.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${INGEST_DATA_DIR:-./data}:/data/tgpp
+    networks:
+      - tgpp-net
+      - qdrant-net
+      - litellm-net
+    profiles: ["ingest"]
+
+networks:
+  # tgpp-net：被 ~/infra/ingress/ compose 通过 `external: true, name: tgpp_tgpp-net` attach 进来，
+  # ingress-nginx 通过容器名 `tgpp-web` 直连本项目内部。
+  # docker compose 默认会以 project 前缀命名（这里 project=tgpp，所以 network 实际名 = tgpp_tgpp-net）。
+  tgpp-net:
+    driver: bridge
+  qdrant-net:
+    name: p2-rag-assistant_default
+    external: true
+  litellm-net:
+    name: litellm_default
+    external: true

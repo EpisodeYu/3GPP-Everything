@@ -1,6 +1,8 @@
 .PHONY: help dev lint test test-unit test-int eval eval-daily eval-weekly down ingest-poc fmt \
         web-deps web-analyze web-test web-smoke web-smoke-chrome web-run web-build web-docker apk-build \
-        check-openapi-diff
+        check-openapi-diff \
+        prod-up prod-down prod-restart prod-logs prod-build prod-deploy prod-health \
+        prod-backup prod-restore
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-20s %s\n", $$1, $$2}'
@@ -105,3 +107,48 @@ apk-build:                ## 真机 Android APK；在 Windows 上跑，按 docs 
 	cd frontend && $(FLUTTER) build apk --release \
 		--dart-define=API_BASE_URL=$(API_BASE_URL) \
 		--dart-define=LANGFUSE_URL=$(LANGFUSE_URL)
+
+# ----- 生产部署 (M8) -----
+# 锚：deploy/docker-compose.prod.yml + deploy/scripts/*.sh + docs/03-development/07-cicd-and-deployment.md
+#      docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md
+#
+# 架构：80/443 + TLS 卸载由 ~/infra/ingress/ 接管；本项目只起业务容器（api + web）。
+#
+# 前置：
+#   1. .env 填好 ALLOWED_ORIGINS=...,https://3gpp-everything.org
+#   2. Cloudflare DNS A 记录 @ → 公网 IP（灰云）
+#   3. 服务器防火墙放行 80/443
+#   4. ~/infra/ingress/ 项目就位 + .env 填好 + 跑过 init-letsencrypt.sh 签发证书
+PROD_COMPOSE := docker compose --env-file .env -f deploy/docker-compose.prod.yml
+
+prod-build:               ## 先 web-build 再 docker compose build api web（不起容器）
+	$(MAKE) web-build API_BASE_URL=/api/v1
+	$(PROD_COMPOSE) build api web
+
+prod-up:                  ## 启动生产业务容器（api + web；nginx 入口由 ~/infra/ingress 管）
+	$(PROD_COMPOSE) up -d
+	@echo "✓ prod 业务容器已起（api + web）"
+	@echo "  80/443 入口在 ~/infra/ingress：cd ~/infra/ingress && docker compose ps"
+	@echo "  日志: make prod-logs"
+	@echo "  探活: make prod-health"
+
+prod-down:                ## 停止生产业务容器（不影响 ingress 与证书）
+	$(PROD_COMPOSE) down
+
+prod-restart:             ## 滚动重启 api + web
+	$(PROD_COMPOSE) restart api web
+
+prod-logs:                ## 跟随 prod 业务容器日志（Ctrl+C 退出）
+	$(PROD_COMPOSE) logs -f --tail=200
+
+prod-deploy:              ## 一键发布：web-build + docker build + up + 健康检查
+	./deploy/scripts/deploy.sh
+
+prod-health:              ## 探活：api /health /ready + 外网 https（含 ingress 链路）
+	./deploy/scripts/healthcheck.sh
+
+prod-backup:              ## 备份 PG dump + Qdrant snapshot 名 + BM25 + .env（证书在 ingress 项目）
+	./deploy/scripts/backup.sh
+
+prod-restore:             ## 从备份恢复（需 BACKUP=./backups/<ts>，例：make prod-restore BACKUP=./backups/20260526-180000）
+	./deploy/scripts/restore.sh $(BACKUP)
