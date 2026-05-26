@@ -38,7 +38,7 @@ class SessionOut {
   final String userId;
   final String title;
 
-  /// `"qa"` | `"raw_lookup"`，详见 `backend/app/schemas/sessions.py::Mode`。
+  /// 恒为 `"qa"`（raw_lookup 已下线），详见 `backend/app/schemas/sessions.py::Mode`。
   final String modeDefault;
 
   /// `"active"` | `"paused"` | `"archived_branch"`。

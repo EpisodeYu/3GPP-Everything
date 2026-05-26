@@ -140,7 +140,7 @@ class Session(Base):
     id: UUID = pk
     user_id: UUID = FK(users.id)
     title: str
-    mode_default: Literal["qa","raw_lookup"] = "qa"
+    mode_default: Literal["qa"] = "qa"   # raw_lookup 已下线；列仍是 str(16)，历史 'raw_lookup' 行读出时由 schema 归一为 'qa'（不迁移）
     status: Literal["active","paused","archived_branch"] = "active"   # checkpoint 用
     forked_from_session_id: UUID | None = FK(sessions.id)              # 如从其他会话 fork 出
     forked_from_checkpoint_id: str | None                              # LangGraph checkpoint id
@@ -155,7 +155,7 @@ class Message(Base):
     content: text                              # M4.7 Q9：仅 final event 后一次性写入；中断 → content="" + status="failed"
     status: Literal["ok","failed","cancelled"] = "ok"   # M4.7 新增（需独立 alembic revision），默认 "ok"
     user_language: Literal["zh","en"] | None
-    mode: Literal["qa","raw_lookup"] | None
+    mode: Literal["qa"] | None   # raw_lookup 已下线；新消息恒为 "qa"
     explicit_tools: ARRAY(text) = []
     # assistant 端
     citations: relationship -> MessageCitation

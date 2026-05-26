@@ -18,14 +18,16 @@ from typing import Annotated, Any, Literal
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.retrieval.models import RetrievedChunk as _RetrievalChunk
 
 ChunkType = Literal["text", "table", "formula", "figure"]
 QueryClass = Literal["definition", "procedure", "tool", "unknown"]
 Complexity = Literal["simple", "complex"]
-Mode = Literal["qa", "raw_lookup"]
+# raw_lookup 模式已下线，仅保留 qa。老 session/checkpoint 里残留的 'raw_lookup'
+# 由 AgentState.mode 的 before-validator 归一成 'qa'。
+Mode = Literal["qa"]
 SelfRagVerdict = Literal["accept", "retry", "insufficient", "unknown"]
 
 
@@ -111,3 +113,9 @@ class AgentState(BaseModel):
     cancelled: bool = False
     paused: bool = False
     run_id: str | None = None
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def _coerce_legacy_mode(cls, v: object) -> str:
+        # 老 session/checkpoint 残留的 'raw_lookup' 等非 qa 值归一为 'qa'。
+        return "qa"

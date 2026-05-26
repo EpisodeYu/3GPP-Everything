@@ -154,7 +154,7 @@ final router = GoRouter(
 ```mermaid
 graph TB
     subgraph ChatPage
-        H["AppBar: 会话标题 + 模式切换 (QA/RawLookup) + 工具开关 (web/glossary/...)"]
+        H["AppBar: 会话标题 + 工具开关 (web/glossary/...)"]
         M["MessageList (ListView)"]
         S["NodeStatusStrip (进行中时显示)"]
         P["ChunksPreviewPanel (可折叠抽屉)"]
@@ -233,10 +233,11 @@ class ChatController extends AsyncNotifier<ChatRunState> {
 ### 5.4 消息气泡 + 引用 chip
 
 每个 assistant 消息：
-- markdown 渲染（`flutter_markdown_plus`），自定义 `InlineSyntax` 把 `[<spec_id> §<section_path> ¶<rank>]`（如 `[23.501 §5.6.1 ¶3]`）解析为可点击 chip；正则严格匹配 `\[\d+\.\d+ §[\d\.]+ ¶\d+\]`，不与 markdown link `[text](url)` 冲突
-- chip 点击 → 弹底部 sheet 显示 chunk 上下文（拉 `GET /chunks/{chunk_id}`，content 来自 Qdrant payload + raw_extra fallback，详见 §6） + "跳到完整章节" 按钮
+- markdown 渲染（`flutter_markdown_plus`），自定义 `InlineSyntax` 把 `[<spec_id> §<section_path>( ¶<rank>)?]`（如 `[23.501 §5.6.1 ¶3]` 或 `[38.213 §8.1]`）解析为可点击 chip；正则 `\[\d+\.\d+ §[\d\.]+( ¶\d+)?\]`，`¶rank` 整段**可选**（generate 节点的 LLM 实际只稳定输出 `[spec §section]`，强制三段会让引用退化成普通文本），不与 markdown link `[text](url)` 冲突
+- chip **单击 → 直跳阅读器** `/reader/{spec}/{section}`（有 chunk_id 时带 `#chunk-{chunk_id}` 锚点）；不再弹底部 sheet（决策点 B3）
+- chip **hover → Tooltip 预览 chunk 上下文**（拉 `GET /chunks/{chunk_id}`，缺 chunk_id 时只显示 "spec §section（无 chunk 上下文）"；`waitDuration=300ms` 充当 debounce）
 - 长按 chip：复制引用文本
-- chip 与 `message.citations[rank]` 按 `rank` 索引一一对应；chunk_id 是 Qdrant point id 字符串（`MessageCitationOut.chunk_id`）
+- chip 与 `message.citations[rank]` 按 `rank` 索引一一对应；chunk_id 是 Qdrant point id 字符串（`MessageCitationOut.chunk_id`）。`¶rank` 缺省时 rank 取哨兵 `0`，lookup 不到对应 chunk 即降级为只跳 spec+section
 
 代码块、公式（`$$ ... $$` → flutter_math_fork）、表格（markdown 表 → 自定义 Table widget）专门渲染。
 
@@ -244,7 +245,7 @@ class ChatController extends AsyncNotifier<ChatRunState> {
 
 - 多行输入；Enter 发送，Shift+Enter 换行
 - 显式工具下拉勾选：`web_search`、`glossary`、`toc`、`params`，未勾选 Agent 不会调
-- 模式 toggle：QA / RawLookup
+- 模式：仅 QA（RawLookup 已下线，不再有模式 toggle）
 - 跑起来后按钮变 "暂停 / 取消" 双按钮：
   - **取消**：终止当前 run，保留已生成内容；下次重问从头跑（语义同今 MVP）
   - **暂停**：停在下一节点边界并保留 checkpoint；UI 在该消息位置显示 "已暂停 · 点击恢复" 横幅，点击触发 `POST /sessions/{sid}/resume`，SSE 接续后续节点事件

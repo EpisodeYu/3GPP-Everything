@@ -143,7 +143,7 @@ async def resume_session(
             session_id=sid,
             role="assistant",
             content="",
-            mode=session.mode_default,
+            mode="qa",  # raw_lookup 已下线，新消息恒为 qa
             status="ok",
         )
         db.add(stub)
@@ -228,7 +228,7 @@ async def fork_session(
     new_session = DBSession(
         user_id=user.id,
         title=body.title or f"{session.title} (fork)",
-        mode_default=session.mode_default,
+        mode_default="qa",  # raw_lookup 已下线，fork 出的会话恒为 qa
         forked_from_session_id=sid,
         forked_from_checkpoint_id=body.checkpoint_id,
         status="active",

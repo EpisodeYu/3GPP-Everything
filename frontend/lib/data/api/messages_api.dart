@@ -19,7 +19,7 @@ class SendMessageBody {
 
   final String content;
 
-  /// `'qa'` | `'raw_lookup'`；null → 用会话 default。
+  /// 恒为 `'qa'` 或 null（raw_lookup 已下线）；null → 后端按会话 default 解析为 qa。
   final String? mode;
 
   /// 显式工具勾选；空 → Agent 不调任何工具。

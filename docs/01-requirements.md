@@ -190,7 +190,7 @@ LangGraph 编排，节点包含：
   - **用户显式 Agent 模式选择**：UI 上让用户主动选 `fast / deep / react / multi-agent`，覆盖系统自动路由
   - **ReAct 范式**：把 §3.3 现有的 self-RAG retry 升级成显式的 reasoning + action loop（LLM 自主决定是否继续检索、调用哪个工具、何时停止），与"复杂查询完整链路"形成两套独立 backbone
   - **专家团队多 Agent**：Supervisor + 多 worker（按系列/层面切分，如核心网 / 无线接入 / 安全），并行检索后讨论汇总
-  - 不进入本期原因：(a) 与现有 self-RAG retry 语义重叠，效果增量需要先把基线跑起来才能验证；(b) 单查询成本翻 3-10 倍，与 §4.1 成本目标冲突；(c) 评测要按模式分桶重做，金标准集口径变化大；(d) 多 Agent 并行事件流需要重写前端可视化。MVP 保留 `mode: qa | raw_lookup` + `explicit_tools` 两个轻量级显式开关即可
+  - 不进入本期原因：(a) 与现有 self-RAG retry 语义重叠，效果增量需要先把基线跑起来才能验证；(b) 单查询成本翻 3-10 倍，与 §4.1 成本目标冲突；(c) 评测要按模式分桶重做，金标准集口径变化大；(d) 多 Agent 并行事件流需要重写前端可视化。MVP 保留 `explicit_tools` 轻量级显式开关即可（`mode: raw_lookup` 已于 2026-05-26 下线，仅保留 `qa`，协议章节引用改为可点击超链接）
 
 ## 6. 验收标准（高阶）
 

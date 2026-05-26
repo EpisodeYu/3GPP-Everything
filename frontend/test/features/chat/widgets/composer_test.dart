@@ -83,20 +83,6 @@ void main() {
     expect(cancelled, 1);
   });
 
-  testWidgets('mode toggle: 点 RawLookup 触发 onModeChanged', (tester) async {
-    String? lastMode;
-    await tester.pumpWidget(_wrap(Composer(
-      onSend: (_) {},
-      onCancel: () {},
-      isRunning: false,
-      mode: 'qa',
-      onModeChanged: (m) => lastMode = m,
-    )));
-    await tester.tap(find.byKey(const Key('composer_mode_raw')));
-    await tester.pump();
-    expect(lastMode, 'raw_lookup');
-  });
-
   // ---------- M5.4 checkpoint UX ----------
 
   testWidgets('isRunning=true + onPause 提供：暂停 + 取消 双按钮同时存在', (tester) async {

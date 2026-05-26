@@ -129,7 +129,6 @@ flowchart LR
 ```mermaid
 stateDiagram-v2
     [*] --> classify
-    classify --> raw_lookup: mode=raw_lookup
     classify --> retrieve: complexity=simple
     classify --> rewrite: complexity=complex
     classify --> tool_dispatch: class=tool
@@ -142,16 +141,14 @@ stateDiagram-v2
     generate --> self_rag
     self_rag --> retrieve: verdict=retry AND retry_count<2
     self_rag --> [*]: verdict=accept/insufficient
-    raw_lookup --> retrieve_only --> rerank_lookup --> [*]
 ```
 
-**三路分支与性能预算**：
+**分支与性能预算**（仅 qa 模式；raw_lookup 已下线）：
 
 | 路径 | 触发 | 节点序列 | P95 |
 |---|---|---|---|
 | **simple fast path** | 单一术语 / 字段定义 | classify(含 rewrite) → retrieve → rerank → generate → 轻量 grounding check | < 15s |
 | **complex** | 多 entity / 多文档证据 | rewrite → hyde → multi_query → retrieve/rerank → generate → self-RAG（最多 retry 2 次强制收敛） | < 60s |
-| **raw_lookup** | 前端"纯检索"模式 | retrieve + rerank，**不调生成 LLM** | < 5s |
 | **tool 路径** | `query_class==tool` 且 `explicit_tools` 非空 | classify → tool_dispatch → generate（模板化渲染）→ self_rag | 视工具 |
 
 **核心检索逻辑**：

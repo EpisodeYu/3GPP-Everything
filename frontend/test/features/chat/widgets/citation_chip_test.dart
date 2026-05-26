@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:tgpp/data/api/docs_api.dart';
 import 'package:tgpp/data/api/messages_api.dart';
@@ -22,6 +23,30 @@ Widget _wrap({
       ...overrides,
     ],
     child: localizedMaterialApp(home: Scaffold(body: child)),
+  );
+}
+
+/// router 版：`/reader/:spec/:section` 落到一个能读出 path 参数的桩页，
+/// 用来断言单击 chip 跳转（B3）。
+Widget _routerApp({required Widget home, FakeDocsApi? docs}) {
+  final router = GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(path: '/', builder: (_, _) => Scaffold(body: home)),
+      GoRoute(
+        path: '/reader/:spec/:section',
+        builder: (ctx, st) => Scaffold(
+          body: Text(
+            'READER ${st.pathParameters['spec']} ${st.pathParameters['section']}',
+            key: const Key('reader_stub'),
+          ),
+        ),
+      ),
+    ],
+  );
+  return ProviderScope(
+    overrides: [if (docs != null) docsApiProvider.overrideWithValue(docs)],
+    child: localizedMaterialAppRouter(routerConfig: router),
   );
 }
 
@@ -58,6 +83,27 @@ void main() {
         (n) => n is md.Element && n.tag == 'citation',
       ) as md.Element;
       expect(el.attributes['section'], '5');
+    });
+
+    test('无 ¶rank 也匹配（后端实际输出 [38.213 §8.1]），rank 退化为 0', () {
+      final doc = md.Document(inlineSyntaxes: [CitationInlineSyntax()]);
+      final out = doc.parseInline('PRACH 见 [38.213 §8.1] 节。');
+      final el = out.firstWhere(
+        (n) => n is md.Element && n.tag == 'citation',
+      ) as md.Element;
+      expect(el.attributes['spec'], '38.213');
+      expect(el.attributes['section'], '8.1');
+      expect(el.attributes['rank'], '0');
+      expect(el.attributes['raw'], '[38.213 §8.1]');
+    });
+
+    test('有 ¶rank 仍照常抽出三个 group', () {
+      final doc = md.Document(inlineSyntaxes: [CitationInlineSyntax()]);
+      final out = doc.parseInline('[38.213 §8.1 ¶3]');
+      final el = out.firstWhere(
+        (n) => n is md.Element && n.tag == 'citation',
+      ) as md.Element;
+      expect(el.attributes['rank'], '3');
     });
   });
 
@@ -168,18 +214,9 @@ void main() {
       expect(find.byKey(const Key('citation_chip_23.501_5.6.1_0')), findsOneWidget);
     });
 
-    testWidgets('点击 chip 弹出 bottom sheet + 拉 chunk 内容', (tester) async {
-      final docs = FakeDocsApi(
-        chunkMap: {
-          'c-bbb': buildChunk(
-            chunkId: 'c-bbb',
-            content: 'chunk full text body',
-          ),
-        },
-      );
-      await tester.pumpWidget(_wrap(
-        docs: docs,
-        child: const MessageBubble(
+    testWidgets('单击 chip 直跳 reader（B3，不再弹 sheet）', (tester) async {
+      await tester.pumpWidget(_routerApp(
+        home: const MessageBubble(
           role: 'assistant',
           content: '看 [23.501 §5.6.1 ¶1]。',
           citations: [
@@ -195,24 +232,24 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('citation_chip_23.501_5.6.1_1')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('citation_sheet_title')), findsOneWidget);
-      expect(find.text('chunk full text body'), findsOneWidget);
-      expect(find.byKey(const Key('citation_sheet_jump')), findsOneWidget);
+      expect(find.byKey(const Key('reader_stub')), findsOneWidget);
+      expect(find.text('READER 23.501 5.6.1'), findsOneWidget);
     });
 
-    testWidgets('chunkId 缺失（citations 没匹配 rank）→ sheet 提示无 chunk', (tester) async {
-      await tester.pumpWidget(_wrap(
-        docs: FakeDocsApi(),
-        child: const MessageBubble(
+    testWidgets('无 ¶rank 的裸引用也渲染 chip 且单击可跳（rank 退化为 0）', (tester) async {
+      await tester.pumpWidget(_routerApp(
+        home: const MessageBubble(
           role: 'assistant',
-          content: '裸引用：[23.501 §5.6.1 ¶9]。',
+          content: 'PRACH 见 [38.213 §8.1]。',
           citations: [],
         ),
       ));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('citation_chip_23.501_5.6.1_9')));
+      final chip = find.byKey(const Key('citation_chip_38.213_8.1_0'));
+      expect(chip, findsOneWidget);
+      await tester.tap(chip);
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('citation_sheet_no_chunk')), findsOneWidget);
+      expect(find.text('READER 38.213 8.1'), findsOneWidget);
     });
   });
 }

@@ -1,13 +1,12 @@
 """LangGraph 编译入口。
 
 M4.2：`build_simple_graph(deps)` — simple fast path 五节点串成一条线。
-M4.3：`build_graph(deps)` — 完整链路：
-  - mode = raw_lookup → retrieve → rerank → END（不调 LLM 生成）
-  - mode = qa, query_class = tool → classify → tool_dispatch → generate → self_rag → END
+M4.3：`build_graph(deps)` — 完整链路（仅 qa 模式；raw_lookup 已下线）：
+  - query_class = tool → classify → tool_dispatch → generate → self_rag → END
         （`tool_dispatch` 按 `state.explicit_tools` 跑 glossary/toc/params/web_search；
         非 tool 类查询不走这条边，工具节点不会被触发——M4.4 验收第 3 条）
-  - mode = qa, complexity = simple → classify → retrieve → rerank → generate → self_rag → END
-  - mode = qa, complexity = complex → classify → rewrite → hyde → multi_query →
+  - complexity = simple → classify → retrieve → rerank → generate → self_rag → END
+  - complexity = complex → classify → rewrite → hyde → multi_query →
         retrieve → rerank → generate → self_rag → (retry → retrieve | END)
 
 self_rag retry loop：
@@ -83,7 +82,7 @@ def build_graph(
     *,
     checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> CompiledStateGraph:
-    """M4.3 完整链路：raw_lookup / simple / complex 三路 + self-RAG retry。
+    """M4.3 完整链路：simple / complex 两路 + self-RAG retry（raw_lookup 已下线）。
 
     M4.5：`checkpointer` 可选；生产传入 `AsyncPostgresSaver`（thread_id=session_id），
     测试传 `InMemorySaver` 即可。不传 → 无持久化，单次 invoke 跑完不留 checkpoint。
@@ -100,15 +99,8 @@ def build_graph(
     builder.add_node("generate", partial(generate_node, deps=deps))
     builder.add_node("self_rag", partial(self_rag_node, deps=deps, allow_retry=True))
 
-    # START → 按 mode 分流
-    builder.add_conditional_edges(
-        START,
-        _entry_router,
-        {
-            "raw_lookup": "retrieve",
-            "qa": "classify",
-        },
-    )
+    # START → classify（raw_lookup 已下线，不再按 mode 分流）
+    builder.add_edge(START, "classify")
 
     # classify → 按 query_class / complexity 分流
     #   query_class=tool → tool_dispatch → generate（不走 retrieve；§3 状态图）
@@ -132,18 +124,9 @@ def build_graph(
     builder.add_edge("hyde", "multi_query")
     builder.add_edge("multi_query", "retrieve")
 
-    # retrieve → rerank
+    # retrieve → rerank → generate（raw_lookup 下线后 rerank 一律进生成）
     builder.add_edge("retrieve", "rerank")
-
-    # rerank → 按 mode 决定是否生成
-    builder.add_conditional_edges(
-        "rerank",
-        _after_rerank,
-        {
-            "generate": "generate",
-            "end": END,
-        },
-    )
+    builder.add_edge("rerank", "generate")
 
     # generate → self_rag → 按 verdict / retry_count 决定回 retrieve 还是 END
     builder.add_edge("generate", "self_rag")
@@ -162,18 +145,10 @@ def build_graph(
 # ---------- 路由判定（纯函数，便于单测） ----------
 
 
-def _entry_router(state: AgentState) -> Literal["raw_lookup", "qa"]:
-    return "raw_lookup" if state.mode == "raw_lookup" else "qa"
-
-
 def _after_classify(state: AgentState) -> Literal["tool", "complex", "simple"]:
     if state.query_class == "tool":
         return "tool"
     return "complex" if state.complexity == "complex" else "simple"
-
-
-def _after_rerank(state: AgentState) -> Literal["generate", "end"]:
-    return "end" if state.mode == "raw_lookup" else "generate"
 
 
 def _after_self_rag(state: AgentState) -> Literal["retry", "end"]:

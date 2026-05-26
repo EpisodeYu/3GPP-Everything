@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// 聊天输入框 + 发送/暂停/取消/恢复 按钮 + mode toggle。
+/// 聊天输入框 + 发送/暂停/取消/恢复 按钮。
 ///
 /// 行为锚点：`docs/03-development/05-frontend.md §5.5`：
 /// - 多行输入；Enter 发送，Shift+Enter 换行
@@ -17,8 +17,6 @@ class Composer extends StatefulWidget {
     this.isPaused = false,
     this.onPause,
     this.onResume,
-    this.mode = 'qa',
-    this.onModeChanged,
   });
 
   /// 用户按 Enter / 点 Send 时回调，文本已 trim。
@@ -39,12 +37,6 @@ class Composer extends StatefulWidget {
   /// 点恢复按钮（paused 中）。null → paused 状态下不显示恢复按钮。
   final VoidCallback? onResume;
 
-  /// `'qa'` | `'raw_lookup'`。
-  final String mode;
-
-  /// 用户切 mode（QA / RawLookup）时回调。null → 不展示 toggle。
-  final ValueChanged<String>? onModeChanged;
-
   @override
   State<Composer> createState() => _ComposerState();
 }
@@ -57,7 +49,11 @@ class _ComposerState extends State<Composer> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController();
-    _focus = FocusNode();
+    // onKeyEvent 直接挂在 FocusNode 上，避免外层再包一层 `Focus` widget。
+    // 嵌套 Focus + 内层 TextField 的 focusNode 在 Flutter Web 偶发 hidden
+    // <textarea> attach/detach 竞态（现象：焦点被抢后再点输入框，光标闪烁但
+    // 按键无效）；把按键拦截下沉到本节点，焦点链路单一。
+    _focus = FocusNode(onKeyEvent: _onKey);
   }
 
   @override
@@ -101,46 +97,22 @@ class _ComposerState extends State<Composer> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.onModeChanged != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  ChoiceChip(
-                    key: const Key('composer_mode_qa'),
-                    label: const Text('QA'),
-                    selected: widget.mode == 'qa',
-                    onSelected: (_) => widget.onModeChanged?.call('qa'),
-                  ),
-                  ChoiceChip(
-                    key: const Key('composer_mode_raw'),
-                    label: const Text('RawLookup'),
-                    selected: widget.mode == 'raw_lookup',
-                    onSelected: (_) => widget.onModeChanged?.call('raw_lookup'),
-                  ),
-                ],
-              ),
-            ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: Focus(
-                  onKeyEvent: _onKey,
-                  child: TextField(
-                    key: const Key('composer_input'),
-                    controller: _ctrl,
-                    focusNode: _focus,
-                    minLines: 1,
-                    maxLines: 6,
-                    enabled: !widget.isRunning && !widget.isPaused,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: hint,
-                      filled: true,
-                      fillColor: theme.colorScheme.surfaceContainer,
-                    ),
+                child: TextField(
+                  key: const Key('composer_input'),
+                  controller: _ctrl,
+                  focusNode: _focus,
+                  minLines: 1,
+                  maxLines: 6,
+                  enabled: !widget.isRunning && !widget.isPaused,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceContainer,
                   ),
                 ),
               ),

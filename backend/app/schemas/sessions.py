@@ -6,9 +6,11 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-Mode = Literal["qa", "raw_lookup"]
+# raw_lookup 模式已下线，仅保留 qa。dev DB 历史行可能仍是 'raw_lookup'，读出时
+# 由 SessionOut.mode_default 的 before-validator 归一成 'qa'，不做 schema migration。
+Mode = Literal["qa"]
 SessionStatus = Literal["active", "paused", "archived_branch"]
 
 
@@ -33,6 +35,12 @@ class SessionOut(BaseModel):
     last_message_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("mode_default", mode="before")
+    @classmethod
+    def _coerce_legacy_mode(cls, v: object) -> str:
+        # 历史 'raw_lookup' 等非 qa 值归一为 'qa'，避免老会话列表读取时 ValidationError。
+        return "qa"
 
 
 class SessionListResponse(BaseModel):

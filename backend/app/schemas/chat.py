@@ -9,7 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Mode = Literal["qa", "raw_lookup"]
+# raw_lookup 模式已下线，仅保留 qa。字段保留以兼容历史数据/接口形状。
+Mode = Literal["qa"]
 
 
 class SendMessageBody(BaseModel):

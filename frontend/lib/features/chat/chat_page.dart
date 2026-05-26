@@ -140,14 +140,7 @@ class _ChatView extends ConsumerStatefulWidget {
 }
 
 class _ChatViewState extends ConsumerState<_ChatView> {
-  late String _mode;
   final ScrollController _scroll = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _mode = widget.session.modeDefault;
-  }
 
   @override
   void dispose() {
@@ -444,17 +437,14 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           _ArchivedBanner(session: session)
         else
           Composer(
-            onSend: (text) => ref
-                .read(chatControllerProvider(sid).notifier)
-                .send(text, mode: _mode),
+            onSend: (text) =>
+                ref.read(chatControllerProvider(sid).notifier).send(text),
             onCancel: () =>
                 ref.read(chatControllerProvider(sid).notifier).cancel(),
             onPause: _onPause,
             onResume: _onResume,
             isRunning: isRunning,
             isPaused: showPaused,
-            mode: _mode,
-            onModeChanged: (m) => setState(() => _mode = m),
           ),
       ],
     );

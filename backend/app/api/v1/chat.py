@@ -179,7 +179,8 @@ async def send_message(
         raise ConflictError("session_archived", code="session_archived")
 
     run_id = uuid.uuid4().hex
-    mode_eff = body.mode or session.mode_default
+    # raw_lookup 已下线，mode 恒为 qa（body.mode/session.mode_default 仅可能是 qa 或历史脏值）
+    mode_eff = "qa"
 
     # 2. 落 user message + assistant stub
     user_msg = Message(

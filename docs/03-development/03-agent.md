@@ -54,7 +54,7 @@ class AgentState(BaseModel):
     # 输入
     user_input: str
     user_language: Literal["zh","en"] = "en"
-    mode: Literal["qa","raw_lookup"] = "qa"          # 来自前端切换
+    mode: Literal["qa"] = "qa"                        # raw_lookup 已下线；保留字段，恒为 qa
     explicit_tools: list[str] = []                   # 用户显式触发的工具，如 ["web_search"]
 
     # 多轮上下文
@@ -94,7 +94,6 @@ class AgentState(BaseModel):
 ```mermaid
 stateDiagram-v2
     [*] --> classify
-    classify --> raw_lookup: mode=raw_lookup
     classify --> fast_rag: complexity=simple AND class!=tool
     classify --> rewrite: complexity=complex
     classify --> tools: class=tool
@@ -118,10 +117,9 @@ stateDiagram-v2
     self_rag --> insufficient: verdict=insufficient OR retry_count>=2
     self_rag --> [*]: verdict=accept
     insufficient --> [*]
-    raw_lookup --> retrieve_only
-    retrieve_only --> rerank_lookup
-    rerank_lookup --> [*]
 ```
+
+> raw_lookup 模式已下线（2026-05-26）：曾有 `classify --> raw_lookup --> retrieve_only --> rerank_lookup --> [*]` 一路（纯检索、不调生成 LLM），现仅保留 qa。
 
 ## 4. 节点实现
 
@@ -270,11 +268,11 @@ class SelfRagOutput(BaseModel):
 - IE / 字段查询（"X 字段在哪些 spec 出现过"）
 - 走 BM25 全文检索（精确字段名 + 限定 `chunk_type` 为 text/table）
 
-### 4.10 `raw_lookup_node`
+### 4.10 ~~`raw_lookup_node`~~（已下线）
 
-- mode = raw_lookup 时走
-- 直接 retrieve → rerank → 返回 top-5 chunks，不调 LLM 生成自然语言答案
-- 输出格式：list of chunks（前端按"检索结果列表"渲染）
+raw_lookup 模式于 2026-05-26 下线（产品决策：只保留 QA + 在回答里把协议章节做成可跳转超链接）。
+原行为：mode = raw_lookup 时 retrieve → rerank → 返回 top chunks、不调生成 LLM。
+现 graph 不再按 mode 分流，START 直接进 classify，rerank 一律进 generate。
 
 ## 5. Prompt 库管理
 
@@ -370,7 +368,6 @@ async for event in graph.astream_events(..., config={"callbacks":[handler]}):
 - **集成测**：从 user_input 直跑到 final answer，校验：
   - simple/complex 各 5 题，验证路由分支正确
   - tool 触发：用例 `"搜一下 38.331 最新版本进度"` → web_search 被调用
-  - raw_lookup 模式不调 LLM 生成
 - **eval 测**（M3+）：金标准集 + Ragas
 
 ## 10. 性能预算
@@ -388,9 +385,8 @@ async for event in graph.astream_events(..., config={"callbacks":[handler]}):
 
 **simple fast path**：classify（含 rewrite）+ retrieve + rerank + generate + 轻量 grounding check，目标 P95 < 15s。
 **complex 链路**：rewrite + hyde + multi_query + retrieve/rerank + generate + self-RAG（最多 1 次 retry），目标 P95 < 60s。
-**raw_lookup**：retrieve + rerank，不调用生成 LLM，目标 P95 < 5s。
 
-与需求 §4.1 一致。
+与需求 §4.1 一致（raw_lookup 模式已下线）。
 
 ## 11. 中途取消机制
 
