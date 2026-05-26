@@ -349,9 +349,16 @@ data: {"delta":"Session "}
 event: final
 data: {"message_id":"...","answer":"...","citations":[...],"confidence":0.87}
 
+event: title
+data: {"session_id":"...","title":"PDU Session 建立流程"}
+
 event: end
 data: {}
 ```
+
+> `title` 仅在「首轮 + 空标题会话 + 本轮成功」时出现（在 `final` 之后、`end` 之前），
+> 用 LIGHT 模型从用户首个问题生成短标题并回写 `session.title`，让前端 sidebar 即时更新。
+> 详见 `03-agent.md §7` 首轮自动标题说明。
 
 错误：
 

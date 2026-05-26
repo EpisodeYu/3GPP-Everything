@@ -7,6 +7,7 @@ import '../../data/api/checkpoint_api.dart';
 import '../../data/api/messages_api.dart';
 import '../../domain/auth/auth_controller.dart';
 import '../../domain/auth/auth_state.dart';
+import '../../domain/session/sessions_controller.dart';
 
 /// 一轮对话流的当前 run 状态。
 ///
@@ -423,6 +424,12 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
         break;
       case ErrorEvent():
         _markError('${evt.code}: ${evt.message}');
+        break;
+      case TitleEvent():
+        // 首轮自动标题：仅刷新 sessions 列表（sidebar / chat header 标题），不动本 run 状态。
+        ref
+            .read(sessionsControllerProvider.notifier)
+            .applyTitle(evt.sessionId, evt.title);
         break;
       case EndEvent():
         // 收尾事件；状态机已经在 final/cancelled/error 上落终态了，end 仅用于把已完成的 turn

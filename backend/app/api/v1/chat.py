@@ -34,6 +34,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.agent.state import AgentState
 from app.agent.utils.history_compactor import RECENT_N, HistoryMessage, compact_history
 from app.core.auth import get_current_user
+from app.core.config import Settings, get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.ratelimit import rate_limit
 from app.db.base import get_db
@@ -69,6 +70,20 @@ def _get_agent_graph(request: Request) -> Any:
     from app.agent import tgpp_agent  # lazy：测试环境不连依赖也能 import 本模块
 
     return tgpp_agent
+
+
+def _get_title_client(request: Request) -> Any:
+    """首轮自动标题用的 LLM client。
+
+    测试可注入 `app.state.title_client`；prod 取 lifespan 构造的 agent deps 上的
+    `LiteLLMClient`（`app.state._agent_deps.llm`，见 main.lifespan）。两者都缺
+    （dev fallback / 早期环境）→ None，caller 跳过自动标题。
+    """
+    override = getattr(request.app.state, "title_client", None)
+    if override is not None:
+        return override
+    deps = getattr(request.app.state, "_agent_deps", None)
+    return getattr(deps, "llm", None)
 
 
 def _get_cancel_registry(request: Request) -> dict[str, asyncio.Event]:
@@ -161,6 +176,7 @@ async def send_message(
     request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> EventSourceResponse:
     # M7.4：把 user.id 装进 ContextVar，下游 LiteLLMClient / web_search_tool 的
     # usage hook 自动读到；ContextVar 在 asyncio Task 内部传递，不污染其他请求。
@@ -243,6 +259,9 @@ async def send_message(
     registry = _get_cancel_registry(request)
     registry[run_id] = cancel_event
 
+    # 首轮自动标题：仅当会话标题仍为空（新建 / 自动标题失败过）才在本轮成功后生成。
+    autotitle_question = body.content if not (session.title or "").strip() else None
+
     stream = _build_sse_stream(
         graph=graph,
         sid=sid,
@@ -252,6 +271,9 @@ async def send_message(
         db=db,
         cancel_event=cancel_event,
         cancel_registry=registry,
+        autotitle_question=autotitle_question,
+        title_client=_get_title_client(request),
+        title_model=settings.LLM_LIGHT_MODEL,
     )
     return EventSourceResponse(
         stream,
@@ -270,6 +292,9 @@ def _build_sse_stream(
     db: AsyncSession,
     cancel_event: asyncio.Event | None = None,
     cancel_registry: dict[str, asyncio.Event] | None = None,
+    autotitle_question: str | None = None,
+    title_client: Any = None,
+    title_model: str | None = None,
 ) -> AsyncIterator[dict[str, str]] | Any:
     """构造 SSE 事件 generator；send_message 与 checkpoint resume 共用。
 
@@ -279,6 +304,10 @@ def _build_sse_stream(
     `cancel_event`：可选，外部 DELETE /runs/{rid} set 后 race loop 会立刻 cancel
     正在 await 的 astream_events 迭代器，让 LLM streaming 中途也能停。None →
     退化为原 best-effort 路径（仅靠 aupdate_state 的 cancelled flag）。
+
+    `autotitle_question` + `title_client`：仅 send_message 首轮（空标题会话）传；
+    本轮成功后用 LIGHT 模型生成标题，回写 session.title 并在 `final` 后、`end`
+    前 emit `title` 事件。resume 路径不传 → 不触发。
     """
 
     async def stream() -> AsyncIterator[dict[str, str]]:
@@ -419,6 +448,26 @@ def _build_sse_stream(
                     "confidence": confidence,
                 },
             )
+
+            # 首轮自动标题：空标题会话且本轮成功有答案 → LIGHT 模型起标题并通知前端。
+            # 标题是锦上添花，任何失败都 swallow，绝不影响 SSE 流收尾。
+            if answer and autotitle_question and title_client is not None:
+                try:
+                    from app.services.session_title import generate_session_title
+
+                    new_title = await generate_session_title(
+                        question=autotitle_question,
+                        chat_client=title_client,
+                        model=title_model or "",
+                    )
+                    if new_title:
+                        await db.execute(
+                            update(DBSession).where(DBSession.id == sid).values(title=new_title)
+                        )
+                        await db.commit()
+                        yield _sse("title", {"session_id": str(sid), "title": new_title})
+                except Exception as exc:
+                    log.warning("autotitle failed: run_id=%s err=%s", run_id, exc)
         else:
             # 没拿到 final_state 也没 error：保守标 failed
             await db.execute(

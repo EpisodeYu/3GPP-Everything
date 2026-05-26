@@ -122,5 +122,27 @@ void main() {
         expect(c.sendTimeout!.inHours, greaterThanOrEqualTo(1));
       },
     );
+
+    test('解析 title 事件 → TitleEvent（首轮自动标题）', () async {
+      const sseBody =
+          'event: final\ndata: {"message_id":"m","answer":"a","citations":[],"confidence":0.5}\n\n'
+          'event: title\ndata: {"session_id":"sid-1","title":"AMF 概述"}\n\n'
+          'event: end\ndata: {}\n\n';
+      final api = MessagesApi(_makeDio(_SseScriptedAdapter(sseBody)));
+
+      final events = <ChatEvent>[];
+      await for (final e in api.sendMessage('sid-1', SendMessageBody(content: 'hi'))) {
+        events.add(e);
+      }
+
+      final title = events.whereType<TitleEvent>().single;
+      expect(title.sessionId, 'sid-1');
+      expect(title.title, 'AMF 概述');
+      // title 在 final 之后、end 之前
+      expect(events.indexWhere((e) => e is FinalEvent),
+          lessThan(events.indexWhere((e) => e is TitleEvent)));
+      expect(events.indexWhere((e) => e is TitleEvent),
+          lessThan(events.indexWhere((e) => e is EndEvent)));
+    });
   });
 }

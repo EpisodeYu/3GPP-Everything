@@ -97,6 +97,12 @@ sealed class ChatEvent {
           code: (data['code'] as String?) ?? 'unknown',
           message: (data['message'] as String?) ?? '',
         );
+      case 'title':
+        // 首轮自动标题（后端在 final 后、end 前推送）；用于即时刷新 sidebar 标题。
+        return TitleEvent(
+          sessionId: (data['session_id'] as String?) ?? '',
+          title: (data['title'] as String?) ?? '',
+        );
       case 'end':
         return const EndEvent();
       default:
@@ -230,6 +236,13 @@ class ErrorEvent extends ChatEvent {
 
 class EndEvent extends ChatEvent {
   const EndEvent();
+}
+
+/// 首轮自动标题事件：后端用 LIGHT 模型给空标题会话起的标题。
+class TitleEvent extends ChatEvent {
+  const TitleEvent({required this.sessionId, required this.title});
+  final String sessionId;
+  final String title;
 }
 
 /// 后端日后加新 event name 时降级处理；UI 忽略它就行。

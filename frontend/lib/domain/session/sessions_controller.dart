@@ -60,6 +60,17 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
     }
   }
 
+  /// 后端首轮自动标题：通过 chat SSE `title` 事件推下来，仅更新本地列表，不再 PATCH
+  /// （后端已落库）。会话不在列表里则 no-op。
+  void applyTitle(String sid, String title) {
+    if (title.trim().isEmpty) return;
+    final prev = state.value;
+    if (prev == null) return;
+    state = AsyncData([
+      for (final s in prev) if (s.id == sid) _withTitle(s, title) else s,
+    ]);
+  }
+
   /// 删除单个会话。失败时回滚。
   Future<void> delete(String sid) async {
     final prev = state.value ?? const <SessionOut>[];
@@ -106,6 +117,20 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
         title: s.title,
         modeDefault: s.modeDefault,
         status: status,
+        forkedFromSessionId: s.forkedFromSessionId,
+        forkedFromCheckpointId: s.forkedFromCheckpointId,
+        lastMessageAt: s.lastMessageAt,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      );
+
+  /// 局部 SessionOut copy（仅改 title 字段）。
+  SessionOut _withTitle(SessionOut s, String title) => SessionOut(
+        id: s.id,
+        userId: s.userId,
+        title: title,
+        modeDefault: s.modeDefault,
+        status: s.status,
         forkedFromSessionId: s.forkedFromSessionId,
         forkedFromCheckpointId: s.forkedFromCheckpointId,
         lastMessageAt: s.lastMessageAt,

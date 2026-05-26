@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -38,10 +39,10 @@ async def _new_user_token(client: Any, username: str = "u1") -> str:
     return str(out["access_token"])
 
 
-async def _create_session(client: Any, token: str) -> str:
+async def _create_session(client: Any, token: str, title: str = "t") -> str:
     r = await client.post(
         "/api/v1/sessions",
-        json={"title": "t", "mode_default": "qa"},
+        json={"title": title, "mode_default": "qa"},
         headers=_auth_headers(token),
     )
     assert r.status_code == 201
@@ -229,6 +230,90 @@ async def test_full_sse_stream_emits_all_event_types_and_persists(
     assert len(cits) == 1
     assert cits[0].chunk_id == "c1"
     assert cits[0].spec_id == "23.501"
+
+
+class _FakeTitleClient:
+    """首轮自动标题用的 fake LLM client：返回固定标题。"""
+
+    def __init__(self, title: str) -> None:
+        self._title = title
+        self.calls: list[Any] = []
+
+    async def chat(self, messages: Any, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(messages)
+        return {"choices": [{"message": {"content": self._title}}]}
+
+
+async def test_autotitle_on_first_turn_emits_title_event_and_persists(
+    app_and_state: Any, db_session: Any
+) -> None:
+    """空标题会话首轮成功 → emit `title`（在 final 后、end 前）+ 回写 session.title。"""
+    import uuid
+
+    from app.db.models import Session as DBSession
+
+    app, _, _ = app_and_state
+    app.state.agent_graph = _CannedGraph(
+        events=_canned_full_run_events(),
+        final_state=_canned_final_state(),
+    )
+    title_cli = _FakeTitleClient("AMF 概述")
+    app.state.title_client = title_cli
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token, title="")  # 空标题 → 触发自动标题
+        r = await client.post(
+            f"/api/v1/sessions/{sid}/messages",
+            json={"content": "what is AMF?"},
+            headers=_auth_headers(token),
+        )
+        assert r.status_code == 200, r.text
+        events = _parse_sse(r.text)
+
+    kinds = [k for k, _ in events]
+    assert "title" in kinds, kinds
+    # title 在 final 之后、end 之前
+    assert kinds.index("final") < kinds.index("title") < kinds.index("end")
+    # title 事件 payload
+    title_data = next(json.loads(d) for k, d in events if k == "title")
+    assert title_data["session_id"] == sid
+    assert title_data["title"] == "AMF 概述"
+    # 用首个问题喂的 LLM
+    assert title_cli.calls and "what is AMF?" in str(title_cli.calls[0])
+
+    # DB 回写
+    res = await db_session.execute(select(DBSession).where(DBSession.id == uuid.UUID(sid)))
+    assert res.scalar_one().title == "AMF 概述"
+
+
+async def test_autotitle_skipped_when_title_already_set(
+    app_and_state: Any, db_session: Any
+) -> None:
+    """非空标题会话不触发自动标题（不 emit title，不调用 LLM）。"""
+    app, _, _ = app_and_state
+    app.state.agent_graph = _CannedGraph(
+        events=_canned_full_run_events(),
+        final_state=_canned_final_state(),
+    )
+    title_cli = _FakeTitleClient("不应被用到")
+    app.state.title_client = title_cli
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token, title="我的会话")
+        r = await client.post(
+            f"/api/v1/sessions/{sid}/messages",
+            json={"content": "what is AMF?"},
+            headers=_auth_headers(token),
+        )
+        assert r.status_code == 200, r.text
+        kinds = [k for k, _ in _parse_sse(r.text)]
+
+    assert "title" not in kinds
+    assert title_cli.calls == []
 
 
 async def test_sse_cancelled_path_writes_cancelled_status(

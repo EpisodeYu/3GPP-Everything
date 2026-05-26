@@ -1,11 +1,30 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tgpp/data/api/auth_api.dart';
 import 'package:tgpp/data/api/checkpoint_api.dart';
 import 'package:tgpp/data/api/sessions_api.dart';
+import 'package:tgpp/domain/auth/auth_controller.dart';
+import 'package:tgpp/domain/auth/auth_state.dart';
 import 'package:tgpp/domain/session/sessions_controller.dart';
 
 import '../../support/fake_checkpoint_api.dart';
 import '../../support/fake_sessions_api.dart';
+
+/// SessionsController.build() 会 `await authControllerProvider.future`；单测里真
+/// AuthController 会去读 flutter_secure_storage（无插件）→ 抛错。注入一个固定已登录
+/// 的 fake，让 build() 走到 `_api.list()`。
+class _FakeAuthController extends AuthController {
+  @override
+  Future<AuthState> build() async => AuthAuthenticated(
+        Me(
+          id: 'u1',
+          username: 'tester',
+          role: 'user',
+          isActive: true,
+          createdAt: DateTime(2024),
+        ),
+      );
+}
 
 ProviderContainer _container(
   FakeSessionsApi api, {
@@ -13,6 +32,7 @@ ProviderContainer _container(
 }) {
   final container = ProviderContainer(
     overrides: [
+      authControllerProvider.overrideWith(_FakeAuthController.new),
       sessionsApiProvider.overrideWithValue(api),
       checkpointApiProvider.overrideWithValue(checkpoint ?? FakeCheckpointApi()),
     ],
@@ -103,6 +123,39 @@ void main() {
       expect(items[0].id, 'a');
       expect(items[0].title, '新标题');
       expect(items[1].id, 'b');
+    });
+
+    test('applyTitle 仅本地更新该 session 的 title，不触发 API', () async {
+      final api = FakeSessionsApi(initial: [
+        buildSession(id: 'a', title: ''),
+        buildSession(id: 'b', title: 'B'),
+      ]);
+      final container = _container(api);
+      await container.read(sessionsControllerProvider.future);
+
+      container
+          .read(sessionsControllerProvider.notifier)
+          .applyTitle('a', 'AMF 概述');
+
+      final items = container.read(sessionsControllerProvider).value!;
+      expect(items[0].id, 'a');
+      expect(items[0].title, 'AMF 概述');
+      expect(items[1].title, 'B');
+      // 仅 build 时调过一次 list，applyTitle 不发请求
+      expect(api.listCalls, 1);
+    });
+
+    test('applyTitle 空标题或未知 sid 时 no-op', () async {
+      final api = FakeSessionsApi(initial: [buildSession(id: 'a', title: '')]);
+      final container = _container(api);
+      await container.read(sessionsControllerProvider.future);
+
+      final notifier = container.read(sessionsControllerProvider.notifier);
+      notifier.applyTitle('a', '   '); // 空白标题
+      notifier.applyTitle('zzz', '别的'); // 未知 sid
+
+      final items = container.read(sessionsControllerProvider).value!;
+      expect(items.single.title, '');
     });
 
     test('fork 成功后：旧 session 状态 → archived_branch，新 session 插到列表头',
