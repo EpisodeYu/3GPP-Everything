@@ -39,14 +39,16 @@
 ### A. 容器模式（已经跑着，最少操作）
 
 ```bash
-# Web 入口
+# Web 入口（远程访问也行：把 localhost 换成 dev box IP）
 open http://localhost:8082/
 
-# 后端 API
+# 后端 API（远程访问：经由 :8082/api/v1 同源反代，无需暴露 :8002）
 curl http://localhost:8002/health
 ```
 
 **适用**：日常验证、Chrome smoke、Android 真机连本机 8002。
+
+> 2026-05-26 修：`tgpp-web` 镜像现在以同源相对路径 `/api/v1` 调 API，由 `frontend/nginx/default.conf` 反代到容器 `api:8002`。所以**从非 dev-box 机器**访问 `http://<dev-box-ip>:8082/` 也能用，不会再出现"加载文档列表失败：DioException [connection timeout]"。改动同步：`frontend/nginx/default.conf` 加 `/api/v1/` location；`Makefile` 加 `WEB_DOCKER_API_BASE_URL ?= /api/v1` 默认。
 
 ### B. 前端 dev 模式（要热重载 / debug）
 

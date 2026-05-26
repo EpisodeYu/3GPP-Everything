@@ -45,8 +45,13 @@ ingest-poc:               ## 单文件解析 POC
 # ----- 前端 (M5+) -----
 # Flutter SDK 路径可覆盖：FLUTTER=/path/to/flutter make web-test
 FLUTTER ?= /data/flutter/bin/flutter
-# dev 默认指向本机后端；生产 nginx 同源反代时把它设成 /api/v1
+# dev 默认指向本机后端；`make web-run` / `make web-build` 等命令用它
 API_BASE_URL ?= http://localhost:8002/api/v1
+# `make web-docker` 跑出来的镜像默认走同源相对路径，由 frontend/nginx/default.conf
+# 把 /api/v1/ 反代到 tgpp-api:8002。原因见 frontend/nginx/default.conf 顶部注释：
+# 浏览器从非 dev-box 机器访问 8082 时，硬嵌 localhost:8002 会触发 connect timeout。
+# 想反向覆盖（如把 web 镜像跑在没反代的环境）：`make web-docker WEB_DOCKER_API_BASE_URL=http://<api-host>:8002/api/v1`
+WEB_DOCKER_API_BASE_URL ?= /api/v1
 
 web-deps:                 ## 前端依赖安装（pub get）
 	cd frontend && $(FLUTTER) pub get
@@ -86,8 +91,8 @@ web-build:                ## 产线 web 构建 → frontend/build/web (供 Docke
 # 不在镜像里装 Flutter SDK，理由见 frontend/Dockerfile 顶部注释。
 LANGFUSE_URL ?= https://cloud.langfuse.com
 
-web-docker:               ## 先 web-build 再 docker build -t tgpp-web frontend/
-	$(MAKE) web-build
+web-docker:               ## 先 web-build 再 docker build -t tgpp-web frontend/（默认同源 /api/v1，nginx 反代到 api:8002）
+	$(MAKE) web-build API_BASE_URL=$(WEB_DOCKER_API_BASE_URL)
 	docker build -t tgpp-web frontend/
 
 # M5.6 docs §14 [auto] 最后一条：把后端 /openapi.json 字段集与 Dart client

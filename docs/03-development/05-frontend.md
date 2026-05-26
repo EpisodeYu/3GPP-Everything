@@ -370,8 +370,8 @@ app_zh.arb        # 中文
 
 | 风险 | 触发 | 应对 |
 |------|------|------|
-| SSE 在 Flutter Web Safari 上不稳 | Safari 跨域 / 长连 | dev 默认 Chrome；CI 加 Safari smoke；生产 nginx 加 `X-Accel-Buffering: no` |
-| dev 期 Chrome 跨域 | Web build 打 `http://localhost:8002` 触发 CORS preflight | 后端 `ALLOWED_ORIGINS` dev 期含 `http://localhost:<flutter-web-port>`；生产同源 nginx 反代不存在 |
+| SSE 在 Flutter Web Safari 上不稳 | Safari 跨域 / 长连 | dev 默认 Chrome；CI 加 Safari smoke；`frontend/nginx/default.conf` 已 `proxy_buffering off` |
+| 远程浏览器访问 dev box :8082 加载 API 超时（10s connect timeout） | M5.6 早期镜像把 `http://localhost:8002/api/v1` 硬嵌进 `main.dart.js`，远程浏览器把 `localhost` 当成自己机器（2026-05-26 修） | `make web-docker` 默认 `WEB_DOCKER_API_BASE_URL=/api/v1`（同源相对路径），`frontend/nginx/default.conf` 把 `/api/v1/` 反代到 `api:8002`；`make web-run`（dev hot reload）仍用 `http://localhost:8002/api/v1`，靠 `ALLOWED_ORIGINS` 兜 CORS |
 | Windows Android 真机连不上 dev API | 真机与开发机不在同一网段或防火墙拦 | 编译期 `--dart-define=API_BASE_URL=http://<dev-ip>:8002/api/v1`；README/Makefile 给示例；或 `adb reverse tcp:8002 tcp:8002` |
 | LaTeX 渲染白屏 | flutter_math_fork 解析失败 | catch + fallback 显示原始 latex |
 | Android SSE 后台被回收 | 应用切后台 | MVP 不解决；提示用户保持前台；二期改 foreground service |
@@ -400,7 +400,7 @@ M5.6 后 M5 全部交付物 (`[auto]`) 完工：
 - `flutter test` 168 全绿（含 4 张 golden）
 - `web-smoke`（mock send→token→cancel）跑通
 - `make web-build` 产线打包 OK
-- `make web-docker` → `tgpp-web` 镜像 docker run smoke OK（`/` + `/admin` 200）
+- `make web-docker` → `tgpp-web` 镜像 docker run smoke OK（`/` + `/admin` 200；`/api/v1/*` 由 nginx 同源反代到 `api:8002`，2026-05-26 补）
 - `make check-openapi-diff` 在 CI（`frontend-ci`）兜底 schema 漂移
 
 剩 `[human]` 体验项（路线已写在 docs §14；不阻塞 M7 推进）：
