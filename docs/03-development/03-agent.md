@@ -149,7 +149,7 @@ class ClassifyOutput(BaseModel):
 > **定义类质量提升路线（2026-05-27 立项）**
 > 背景：实测定义题答得不完整也不全对——根因是 `query_class` 此前只用于 `tool` 判定、定义题被丢进召回最弱的 simple 路径、语义检索把权威定义淹没在测试规范提及里、self_rag 只查 grounding 查不出"检索到外围而非定义"。四条改进：
 > - **A（已做）**：定义题路由到扩展检索链（本节）。
-> - **D（已做，待 eval 调参）**：rerank 阶段 section_title 命中加权（§4.6）。
+> - **D（已做，eval 已验证）**：rerank 阶段 section_title 命中加权（§4.6）。2026-05-27 daily（56 题）实测：definition 类 section_recall **0.875→1.0**（8/8 全中，含此前全崩的 hand-def-002 由 0→1.0），forbidden 串味降低；详见 `docs/04-handoff/2026-05-27-ad-eval-findings.md`。
 > - **B（待做）**：定义题**自动挂 glossary 工具**（不再要求用户显式请求），glossary 查词 + 检索混合，给出策划过的术语定义。
 > - **C（待做）**：`query_class` 驱动**定义专用 generate prompt**——先给权威 ASN.1/条款定义，再补用法/跨规范引用。
 > A+D 上线后应跑 eval 子集确认定义类 faithfulness/completeness 回升再决定是否上 B/C。
@@ -220,7 +220,7 @@ async def rerank_node(state: AgentState) -> AgentState:
 ```
 
 - 缓存：同 retrieve（`Redis tgpp:cache:rerank:{sha256(query+top_chunk_ids)}` TTL 1h）
-- **定义题 section_title 命中加权（2026-05-27）**：`query_class=definition` 时，先取**全部**候选的 rerank 结果（Voyage 按候选数计费，放宽 `top_k` 只影响返回截断，免费），再对 `section_title` 命中查询里 IE/专名 token（hyphenated / CamelCase / 全大写，如 `PDSCH-Config`、`AMF`）的 chunk 加 `_DEFINITION_TITLE_BOOST`（默认 `0.1`），最后截到 `RERANK_TOP_K`。目的：把"标题即该 IE"的定义条款顶到只是**提及**该 IE 的测试/一致性规范之上。⚠️ **boost 权重与 token 抽取规则是启发式，待 eval 子集验证后再调**（§4.2 大功能回归）；只作用于 definition 类，不影响 procedure/complex 路径
+- **定义题 section_title 命中加权（2026-05-27）**：`query_class=definition` 时，先取**全部**候选的 rerank 结果（Voyage 按候选数计费，放宽 `top_k` 只影响返回截断，免费），再对 `section_title` 命中查询里 IE/专名 token（hyphenated / CamelCase / 全大写，如 `PDSCH-Config`、`AMF`）的 chunk 加 `_DEFINITION_TITLE_BOOST`（默认 `0.1`），最后截到 `RERANK_TOP_K`。目的：把"标题即该 IE"的定义条款顶到只是**提及**该 IE 的测试/一致性规范之上。boost 权重与 token 抽取规则是启发式，`0.1` 经 2026-05-27 daily eval 验证有效（definition section_recall 0.875→1.0），后续若调权重需复跑 eval；只作用于 definition 类，不影响 procedure/complex 路径
 
 ### 4.7 `generate_node` — 最终生成
 

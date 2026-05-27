@@ -140,9 +140,11 @@ class Settings(BaseSettings):
     # - RERANK_TOP_K 5→8（2026-05-27，人审批准）：M7.5 时为省 context 成本保持 5，
     #   只看 section@5。但复杂/跨规范问题答不全的根因是喂给 generate 的 chunk 太少——
     #   终答最多只能 grounding 5 个 section。提到 8 让答案能覆盖更多 IE/章节（代价：
-    #   generate prompt context ~+60%，单次问答 token 成本/latency 上升）。改后需跑
-    #   eval 子集确认 faithfulness/answer_relevancy 未退化。推翻上面 m7-rerank-ablation
-    #   的"保持 5"结论，已走 CLAUDE.md §5.1 人审。
+    #   generate prompt context ~+60%，单次问答 token 成本/latency 上升）。推翻上面
+    #   m7-rerank-ablation 的"保持 5"结论，已走 CLAUDE.md §5.1 人审。
+    #   2026-05-27 daily eval（56 题）实测：整体 section_recall 0.775→0.825、spec
+    #   0.90→0.95、fact 持平、negative 不变、p50 41.7s→63.2s；ragas faithfulness 由
+    #   daily harness 不测，留 weekly/ragas 路径验。详见 04-handoff/2026-05-27-ad-eval-findings.md。
     # 改动 latency 影响：dense/sparse 每个查询多 ~20 chunks 但 qdrant/bm25 都是 O(log N)
     # 走索引，实测 p50 605 vs 旧 610 ms 持平；总仍 < 800ms 预算
     RETRIEVAL_DENSE_TOP_K: int = 50
