@@ -414,6 +414,40 @@ def _list_provider_collections(qdrant: QdrantWriter, provider: Provider) -> list
     return out
 
 
+# -------------------- bm25-rebuild --------------------
+
+
+@app.command("bm25-rebuild")
+def bm25_rebuild_cmd(
+    provider: Provider = typer.Option("voyage", help="embedding provider"),
+    log_level: str = typer.Option("INFO"),
+) -> None:
+    """从 `by_spec/*.jsonl` 重 build BM25 索引落盘到 `index/`。
+
+    用途：
+    - 升级 bm25s 主版本 / 改 tokenizer 后重建
+    - 老数据没有持久化 index/ → 一次性补齐，backend 启动后走 mmap fast path
+    - 想刷新 chunks.jsonl + 索引但不重跑 chunker/embed
+
+    幂等：重复执行替换 `index/`，不会残留 .new / .old 暂存目录。
+    """
+    logging.basicConfig(level=log_level)
+    bm25 = BM25Writer(provider=provider)
+    if not bm25.list_specs():
+        typer.echo(f"[bm25-rebuild] no by_spec/*.jsonl found under {default_bm25_dir(provider)}")
+        raise typer.Exit(code=1)
+
+    typer.echo(
+        f"[bm25-rebuild] provider={provider} root={bm25.root} "
+        f"specs={len(bm25.list_specs())}"
+    )
+    meta = bm25.rebuild_index()
+    typer.echo(
+        f"[bm25-rebuild] OK total={meta.get('total_chunks')} "
+        f"index_dir={meta.get('index_dir')} bm25s={meta.get('bm25s_version')}"
+    )
+
+
 @app.command("index-status")
 def index_status_cmd(
     provider: Provider = typer.Option("voyage"),
@@ -450,9 +484,14 @@ def index_status_cmd(
     else:
         meta = bm25.read_meta()
         if meta:
+            index_state = (
+                f"persisted={meta.get('index_doc_count')} (bm25s={meta.get('bm25s_version')})"
+                if bm25.has_persisted_index()
+                else "persisted=no (backend will fallback to in-memory build)"
+            )
             typer.echo(
                 f"  bm25 dir={default_bm25_dir(provider)} "
-                f"total={meta.get('total_chunks')} specs={meta.get('spec_count')}"
+                f"total={meta.get('total_chunks')} specs={meta.get('spec_count')} {index_state}"
             )
         else:
             typer.echo(f"  bm25 dir={default_bm25_dir(provider)}（未 finalize）")
