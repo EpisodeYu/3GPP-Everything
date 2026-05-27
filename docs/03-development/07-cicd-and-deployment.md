@@ -353,6 +353,12 @@ volumes:
 
 部署脚本必须先检查共享服务，再拉起项目容器。备份脚本也只备份本项目 database、active Qdrant collection、BM25/markdown 目录，不碰其他项目数据。
 
+**共享服务的网络连法（2026-05-27 修）**：PG / Redis（`dangdang-postgres` / `dangdang-redis`）与 Qdrant / LiteLLM 一样，**经共享 docker 网络以容器名直连**，不走 `host.docker.internal`：
+
+- `deploy/docker-compose.prod.yml` 把 `dangdangdiary_default`（PG/Redis 所在网）声明为外部网络 `dangdang-net` 并 attach 到 `api` / `ingest`；`.env` 里 `DATABASE_URL` / `REDIS_URL` 用 `dangdang-postgres` / `dangdang-redis` 主机名。
+- 原因：这两个容器只 publish 到宿主 `127.0.0.1`，容器内 `host.docker.internal`(=网关) 不可达；早先能跑只是因为它们曾 publish 到可达地址。改走容器名后不再依赖宿主端口发布。
+- `dangdang-redis` 开了 `requirepass`，故 `REDIS_URL` 形如 `redis://:<password>@dangdang-redis:6379/5`（db=5，与 dangdang 的 db=0 隔离）。
+
 ## 4. Nginx 配置
 
 ### 4.1 `deploy/nginx/default.conf`（HTTP，仅做 ACME challenge + 301 跳 HTTPS）

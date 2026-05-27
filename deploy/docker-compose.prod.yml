@@ -55,6 +55,7 @@ services:
       - tgpp-net
       - qdrant-net
       - litellm-net
+      - dangdang-net
     # 覆盖 backend/Dockerfile 里 dev 用的 `--reload`。
     # workers=1 是保守值：3.8GB 内存 + 已有 PG/Qdrant/Redis/LiteLLM 同居；
     # 实测 single worker QPS 够 M8 阶段单租户用，需要扩并发时改 --workers 2~3。
@@ -116,6 +117,7 @@ services:
       - tgpp-net
       - qdrant-net
       - litellm-net
+      - dangdang-net
     profiles: ["ingest"]
 
 networks:
@@ -129,4 +131,10 @@ networks:
     external: true
   litellm-net:
     name: litellm_default
+    external: true
+  # dangdang-net：宿主共享 PG/Redis（dangdang-postgres / dangdang-redis）所在网络。
+  # 这两个容器只 publish 到宿主 127.0.0.1，host.docker.internal(=网关) 不可达；
+  # 故与 qdrant/litellm 一样改走容器名直连（DATABASE_URL/REDIS_URL 用 dangdang-* 主机名）。
+  dangdang-net:
+    name: dangdangdiary_default
     external: true
