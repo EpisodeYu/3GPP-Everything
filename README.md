@@ -2,7 +2,7 @@
 
 > 基于 3GPP 规范文档的生产级 RAG Agent —— 让你像查代码一样查协议。
 
-[![Status](https://img.shields.io/badge/status-M5%20前端%20%2B%20M8%20上线准备-blue)]() [![Index](https://img.shields.io/badge/index-1270%20specs%20%2F%20394k%20chunks-success)]() [![Golden](https://img.shields.io/badge/golden-175%20items-informational)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-3%20parts-orange)](./docs/README.md)
+[![Status](https://img.shields.io/badge/status-M0--M7%20%2B%20M5%20✅%20%2F%20M8%20上线进行中-blue)]() [![Index](https://img.shields.io/badge/index-1270%20specs%20%2F%20394k%20chunks-success)]() [![Golden](https://img.shields.io/badge/golden-175%20items-informational)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-3%20parts-orange)](./docs/README.md)
 
 ## 是什么
 
@@ -19,7 +19,7 @@
 
 ```
 M0 准备 ─ M1 数据接入 ─ M2 索引 POC ─ M3 维度决胜 ─ M4 Agent+后端 ─ M6 全量索引 ─ M7 评测扩展 ─ M5 前端 ─ M8 上线
-   ✅        ✅           ✅            ✅(1024)      ✅              ✅(1270 specs)  ✅             ⏳ 即将开工   ⏳ baseline 就位
+   ✅        ✅           ✅            ✅(1024)      ✅              ✅(1270 specs)  ✅             ✅(M5.0-M5.6) ⏳ 公网就绪/待真机回归 + 回滚演练
 ```
 
 **阶段性产出**：
@@ -35,9 +35,7 @@ M0 准备 ─ M1 数据接入 ─ M2 索引 POC ─ M3 维度决胜 ─ M4 Agent
 | M7.7+ (2026-05-24) | M8 baseline (`eval-results/m8-baseline/`) + Langfuse Cloud 推 175 dataset items + 1 dataset run，留作 M8 调优锚 |
 | M5 规划 (2026-05-24) | 前端规划同步：拆 **M5.0~M5.6** 七段子里程碑（骨架→AppShell→SSE 流式核心→引用 chip + Reader→Checkpoint UX→Admin→i18n + Docker）；详见 [`docs/03-development/05-frontend.md §0`](./docs/03-development/05-frontend.md) |
 
-**即将开工**：M5 Flutter 前端（M5.0 骨架先行：`flutter create` + Riverpod + go_router + dio + 黑白主调主题 + 登录页 + AuthRedirect）。
-
-**并行准备**：M8 上线（baseline 已建立，生产 Compose + Nginx + Let's Encrypt + 备份/回滚演练待启）。
+**当前焦点**：M8 上线收尾 —— 业务容器 + 独立 ingress 项目 + Let's Encrypt 已就绪，`https://3gpp-everything.org/` 公网 200；剩 Chrome/Android 真机回归（人主审）、live eval × 2 次连跑（待 GH secrets 配齐）、失败回滚演练 1 次；详见 [`docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md`](./docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md) §六 硬门禁。
 
 里程碑按"完成度门禁"推进（**不绑定时间表**）：上一个里程碑的门禁未全绿，不进下一个。
 完整里程碑与"必须自动化 / 必须人审"清单见 [`docs/03-development/00-overview.md`](./docs/03-development/00-overview.md)。
@@ -269,7 +267,54 @@ cd backend    && uv run pytest -m integration         # 86 + 20 integration (含
 cd ingestion  && uv run pytest                        # 292 passed, 6 skipped
 ```
 
-> Flutter 前端 (`frontend/`) 当前为骨架（只保留 M0 nginx placeholder Dockerfile），M5 即将开工；子里程碑拆分见 [`docs/03-development/05-frontend.md §0`](./docs/03-development/05-frontend.md)。
+> Flutter 前端 (`frontend/`) 已完成 **M5.0–M5.6 全部子里程碑**（2026-05-25 收尾）：Riverpod + go_router + dio SSE + 真流式 Fetch+ReadableStream + checkpoint UI + admin + i18n + 主题切换 + golden + Docker，168 测试 + analyze 0 / web-smoke / web-build CI 全绿；详见 [`docs/03-development/05-frontend.md §0`](./docs/03-development/05-frontend.md) 与 `docs/04-handoff/2026-05-25-m5.6-completion.md`。
+
+## 生产部署
+
+> 完整 runbook 见 [`docs/03-development/07-cicd-and-deployment.md §8`](./docs/03-development/07-cicd-and-deployment.md) 与里程碑落地手册 [`docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md`](./docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md)（含 ingress 跨项目分流 + Let's Encrypt staging→prod）。
+
+**架构（2026-05-26 rev2）**：本项目业务容器只跑 `api + web + ingest`；80/443 + TLS + Let's Encrypt + 跨项目分流抽离到独立项目 `~/infra/ingress/`。PG/Redis **本项目自带**（`tgpp-postgres` / `tgpp-redis`，2026-05-27 与 dangdang 解耦完成）；Qdrant + LiteLLM 继续共享宿主已运行实例。
+
+**全新机器首次部署（10 步速览）**：
+
+```bash
+# 1-2: 拉代码 + .env（ALLOWED_ORIGINS 追加 https://<DOMAIN>）
+git clone <repo> && cd 3GPP-Everything
+cp .env.example .env && vi .env
+
+# 3: 基础设施准备（01-infrastructure.md §2）+ Cloudflare DNS A 记录（灰云）+ ufw 放行 80/443
+sudo ufw allow 80,443/tcp
+
+# 4-5: ingress 项目配置 + 业务镜像构建
+cp ~/infra/ingress/.env.example ~/infra/ingress/.env && vi ~/infra/ingress/.env  # 填 TGPP_DOMAIN/LETSENCRYPT_EMAIL/PUBLIC_IP
+make prod-build && make prod-up        # 起 tgpp-api + tgpp-web + tgpp-postgres + tgpp-redis；network tgpp_tgpp-net 由此创建
+
+# 6: 签证书（先 staging 验链路，再切 prod）
+cd ~/infra/ingress && ./scripts/init-letsencrypt.sh
+vi .env  # CERTBOT_STAGING=0
+./scripts/init-letsencrypt.sh
+docker compose up -d certbot
+
+# 7: 健康检查
+make prod-health     # 业务 + ingress 双层 + 数据面
+curl -sS https://<DOMAIN>/health    # 200
+curl -sS https://<DOMAIN>/ready     # 200（注意 health 不挂 /api/v1 前缀，对外探活直接 /health 与 /ready）
+
+# 8: 首个 admin（除非已有）
+curl -X POST https://<DOMAIN>/api/v1/auth/bootstrap-admin ...
+
+# 9（可选）: 全量索引
+docker compose --profile ingest -f deploy/docker-compose.prod.yml run --rm ingest \
+    python -m ingestion.cli pipeline-hf --releases 18,19 --provider $EMBEDDING_PROVIDER
+
+# 10: 日常运维
+make prod-restart   # 滚动重启 api + web
+make prod-logs      # 跟随业务日志
+make prod-backup    # PG dump + Qdrant snapshot 名 + BM25 + .env（证书在 ingress 项目独立备份）
+make prod-restore BACKUP=./backups/<ts>
+```
+
+**故障处置 / 回滚**：见 [`docs/03-development/07-cicd-and-deployment.md §8.3`](./docs/03-development/07-cicd-and-deployment.md) 与 `2026-05-26-m8-deploy-bootstrap.md §五`；解耦回滚见 `2026-05-27-decouple-from-dangdang.md §七`。
 
 ## 项目结构
 
@@ -308,9 +353,9 @@ cd ingestion  && uv run pytest                        # 292 passed, 6 skipped
 
 - ✅ GSMA Rel-18 + Rel-19 5G 系列 TS（1270 篇）完成索引
 - ✅ 金标准 175 题落地；`eval-{daily,weekly}` CI 已就位；M8 baseline + Langfuse dataset run 推送完毕（连跑 2 次 ≥ 严格阈值留到 M8 backend 公网部署后跑）
-- ⏳ Web + Android 端均可走完"提问 → 流式响应 → 看引用 → 跳章节"（M5 即将开工）
-- ✅ Docker Compose 一键拉起；⏳ Nginx + HTTPS 公网可访问（M8）
-- ⏳ CI 全绿：lint + unit + integration + RAG eval（daily/weekly cron 已就位）
+- ✅ Web 端走完"提问 → 流式响应 → 看引用 → 跳章节"（M5.0-M5.6 全部子里程碑完成；Android 真机回归 [human] 待跑）
+- ✅ Docker Compose 一键拉起；✅ Nginx + HTTPS + Let's Encrypt 公网可访问（M8 ingress + 证书已落地，`https://3gpp-everything.org/` 200）
+- ✅ CI lint + unit + integration 全绿；eval-daily / eval-weekly cron 已就位（live eval × 2 次连跑待 backend 公网 secrets 配齐）
 
 ## 不在本期范围
 
