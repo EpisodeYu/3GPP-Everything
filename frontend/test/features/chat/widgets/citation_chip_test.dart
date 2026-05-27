@@ -42,6 +42,16 @@ Widget _routerApp({required Widget home, FakeDocsApi? docs}) {
           ),
         ),
       ),
+      // spec 概览页：占位章节（破折号）的跳转兜底落点
+      GoRoute(
+        path: '/reader/:spec',
+        builder: (ctx, st) => Scaffold(
+          body: Text(
+            'READER ${st.pathParameters['spec']}',
+            key: const Key('reader_spec_stub'),
+          ),
+        ),
+      ),
     ],
   );
   return ProviderScope(
@@ -115,6 +125,48 @@ void main() {
       expect(el.attributes['spec'], '36.523-1');
       expect(el.attributes['section'], '7.1.6.2.2');
       expect(el.attributes['rank'], '0');
+    });
+
+    md.Element parseOne(String input) {
+      final doc = md.Document(inlineSyntaxes: [CitationInlineSyntax()]);
+      return doc.parseInline(input).firstWhere(
+            (n) => n is md.Element && n.tag == 'citation',
+          ) as md.Element;
+    }
+
+    // 以下三类是 LLM 引用格式漂移的实测形态，先前 `[\d\.]+` 窄正则会让它们整条退化
+    // 成裸文本（chip 不渲染 = 超链接失效）。放宽后必须仍能抽出 chip。
+    test('§ 后空格 + 下划线复合章节也匹配（[38.521-4 § 5.2.3.2.1_5.3.3_1]）', () {
+      final el = parseOne('测试值见 [38.521-4 § 5.2.3.2.1_5.3.3_1]。');
+      expect(el.attributes['spec'], '38.521-4');
+      expect(el.attributes['section'], '5.2.3.2.1_5.3.3_1');
+      expect(el.attributes['rank'], '0');
+    });
+
+    test('IE 名当章节也匹配（[38.508-1 § PDSCH-Config]）', () {
+      final el = parseOne('字段见 [38.508-1 § PDSCH-Config]。');
+      expect(el.attributes['spec'], '38.508-1');
+      expect(el.attributes['section'], 'PDSCH-Config');
+      expect(el.attributes['rank'], '0');
+    });
+
+    test('破折号占位也匹配，section 保留原串（[38.331 § — PDSCH-Config]）', () {
+      final el = parseOne('见 [38.331 § — PDSCH-Config]。');
+      expect(el.attributes['spec'], '38.331');
+      expect(el.attributes['section'], '— PDSCH-Config');
+      expect(el.attributes['rank'], '0');
+    });
+
+    test('放宽后仍不与 markdown link [text](url) 冲突', () {
+      final doc = md.Document(
+        inlineSyntaxes: [CitationInlineSyntax()],
+        encodeHtml: false,
+      );
+      final out = doc.parseInline('see [PDSCH-Config](http://x.com)');
+      expect(
+        out.any((n) => n is md.Element && n.tag == 'citation'),
+        isFalse,
+      );
     });
   });
 
@@ -261,6 +313,23 @@ void main() {
       await tester.tap(chip);
       await tester.pumpAndSettle();
       expect(find.text('READER 38.213 8.1'), findsOneWidget);
+    });
+
+    testWidgets('破折号占位章节单击落到 spec 概览页（避免跳进空章节）', (tester) async {
+      await tester.pumpWidget(_routerApp(
+        home: const MessageBubble(
+          role: 'assistant',
+          content: '见 [38.331 § —]。',
+          citations: [],
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final chip = find.byKey(const Key('citation_chip_38.331_—_0'));
+      expect(chip, findsOneWidget);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('reader_spec_stub')), findsOneWidget);
+      expect(find.text('READER 38.331'), findsOneWidget);
     });
   });
 }

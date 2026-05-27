@@ -41,22 +41,28 @@ class CitationRef {
 /// `[36.523-1 §7.1.6.2.2]`（多部分 spec 带 `-N` 后缀）。
 ///
 /// 设计要点：
-/// - 正则 `\[\d+\.\d+(-\d+)? §[\d\.]+( ¶\d+)?\]`，`¶rank` 整段可选——后端 generate 的
-///   LLM 实际只稳定输出 `[spec §section]`，强制三段会让引用退化成普通文本（无 chip）。
-/// - 不与 markdown link `[text](url)` 冲突（后者括号内必跟 `(`）。
+/// - 正则 `\[(\d+\.\d+(-\d+)?) §\s*([^\]¶]+?)( ¶\d+)?\]`，`¶rank` 整段可选——后端
+///   generate 的 LLM 实际只稳定输出 `[spec §section]`，强制三段会让引用退化成普通文本。
+/// - section 段刻意放宽到"非 `]`/`¶` 的任意串"（先前 `[\d\.]+` 只认数字+点）：实测
+///   LLM 会输出 `§ 5.2.3.2.1_5.3.3_1`（下划线复合章节）、`§ PDSCH-Config`（IE 名当章节）、
+///   `§ —`（章节未知时的破折号占位），且 `§` 后常多打一个空格。窄正则会让这些整条退化成
+///   裸文本（chip 不渲染 = "超链接失效"）。放宽后至少渲染出 chip；占位/IE 名这类无效目标的
+///   跳转兜底见 [jumpToReader]。根治仍靠 prompt 收紧 LLM 的引用格式。
+/// - 不与 markdown link `[text](url)` 冲突：仍要求 `[` 后紧跟 spec 号且串内含 ` §`。
 /// - spec 号 `\d+\.\d+(-\d+)?` 允许 `23.501` / `38.331`，以及多部分测试规范
 ///   `36.523-1` / `38.523-2`（`-N` 后缀不可漏，否则整条引用不渲染）。
 class CitationInlineSyntax extends md.InlineSyntax {
   CitationInlineSyntax() : super(_pattern);
 
   static const String _pattern =
-      r'\[(\d+\.\d+(?:-\d+)?) §([\d\.]+)(?: ¶(\d+))?\]';
+      r'\[(\d+\.\d+(?:-\d+)?) §\s*([^\]¶]+?)(?: ¶(\d+))?\]';
 
   @override
   bool onMatch(md.InlineParser parser, Match match) {
     final el = md.Element.empty('citation')
       ..attributes['spec'] = match[1]!
-      ..attributes['section'] = match[2]!
+      // section 段可能带 § 后空格或末尾空白（`§ 5.6.1 ` / `§ — PDSCH-Config`）→ trim
+      ..attributes['section'] = match[2]!.trim()
       // group 3（¶rank）可能未捕获 → 缺省哨兵 '0'
       ..attributes['rank'] = match[3] ?? '0'
       ..attributes['raw'] = match[0]!;
@@ -202,12 +208,21 @@ class CitationChip extends ConsumerWidget {
 }
 
 /// 跳到 reader 对应章节；chunkId 在则带 `#chunk-` fragment 做锚点定位。
+///
+/// section 放宽后可能是破折号占位（`§ —` → sectionPath `—`）等无可跳转目标的串：
+/// 剥掉前导破折号/空白后若为空，落到 spec 概览页 `/reader/{spec}`（ReaderPage 在
+/// sectionPath 为空时渲染 _SpecOverview），避免跳进一个加载不出的空章节。
 void jumpToReader(BuildContext context, CitationRef ref) {
   final spec = Uri.encodeComponent(ref.specId);
-  final sec = Uri.encodeComponent(ref.sectionPath);
+  final cleaned = ref.sectionPath.replaceFirst(RegExp(r'^[\s—–-]+'), '').trim();
   final fragment = (ref.chunkId != null && ref.chunkId!.isNotEmpty)
       ? '#chunk-${ref.chunkId}'
       : '';
+  if (cleaned.isEmpty) {
+    GoRouter.of(context).go('/reader/$spec$fragment');
+    return;
+  }
+  final sec = Uri.encodeComponent(cleaned);
   GoRouter.of(context).go('/reader/$spec/$sec$fragment');
 }
 
