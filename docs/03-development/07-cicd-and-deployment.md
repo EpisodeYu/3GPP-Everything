@@ -593,7 +593,7 @@ echo "backup done: $BACKUP_DIR"
 - [x] `[auto]` Nightly eval 跑通；阈值未达开 issue — M7.6 落地 2026-05-24（`eval-daily.yml` + `eval-weekly.yml`；连跑 2 次 ≥ D13 第一档验收待 backend 对 CI 可达后补，见 `06-...md §12 M7.6`）
 - [ ] `[human]` `deploy.yml` 手动触发后 GHCR 有镜像、生产成功拉新版（生产部署必须人 approve，这是 `CLAUDE.md §5.3 / 5.4` 触发）—— **M8 暂用本地 build，GHCR 路径 v2 再启**
 - [x] `[auto]` M8 bootstrap 文件齐备：`deploy/docker-compose.prod.yml` + `deploy/nginx/*.template` + `deploy/scripts/{init-letsencrypt,deploy,healthcheck,backup,restore}.sh`（2026-05-26 落地）
-- [ ] `[human]` `https://3gpp-everything.org/health` 200（域名/证书涉外部账号；待 DNS 生效 + `make prod-init-cert` + `make prod-up`）
+- [x] `[auto]` `https://3gpp-everything.org/health` 200 — 2026-05-27 实测：`curl https://3gpp-everything.org/health` 返回 200；`/ready` 200；注意 `/api/v1/health` 设计上是 404（`health_routes` 注册时**不挂 `/api/v1` 前缀**），对外探活直接用 `/health` 与 `/ready`
 - [ ] `[human]` SSE 在生产域名下顺畅（token 流不卡顿）—— 由人在浏览器实测
 - [ ] `[human]` `init-letsencrypt.sh` 至少跑通一次（staging + prod 各一次）
 - [ ] `[auto]` `backup.sh` 输出可用的 dump 与 snapshot；`restore.sh` 在测试环境上 restore 成功（集成测/CI 跑）

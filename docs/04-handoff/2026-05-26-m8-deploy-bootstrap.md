@@ -195,7 +195,7 @@ docker compose up -d certbot
 | URL | 期望 |
 |---|---|
 | `https://3gpp-everything.org/` | 小绿锁（Let's Encrypt）+ Flutter 登录页 |
-| `https://3gpp-everything.org/api/v1/health` | `{"status":"ok"}` |
+| `https://3gpp-everything.org/health` | `{"status":"ok"}`（backend `health_routes` 注册时**不带 `/api/v1` 前缀**，对外探活直接打 `/health` 与 `/ready`；`/api/v1/health` 是 404 不是 200，这是预期） |
 | `https://dangdangdiary.org/` | 小绿锁 + dangdang 入口（无论 dangdang 前端长啥样，HTTP 200 就 OK） |
 
 然后用你的 admin 账号登录 3gpp，发问 `What is HARQ?`，看：

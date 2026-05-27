@@ -76,9 +76,10 @@
 | 基线 | 业务表行数 | chunks_meta=394,859；glossary=34,154；refresh_tokens=28；message_citations=6；sessions=4；messages=4；api_usage=2；users=1；audit_logs=1；其余 0 |
 | 基线 | Alembic head | `a1b2c3d4e5f6` |
 | 基线 | Redis db=5 keys | 0（无需迁） |
-| Step 3 | pg_dump 时长 / size | （执行后填） |
-| Step 5 | restore 时长 | （执行后填） |
-| 总停服 | 从 `make prod-down` 到 `make prod-up` healthy | （执行后填） |
+| Step 3 | pg_dump 完成时刻 / size | 2026-05-27 11:21:18 +0800 / 419 MB（sha256 `7fcea63b948ff97...`，路径 `backups/20260527-112116-pre-decouple/tgpp_everything.sql`） |
+| Step 5 | restore 耗时（tgpp-postgres 起到 tgpp-api healthy） | UTC 03:21:19 → 03:21:48 = **~29 秒**（含 docker compose up + pg_restore 419 MB + healthcheck wait） |
+| 总停服 | pg_dump 完成 → tgpp-api healthy（端到端用户感知） | **~30 秒**（11:21:18 dump 完 → 11:21:48 api Up；含起 PG/Redis 容器 + restore + 起 api healthcheck）。前置 `make prod-down` + 预备份估计 5–10 min，但业务流量切换窗口 ≤ 1 分钟 |
+| 切换后对账 | 业务表行数 vs §五基线 | chunks_meta=394,859 ✅ / glossary=34,154 ✅ / users=1 ✅ / sessions=4 ✅ / messages=4 ✅ （5/5 全对，2026-05-27 14:53 验） |
 
 ## 六、自查与回归（CLAUDE.md §4.2）
 
@@ -86,9 +87,12 @@
 - [x] `docker compose -f deploy/docker-compose.prod.yml config -q`：通过
 - [x] `bash -n` × 3（migrate-from-shared.sh / cleanup-shared.sh / 改过的 backup.sh / restore.sh / healthcheck.sh）：通过
 - [x] `ReadLints`：无新增 error/warning
-- [x] `make lint` 全绿：（执行后填）
-- [x] `make test` 全绿：（执行后填）
-- [x] 浏览器 + SSE 端到端：（执行后填）
+- [x] `make lint` 全绿：**2026-05-27 14:48 验**（backend ruff/black/mypy 81 文件 + ingestion ruff/black 77 文件 全绿）
+- [x] `make test-unit` 全绿：**2026-05-27 14:49 验**（backend 298 passed / 112 deselected；ingestion 18 passed / 285 deselected）
+- [x] `make test-int` 全绿：**2026-05-27 14:59 验**（backend 108 passed / 1 skipped / 301 deselected in 7m54s，远低于 M7 baseline 的 16 min；真 LLM/voyage retrieval smoke + agent complex_qa + 5 题 p50 latency 全过；warning 仅 qdrant client close 旧问题不影响功能）
+- [x] PG/Redis 容器内连通性：`pg_isready` ✅、`redis-cli ping` 在 NOAUTH 提示下可达 ✅、tgpp-api `/health` 公网 200 ✅
+- [ ] 浏览器 + SSE 端到端：**留人主审**（按 `pre-m8-validation-guide.md §2` 场景 1-10）
+- [x] `make prod-backup` + `restore.sh` sandbox 演练：**2026-05-27 15:14 / 15:24 验**（清盘后重跑，2m5s 全套出齐 707 MB；restore sandbox 21s + 9 表全对账。详见 [`2026-05-27-pre-handoff-followups.md`](./2026-05-27-pre-handoff-followups.md) §一·B #12 #13）
 
 ## 七、回滚预案
 
