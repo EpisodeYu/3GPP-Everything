@@ -16,18 +16,21 @@ def test_defaults() -> None:
 
 
 def test_retrieval_defaults_match_m75_calibration() -> None:
-    """M7.5 retrieval 校准选定的默认值：dense/sparse 50、final_top_n 80、rerank_top_k 5。
+    """M7.5 retrieval 校准选定的默认值：dense/sparse 50、final_top_n 80。
 
     详见 `docs/04-handoff/2026-05-22-m7.5-complete.md §3.2` +
     `eval-results/m7-rerank-ablation.md`。改这些默认值必须先跑 ablation
     更新报告，否则会破坏 D13 第一档评测对照口径。
+
+    RERANK_TOP_K：M7.5 为 5；2026-05-27 人审批准提到 8（让复杂问题的终答能
+    覆盖更多 section，代价是 generate context ~+60%），详见 config.py 注释。
     """
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert s.RETRIEVAL_DENSE_TOP_K == 50
     assert s.RETRIEVAL_SPARSE_TOP_K == 50
     assert s.RETRIEVAL_RRF_K == 60
     assert s.RETRIEVAL_FINAL_TOP_K == 80
-    assert s.RERANK_TOP_K == 5
+    assert s.RERANK_TOP_K == 8
 
 
 def test_sync_url_strips_asyncpg() -> None:

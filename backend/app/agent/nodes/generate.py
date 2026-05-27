@@ -154,7 +154,7 @@ def _render_tool_results(state: AgentState) -> str:
         return ""
     parts: list[str] = []
     glossary = results.get("glossary") or {}
-    for m in (glossary.get("matches") or [])[:6]:
+    for m in (glossary.get("matches") or [])[:15]:
         parts.append(
             f"- **{m.get('term')}** ({m.get('spec_id')} "
             f"§{'.'.join(m.get('section_path') or [])}): {m.get('definition')}"
@@ -164,19 +164,19 @@ def _render_tool_results(state: AgentState) -> str:
         prefix = ".".join(toc.get("section_prefix") or [])
         header = f"### {toc.get('spec_id')} §{prefix}" if prefix else f"### {toc.get('spec_id')}"
         parts.append(header)
-        for it in (toc.get("items") or [])[:30]:
+        for it in (toc.get("items") or [])[:60]:
             sp = ".".join(it.get("section_path") or [])
             parts.append(f"- §{sp} {it.get('section_title')}")
     params = results.get("params") or {}
     if params.get("hits"):
         parts.append("### Parameter / IE hits")
-        for h in (params.get("hits") or [])[:10]:
+        for h in (params.get("hits") or [])[:20]:
             sp = ".".join(h.get("section_path") or [])
             parts.append(f"- {h.get('spec_id')} §{sp}: {h.get('preview')}")
     web = results.get("web_search") or {}
     if web.get("results"):
         parts.append(web.get("prefix") or "")
-        for r in (web.get("results") or [])[:5]:
+        for r in (web.get("results") or [])[:8]:
             parts.append(f"- [{r.get('title')}]({r.get('url')}): {r.get('snippet')}")
     return "\n".join(p for p in parts if p).strip()
 

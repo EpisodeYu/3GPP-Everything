@@ -124,7 +124,7 @@ async def compact_history(
                 messages=prompt,
                 model=SUMMARY_MODEL,
                 temperature=0.0,
-                max_tokens=400,
+                max_tokens=800,
             )
             summary_text = _extract_content(resp)
         except Exception as exc:

@@ -137,15 +137,19 @@ class Settings(BaseSettings):
     #   section_recall@5 75%→80%，spec_recall@5 85%→92.5%（hand_crafted 40 题）
     # - final_top_n 50→80：与 dense/sparse top_k=50 + RRF 去重容量匹配
     # - RRF k 保持 60：实测 30/60/100 在 rerank 下游被 rerank 完全洗掉，无差异
-    # - RERANK_TOP_K 保持 5：rerank top_k=10 会让 generate prompt context 翻倍
-    #   （额外 token 成本 + latency），而 D13 主硬指标只看 section@5
+    # - RERANK_TOP_K 5→8（2026-05-27，人审批准）：M7.5 时为省 context 成本保持 5，
+    #   只看 section@5。但复杂/跨规范问题答不全的根因是喂给 generate 的 chunk 太少——
+    #   终答最多只能 grounding 5 个 section。提到 8 让答案能覆盖更多 IE/章节（代价：
+    #   generate prompt context ~+60%，单次问答 token 成本/latency 上升）。改后需跑
+    #   eval 子集确认 faithfulness/answer_relevancy 未退化。推翻上面 m7-rerank-ablation
+    #   的"保持 5"结论，已走 CLAUDE.md §5.1 人审。
     # 改动 latency 影响：dense/sparse 每个查询多 ~20 chunks 但 qdrant/bm25 都是 O(log N)
     # 走索引，实测 p50 605 vs 旧 610 ms 持平；总仍 < 800ms 预算
     RETRIEVAL_DENSE_TOP_K: int = 50
     RETRIEVAL_SPARSE_TOP_K: int = 50
     RETRIEVAL_RRF_K: int = 60
     RETRIEVAL_FINAL_TOP_K: int = 80
-    RERANK_TOP_K: int = 5
+    RERANK_TOP_K: int = 8
     RETRIEVAL_CACHE_TTL_S: int = 3600
 
     # === 检索缓存 key 前缀 ===

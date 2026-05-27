@@ -70,7 +70,7 @@ class AgentState(BaseModel):
 
     # 检索
     candidates: list[RetrievedChunk] = []            # 取并集后排重 top-50
-    reranked: list[RetrievedChunk] = []              # top-5
+    reranked: list[RetrievedChunk] = []              # top-K（RERANK_TOP_K，默认 8）
 
     # 工具结果（按工具名 -> 结构化结果）
     tool_results: dict[str, object] = {}
@@ -204,9 +204,9 @@ async def rerank_node(state: AgentState) -> AgentState:
         query=state.rewritten_queries[0] if state.rewritten_queries else state.user_input,
         documents=docs,
         model="rerank-2.5",
-        top_k=5,
+        top_k=s.RERANK_TOP_K,   # 默认 8（2026-05-27 由 5 提到 8）
     )
-    reranked = sorted_by_rerank(state.candidates, scores)[:5]
+    reranked = sorted_by_rerank(state.candidates, scores)[: s.RERANK_TOP_K]
     return state.model_copy(update={"reranked": reranked})
 ```
 
@@ -220,6 +220,8 @@ async def rerank_node(state: AgentState) -> AgentState:
   - 引用格式：`[spec_id §section_path ¶offset]`
   - 输出语言：`state.user_language`
   - 公式保留 LaTeX
+  - 篇幅：**完整性驱动，不设固定字数**（rule #6，prompt v3，2026-05-27）——覆盖证据里
+    所有相关规范要点，该长就长，但不注水；配合 `RERANK_TOP_K` 5→8 让复杂/跨规范问题答得更全
 
 - 输出后用正则提取 `[xx §xx]` 写入 `state.citations`
 

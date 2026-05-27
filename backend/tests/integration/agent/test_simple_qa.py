@@ -212,8 +212,9 @@ async def test_retrieve_node_p50_latency_under_800ms(
     - 仍打印 max 作为诊断（如频繁 > 2000ms 说明 voyage / 物理机异常，要查）
     - 上线（M8）后真稳定到 < 800ms 可再收紧到 1000ms / 800ms
 
-    与 M7.5 default 配置（dense/sparse top_k=50, final_top_n=80, rerank_top_k=5）
-    的 ablation 实测：docker network 内部 warmup 后 round2 p50=587ms；
+    下方 ablation 实测取自 M7.5 default 配置（dense/sparse top_k=50, final_top_n=80,
+    rerank_top_k=5；2026-05-27 起 rerank_top_k 已提到 8，latency 量级不变）：
+    docker network 内部 warmup 后 round2 p50=587ms；
     host venv 真外网 RTT round1 [1658, 1967, 1472, 1145, 1301] ms / p50=1472ms。
     """
     if not golden_cases:
