@@ -53,10 +53,10 @@ read -r -p "确定继续？输入 RESTORE 大写确认：" ans
 
 # ----- 1. PG -----
 if [[ -f "$BACKUP_DIR/tgpp_everything.sql" ]]; then
-    log "恢复 PG database..."
-    PG_URL="$(echo "$DATABASE_URL" | sed -E 's|postgresql\+asyncpg|postgresql|')"
-    PG_URL="${PG_URL//host.docker.internal/127.0.0.1}"
-    docker exec -i dangdang-postgres psql "$PG_URL" < "$BACKUP_DIR/tgpp_everything.sql"
+    log "恢复 PG database 到 tgpp-postgres..."
+    # 2026-05-27 解耦后走本项目专属 tgpp-postgres 容器。
+    docker exec -i -e PGPASSWORD="$POSTGRES_PASSWORD" tgpp-postgres \
+        psql -U tgpp_app -d tgpp_everything < "$BACKUP_DIR/tgpp_everything.sql"
     ok "PG 恢复完成"
 else
     warn "缺 $BACKUP_DIR/tgpp_everything.sql；跳过 PG"

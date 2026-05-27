@@ -24,37 +24,41 @@
   ```
 - 验收：`df -h` 显示 `/data`（或承载 Docker/Qdrant/项目数据的挂载点）可用 ≥ 50GB；M3 决胜（2026-05-16）后已 drop 2048 collection，稳态生产 collection ~2.5GB
 
-### 2.2 共享服务专属命名空间
+### 2.2 数据面服务（PG / Redis 自营 + Qdrant / LiteLLM 共享）
 
-**PostgreSQL**（已运行 :5432）：
+> 2026-05-27 解耦决议：PG/Redis 从共享 dangdang 实例迁出，由本项目 compose 自营容器（`tgpp-postgres` / `tgpp-redis`）。理由：避免对方重启/改密码/改端口连带影响本项目。Qdrant + LiteLLM 数据量大或需中央 key 管理，继续共享。详见 `docs/04-handoff/2026-05-27-decouple-from-dangdang.md`。
 
-```sql
-CREATE USER tgpp_app WITH PASSWORD '...';
-CREATE DATABASE tgpp_everything OWNER tgpp_app;
-GRANT ALL PRIVILEGES ON DATABASE tgpp_everything TO tgpp_app;
--- 启用扩展（在 tgpp_everything 内）
-\c tgpp_everything
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
--- 如未来需 pgvector fallback:
--- CREATE EXTENSION IF NOT EXISTS "vector";
-```
+**PostgreSQL（自营容器 `tgpp-postgres`）**：
 
-**Qdrant**（已运行 :6333）：
+- 镜像 `postgres:16-alpine`（不用 pgvector：本项目走 Qdrant 单轨，schema 无 vector 列）
+- 容器内 DB `tgpp_everything`、角色 `tgpp_app`、密码取 `.env` 的 `POSTGRES_PASSWORD`
+- 扩展由 `deploy/postgres/init.sql` 在容器首次启动时装：
+
+  ```sql
+  CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+  CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+  ```
+
+- 数据卷：`tgpp_tgpp-pgdata`（compose project=tgpp 前缀）；备份走 `pg_dump`，不直接 tar volume
+- 仅 `expose` 到 `tgpp-net`，不 publish 到宿主公网；dev 额外暴露 `127.0.0.1:55432` 方便本机 psql 调试
+
+**Qdrant（仍复用宿主 :6333）**：
 
 - 无 db 概念，用 collection 命名隔离
 - 启动期不需要预创建，由 `ingestion.indexer` 在首次写入时创建
 - 检查 Qdrant 是否启用了 API key：`curl -s 127.0.0.1:6333/`；如启用则在 `.env` 配置
 
-**Redis**（已运行 :6379）：
+**Redis（自营容器 `tgpp-redis`）**：
 
-- 选用 `db=5`（确认不冲突：`redis-cli CLIENT LIST | grep "db=5"`）
-- 无需建库，连接时指定 `?db=5`
+- 镜像 `redis:7-alpine`
+- 数据全瞬时（retrieval cache TTL ≤ 1h、rate limit TTL ≤ 1d、history summary TTL 24h）→ 关 AOF + 关 RDB + 不挂 volume
+- requirepass 取 `.env` 的 `REDIS_PASSWORD`；db 编号统一用 `0`（自家实例无须避让）
+- 仅 `expose` 到 `tgpp-net`；dev 额外暴露 `127.0.0.1:56379`
 
-**LiteLLM**（已运行 :4000）：
+**LiteLLM（仍复用宿主 :4000）**：
 
 - 已有 `LITELLM_MASTER_KEY` —— 项目复用同 key，或在 LiteLLM 配置内新建一个 virtual key 限制只能访问本项目用到的 model
-- 项目内访问地址：`http://127.0.0.1:4000/v1`（或 `http://host.docker.internal:4000/v1`）
+- 项目内访问地址：`http://127.0.0.1:4000/v1`（host 直跑）或 `http://litellm:4000/v1`（容器内通过 `litellm-net` 外部网络的容器名直连）
 
 ### 2.3 项目目录骨架
 
@@ -126,11 +130,13 @@ QDRANT_URL=http://host.docker.internal:6333
 QDRANT_API_KEY=                   # 若启用
 QDRANT_COLLECTION_PREFIX=tgpp_chunks
 
-# === PostgreSQL ===
-DATABASE_URL=postgresql+asyncpg://tgpp_app:CHANGEME@host.docker.internal:5432/tgpp_everything
+# === PostgreSQL（2026-05-27 解耦：tgpp 专属 postgres 容器）===
+POSTGRES_PASSWORD=CHANGEME
+DATABASE_URL=postgresql+asyncpg://tgpp_app:CHANGEME@tgpp-postgres:5432/tgpp_everything
 
-# === Redis ===
-REDIS_URL=redis://host.docker.internal:6379/5
+# === Redis（2026-05-27 解耦：tgpp 专属 redis 容器，db=0）===
+REDIS_PASSWORD=CHANGEME
+REDIS_URL=redis://:CHANGEME@tgpp-redis:6379/0
 
 # === Langfuse ===
 LANGFUSE_PUBLIC_KEY=
@@ -174,62 +180,25 @@ HF_TOKEN=                          # 可选；公开 dataset 匿名可读，带 
 
 ### 2.5 Docker Compose 框架
 
-`deploy/docker-compose.yml`（dev）：
+> 2026-05-27 update：dev / prod compose 均**自带** `postgres` + `redis`，对称结构；Qdrant + LiteLLM 仍复用宿主（attach 外部 network）。完整内容直接看 `deploy/docker-compose.yml`（dev）与 `deploy/docker-compose.prod.yml`（prod），本文不再镜像粘贴避免漂移。
 
-```yaml
-name: tgpp
+关键 service 一览：
 
-services:
-  api:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
-    container_name: tgpp-api
-    env_file: ../.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "8002:8002"
-    volumes:
-      - ../backend:/app                # dev 热重载
-      - ${INGEST_DATA_DIR:-./data}:/data/tgpp
-    networks:
-      - tgpp-net
-    restart: unless-stopped
+| service | dev 行为 | prod 行为 |
+|---|---|---|
+| `api` | 源码 bind-mount + `--reload`；端口 `8002:8002` 暴露宿主 | 镜像 COPY；仅 `expose: 8002`（由 ingress 直连） |
+| `web` | 端口 `8082:80` 暴露宿主 | 仅 `expose: 80` |
+| `ingest` | profile `ingest`，按需 `docker compose --profile ingest run --rm ingest ...` | 同 dev，profile 控制 |
+| `postgres` | `tgpp-postgres`，`postgres:16-alpine`；`127.0.0.1:55432:5432` 暴露宿主回环 | `tgpp-postgres`，仅 `expose: 5432`（仅 compose 内可达） |
+| `redis` | `tgpp-redis`，`redis:7-alpine`；`127.0.0.1:56379:6379` 暴露宿主回环 | `tgpp-redis`，仅 `expose: 6379` |
 
-  ingest:
-    build:
-      context: ../ingestion
-      dockerfile: Dockerfile
-    container_name: tgpp-ingest
-    env_file: ../.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - ../ingestion:/app
-      - ${INGEST_DATA_DIR:-./data}:/data/tgpp
-    networks:
-      - tgpp-net
-    profiles: ["ingest"]               # 默认不启，按需 docker compose --profile ingest run --rm ingest ...
+外部网络：
 
-  web:
-    build:
-      context: ../frontend
-      dockerfile: Dockerfile
-    container_name: tgpp-web
-    ports:
-      - "8082:80"
-    networks:
-      - tgpp-net
-    depends_on: [api]
-    restart: unless-stopped
+- `qdrant-net`（`name: p2-rag-assistant_default`）：让 api/ingest 用容器名访问宿主 Qdrant
+- `litellm-net`（`name: litellm_default`）：同上访问 LiteLLM
+- 已**移除** `dangdang-net` 引用（2026-05-27 解耦决议）
 
-networks:
-  tgpp-net:
-    driver: bridge
-```
-
-> 故意**不在本 compose 内**起 Qdrant / PG / Redis / LiteLLM —— 复用宿主机已有实例。如未来要迁移到独立容器，加 `deploy/docker-compose.standalone.yml` 即可。
+> Qdrant / LiteLLM 仍复用宿主；如未来要把它们也迁进项目，加 `deploy/docker-compose.standalone.yml` 即可。
 
 ### 2.6 Python 工程化
 
@@ -411,9 +380,9 @@ def health():
 > 标注：`[auto]` = Agent 自跑命令即可判定；`[human]` = 需要人介入（涉及账号/扩容/外部 secret/产品口径）。
 
 - [ ] `[human]` `df -h` 显示 `/data` 可用空间 ≥ 50GB（扩容动作必须由人完成；< 50GB 时人须 approve "不进入全量索引"的偏离；M3 决胜 2026-05-16 后 2048 collection 已 drop，POC 期不再有双 collection 占用）
-- [ ] `[auto]` `psql -h 127.0.0.1 -U tgpp_app -d tgpp_everything -c '\dx'` 列出 `uuid-ossp`、`pgcrypto`
+- [ ] `[auto]` `docker exec tgpp-postgres psql -U tgpp_app -d tgpp_everything -c '\dx'` 列出 `uuid-ossp`、`pgcrypto`
 - [ ] `[auto]` `curl 127.0.0.1:6333/collections` 仍可访问、且本项目所有 collection 都以 `tgpp_chunks_` 开头
-- [ ] `[auto]` `redis-cli -n 5 ping` 返回 PONG
+- [ ] `[auto]` `docker exec tgpp-redis redis-cli -a "$REDIS_PASSWORD" ping` 返回 PONG
 - [ ] `[human]` `curl -s -H "Authorization: Bearer $LITELLM_API_KEY" http://127.0.0.1:4000/v1/models` 列出至少 `mimo-v2.5-pro`、`mimo-v2.5`、`embedding-3`、`voyage-4-large`、`rerank-2.5`（LiteLLM key 由人发放；旧 `voyage-3-large` / `rerank-2` 已下线，验收时不应出现）
 - [ ] `[auto]` `make lint` 全绿
 - [ ] `[auto]` `docker compose -f deploy/docker-compose.yml up --build` 起来后 `curl localhost:8002/health` 返回 200
@@ -424,12 +393,16 @@ def health():
 
 | 风险 | 触发 | 应对 |
 |------|------|------|
-| `host.docker.internal` 在 Linux 默认不存在 | Linux 宿主 | 已用 `extra_hosts: host-gateway` 修复 |
-| 共享 Postgres 用户权限被覆盖 | DBA 改了授权 | 项目独立 db owner = `tgpp_app`，避免改其他库 |
-| Redis db=5 已被占用 | 共享实例 | 优先选未用的 db number；可写一个 `scripts/check-redis-db.sh` 启动前自检 |
+| `host.docker.internal` 在 Linux 默认不存在 | Linux 宿主 | 已用 `extra_hosts: host-gateway` 修复（仍保留以便 host 直跑路径） |
+| `tgpp-postgres` 数据卷损坏 / 误删 | `docker volume rm`、磁盘故障 | `make prod-backup` 周期跑 pg_dump；走人审流程才能 `down -v`（CLAUDE.md §5.4） |
 | LiteLLM 限流影响共享项目 | 高并发查询 | LiteLLM 单独 virtual key + 项目专属 rate limit |
+| Qdrant 共享集群被对方损坏 | 别的项目误删 collection | tgpp 所有 collection 都 `tgpp_chunks_` 前缀；纵深防御：定期 snapshot |
 | Docker volume 占满根盘 | 索引数据增长 | data-root 迁到 `/data` 后挂载新盘 |
 
 ## 5. 完成后下一步
 
 - ✅ 本文档全部验收 → 进入 `02-ingestion-and-indexing.md`，开始 M1 单文件解析 POC
+
+## 6. 变更记录
+
+- 2026-05-27 — PG/Redis 从共享 `dangdang-postgres` / `dangdang-redis` 解耦为本项目专属 `tgpp-postgres` / `tgpp-redis`。Qdrant/LiteLLM 继续共享。详见 `docs/04-handoff/2026-05-27-decouple-from-dangdang.md`。原始"故意不在 compose 内起 PG/Redis 以节省 RAM"的决策由本次反转。

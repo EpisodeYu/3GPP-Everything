@@ -41,12 +41,10 @@ err()  { echo -e "${RED}[backup] ERROR${RESET} $*" >&2; }
 
 # ----- 1. PG dump -----
 log "pg_dump tgpp_everything..."
-# DATABASE_URL 格式：postgresql+asyncpg://user:pass@host:port/db
-# 转成 pg_dump 可读的：postgresql://user:pass@host:port/db
-PG_URL="$(echo "$DATABASE_URL" | sed -E 's|postgresql\+asyncpg|postgresql|')"
-# host.docker.internal 在 host 上跑 pg_dump 时不存在，换 127.0.0.1
-PG_URL="${PG_URL//host.docker.internal/127.0.0.1}"
-docker exec dangdang-postgres pg_dump "$PG_URL" --no-owner --no-acl --clean --if-exists \
+# 2026-05-27 解耦后走本项目专属 tgpp-postgres 容器；
+# 容器内 pg_dump 直接走 unix socket（无需 DATABASE_URL 里的 host 信息）。
+docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" tgpp-postgres \
+    pg_dump -U tgpp_app -d tgpp_everything --no-owner --no-acl --clean --if-exists \
     > "$BACKUP_DIR/tgpp_everything.sql"
 ok "PG dump: $BACKUP_DIR/tgpp_everything.sql ($(du -h "$BACKUP_DIR/tgpp_everything.sql" | cut -f1))"
 

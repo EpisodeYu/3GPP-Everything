@@ -1,3 +1,12 @@
+# tgpp dev compose。锚：docs/03-development/01-infrastructure.md §2.5
+#
+# 2026-05-27 解耦：PG/Redis 从共享 dangdang 实例迁入本 compose，dev/prod 对称。
+# Qdrant + LiteLLM 仍复用宿主（数据量大 + 中央 key 管理）。
+#
+# 容器名同 prod（tgpp-postgres / tgpp-redis），但 compose project 默认 tgpp，
+# volumes/networks 实际带前缀 tgpp_*。dev 与 prod 不会同时跑（同名容器冲突），
+# 切换前先 `make down` 或 `make prod-down`。
+
 name: tgpp
 
 services:
@@ -7,11 +16,11 @@ services:
       dockerfile: Dockerfile
     container_name: tgpp-api
     env_file: ../.env
-    # 容器跑时覆盖 .env 里的 host.docker.internal:* 写法：
+    # 容器跑时覆盖 .env 里 qdrant / litellm 的 host.docker.internal 写法：
     # 共享服务 qdrant / litellm 在自己的 docker network 里且只 bind 127.0.0.1，
     # bridge 网关连不上；attach 上对应外部 network 后用容器名访问最干净。
-    # PG / Redis 仍走 host-gateway（dangdang-postgres / dangdang-redis 已 0.0.0.0 监听）。
-    # host 直跑（uv run uvicorn）时 .env 原值生效，不受这里影响。
+    # PG / Redis 改走 compose 内部服务名（tgpp-postgres / tgpp-redis），不再依赖宿主。
+    # host 直跑（uv run uvicorn）时 .env 原值生效，需要把 host 写成 127.0.0.1。
     environment:
       QDRANT_URL: http://qdrant:6333
       LITELLM_BASE_URL: http://litellm:4000/v1
@@ -26,6 +35,11 @@ services:
       - tgpp-net
       - qdrant-net
       - litellm-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   ingest:
@@ -41,6 +55,8 @@ services:
       - ${INGEST_DATA_DIR:-./data}:/data/tgpp
     networks:
       - tgpp-net
+      - qdrant-net
+      - litellm-net
     profiles: ["ingest"]
 
   web:
@@ -55,13 +71,60 @@ services:
     depends_on: [api]
     restart: unless-stopped
 
+  # dev / prod 对称：自带 PG / Redis；详细注释见 docker-compose.prod.yml。
+  postgres:
+    image: postgres:16-alpine
+    container_name: tgpp-postgres
+    env_file: ../.env
+    environment:
+      POSTGRES_DB: tgpp_everything
+      POSTGRES_USER: tgpp_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing in .env}
+    volumes:
+      - tgpp-pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      # dev 暴露到宿主回环，方便本机 psql / pgcli 直连调试；prod 不暴露。
+      - "127.0.0.1:55432:5432"
+    networks: [tgpp-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tgpp_app -d tgpp_everything"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tgpp-redis
+    env_file: ../.env
+    command:
+      [
+        "redis-server",
+        "--appendonly", "no",
+        "--save", "",
+        "--requirepass", "${REDIS_PASSWORD:?missing in .env}"
+      ]
+    ports:
+      - "127.0.0.1:56379:6379"
+    networks: [tgpp-net]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  tgpp-pgdata:
+
 networks:
   tgpp-net:
     driver: bridge
   # 外部 network：宿主机已有的 qdrant / litellm 容器分别挂在各自的 docker compose
   # default network 上（name = `<project>_default`）。我们 attach 进去用容器名直连。
   # 上游若改 compose project 名 → 这里要跟着改；dev-only 配置，可接受。
-  # M8 prod 路径用 reverse proxy + 鉴权解，不用 attach 外部 network。
   qdrant-net:
     name: p2-rag-assistant_default
     external: true

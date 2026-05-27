@@ -79,13 +79,13 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: SecretStr = SecretStr("")
     QDRANT_COLLECTION_PREFIX: str = "tgpp_chunks"
 
-    # === Postgres ===
-    DATABASE_URL: str = (
-        "postgresql+asyncpg://tgpp_app:CHANGEME@host.docker.internal:5432/tgpp_everything"
-    )
+    # === Postgres（2026-05-27 解耦：默认指向 compose 内 tgpp-postgres；host 直跑 uv 时
+    # 改 127.0.0.1:55432，见 deploy/docker-compose.yml dev 端口映射）===
+    DATABASE_URL: str = "postgresql+asyncpg://tgpp_app:CHANGEME@tgpp-postgres:5432/tgpp_everything"
 
-    # === Redis ===
-    REDIS_URL: str = "redis://host.docker.internal:6379/5"
+    # === Redis（2026-05-27 解耦：默认指向 compose 内 tgpp-redis，db=0；
+    # host 直跑改 127.0.0.1:56379）===
+    REDIS_URL: str = "redis://:CHANGEME@tgpp-redis:6379/0"
 
     # === Langfuse ===
     LANGFUSE_PUBLIC_KEY: SecretStr = SecretStr("")

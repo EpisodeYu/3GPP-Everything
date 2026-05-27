@@ -45,6 +45,13 @@ echo "=== 业务容器状态 (tgpp) ==="
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
 
 echo
+echo "=== 数据面健康（2026-05-27 解耦后专属 PG/Redis）==="
+check "tgpp-postgres pg_isready" \
+    docker exec tgpp-postgres pg_isready -U tgpp_app -d tgpp_everything
+check "tgpp-redis    PONG" \
+    bash -c 'docker exec -e RP="$REDIS_PASSWORD" tgpp-redis sh -c "redis-cli -a \"\$RP\" ping 2>/dev/null" | grep -q PONG'
+
+echo
 echo "=== 应用层健康 ==="
 # api 容器是 python:3.11-slim，没 curl/wget，用 python urllib 替代。
 check "api    /health  (container)" \

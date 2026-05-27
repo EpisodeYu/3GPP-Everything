@@ -2,11 +2,18 @@
 #
 # 锚：docs/03-development/07-cicd-and-deployment.md §3
 #       docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md
+#       docs/04-handoff/2026-05-27-decouple-from-dangdang.md
 #
-# 架构（2026-05-26 update）：
+# 架构（2026-05-27 update：PG/Redis 从共享 dangdang 实例迁出，本项目自带容器）：
 #   公网 80/443 → ~/infra/ingress/nginx → tgpp-web:80 (本 compose) → tgpp-api:8002
 #   ingress 是独立项目（~/infra/ingress/），跨项目接管 80/443 + TLS 卸载 + Let's Encrypt。
-#   本 compose 只起业务容器，**不再起 nginx / certbot**。
+#   本 compose 起业务容器 + 项目专属 PG/Redis；Qdrant + LiteLLM 仍复用宿主。
+#
+# 与共享方案的差异（2026-05-27 解耦决议）：
+#   1. postgres / redis 在本 compose 内 → 与 dangdang 不再有实例级耦合
+#   2. 完全摘掉 dangdang-net external network 依赖（之前为了容器名访问 dangdang-postgres/redis 引入）
+#   3. PG/Redis 仅 expose 到 tgpp-net，不 publish 宿主端口
+#   4. Redis 不挂 volume + 关 AOF/RDB（数据全瞬时：rate limit / retrieval cache / history summary）
 #
 # 与 dev (deploy/docker-compose.yml) 的关键差异：
 #   1. api / web 不暴露端口到宿主；由 ingress 通过 tgpp_tgpp-net 内部 DNS 直连
@@ -18,15 +25,17 @@
 #   # 1) 先在 host 上 build 前端静态产物（M5.6 决策：不在镜像里装 Flutter SDK）
 #   make web-build API_BASE_URL=/api/v1
 #
-#   # 2) 起 prod 业务容器（api + web + ingest profile）
+#   # 2) 起 prod 业务容器（含 postgres + redis；ingest 按需）
 #   make prod-up
 #
 #   # 3) 起 ingress（首次需要先签证书，详见 ~/infra/ingress/scripts/init-letsencrypt.sh）
 #   cd ~/infra/ingress && docker compose up -d
 #
-# 资源：3.8GB 机器复用宿主 PG/Qdrant/Redis/LiteLLM，本 compose 几个容器实测应该都很轻：
-#   - api ~600MB（含 LangGraph + LlamaIndex + LlamaIndex BM25 内存 index）
+# 资源（3.8GB 机器）：
+#   - api ~600MB（含 LangGraph + LlamaIndex + BM25 内存 index）
 #   - web ~10MB（纯静态 nginx，仅项目内部反代 /api/v1/）
+#   - postgres ~100MB（alpine + connection pool）
+#   - redis ~10MB（无持久化）
 # 不预设 mem_limit；上线后 docker stats 看实际再加。
 
 name: tgpp
@@ -55,7 +64,11 @@ services:
       - tgpp-net
       - qdrant-net
       - litellm-net
-      - dangdang-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     # 覆盖 backend/Dockerfile 里 dev 用的 `--reload`。
     # workers=1 是保守值：3.8GB 内存 + 已有 PG/Qdrant/Redis/LiteLLM 同居；
     # 实测 single worker QPS 够 M8 阶段单租户用，需要扩并发时改 --workers 2~3。
@@ -101,6 +114,62 @@ services:
         max-file: "3"
     restart: unless-stopped
 
+  # 2026-05-27 解耦：tgpp 专属 PG。原先复用 dangdang-postgres（pgvector/pgvector:pg16），
+  # 因实例级共享在对方重启时受牵连，迁出。本项目 schema 不用 vector 列，alpine 即够。
+  postgres:
+    image: postgres:16-alpine
+    container_name: tgpp-postgres
+    env_file: ../.env
+    environment:
+      POSTGRES_DB: tgpp_everything
+      POSTGRES_USER: tgpp_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing in .env}
+    volumes:
+      - tgpp-pgdata:/var/lib/postgresql/data
+      # 仅在 data 目录首次初始化时执行（uuid-ossp + pgcrypto 扩展），已初始化的 volume 不会重跑。
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    expose: ["5432"]
+    networks: [tgpp-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tgpp_app -d tgpp_everything"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # 2026-05-27 解耦：tgpp 专属 Redis。数据全瞬时（cache TTL≤1h、rate limit TTL≤1d、
+  # history summary TTL 24h），重启清空可接受 → 关 AOF + 关 RDB + 不挂 volume，省 IO。
+  redis:
+    image: redis:7-alpine
+    container_name: tgpp-redis
+    env_file: ../.env
+    command:
+      [
+        "redis-server",
+        "--appendonly", "no",
+        "--save", "",
+        "--requirepass", "${REDIS_PASSWORD:?missing in .env}"
+      ]
+    expose: ["6379"]
+    networks: [tgpp-net]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    restart: unless-stopped
+
   # 索引任务按需启动：docker compose --profile ingest -f deploy/docker-compose.prod.yml run --rm ingest ...
   ingest:
     build:
@@ -117,8 +186,13 @@ services:
       - tgpp-net
       - qdrant-net
       - litellm-net
-      - dangdang-net
     profiles: ["ingest"]
+
+volumes:
+  # 项目专属 PG 数据卷。备份走 pg_dump，不直接 tar 这个 volume。
+  # 销毁请用 `docker compose -f deploy/docker-compose.prod.yml down -v`（会丢全部 PG 数据，
+  # 务必先 make prod-backup）—— 走人审流程（CLAUDE.md §5.4）。
+  tgpp-pgdata:
 
 networks:
   # tgpp-net：被 ~/infra/ingress/ compose 通过 `external: true, name: tgpp_tgpp-net` attach 进来，
@@ -131,10 +205,4 @@ networks:
     external: true
   litellm-net:
     name: litellm_default
-    external: true
-  # dangdang-net：宿主共享 PG/Redis（dangdang-postgres / dangdang-redis）所在网络。
-  # 这两个容器只 publish 到宿主 127.0.0.1，host.docker.internal(=网关) 不可达；
-  # 故与 qdrant/litellm 一样改走容器名直连（DATABASE_URL/REDIS_URL 用 dangdang-* 主机名）。
-  dangdang-net:
-    name: dangdangdiary_default
     external: true
