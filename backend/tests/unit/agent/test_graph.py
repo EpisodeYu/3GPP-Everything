@@ -4,10 +4,36 @@ from __future__ import annotations
 
 import json
 
-from app.agent.graph import build_simple_graph
+from app.agent.graph import _after_classify, build_simple_graph
 from app.agent.state import AgentState
 
 from .conftest import StubDense, StubLLM, StubReranker, StubSparse, make_chunk, make_deps
+
+
+class TestAfterClassifyRouting:
+    """_after_classify 纯函数路由：tool / complex / simple + definition 走扩展链。"""
+
+    def test_tool_class_routes_to_tool(self) -> None:
+        st = AgentState(user_input="q", query_class="tool", complexity="simple")
+        assert _after_classify(st) == "tool"
+
+    def test_complex_routes_to_complex(self) -> None:
+        st = AgentState(user_input="q", query_class="procedure", complexity="complex")
+        assert _after_classify(st) == "complex"
+
+    def test_plain_simple_routes_to_simple(self) -> None:
+        st = AgentState(user_input="q", query_class="procedure", complexity="simple")
+        assert _after_classify(st) == "simple"
+
+    def test_definition_simple_routes_to_complex_for_expansion(self) -> None:
+        # 定义题即便被判 simple，也应走 complex 扩展链（hyde+multi_query）提升召回。
+        st = AgentState(user_input="q", query_class="definition", complexity="simple")
+        assert _after_classify(st) == "complex"
+
+    def test_tool_wins_over_definition(self) -> None:
+        # query_class=tool 优先级最高，不被 definition 抢走。
+        st = AgentState(user_input="q", query_class="tool", complexity="complex")
+        assert _after_classify(st) == "tool"
 
 
 async def test_simple_path_runs_all_nodes_in_order() -> None:

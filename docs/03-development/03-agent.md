@@ -144,6 +144,15 @@ class ClassifyOutput(BaseModel):
   - `tool` = 缩写表 / 章节目录 / 参数查询
   - 复杂度：包含多个 entity / 需要多文档证据 → complex
 - simple 查询必须同时输出一个英文 `rewritten_query`，避免再单独调用 `rewrite_node`；只有 complex 才进入 `rewrite_node + hyde + multi_query`
+- **定义题路由（2026-05-27）**：`query_class=definition` 几乎总被判 `complexity=simple`，但 IE/术语定义最需要精准命中那唯一的定义条款，单 query 召回最弱。`_after_classify` 把 `definition` 也路由到 complex 扩展链（`rewrite → hyde → multi_query`）提升召回——这同时让 `query_class` 真正参与路由（此前仅 `tool` 被消费）
+
+> **定义类质量提升路线（2026-05-27 立项）**
+> 背景：实测定义题答得不完整也不全对——根因是 `query_class` 此前只用于 `tool` 判定、定义题被丢进召回最弱的 simple 路径、语义检索把权威定义淹没在测试规范提及里、self_rag 只查 grounding 查不出"检索到外围而非定义"。四条改进：
+> - **A（已做）**：定义题路由到扩展检索链（本节）。
+> - **D（已做，待 eval 调参）**：rerank 阶段 section_title 命中加权（§4.6）。
+> - **B（待做）**：定义题**自动挂 glossary 工具**（不再要求用户显式请求），glossary 查词 + 检索混合，给出策划过的术语定义。
+> - **C（待做）**：`query_class` 驱动**定义专用 generate prompt**——先给权威 ASN.1/条款定义，再补用法/跨规范引用。
+> A+D 上线后应跑 eval 子集确认定义类 faithfulness/completeness 回升再决定是否上 B/C。
 
 ### 4.2 `rewrite_node` — 查询改写
 
@@ -211,6 +220,7 @@ async def rerank_node(state: AgentState) -> AgentState:
 ```
 
 - 缓存：同 retrieve（`Redis tgpp:cache:rerank:{sha256(query+top_chunk_ids)}` TTL 1h）
+- **定义题 section_title 命中加权（2026-05-27）**：`query_class=definition` 时，先取**全部**候选的 rerank 结果（Voyage 按候选数计费，放宽 `top_k` 只影响返回截断，免费），再对 `section_title` 命中查询里 IE/专名 token（hyphenated / CamelCase / 全大写，如 `PDSCH-Config`、`AMF`）的 chunk 加 `_DEFINITION_TITLE_BOOST`（默认 `0.1`），最后截到 `RERANK_TOP_K`。目的：把"标题即该 IE"的定义条款顶到只是**提及**该 IE 的测试/一致性规范之上。⚠️ **boost 权重与 token 抽取规则是启发式，待 eval 子集验证后再调**（§4.2 大功能回归）；只作用于 definition 类，不影响 procedure/complex 路径
 
 ### 4.7 `generate_node` — 最终生成
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import re
 from typing import Any
 
 from langchain_core.callbacks.manager import adispatch_custom_event
@@ -28,6 +29,16 @@ from app.core.errors import RetrievalError
 from app.retrieval.models import RetrievedChunk as RetrievalChunk
 
 log = logging.getLogger(__name__)
+
+# 定义题专用：section_title 命中查询里 IE/专名 token 时给的加性 rerank 提升量。
+# Voyage relevance_score ∈ [0,1]，0.1 足以把"标题就是该 IE"的定义条款顶到测试规范
+# 提及之上，又不至于完全压过强相关命中。**启发式，待 eval 调**（见 03-agent.md §4.6）。
+_DEFINITION_TITLE_BOOST = 0.1
+
+# IE / 信令消息 / 字段名通常是 hyphenated（`PDSCH-Config`、`p-ZP-CSI-RS-...`）或
+# CamelCase / 全大写缩写（`RRCReconfiguration`、`AMF`）。从 query 抽这类"专名 token"，
+# 用来和 chunk 的 section_title 做命中匹配。
+_IE_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+|[A-Z][A-Za-z0-9]{2,}")
 
 
 def _state_to_retrieval(c: StateChunk) -> RetrievalChunk:
@@ -67,21 +78,54 @@ async def rerank_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
         return {"reranked": out}
 
     cands = [_state_to_retrieval(c) for c in state.candidates]
+    is_definition = state.query_class == "definition"
+    # 定义题：先取更宽的 rerank 结果（Voyage 按候选数计费，top_k 只截断返回，放宽免费），
+    # 再用 section_title 命中 boost 把"标题即该 IE"的定义条款顶上来，最后截到 top_k。
+    pool_k = len(cands) if is_definition else top_k
     try:
-        reranked = await deps.reranker.rerank(query, cands, top_k=top_k)
+        reranked = await deps.reranker.rerank(query, cands, top_k=pool_k)
     except RetrievalError as exc:
         log.warning("rerank_node failed, fallback to fused order: %s", exc)
         out = _fused_top_k(state.candidates, top_k=top_k)
         await _emit_chunks_rerank(out)
         return {"reranked": out}
 
-    out = [StateChunk.from_retrieval(c) for c in reranked]
+    ranked = [StateChunk.from_retrieval(c) for c in reranked]
+    if is_definition:
+        out = _definition_boost(ranked, query, weight=_DEFINITION_TITLE_BOOST, top_k=top_k)
+    else:
+        out = ranked
     await _emit_chunks_rerank(out)
     return {"reranked": out}
 
 
 def _fused_top_k(candidates: list[StateChunk], *, top_k: int) -> list[StateChunk]:
     return sorted(candidates, key=lambda c: c.fused_score, reverse=True)[:top_k]
+
+
+def _salient_terms(query: str) -> list[str]:
+    """从 query 抽 IE/专名 token（小写化），用于 section_title 命中匹配。"""
+    return [t.lower() for t in _IE_TOKEN_RE.findall(query or "")]
+
+
+def _definition_boost(
+    chunks: list[StateChunk], query: str, *, weight: float, top_k: int
+) -> list[StateChunk]:
+    """定义题专用重排：section_title 命中 query 里 IE/专名 token 的 chunk 上调分数。
+
+    base 取 score_rerank（无则退 fused_score）；命中标题 +weight 后整体降序取 top_k。
+    query 抽不出专名 token 时不动原序，直接截断。稳定排序保证同分维持 rerank 原次序。
+    """
+    terms = _salient_terms(query)
+    if not terms:
+        return chunks[:top_k]
+
+    def _adjusted(c: StateChunk) -> float:
+        base = c.score_rerank if c.score_rerank is not None else (c.fused_score or 0.0)
+        title = (c.section_title or "").lower()
+        return base + (weight if any(t in title for t in terms) else 0.0)
+
+    return sorted(chunks, key=_adjusted, reverse=True)[:top_k]
 
 
 async def _emit_chunks_rerank(chunks: list[StateChunk]) -> None:
