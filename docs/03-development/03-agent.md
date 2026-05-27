@@ -185,7 +185,10 @@ async def retrieve_node(state: AgentState) -> AgentState:
 ```
 
 - `dense_retriever`：`backend/app/retrieval/dense.py` 包 LlamaIndex VectorStoreIndex（Qdrant backend，复用 `tgpp_chunks_voyage_d1024`）
-- `sparse_retriever`：`backend/app/retrieval/sparse.py` 包 LlamaIndex BM25 from `/data/tgpp/bm25/voyage/by_spec/` 持久化目录（如 LlamaIndex 不直接支持 per-spec jsonl 加载，M4.0.4 期间增加一层 loader 适配）
+- `sparse_retriever`：`backend/app/retrieval/sparse.py` 包 `bm25s` 直接构建/加载，从 `/data/tgpp/bm25/voyage/` 持久化目录读：
+  - **M8 起 — mmap fast path（默认）**：`bm25s.BM25.load(<dir>/index, mmap=True, load_corpus=False)` + `JsonlCorpus(corpus.jsonl)` lazy 访问。要求 ingestion 端跑过 `bm25-rebuild`（或新的 `finalize()` 默认带 build）。启动 < 1s，RSS 仅 ~250 MiB（mmap page 按需驻留）
+  - **fallback**：找不到 `index/` 时退回旧 in-memory build（从 `by_spec/*.jsonl` 反序列化 list[dict] 再 `bm25s.tokenize+index`），实测 394k chunks 启动 30-60s、VmSize 峰值 ~2.5 GiB（启动日志会打 warning，应跑 `ingestion bm25-rebuild` 修复）
+  - 加载路径可通过 `sparse_retriever.backend` 属性区分（`"mmap"` / `"legacy"`）；tokenize 参数（`stopwords="en"`）与 ingestion 端 `_TOKENIZE_STOPWORDS` 保持一致，改动需同步两侧
 - RRF 融合：`score = sum(1 / (60 + rank_i))`
 - 过滤：根据 `query_class` 选 `spec_id` 限定
 - 缓存：`Redis tgpp:cache:retrieve:{sha256(query+filter)}` TTL 1h
