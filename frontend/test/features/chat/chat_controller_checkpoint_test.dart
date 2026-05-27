@@ -6,6 +6,7 @@ import 'package:tgpp/data/api/checkpoint_api.dart';
 import 'package:tgpp/data/api/messages_api.dart';
 import 'package:tgpp/features/chat/chat_controller.dart';
 
+import '../../support/fake_auth_controller.dart';
 import '../../support/fake_checkpoint_api.dart';
 import '../../support/fake_messages_api.dart';
 
@@ -14,6 +15,7 @@ ProviderContainer _container({
   required FakeCheckpointApi checkpoint,
 }) {
   final c = ProviderContainer(overrides: [
+    fakeAuthControllerOverride,
     messagesApiProvider.overrideWithValue(messages),
     checkpointApiProvider.overrideWithValue(checkpoint),
   ]);

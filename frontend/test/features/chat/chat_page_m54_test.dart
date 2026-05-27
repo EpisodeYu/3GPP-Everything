@@ -13,6 +13,7 @@ import 'package:tgpp/data/api/notes_api.dart';
 import 'package:tgpp/data/api/sessions_api.dart';
 import 'package:tgpp/features/chat/chat_page.dart';
 
+import '../../support/fake_auth_controller.dart';
 import '../../support/fake_checkpoint_api.dart';
 import '../../support/fake_favorites_notes_feedback.dart';
 import '../../support/fake_messages_api.dart';
@@ -60,6 +61,7 @@ Future<_Pumped> _pump(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        fakeAuthControllerOverride,
         sessionsApiProvider.overrideWithValue(sessions),
         messagesApiProvider.overrideWithValue(messages),
         checkpointApiProvider.overrideWithValue(checkpoint),

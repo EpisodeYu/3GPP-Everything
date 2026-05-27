@@ -5,10 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tgpp/data/api/messages_api.dart';
 import 'package:tgpp/features/chat/chat_controller.dart';
 
+import '../../support/fake_auth_controller.dart';
 import '../../support/fake_messages_api.dart';
 
 ProviderContainer _container(FakeMessagesApi api) {
   final c = ProviderContainer(overrides: [
+    fakeAuthControllerOverride,
     messagesApiProvider.overrideWithValue(api),
   ]);
   addTearDown(c.dispose);

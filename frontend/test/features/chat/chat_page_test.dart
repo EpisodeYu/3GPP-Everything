@@ -7,6 +7,7 @@ import 'package:tgpp/data/api/messages_api.dart';
 import 'package:tgpp/data/api/sessions_api.dart';
 import 'package:tgpp/features/chat/chat_page.dart';
 
+import '../../support/fake_auth_controller.dart';
 import '../../support/fake_messages_api.dart';
 import '../../support/fake_sessions_api.dart';
 import '../../support/localized.dart';
@@ -22,6 +23,7 @@ Future<({FakeSessionsApi sessions, FakeMessagesApi messages})> _pump(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        fakeAuthControllerOverride,
         sessionsApiProvider.overrideWithValue(sessions),
         messagesApiProvider.overrideWithValue(messages),
       ],
