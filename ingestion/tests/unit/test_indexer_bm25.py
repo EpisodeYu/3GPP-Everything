@@ -218,9 +218,7 @@ def test_finalize_idempotent_index_overwrite(tmp_path: Path) -> None:
 def test_rebuild_index_from_existing_by_spec(tmp_path: Path) -> None:
     """`rebuild_index()`：只读 by_spec/ + chunks.jsonl，重新 build 索引。"""
     w = _writer(tmp_path)
-    w.write_spec_chunks(
-        "38.331", _mk_text_chunks("38.331", ["one two three", "four five six"])
-    )
+    w.write_spec_chunks("38.331", _mk_text_chunks("38.331", ["one two three", "four five six"]))
     w.finalize(build_index=False)
     assert not w.has_persisted_index()
 

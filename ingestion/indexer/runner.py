@@ -438,8 +438,7 @@ def bm25_rebuild_cmd(
         raise typer.Exit(code=1)
 
     typer.echo(
-        f"[bm25-rebuild] provider={provider} root={bm25.root} "
-        f"specs={len(bm25.list_specs())}"
+        f"[bm25-rebuild] provider={provider} root={bm25.root} " f"specs={len(bm25.list_specs())}"
     )
     meta = bm25.rebuild_index()
     typer.echo(
