@@ -50,10 +50,12 @@ COLLECTION_PREFIX = os.environ.get("QDRANT_COLLECTION_PREFIX", "tgpp_chunks")
 PROVIDER = "voyage"
 DIMS = [2048, 1024]
 BM25_DIR = Path(os.environ.get("INGEST_DATA_DIR", "/data/tgpp")) / "bm25" / PROVIDER
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL_RAW",
-    "postgresql://tgpp_app:ed3d4b9fff4156a3e4ccac4a1d7ef527@localhost:5432/tgpp_everything",
-)
+# DB 连接串从环境读取（psycopg 格式，不含 +asyncpg）；绝不在代码里写死密码。
+DATABASE_URL = os.environ.get("DATABASE_URL_RAW")
+if not DATABASE_URL:
+    raise SystemExit(
+        "DATABASE_URL_RAW 未设置；例：postgresql://tgpp_app:<password>@localhost:5432/tgpp_everything"
+    )
 
 
 def qdrant_count_by_spec(client: httpx.Client, collection: str, spec_id: str) -> int:
