@@ -45,8 +45,42 @@ async def test_generate_streams_answer_and_extracts_citations() -> None:
     assert cite["spec_id"] == "23.501"
     assert cite["chunk_id"] == "c1"
     assert cite["section_path"] == "6.3.1"
-    # LLM 调用使用了 LLM_AGENT_MODEL（mimo-v2.5-pro）
-    assert llm.calls[0]["model"] == deps.settings.LLM_AGENT_MODEL
+    # 生产路径走 chat_stream（不是非流式 chat）
+    stream_calls = [c for c in llm.calls if c["kind"] == "chat_stream"]
+    assert len(stream_calls) == 1
+    assert stream_calls[0]["model"] == deps.settings.LLM_AGENT_MODEL
+    # 不应再回落到非流式 chat
+    assert not [c for c in llm.calls if c["kind"] == "chat"]
+
+
+async def test_generate_falls_back_to_nonstream_when_stream_fails() -> None:
+    """流式抛 LLMError → 回退到非流式 chat() 再产答案。"""
+    from collections.abc import Sequence
+    from typing import Any
+
+    from app.core.errors import LLMError
+
+    from .conftest import StubLLM as _Stub
+
+    class _StreamBoomLLM(_Stub):
+        async def chat_stream(  # type: ignore[override]
+            self, messages: Sequence[dict[str, Any]], **kwargs: Any
+        ) -> Any:
+            self.calls.append({"kind": "chat_stream", "messages": list(messages), **kwargs})
+            raise LLMError("network down")
+            yield  # 让 mypy 知道这是 async generator
+
+    llm = _StreamBoomLLM(responses=["Fallback answer [23.501 §6.3.1]."])
+    deps = make_deps(llm=llm)
+    state = AgentState(
+        user_input="X",
+        user_language="en",
+        reranked=[_chunk("c1", spec="23.501", section=("6", "3", "1"))],
+    )
+    out = await generate_node(state, deps=deps)
+    assert "Fallback answer" in out["final_answer"]
+    assert out["citations"][0]["chunk_id"] == "c1"
+    assert [c["kind"] for c in llm.calls] == ["chat_stream", "chat"]
 
 
 async def test_no_chunks_returns_fallback_message() -> None:

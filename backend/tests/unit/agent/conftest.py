@@ -34,12 +34,33 @@ class StubLLM:
     def __post_init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
-    async def chat(self, messages: Sequence[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
-        self.calls.append({"kind": "chat", "messages": list(messages), **kwargs})
-        idx = min(len([c for c in self.calls if c["kind"] == "chat"]) - 1, len(self.responses) - 1)
+    def _next_content(self, kind: str, messages: Sequence[dict[str, Any]], **kwargs: Any) -> str:
+        """共享 responses 队列：chat / chat_stream 按调用顺序消费同一份列表。
+
+        idx 按所有 chat-like calls 的总数算（chat + chat_stream），避免 graph 顺序
+        classify(chat) → generate(chat_stream) → self_rag(chat) 时 idx 错位。
+        """
+        self.calls.append({"kind": kind, "messages": list(messages), **kwargs})
+        chat_like = [c for c in self.calls if c["kind"] in ("chat", "chat_stream")]
+        idx = min(len(chat_like) - 1, len(self.responses) - 1)
         item = self.responses[idx] if self.responses else ""
-        content = (item.get("content") or json.dumps(item)) if isinstance(item, dict) else item
+        return (item.get("content") or json.dumps(item)) if isinstance(item, dict) else item
+
+    async def chat(self, messages: Sequence[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
+        content = self._next_content("chat", messages, **kwargs)
         return {"choices": [{"message": {"content": content}}]}
+
+    async def chat_stream(self, messages: Sequence[dict[str, Any]], **kwargs: Any) -> Any:
+        """模拟 OpenAI 兼容流式 chat：把对应 response 拆成 ~3 段 yield。"""
+        content = self._next_content("chat_stream", messages, **kwargs)
+        if not content:
+            return
+        n = len(content)
+        slices = [content[: n // 3], content[n // 3 : 2 * n // 3], content[2 * n // 3 :]]
+        for s in slices:
+            if not s:
+                continue
+            yield {"choices": [{"delta": {"content": s}}]}
 
     async def embed(self, inputs: Sequence[str], **kwargs: Any) -> dict[str, Any]:
         self.calls.append({"kind": "embed", "inputs": list(inputs), **kwargs})

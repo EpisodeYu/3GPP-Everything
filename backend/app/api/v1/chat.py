@@ -75,15 +75,33 @@ def _get_agent_graph(request: Request) -> Any:
 def _get_title_client(request: Request) -> Any:
     """首轮自动标题用的 LLM client。
 
-    测试可注入 `app.state.title_client`；prod 取 lifespan 构造的 agent deps 上的
-    `LiteLLMClient`（`app.state._agent_deps.llm`，见 main.lifespan）。两者都缺
-    （dev fallback / 早期环境）→ None，caller 跳过自动标题。
+    解析顺序：
+    1. `app.state.title_client`（测试注入 / 显式覆盖）
+    2. `app.state._agent_deps.llm`（lifespan 成功初始化时设置）
+    3. lazy `tgpp_agent` 单例对应的 `_tgpp_agent_deps.llm`：覆盖 lifespan 因
+       上游不可达 swallow 异常的场景（chat 路由会 fallback 到 lazy agent，但
+       deps 之前没有暴露给 title 路径，导致自动标题永远跳过）
+    都缺 → None，caller 跳过自动标题。
     """
     override = getattr(request.app.state, "title_client", None)
     if override is not None:
         return override
     deps = getattr(request.app.state, "_agent_deps", None)
-    return getattr(deps, "llm", None)
+    llm = getattr(deps, "llm", None)
+    if llm is not None:
+        return llm
+    # lazy fallback：触发一次 `tgpp_agent` 构造（与 _get_agent_graph 同源），
+    # 然后从 graph 模块的 cache 里读 deps.llm。任何 ImportError / 构造失败都
+    # swallow，自动标题降级为 no-op。
+    try:
+        from app.agent import graph as _graph
+
+        _graph._build_default()  # 触发 lazy 构造（已构造过则直接返回缓存）
+        lazy_deps = _graph._tgpp_agent_deps
+        return getattr(lazy_deps, "llm", None)
+    except Exception as exc:
+        log.debug("title_client lazy fallback failed: %s", exc)
+        return None
 
 
 def _get_cancel_registry(request: Request) -> dict[str, asyncio.Event]:
@@ -366,11 +384,25 @@ def _build_sse_stream(
                         except Exception:
                             final_state = None
                 elif kind == "on_chat_model_stream":
+                    # 保留：测试 / 未来若引入 LangChain ChatModel 时仍可走此路径。
+                    # 生产路径由 generate 节点的 `on_custom_event` name="token" 提供（见下）。
                     chunk = data.get("chunk")
                     delta = ""
                     if chunk is not None:
                         # langchain AIMessageChunk has .content
                         delta = getattr(chunk, "content", "") or ""
+                    if delta:
+                        yield _sse("token", {"delta": delta})
+                elif kind == "on_custom_event" and name == "token":
+                    # generate 节点用 LiteLLMClient.chat_stream() 真流式拉 token，
+                    # 通过 adispatch_custom_event("token", {"delta":...}) 推过来。
+                    delta = ""
+                    if isinstance(data, dict):
+                        # adispatch_custom_event 把 payload 直接放进 data；
+                        # 防御性也支持嵌套 data["data"]（不同 LangGraph 版本差异）
+                        d_payload: Any = data.get("data") if "data" in data else data
+                        if isinstance(d_payload, dict):
+                            delta = str(d_payload.get("delta") or "")
                     if delta:
                         yield _sse("token", {"delta": delta})
                 elif kind == "on_custom_event" and name in ("chunks_hit", "chunks_rerank"):

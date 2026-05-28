@@ -88,13 +88,16 @@ async def test_simple_path_runs_all_nodes_in_order() -> None:
     assert state.self_rag_verdict == "accept"
     assert state.confidence == 0.88
 
-    # 三次 LLM 调用：classify / generate / self_rag
-    chat_calls = [c for c in llm.calls if c["kind"] == "chat"]
-    assert len(chat_calls) == 3
+    # 三次 LLM 调用：classify(chat) / generate(chat_stream) / self_rag(chat)。
+    # generate 节点用 chat_stream 真流式拉 token（口径 §4.7）；classify / self_rag
+    # 仍走非流式 chat。
+    llm_calls = [c for c in llm.calls if c["kind"] in ("chat", "chat_stream")]
+    assert len(llm_calls) == 3
+    assert [c["kind"] for c in llm_calls] == ["chat", "chat_stream", "chat"]
     # 模型路由：classify+self_rag 用 light，generate 用 agent
-    assert chat_calls[0]["model"] == deps.settings.LLM_LIGHT_MODEL
-    assert chat_calls[1]["model"] == deps.settings.LLM_AGENT_MODEL
-    assert chat_calls[2]["model"] == deps.settings.LLM_LIGHT_MODEL
+    assert llm_calls[0]["model"] == deps.settings.LLM_LIGHT_MODEL
+    assert llm_calls[1]["model"] == deps.settings.LLM_AGENT_MODEL
+    assert llm_calls[2]["model"] == deps.settings.LLM_LIGHT_MODEL
 
 
 async def test_simple_path_no_chunks_yields_fallback_answer() -> None:

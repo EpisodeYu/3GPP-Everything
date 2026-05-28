@@ -2,20 +2,28 @@
 
 口径见 `docs/03-development/03-agent.md §4.7`。
 
-M4.2 实现要点：
-- 用 `LiteLLMClient.chat()` 非流式拿全文（SSE 流式由 backend M4.3 在 graph.astream_events
-  外层重新映射；此处保持节点纯 async 函数返回完整 final_answer）
-- 用 `parse_citations()` 从答案文本里抽 `[spec_id §section_path]`，与 reranked 列表
-  按 (spec_id, section_path) 软对齐
-- "未在已索引 3GPP 文档中找到 …" 兜底：reranked 为空直接产 fallback 答案
+实现要点：
+- 用 `LiteLLMClient.chat_stream()` 真流式拿 token；每个 chunk 通过
+  `adispatch_custom_event("token", {"delta": ...})` 透传给 backend SSE 路由
+  （chat.py 的 `on_custom_event` 处理器 → `token` 事件 → 前端 `partialAnswer`
+  逐字渲染）。不走 `on_chat_model_stream` 路径：那条路径只在节点里调用
+  LangChain 兼容 chat model 时才触发，本项目走自定义 httpx 客户端。
+- 用 `parse_citations()` 从答案文本里抽 `[spec_id §section_path]`，与 reranked
+  列表按 (spec_id, section_path) 软对齐。
+- "未在已索引 3GPP 文档中找到 …" 兜底：reranked 为空直接产 fallback 答案。
+- 流式失败兜底（网络抖动 / LiteLLM 异常）：catch `LLMError` 后回退到非流式
+  `chat()` 再试一次；都失败才返回 fallback。
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 from typing import Any
 
+from langchain_core.callbacks.manager import adispatch_custom_event
+from langgraph.config import get_stream_writer
 from langgraph.types import interrupt
 
 from app.agent.deps import AgentDeps
@@ -68,24 +76,82 @@ async def generate_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
         user_input=state.user_input,
         user_language=state.user_language,
     )
+    messages = [{"role": "user", "content": prompt}]
 
-    try:
-        resp = await deps.llm.chat(
-            messages=[{"role": "user", "content": prompt}],
-            model=deps.settings.LLM_AGENT_MODEL,
-            temperature=0.1,
-        )
-    except LLMError as exc:
-        log.warning("generate_node llm failed: %s", exc)
-        msg = _FALLBACK_ZH if state.user_language == "zh" else _FALLBACK_EN
-        return {"final_answer": msg, "citations": [], "confidence": 0.0}
+    answer = await _stream_answer(deps, messages)
+    if answer is None:
+        # 流式失败 → 兜底再来一次非流式 chat()
+        try:
+            resp = await deps.llm.chat(
+                messages=messages,
+                model=deps.settings.LLM_AGENT_MODEL,
+                temperature=0.1,
+            )
+        except LLMError as exc:
+            log.warning("generate_node llm fallback failed: %s", exc)
+            msg = _FALLBACK_ZH if state.user_language == "zh" else _FALLBACK_EN
+            return {"final_answer": msg, "citations": [], "confidence": 0.0}
+        answer = _extract_text(resp)
+        # 兜底路径也补一次 token event，让前端的 partialAnswer 一次性显示出来
+        if answer:
+            await _emit_token(answer)
 
-    answer = _extract_text(resp)
     citations = parse_citations(answer, chunks)
     return {
         "final_answer": answer,
         "citations": citations,
     }
+
+
+async def _stream_answer(deps: AgentDeps, messages: list[dict[str, Any]]) -> str | None:
+    """流式跑 LLM 并逐 chunk emit token 事件；任何异常返回 None 让 caller 兜底。"""
+    buf: list[str] = []
+    try:
+        async for chunk in deps.llm.chat_stream(
+            messages=messages,
+            model=deps.settings.LLM_AGENT_MODEL,
+            temperature=0.1,
+        ):
+            delta = _extract_delta(chunk)
+            if not delta:
+                continue
+            buf.append(delta)
+            await _emit_token(delta)
+    except LLMError as exc:
+        log.warning("generate_node stream failed, will fallback: %s", exc)
+        return None
+    return "".join(buf).strip()
+
+
+def _extract_delta(chunk: dict[str, Any]) -> str:
+    """OpenAI 兼容 stream chunk → token 增量字符串。"""
+    try:
+        delta = chunk["choices"][0]["delta"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    content = delta.get("content") if isinstance(delta, dict) else None
+    return content if isinstance(content, str) else ""
+
+
+async def _emit_token(delta: str) -> None:
+    """通过 LangGraph 两条流通道 emit `token` 事件。
+
+    与 retrieve / rerank 节点 emit `chunks_hit` 同一双轨模式（口径
+    `docs/03-development/03-agent.md §7`）：
+    - `get_stream_writer()` → `astream(stream_mode="custom")`
+    - `adispatch_custom_event` → `astream_events(v=v2)` 的 `on_custom_event`
+
+    单测直接 `await generate_node(...)`（无 LangGraph 上下文）时会抛
+    RuntimeError，吞掉，不影响主路径。
+    """
+    if not delta:
+        return
+    event = {"delta": delta}
+    with contextlib.suppress(RuntimeError):
+        writer = get_stream_writer()
+        writer({"type": "token", **event})
+    with contextlib.suppress(RuntimeError):
+        await adispatch_custom_event("token", event)
 
 
 def parse_citations(answer: str, chunks: list[StateChunk]) -> list[dict[str, Any]]:
