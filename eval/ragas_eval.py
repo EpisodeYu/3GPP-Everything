@@ -120,10 +120,16 @@ class RagasScorer:
         self,
         item: GoldenItem,
         resp: AgentResponse,
+        *,
+        run_config: Any = None,
     ) -> dict[str, float | None]:
         """对单题计算 4 metric。
 
         返回 dict 必含 4 个 key（缺的 = None）。任一异常 → log warning + 整体退化。
+
+        `run_config`：可选 ragas `RunConfig`，控制 per-job timeout / 并发。默认 None
+        用 ragas 内置默认（timeout=180s，长答案 faithfulness 易 TimeoutError 丢样本）；
+        重试失败题时传更长 timeout + 串行（max_workers=1）以救回超时项。
         """
         scores = _empty_metric_dict()
         contexts = _extract_contexts(resp)
@@ -158,14 +164,16 @@ class RagasScorer:
         }
         try:
             ds = Dataset.from_list([row])
-            ev_result = evaluate(
-                ds,
+            eval_kwargs: dict[str, Any] = dict(
                 metrics=list(self.metrics),
                 llm=self.llm,
                 embeddings=self.embeddings,
                 raise_exceptions=False,
                 show_progress=False,
             )
+            if run_config is not None:
+                eval_kwargs["run_config"] = run_config
+            ev_result = evaluate(ds, **eval_kwargs)
         except Exception as exc:
             log.warning("ragas evaluate() failed for item=%s: %s", item.id, exc)
             return scores
