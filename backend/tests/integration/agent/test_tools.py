@@ -7,9 +7,11 @@
    `state.tool_results[<name>]` + tool_dispatch 节点确实被 graph 调用
 2. test_glossary_tool_hits_real_data: 用真实 PG `glossary` 表查 AMF，验证返回非空
    matches（依赖 M4.1，需要 .env LITELLM_API_KEY + PG 可达）
-3. test_non_explicit_tools_does_not_invoke_tools: 用 "definition" 类查询、
+3. test_non_explicit_tools_does_not_invoke_tools: 用 "procedure" 类查询、
    explicit_tools=[]，验证 graph 不进 tool_dispatch（tool_dispatch_node 不被调用
    即可，因为 classify→retrieve→...→generate 那条路径上压根没走 tool_dispatch）
+   注：不能用 definition——`_after_classify` 把 definition 强制路由到 complex
+   分支（rewrite/hyde/multi_query），LLM 调用次数翻倍，本测语义会失焦
 
 实现策略：
 - 各工具用 mock（StubLLM / StubDense / StubSparse / 注入 FakeSessionmaker），
@@ -187,17 +189,19 @@ async def test_web_search_triggered_via_explicit_tools(monkeypatch: pytest.Monke
 
 
 async def test_non_explicit_tools_does_not_invoke_tools(monkeypatch: pytest.MonkeyPatch) -> None:
-    """definition 类查询 + explicit_tools=[] → graph 不应进 tool_dispatch。"""
+    """procedure 类查询 + explicit_tools=[] → graph 不应进 tool_dispatch。"""
     # classify 故意把 needs_explicit_tools 留空（即使 user_input 看起来像 glossary，
     # 也只有 classify 说 query_class=tool + 工具名时才能触发）
+    # 用 procedure（不是 definition）：`_after_classify` 把 definition 强制走 complex
+    # 分支会多调 rewrite/hyde/multi_query 三次 LLM；procedure+simple 才是 simple 快路径
     classify_resp = json.dumps(
         {
-            "query_class": "definition",
+            "query_class": "procedure",
             "complexity": "simple",
             "detected_language": "en",
             "rewritten_query": "AMF definition",
             "needs_explicit_tools": [],
-            "reason": "definition path",
+            "reason": "non-tool path",
         }
     )
     generate_resp = "AMF stands for Access and Mobility Management Function [23.501 §6.3.1]."
@@ -226,7 +230,7 @@ async def test_non_explicit_tools_does_not_invoke_tools(monkeypatch: pytest.Monk
     out = await graph.ainvoke({"user_input": "What is AMF?"})
     state = AgentState.model_validate(out)
     # 主路径：classify → retrieve → rerank → generate → self_rag → END
-    assert state.query_class == "definition"
+    assert state.query_class == "procedure"
     assert state.tool_results == {}  # 工具没被调用
     assert state.reranked  # 正常 retrieve / rerank 跑了
     assert "AMF" in state.final_answer
