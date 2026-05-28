@@ -54,6 +54,7 @@
 |  | GET | `/api/v1/sessions/{sid}` | 获取会话元信息（**不含 messages**：消息列表走 `/sessions/{sid}/messages`，F-6 2026-05-19 拆分） |
 |  | PATCH | `/api/v1/sessions/{sid}` | 改标题等 |
 |  | DELETE | `/api/v1/sessions/{sid}` | 删除会话（PG cascade） |
+|  | DELETE | `/api/v1/sessions` | 清空当前用户**全部**会话（含 `archived_branch`），返回 `{"deleted": int}`；走 ORM 逐条 `session.delete(obj)`（依赖 SQLAlchemy Python-level cascade，与 SQLite 集成测兼容；不动 LangGraph checkpoint 表，与 single delete 行为一致） |
 | **Chat (流式)** | POST | `/api/v1/sessions/{sid}/messages` | 发送消息，返回 SSE 事件流 |
 |  | DELETE | `/api/v1/sessions/{sid}/runs/{rid}` | 取消正在跑的 graph：set cancel_event → race loop 中断 LLM streaming（F-1 2026-05-19）+ 写 cancelled flag |
 | **Checkpoint** | POST | `/api/v1/sessions/{sid}/runs/{rid}/pause` | 暂停跑中 run（保留 checkpoint，可恢复，区别于取消） |
@@ -356,9 +357,10 @@ event: end
 data: {}
 ```
 
-> `title` 仅在「首轮 + 空标题会话 + 本轮成功」时出现（在 `final` 之后、`end` 之前），
-> 用 LIGHT 模型从用户首个问题生成短标题并回写 `session.title`，让前端 sidebar 即时更新。
-> 详见 `03-agent.md §7` 首轮自动标题说明。
+> `title` 仅在「首轮 + 空标题会话 + 本轮成功」时出现，用 LIGHT 模型从用户首个问题生成短标题并回写 `session.title`，让前端 sidebar 即时更新。
+> **2026-05-28 起 autotitle 与 agent 并发起跑**（`asyncio.create_task` 在 SSE 入口立即启动），主循环每次事件后 poll，title 通常在第一个 `token` 之前就到；agent 跑完时若 title 仍未好，2s 短超时兜底 + cancel，不阻塞 `end`。CancelledError 路径同步 cancel title task，避免后台 LLM 烧 token。DB 写仍在主 task 串行（AsyncSession 非 task-safe）。详见 `03-agent.md §7` 首轮自动标题说明。
+
+> **2026-05-28 起 `token` 事件改走 LangGraph custom event**：`generate.py` 用 `LiteLLMClient.chat_stream()` 拼 chunk，并通过 `adispatch_custom_event("token", {"delta": ...})` + writer 双通道 emit；SSE 路由的 `on_custom_event name=="token"` 透传给前端。原因：LangGraph `astream_events("v2")` 的 `on_chat_model_stream` 只识别 LangChain `BaseChatModel.astream`，自定义 httpx LiteLLMClient 走不到该路径，prod 表现为"等 final 一次性吐全文"。流式失败兜底回退到非流式 `chat()`（仍保 canned-graph 集成测）。
 
 错误：
 

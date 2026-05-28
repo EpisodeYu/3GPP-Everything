@@ -149,6 +149,10 @@ final router = GoRouter(
 
 `AppShell`：左侧导航（会话列表 + 阅读器入口 + 管理）+ 右侧主区。响应式布局：宽屏（>=840px）侧栏固定，窄屏（Android / 移动 Web）侧栏抽屉化。
 
+**全站可选中复制（2026-05-25, 0b7ee00）**：`AppShell.build` 把路由主内容包进 `SelectionArea`，Flutter Web（CanvasKit）下 chat / sessions / admin 全部支持鼠标拖选 + `Ctrl/Cmd+C`；聊天气泡保留 `selectable:false`（长按菜单复用其手势，与 `SelectionArea` 拖选手势不冲突）。`SelectionArea` 须放在 `Navigator` **之下**（最初放 `MaterialApp.builder` 会抛 "No Overlay widget found"），所以下沉到 `AppShell`。Reader 页已有 `selectable:true` 不重复包，登录页是表单不包。
+
+**Sidebar 一键清空全部会话（2026-05-28, 18edf81）**：sidebar 底部新增红色「清空全部会话」按钮（**仅会话列表非空时显示**），二次确认对话框给出本次将删的会话数；调 `DELETE /api/v1/sessions` 成功后跳回 `/chat`，snackbar 回显后端返回的真实 `deleted` 数（与前端乐观更新独立）。失败回滚到原列表。i18n key：`sidebarDeleteAll` / `deleteAllDialog*` / `snackbarDeleteAll*`（6 个中英 key）。
+
 ## 5. 聊天页详细设计
 
 ```mermaid
@@ -163,7 +167,15 @@ graph TB
     H --> M --> S --> P --> C
 ```
 
+> **2026-05-28 (0eea4ee)**：chat header 原先有一行 `mode=qa · status=...` 副标题，删除——`mode=qa` 是会话唯一可能值（`raw_lookup` 已下线），`status` 在 sidebar 已通过分组（active / 分叉历史）+ paused/archived banner 体现，副标题对用户无信息量。
+
 ### 5.1 流式状态机
+
+> **2026-05-28 (4a2960d)**：后端 `final` 之后还要跑 autotitle LLM 才发 `end`（详见
+> `04-backend-api.md §4.2` autotitle 并发说明），前端原本在 `EndEvent` 才 flush
+> streaming bubble 到 history，导致 `status=done` 但 history 还没更新的几秒里
+> streaming bubble 与 history 都不显示本轮消息，画面"突然消失"。改为 `FinalEvent` /
+> `CancelledEvent` 一到立即 flush，`EndEvent` 仍兜底（status idle 时 no-op）。
 
 ```dart
 enum RunStatus { idle, streaming, cancelling, done, error }
@@ -193,8 +205,9 @@ class ChatController extends AsyncNotifier<ChatRunState> {
       case 'node_end':   ...
       case 'chunks_hit': ...
       case 'token':      ...   // setState(partialAnswer += delta)
-      case 'final':      ...
-      case 'cancelled':  ...
+      case 'final':      ...   // 2026-05-28 (4a2960d): 立即 flush streaming bubble 到 history
+      case 'cancelled':  ...   // 同上：cancelled 也立即 flush
+      case 'end':        ...   // 仍兜底（status idle 时 no-op）
       case 'error':      ...
     }
   }

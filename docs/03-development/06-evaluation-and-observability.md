@@ -413,6 +413,15 @@ ragas_llm = ChatOpenAI(model="deepseek-v4-pro", base_url=LITELLM_BASE, api_key=L
 ragas_embed = ... # 同 RAG 用的 embedding，或独立的
 ```
 
+### 5.1 长答案超时与失败题重试（2026-05-28, a605775）
+
+ragas 默认 `per-job timeout=180s`，长答案 `faithfulness` 会被拆成多个 statement 逐条评估，56 题 daily run 实测**非 negative 有效样本只剩 22-28**（其余被 `TimeoutError` 丢成 None）。两点应对：
+
+1. **`RagasScorer.score_item(run_config=...)` 可选入口**：调用方传入自定义 `ragas.run_config.RunConfig`（如 `RunConfig(timeout=600, max_workers=2)`），默认行为不变（沿用 ragas 全局默认）。
+2. **`eval/scripts/retry_failed_ragas.py` 重试脚本**：对 rejudge 结果里 `category != "negative"` 且任一 `ragas_*` 为 None 的题，用长超时 + 受控并发**就地重打**、合并回原 `results.json`、重算 `aggregate`。实测能救回全部超时题（残留 0），不重复跑已成功的题。
+
+> 用法：先跑一次正常 daily / weekly，发现 ragas 缺样本时再跑 retry 脚本补；不改默认 timeout 以免拖长所有 run。
+
 ## 6. Langfuse Datasets（M7.3 实装）
 
 > 模块 `eval/langfuse_dataset.py`；EvalSettings 加 `langfuse_public_key / secret_key / host`（顶层 `.env` 已配，eval 子项目自动读取）。
