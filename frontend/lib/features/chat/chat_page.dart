@@ -473,11 +473,6 @@ class _Header extends StatelessWidget {
                   key: const Key('chat_header_title'),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'mode=${session.modeDefault} · status=${session.status}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
               ],
             ),
           ),
