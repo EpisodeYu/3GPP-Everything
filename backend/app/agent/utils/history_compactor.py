@@ -56,6 +56,7 @@ class ChatClient(Protocol):
         temperature: float | None = None,
         max_tokens: int | None = None,
         response_format: dict[str, Any] | None = None,
+        thinking: dict[str, Any] | None = None,
         extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]: ...
 
@@ -120,11 +121,17 @@ async def compact_history(
     if summary_text is None:
         prompt = _build_summary_prompt(older)
         try:
+            # thinking=disabled：summary 是事实压缩任务（保留 spec id/section/decision，
+            # 删客套），不需要 reasoning。mimo 思考模式下 temp=0 被强制 1.0，同会话
+            # 老历史首次跑出来的 summary 会随机选一个版本落 Redis cache 钉死后续 24h
+            # → 表面稳定但内涵不可复现。disabled 后 temp=0 真生效，相同 older
+            # history 永远同 summary，可重放可调试。
             resp = await chat_client.chat(
                 messages=prompt,
                 model=SUMMARY_MODEL,
                 temperature=0.0,
                 max_tokens=800,
+                thinking={"type": "disabled"},
             )
             summary_text = _extract_content(resp)
         except Exception as exc:

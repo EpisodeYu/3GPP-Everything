@@ -97,6 +97,9 @@ async def test_above_threshold_cache_miss_calls_llm_and_writes_cache() -> None:
     out = await compact_history(history, session_id=sid, chat_client=chat, redis=redis)
 
     assert len(chat.calls) == 1
+    # summary 是事实压缩任务，mimo 思考模式下 temp=0 会被强制 1.0 → 同 older 不同
+    # summary，cache 钉死后内涵不可复现。锁住 thinking=disabled 让 temp=0 真生效。
+    assert chat.calls[0]["thinking"] == {"type": "disabled"}
     older = history[:-RECENT_N]
     last_id = older[-1].id
     expected_key = f"{KEY_PREFIX}:{sid}:{last_id}"

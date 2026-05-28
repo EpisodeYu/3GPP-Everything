@@ -67,11 +67,12 @@ async def classify_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
         # mimo 思考模式下 temperature=0 被强制改成 1.0，无法保证同输入同分类（同
         # 一题在 simple/complex 间跳变会让路由不稳）。disabled 后 temp=0 真生效，
         # reasoning_tokens=0，分类完全确定性。
+        # 不传 response_format：mimo 官方文档 `type` 字段仅支持 `text`，json_object
+        # 是 LiteLLM 透传 + mimo 静默忽略；prompt 已 "ONLY the JSON object" 强约束。
         resp = await deps.llm.chat(
             messages=[{"role": "user", "content": prompt}],
             model=deps.settings.LLM_LIGHT_MODEL,
             temperature=0.0,
-            response_format={"type": "json_object"},
             thinking={"type": "disabled"},
         )
     except LLMError as exc:

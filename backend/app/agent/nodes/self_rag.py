@@ -135,11 +135,12 @@ async def self_rag_node(
         # 思考模式下 temp=0 被强制 1.0 → 同样事实/回答会偶发返不同 verdict（accept ↔
         # retry 跳变），retry 路径不稳定。disabled 后 verdict 完全确定，retry 行为
         # 可复现。
+        # 不传 response_format：mimo 官方文档 `type` 字段仅支持 `text`，prompt 已
+        # "Emit ONE JSON object — no prose, no markdown fence" 强约束。
         resp = await deps.llm.chat(
             messages=[{"role": "user", "content": prompt}],
             model=deps.settings.LLM_LIGHT_MODEL,
             temperature=0.0,
-            response_format={"type": "json_object"},
             thinking={"type": "disabled"},
         )
     except LLMError as exc:
