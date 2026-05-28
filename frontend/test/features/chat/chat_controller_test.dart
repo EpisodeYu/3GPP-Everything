@@ -282,4 +282,63 @@ void main() {
     final s = await _waitUntil(c, sid, (s) => s.run.status == RunStatus.error);
     expect(s.run.errorMessage, 'stream_closed');
   });
+
+  test('final 到达即立刻 flush 到 history（不等 end，避免后端 autotitle 期间页面空窗）',
+      () async {
+    final api = FakeMessagesApi();
+    final controller = StreamController<ChatEvent>();
+    api.useLiveStream(controller);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    unawaited(c.read(chatControllerProvider(sid).notifier).send('hi'));
+    controller.add(const RunStartEvent(runId: 'r', sessionId: sid, messageId: 'm'));
+    controller.add(const TokenEvent(delta: 'hello'));
+    await _waitUntil(c, sid, (s) => s.run.partialAnswer == 'hello');
+
+    controller.add(const FinalEvent(
+      messageId: 'm',
+      answer: 'hello',
+      citations: [],
+      confidence: 0.6,
+    ));
+    // 此处刻意不发 EndEvent；模拟后端 autotitle 还在跑的几秒窗口。
+    final s = await _waitUntil(c, sid, (s) => s.history.length == 2);
+    expect(s.run.status, RunStatus.idle);
+    expect(s.history[0].role, 'user');
+    expect(s.history[0].content, 'hi');
+    expect(s.history[1].role, 'assistant');
+    expect(s.history[1].content, 'hello');
+
+    // 之后 end 到达不应破坏 history（兜底 no-op）
+    controller.add(const EndEvent());
+    await controller.close();
+    final s2 = c.read(chatControllerProvider(sid)).value!;
+    expect(s2.history.length, 2);
+    expect(s2.run.status, RunStatus.idle);
+  });
+
+  test('cancelled 到达即立刻 flush 到 history（不等 end）', () async {
+    final api = FakeMessagesApi();
+    final controller = StreamController<ChatEvent>();
+    api.useLiveStream(controller);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    unawaited(c.read(chatControllerProvider(sid).notifier).send('hi'));
+    controller.add(const RunStartEvent(runId: 'r', sessionId: sid, messageId: 'm'));
+    controller.add(const TokenEvent(delta: 'partial'));
+    await _waitUntil(c, sid, (s) => s.run.partialAnswer == 'partial');
+
+    controller.add(const CancelledEvent(reason: 'user_cancelled'));
+    final s = await _waitUntil(c, sid, (s) => s.history.length == 2);
+    expect(s.run.status, RunStatus.idle);
+    expect(s.history.last.status, 'cancelled');
+    expect(s.history.last.content, 'partial');
+
+    controller.add(const EndEvent());
+    await controller.close();
+    final s2 = c.read(chatControllerProvider(sid)).value!;
+    expect(s2.history.length, 2);
+  });
 }

@@ -416,11 +416,16 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
             confidence: evt.confidence,
           ),
         ));
+        // 立即固化到 history，避免后端 final → end 之间的几秒空窗
+        // （autotitle LLM 调用）导致页面上本轮消息暂时"消失"。
+        // end 事件仍会触发 _flushDoneToHistory，但 status 已 idle 时为 no-op。
+        _flushDoneToHistory();
         break;
       case CancelledEvent():
         state = AsyncData(current.copyWith(
           run: run.copyWith(status: RunStatus.cancelled, errorMessage: evt.reason),
         ));
+        _flushDoneToHistory();
         break;
       case ErrorEvent():
         _markError('${evt.code}: ${evt.message}');
