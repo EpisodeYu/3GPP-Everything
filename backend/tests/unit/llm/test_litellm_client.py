@@ -54,6 +54,28 @@ async def test_chat_success() -> None:
     assert captured["auth"] == "Bearer sk-test"
 
 
+async def test_chat_thinking_wraps_into_extra_body() -> None:
+    """mimo `thinking` 是 provider-specific 参数，LiteLLM proxy 直接 top-level 透
+    传会被 OpenAI spec 校验剥掉（实测 reasoning_tokens 不变）；必须用 `extra_body`
+    包裹。本测锁住这一规则不被悄悄退回。"""
+    captured: dict[str, Any] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(req.content)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    async with LiteLLMClient(settings=_settings(), client=_mock_client(handler)) as cli:
+        await cli.chat(
+            messages=[{"role": "user", "content": "x"}],
+            model="mimo-v2.5",
+            thinking={"type": "disabled"},
+        )
+
+    body = captured["body"]
+    assert "thinking" not in body  # 不能 top-level
+    assert body["extra_body"]["thinking"] == {"type": "disabled"}
+
+
 async def test_chat_4xx_raises_llm_error() -> None:
     def handler(_req: httpx.Request) -> httpx.Response:
         return httpx.Response(400, json={"error": {"message": "bad request"}})

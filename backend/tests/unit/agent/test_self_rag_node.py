@@ -268,3 +268,31 @@ async def test_mostly_hallucinated_citation_complex_path_forces_retry() -> None:
     assert any("38.331" in q for q in queries)
     assert any("38.413" in q for q in queries)
     assert any("29.518" in q for q in queries)
+
+
+async def test_self_rag_disables_thinking_for_determinism() -> None:
+    """回归：self_rag 是 verdict JSON 固定结构输出，思考模式 temp=0 被强制 1.0
+    会让同样事实/回答偶发返不同 verdict（accept ↔ retry 跳变），retry 路径不稳。
+    thinking=disabled 后 verdict 完全确定。"""
+    from app.agent.nodes import self_rag_node
+    from app.agent.state import AgentState, RetrievedChunk
+
+    from .conftest import StubLLM, make_deps
+
+    payload = (
+        '{"faithful":true,"coverage":0.9,"confidence":0.9,'
+        '"verdict":"accept","missing_aspects":[]}'
+    )
+    llm = StubLLM(responses=[payload])
+    deps = make_deps(llm=llm)
+    chunk = RetrievedChunk(
+        chunk_id="c1", spec_id="38.331", section_path=("5","3"),
+        section_title="t", chunk_type="text", content="x",
+    )
+    state = AgentState(
+        user_input="q", final_answer="a", reranked=[chunk],
+        citations=[{"chunk_id": "c1", "spec_id": "38.331", "section_path": ["5","3"]}],
+    )
+    await self_rag_node(state, deps=deps)
+    chat = next(c for c in llm.calls if c["kind"] == "chat")
+    assert chat["thinking"] == {"type": "disabled"}

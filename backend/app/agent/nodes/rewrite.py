@@ -31,16 +31,16 @@ async def rewrite_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
 
     prompt = render("rewrite", user_input=user_input)
     try:
-        # LIGHT 模型 (mimo-v2.5) 是 reasoning model：先在 reasoning_content 消耗 token
-        # 再产 content。早期 max_tokens=120 → reasoning 一次吃满，content 永远 ''，
-        # rewrite 永远回退到 user_input（complex 链路的改写步骤事实上一直是 no-op）。
-        # reasoning 长度 run-to-run 方差大（同题可在 200 与 1500 间跳变），4096 给
-        # peak reasoning ~1500 + 改写 ~80 留 2.5x 余量。
+        # thinking=disabled：rewrite 是短输出（一句改写），不需要 reasoning。
+        # mimo 思考模式下 temperature=0 被强制 1.0，同题两次改写出来不一样，
+        # complex 链路检索无法复现。disabled 后 temp=0 真生效，可复现且省成本。
+        # 没 reasoning 占用，max_tokens 回归小值即可。
         resp = await deps.llm.chat(
             messages=[{"role": "user", "content": prompt}],
             model=deps.settings.LLM_LIGHT_MODEL,
             temperature=0.0,
-            max_tokens=4096,
+            max_tokens=512,
+            thinking={"type": "disabled"},
         )
     except LLMError as exc:
         log.warning("rewrite_node llm failed, fallback to user_input: %s", exc)

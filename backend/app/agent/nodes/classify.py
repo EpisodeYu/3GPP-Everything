@@ -63,11 +63,16 @@ async def classify_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
 
     prompt = render("classify", user_input=user_input)
     try:
+        # thinking=disabled：classify 输出是固定 schema 的 JSON，不需要 reasoning；
+        # mimo 思考模式下 temperature=0 被强制改成 1.0，无法保证同输入同分类（同
+        # 一题在 simple/complex 间跳变会让路由不稳）。disabled 后 temp=0 真生效，
+        # reasoning_tokens=0，分类完全确定性。
         resp = await deps.llm.chat(
             messages=[{"role": "user", "content": prompt}],
             model=deps.settings.LLM_LIGHT_MODEL,
             temperature=0.0,
             response_format={"type": "json_object"},
+            thinking={"type": "disabled"},
         )
     except LLMError as exc:
         log.warning("classify_node llm failed, using fallback: %s", exc)

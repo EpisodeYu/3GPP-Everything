@@ -103,3 +103,20 @@ async def test_empty_input_short_circuits() -> None:
     assert out["rewritten_queries"] == []
     # LLM 不应该被调用
     assert all(c["kind"] != "chat" for c in llm.calls)
+
+
+async def test_classify_disables_thinking_for_determinism() -> None:
+    """回归：mimo 思考模式下 temperature=0 被强制 1.0 → 同题分类（simple/complex/
+    query_class）会跳变让路由不稳；reasoning 还偶发吃光预算返空 JSON 走 _FALLBACK。
+    thinking=disabled 后分类完全确定性。"""
+    from app.agent.nodes import classify_node
+    from app.agent.state import AgentState
+
+    from .conftest import StubLLM, make_deps
+
+    payload = '{"query_class":"procedure","complexity":"simple","rewritten_query":"q"}'
+    llm = StubLLM(responses=[payload])
+    deps = make_deps(llm=llm)
+    await classify_node(AgentState(user_input="q"), deps=deps)
+    chat = next(c for c in llm.calls if c["kind"] == "chat")
+    assert chat["thinking"] == {"type": "disabled"}

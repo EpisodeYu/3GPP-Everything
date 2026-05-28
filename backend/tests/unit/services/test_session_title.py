@@ -30,11 +30,12 @@ async def test_generates_clean_title() -> None:
         question="5G 中 AMF 的注册流程是怎样的？", chat_client=cli, model="light"
     )
     assert title == "AMF 注册流程"
-    # 用 LIGHT model 调用；max_tokens 给 reasoning model（mimo-v2.5）留足预算 —
-    # 早期 40 被 reasoning 吃光，content 永远空 → 自动标题永远 None（M5 反复修
-    # 不生效的真因）。1024+ 给最复杂问题也留够余量，永不截断。
+    # 用 LIGHT model + thinking=disabled 调用；thinking 关掉后 reasoning_tokens=0
+    # 且 temperature=0 真生效，max_tokens 回归小值即够。M5 反复修不生效的真因是
+    # 思考模式下 reasoning 吃光 max_tokens + temp=0 被强制 1.0；本断言锁住两条。
     assert cli.calls[0]["model"] == "light"
-    assert cli.calls[0]["max_tokens"] >= 4096
+    assert cli.calls[0]["max_tokens"] >= 512
+    assert cli.calls[0]["thinking"] == {"type": "disabled"}
 
 
 async def test_strips_quotes_and_extra_lines() -> None:

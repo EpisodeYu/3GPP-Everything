@@ -70,13 +70,14 @@ async def test_multi_query_extracts_array_from_prose() -> None:
     assert out["rewritten_queries"] == ["primary", "q1", "q2", "q3"]
 
 
-async def test_multi_query_passes_enough_max_tokens_for_reasoning_model() -> None:
-    """回归：LIGHT 模型是 reasoning model；早期 max_tokens=400 在复杂查询上被
-    reasoning 吃满（实测 reasoning=399 content=''），complex 链路退化为单 query
-    检索。锁住下限避免回退。"""
+async def test_multi_query_disables_thinking_for_determinism() -> None:
+    """回归：mimo 思考模式下 reasoning 方差极大（同题 200~1500 token），偶发
+    把 max_tokens 吃光让 sub_queries 空 → complex 链路退化为单 query。
+    thinking=disabled 后 reasoning=0、temp 真生效，max_tokens 可回归小值。"""
     llm = StubLLM(responses=['["a","b","c"]'])
     deps = make_deps(llm=llm)
     state = AgentState(rewritten_queries=["primary"])
     await multi_query_node(state, deps=deps)
     chat = next(c for c in llm.calls if c["kind"] == "chat")
-    assert chat["max_tokens"] >= 8192
+    assert chat["thinking"] == {"type": "disabled"}
+    assert chat["max_tokens"] >= 1024

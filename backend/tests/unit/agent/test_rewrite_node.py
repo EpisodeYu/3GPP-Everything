@@ -25,11 +25,13 @@ async def test_rewrite_falls_back_to_user_input_on_empty() -> None:
     assert out["rewritten_queries"] == ["some 3gpp question"]
 
 
-async def test_rewrite_passes_enough_max_tokens_for_reasoning_model() -> None:
-    """回归：LIGHT 模型是 reasoning model，max_tokens 太低会被 reasoning 吃光导致
-    content 永远空 → rewrite 永远 no-op。锁住下限避免再次回退到 120。"""
+async def test_rewrite_disables_thinking_for_determinism() -> None:
+    """回归：mimo 思考模式下 temperature=0 被强制 1.0，同题两次改写不一样，
+    complex 链路无法复现；reasoning 还会吃光 max_tokens 让 content 空。
+    锁住 thinking=disabled + 合理 max_tokens 下限不被无脑往回调。"""
     llm = StubLLM(responses=["rewritten"])
     deps = make_deps(llm=llm)
     await rewrite_node(AgentState(user_input="q"), deps=deps)
     chat = next(c for c in llm.calls if c["kind"] == "chat")
-    assert chat["max_tokens"] >= 4096
+    assert chat["thinking"] == {"type": "disabled"}
+    assert chat["max_tokens"] >= 512

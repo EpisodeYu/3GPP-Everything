@@ -114,9 +114,18 @@ class LiteLLMClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         response_format: dict[str, Any] | None = None,
+        thinking: dict[str, Any] | None = None,
         extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """非流式 chat completion；返回 OpenAI 兼容 payload。"""
+        """非流式 chat completion；返回 OpenAI 兼容 payload。
+
+        `thinking`：mimo-v2.5/-pro 专属 reasoning 控制（见 xiaomimimo OpenAI 兼容
+        API 文档 "thinking" 参数）。默认 `enabled`；短输出结构化节点（classify /
+        rewrite / multi_query / self_rag / session_title）传 `{"type":"disabled"}`
+        来：(1) 让 `temperature=0` 真生效（思考模式下 mimo 强制 temp=1.0，无法
+        确定性输出）；(2) 把 reasoning_tokens 削为 0，节省成本与延迟。
+        LiteLLM proxy 未识别字段会被过滤，必须通过 `extra_body` 包裹透传。
+        """
         body = self._build_chat_body(
             messages=messages,
             model=model,
@@ -124,6 +133,7 @@ class LiteLLMClient:
             max_tokens=max_tokens,
             response_format=response_format,
             stream=False,
+            thinking=thinking,
             extra=extra,
         )
         resp = await self._post_json("/chat/completions", body)
@@ -137,6 +147,7 @@ class LiteLLMClient:
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        thinking: dict[str, Any] | None = None,
         extra: dict[str, Any] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """SSE 流式 chat；yield 每个 chunk dict（OpenAI 兼容）。
@@ -151,6 +162,7 @@ class LiteLLMClient:
             max_tokens=max_tokens,
             response_format=None,
             stream=True,
+            thinking=thinking,
             extra=extra,
         )
         url = f"{self.base_url}/chat/completions"
@@ -182,6 +194,7 @@ class LiteLLMClient:
         max_tokens: int | None,
         response_format: dict[str, Any] | None,
         stream: bool,
+        thinking: dict[str, Any] | None,
         extra: dict[str, Any] | None,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -195,6 +208,11 @@ class LiteLLMClient:
             body["max_tokens"] = max_tokens
         if response_format is not None:
             body["response_format"] = response_format
+        if thinking is not None:
+            # mimo `thinking` 是 provider-specific param，LiteLLM proxy 不在 OpenAI
+            # spec 白名单里，直接 top-level 传会被过滤；必须 `extra_body` 包裹透传。
+            # 实测：top-level → reasoning_tokens 仍 ~200；extra_body 包裹 → 0。
+            body.setdefault("extra_body", {})["thinking"] = thinking
         if extra:
             body.update(extra)
         return body
