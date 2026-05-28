@@ -30,9 +30,11 @@ async def test_generates_clean_title() -> None:
         question="5G 中 AMF 的注册流程是怎样的？", chat_client=cli, model="light"
     )
     assert title == "AMF 注册流程"
-    # 用 LIGHT model + 低 max_tokens 调用
+    # 用 LIGHT model 调用；max_tokens 给 reasoning model（mimo-v2.5）留足预算 —
+    # 早期 40 被 reasoning 吃光，content 永远空 → 自动标题永远 None（M5 反复修
+    # 不生效的真因）。500+ 才能稳定出标题。
     assert cli.calls[0]["model"] == "light"
-    assert cli.calls[0]["max_tokens"] == 40
+    assert cli.calls[0]["max_tokens"] >= 500
 
 
 async def test_strips_quotes_and_extra_lines() -> None:

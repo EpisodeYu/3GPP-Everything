@@ -9,6 +9,11 @@ sidebar 即时更新（见 `app/api/v1/chat.py` + `docs/03-development/03-agent.
   也避免把整段答案塞进 LIGHT 模型。
 - 任何失败（LLM 报错 / 空输出）都返回 None，由 caller 跳过回写，标题保持空 →
   前端 fallback 显示「新会话」，下一轮还会再尝试，自愈。
+- `max_tokens` 需给 reasoning model 留足预算：LIGHT 模型 `mimo-v2.5` 是推理模型，
+  会先在 `reasoning_content` 里消耗 ~120-200 tokens 再产出 `content`。早期版本设
+  40，整个预算被 reasoning 吃光，`content` 永远是 ''，自动标题永远 None → 前端
+  sidebar 不刷新（M5 反复修但不生效的真因）。512 留给 reasoning ~300 + title ~50
+  的余量，实测复杂中文问题也能稳定出标题。
 """
 
 from __future__ import annotations
@@ -70,7 +75,7 @@ async def generate_session_title(
             messages=[{"role": "user", "content": _TITLE_PROMPT.format(question=q[:2000])}],
             model=model,
             temperature=0.0,
-            max_tokens=40,
+            max_tokens=512,
         )
         content = resp["choices"][0]["message"]["content"]
     except Exception as exc:  # LLM / 解析失败都不应影响主流程
