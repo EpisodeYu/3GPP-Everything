@@ -225,6 +225,75 @@ def test_sanitize_preview_empty_returns_empty() -> None:
     assert _sanitize_preview(None) == ""  # type: ignore[arg-type]
 
 
+def test_sanitize_preview_strips_chunker_header_line() -> None:
+    """chunker 注入的 `[spec § *IE* information element]` 头行必须被剥；
+    否则前端 markdown 会把它当 citation 渲染成 chip（用户 2026-05-28 复测复现）。"""
+    raw = (
+        "[38.331 § *PUCCH-Config* information element]\n\n"
+        "| PUCCH-Config field descriptions |\n"
+        "| pucch-ResourceSetToAddModList |"
+    )
+    out = _sanitize_preview(raw)
+    # 关键断言：sanitize 后不能再含 `[spec §...]` 这种完整 citation 形态
+    # （否则前端 CitationInlineSyntax 会渲染出 chip 但 chunkId 永远缺）
+    assert "[38.331" not in out
+    assert "§" not in out
+    # 但 chunker header 的内容已不在 → preview 直接展示表格内容
+    assert "PUCCH-Config field descriptions" in out
+
+
+def test_sanitize_preview_strips_chunker_header_even_when_spec_only() -> None:
+    """clause 有数字的 chunker header 也要剥（`[23.501 § 6.3.1 AMF]`）。"""
+    raw = "[23.501 § 6.3.1 AMF]\n\n" "AMF stands for Access and Mobility Management Function."
+    out = _sanitize_preview(raw)
+    assert "[23.501" not in out
+    assert "AMF stands for" in out
+
+
+def test_sanitize_preview_keeps_inline_citations_unchanged() -> None:
+    """sanitize 只剥**独占一行**的 chunker header；行内的 [spec §sec] citation
+    引用要保留（否则正文里 LLM 写的真 citation 也会被误吃）。"""
+    raw = "见 [38.331 §5.3.5] 的描述，结合 [23.501 §6.3.1] 的定义。"
+    out = _sanitize_preview(raw)
+    assert "[38.331 §5.3.5]" in out
+    assert "[23.501 §6.3.1]" in out
+
+
+def test_render_tool_results_params_hits_no_residual_citation_markup() -> None:
+    """端到端：tool 路径渲染 38.331 IE chunk（用户原报告复现），输出不应再含
+    `[38.331 § ...]` 这种被前端误识别为 citation 的形态。"""
+    state = AgentState(
+        user_input="PUCCH-Config",
+        tool_results={
+            "params": {
+                "query": "PUCCH-Config",
+                "hits": [
+                    {
+                        "chunk_id": "c1",
+                        "spec_id": "38.331",
+                        "section_path": [],
+                        "chunk_type": "table",
+                        "score": 1.0,
+                        "preview": (
+                            "[38.331 § *PUCCH-Config* information element]\n\n"
+                            "| <b>PUCCH-Config field descriptions</b> |\n"
+                            "|----------------------------------------|\n"
+                            "| pucch-ResourceSetToAddModList | list |"
+                        ),
+                    }
+                ],
+                "warning": None,
+            }
+        },
+    )
+    out = _render_tool_results(state)
+    # tool 路径产生的"38.331 §:" 行头不带方括号，前端不会渲染为 chip
+    assert "- 38.331 :" in out or "- 38.331 : " in out
+    # 但 preview 里绝对不能再有 `[xx §yy]` 这种 chunker header（前端会渲染 chip）
+    assert "[38.331" not in out
+    assert "PUCCH-Config field descriptions" in out
+
+
 def test_render_tool_results_params_hits_uses_sanitized_preview() -> None:
     """用户报告复现：DCI1_1 params hits → 期望 <b>、*xxx*、表格分隔行都被清掉。"""
     state = AgentState(

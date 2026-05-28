@@ -273,6 +273,17 @@ def _match_chunk(spec: str, sect: str, chunks: list[StateChunk]) -> StateChunk |
 # 不过 LLM，所以这层 sanitize 是唯一防线。
 _TABLE_DELIM_LINE_RE = re.compile(r"^\s*\|?[\s\-:|]+\|[\s\-:|]+\s*$", re.MULTILINE)
 _EMPHASIS_INLINE_RE = re.compile(r"\*{1,3}([^*\n]{1,200}?)\*{1,3}")
+# chunker `_section_header` 在 chunk content 头部注入的 `[spec § clause title]`
+# 行（独占一行，紧跟两个换行）。preview 是 chunk content 前 N 字符 → 这一行总是
+# 在最开头。**必须整行剥掉**，否则前端 `CitationInlineSyntax` 会把它当 citation
+# 渲染成 chip——但 tool 路径不走 LLM → message.citations 为空 → chip 永远拿不到
+# chunkId → 退化为"未关联 chunk"（用户 2026-05-28 复测复现）。
+# 容忍 `*xxx*` / 空格 / `—` 等任意非 `]` 字符（要在 emphasis 解包之前剥，因为
+# 解包后 `[spec § PUCCH-Config IE]` 仍是合法 citation 形态会被前端识别）。
+_CHUNKER_HEADER_LINE_RE = re.compile(
+    r"^\s*\[\s*\d+\.\d+(?:-\d+)?(?:\s*§[^\]\n]*)?\s*\]\s*$",
+    re.MULTILINE,
+)
 
 
 def _sanitize_preview(text: str, *, max_chars: int = 180) -> str:
@@ -280,16 +291,18 @@ def _sanitize_preview(text: str, *, max_chars: int = 180) -> str:
 
     操作（按序）：
     1. 去 `<b>` / `</i>` 等 HTML 标签（保留内部文本）
-    2. 去表格分隔行 `|---|---|` / `|:--|`（其它表格行保留但管道符会被压成 ` | `）
-    3. 把 `*xxx*` / `**xxx**` 强调符解包成纯文本 `xxx`
-    4. 多个换行合并成单空格
-    5. 管道符两侧规范化为单空格
-    6. 连续空白压成 1 个
-    7. 超长截尾加 `…`
+    2. **剥 chunker 注入的 `[spec § ...]` 行**（独占一行；避免前端误渲染为 chip）
+    3. 去表格分隔行 `|---|---|` / `|:--|`（其它表格行保留但管道符会被压成 ` | `）
+    4. 把 `*xxx*` / `**xxx**` 强调符解包成纯文本 `xxx`
+    5. 多个换行合并成单空格
+    6. 管道符两侧规范化为单空格
+    7. 连续空白压成 1 个
+    8. 超长截尾加 `…`
     """
     if not text:
         return ""
     s = _HTML_TAG_RE.sub("", text)
+    s = _CHUNKER_HEADER_LINE_RE.sub("", s)
     s = _TABLE_DELIM_LINE_RE.sub("", s)
     s = _EMPHASIS_INLINE_RE.sub(r"\1", s)
     s = re.sub(r"\s*\n+\s*", " ", s)
