@@ -68,3 +68,15 @@ async def test_multi_query_extracts_array_from_prose() -> None:
     state = AgentState(rewritten_queries=["primary"])
     out = await multi_query_node(state, deps=deps)
     assert out["rewritten_queries"] == ["primary", "q1", "q2", "q3"]
+
+
+async def test_multi_query_passes_enough_max_tokens_for_reasoning_model() -> None:
+    """回归：LIGHT 模型是 reasoning model；早期 max_tokens=400 在复杂查询上被
+    reasoning 吃满（实测 reasoning=399 content=''），complex 链路退化为单 query
+    检索。锁住下限避免回退。"""
+    llm = StubLLM(responses=['["a","b","c"]'])
+    deps = make_deps(llm=llm)
+    state = AgentState(rewritten_queries=["primary"])
+    await multi_query_node(state, deps=deps)
+    chat = next(c for c in llm.calls if c["kind"] == "chat")
+    assert chat["max_tokens"] >= 2048

@@ -40,3 +40,14 @@ async def test_hyde_llm_failure_returns_none() -> None:
     deps = make_deps(llm=FailingLLM(responses=[]))
     out = await hyde_node(AgentState(user_input="What is SMF?"), deps=deps)
     assert out == {"hyde_doc": None}
+
+
+async def test_hyde_passes_enough_max_tokens_for_reasoning_model() -> None:
+    """回归：AGENT 模型 (mimo-v2.5-pro) 是 reasoning model；早期 max_tokens=600 在
+    简单题上就撞顶（reasoning ~250 + 350 content 上限即截断），HyDE doc 不完整影响
+    embedding 质量。锁住下限避免回退。"""
+    llm = StubLLM(responses=["fake hyde doc"])
+    deps = make_deps(llm=llm)
+    await hyde_node(AgentState(user_input="What is AMF?"), deps=deps)
+    chat = next(c for c in llm.calls if c["kind"] == "chat")
+    assert chat["max_tokens"] >= 2048

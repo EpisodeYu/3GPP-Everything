@@ -31,11 +31,15 @@ async def rewrite_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
 
     prompt = render("rewrite", user_input=user_input)
     try:
+        # LIGHT 模型 (mimo-v2.5) 是 reasoning model：先在 reasoning_content 消耗 token
+        # 再产 content。早期 max_tokens=120 → reasoning 一次吃满，content 永远 ''，
+        # rewrite 永远回退到 user_input（complex 链路的改写步骤事实上一直是 no-op）。
+        # 1024 留 reasoning ~800 + 改写 ~80 的余量，远超实测峰值（200-300）。
         resp = await deps.llm.chat(
             messages=[{"role": "user", "content": prompt}],
             model=deps.settings.LLM_LIGHT_MODEL,
             temperature=0.0,
-            max_tokens=120,
+            max_tokens=1024,
         )
     except LLMError as exc:
         log.warning("rewrite_node llm failed, fallback to user_input: %s", exc)

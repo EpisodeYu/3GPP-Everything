@@ -34,11 +34,16 @@ async def hyde_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
 
     prompt = render("hyde", user_input=user_input)
     try:
+        # AGENT 模型 (mimo-v2.5-pro) 也是 reasoning model：先 reasoning 再 content。
+        # 早期 max_tokens=600 — 实测 reasoning ~200-275，剩 300-400 token 给 doc，
+        # 简单问题就撞顶被截（finish=length, content 收尾不完整），影响 embedding
+        # 质量。HyDE 目标是 200-400 token 的"理想答案章节文本"，2048 给 reasoning ~800
+        # + doc ~600 + 余量，复杂题也不截断。
         resp = await deps.llm.chat(
             messages=[{"role": "user", "content": prompt}],
             model=deps.settings.LLM_AGENT_MODEL,
             temperature=0.2,
-            max_tokens=600,
+            max_tokens=2048,
         )
     except LLMError as exc:
         log.warning("hyde_node llm failed: %s", exc)

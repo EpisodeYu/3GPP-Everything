@@ -12,8 +12,8 @@ sidebar 即时更新（见 `app/api/v1/chat.py` + `docs/03-development/03-agent.
 - `max_tokens` 需给 reasoning model 留足预算：LIGHT 模型 `mimo-v2.5` 是推理模型，
   会先在 `reasoning_content` 里消耗 ~120-200 tokens 再产出 `content`。早期版本设
   40，整个预算被 reasoning 吃光，`content` 永远是 ''，自动标题永远 None → 前端
-  sidebar 不刷新（M5 反复修但不生效的真因）。512 留给 reasoning ~300 + title ~50
-  的余量，实测复杂中文问题也能稳定出标题。
+  sidebar 不刷新（M5 反复修但不生效的真因）。1024 留给 reasoning ~800 + title ~80
+  的余量，远超实测峰值（160），可吃下任意复杂度的问题不被截断。
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ async def generate_session_title(
             messages=[{"role": "user", "content": _TITLE_PROMPT.format(question=q[:2000])}],
             model=model,
             temperature=0.0,
-            max_tokens=512,
+            max_tokens=1024,
         )
         content = resp["choices"][0]["message"]["content"]
     except Exception as exc:  # LLM / 解析失败都不应影响主流程

@@ -23,3 +23,13 @@ async def test_rewrite_falls_back_to_user_input_on_empty() -> None:
     state = AgentState(user_input="some 3gpp question")
     out = await rewrite_node(state, deps=deps)
     assert out["rewritten_queries"] == ["some 3gpp question"]
+
+
+async def test_rewrite_passes_enough_max_tokens_for_reasoning_model() -> None:
+    """回归：LIGHT 模型是 reasoning model，max_tokens 太低会被 reasoning 吃光导致
+    content 永远空 → rewrite 永远 no-op。锁住下限避免再次回退到 120。"""
+    llm = StubLLM(responses=["rewritten"])
+    deps = make_deps(llm=llm)
+    await rewrite_node(AgentState(user_input="q"), deps=deps)
+    chat = next(c for c in llm.calls if c["kind"] == "chat")
+    assert chat["max_tokens"] >= 1024
