@@ -247,7 +247,7 @@ class _FakeTitleClient:
 async def test_autotitle_on_first_turn_emits_title_event_and_persists(
     app_and_state: Any, db_session: Any
 ) -> None:
-    """空标题会话首轮成功 → emit `title`（在 final 后、end 前）+ 回写 session.title。"""
+    """空标题会话首轮成功 → emit `title`（与 agent 并发，end 前）+ 回写 session.title。"""
     import uuid
 
     from app.db.models import Session as DBSession
@@ -274,8 +274,9 @@ async def test_autotitle_on_first_turn_emits_title_event_and_persists(
 
     kinds = [k for k, _ in events]
     assert "title" in kinds, kinds
-    # title 在 final 之后、end 之前
-    assert kinds.index("final") < kinds.index("title") < kinds.index("end")
+    # title 必在 end 之前；与 agent 并发，可以出现在 run_start 之后任意位置（含 final 之前）
+    assert kinds.index("title") < kinds.index("end")
+    assert kinds.index("run_start") < kinds.index("title")
     # title 事件 payload
     title_data = next(json.loads(d) for k, d in events if k == "title")
     assert title_data["session_id"] == sid
@@ -286,6 +287,63 @@ async def test_autotitle_on_first_turn_emits_title_event_and_persists(
     # DB 回写
     res = await db_session.execute(select(DBSession).where(DBSession.id == uuid.UUID(sid)))
     assert res.scalar_one().title == "AMF 概述"
+
+
+async def test_autotitle_emitted_before_final_when_llm_is_fast(
+    app_and_state: Any, db_session: Any
+) -> None:
+    """LIGHT 模型起标题快、agent 慢：title 应在 final 之前到达（与 agent 并发的核心收益）。
+
+    防止有人改回"final 之后再串行起标题"导致前端 sidebar 标题落后于回答完成。
+    """
+    app, _, _ = app_and_state
+
+    # agent 每个 event 之间 sleep 50ms，整条流约 600 ms 才出 final
+    class _SlowGraph(_CannedGraph):
+        async def astream_events(  # type: ignore[override]
+            self, state: Any, *, config: Any, version: str
+        ) -> AsyncIterator[dict[str, Any]]:
+            for ev in self._events or []:
+                yield ev
+                await asyncio.sleep(0.05)
+            if self._final_state is not None:
+                yield {
+                    "event": "on_chain_end",
+                    "name": "LangGraph",
+                    "data": {"output": self._final_state},
+                }
+
+    app.state.agent_graph = _SlowGraph(
+        events=_canned_full_run_events(),
+        final_state=_canned_final_state(),
+    )
+
+    class _FastTitleClient:
+        def __init__(self, title: str) -> None:
+            self._title = title
+
+        async def chat(self, messages: Any, **kwargs: Any) -> dict[str, Any]:
+            # 几乎立刻返回（< agent 第一个节点的 50 ms 间隔）
+            return {"choices": [{"message": {"content": self._title}}]}
+
+    app.state.title_client = _FastTitleClient("AMF 概述")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token, title="")
+        r = await client.post(
+            f"/api/v1/sessions/{sid}/messages",
+            json={"content": "what is AMF?"},
+            headers=_auth_headers(token),
+        )
+        assert r.status_code == 200, r.text
+        kinds = [k for k, _ in _parse_sse(r.text)]
+
+    assert "title" in kinds, kinds
+    assert "final" in kinds, kinds
+    # 核心断言：title 早于 final 到达（autotitle 与 agent 并发的收益）
+    assert kinds.index("title") < kinds.index("final"), kinds
 
 
 async def test_autotitle_skipped_when_title_already_set(

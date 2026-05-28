@@ -324,8 +324,10 @@ def _build_sse_stream(
     退化为原 best-effort 路径（仅靠 aupdate_state 的 cancelled flag）。
 
     `autotitle_question` + `title_client`：仅 send_message 首轮（空标题会话）传；
-    本轮成功后用 LIGHT 模型生成标题，回写 session.title 并在 `final` 后、`end`
-    前 emit `title` 事件。resume 路径不传 → 不触发。
+    本路径**与 agent 完全并发**用 LIGHT 模型起标题，回写 session.title 并在
+    `title` 事件 yield；title 一旦就绪就立即 emit（可能出现在 `node_start` /
+    `token` 之间，前端 sidebar 立即生效）；agent 跑完时若 title 还没好，给 2s
+    短超时兜底，超时后被取消（不阻塞 `end`）。resume 路径不传 → 不触发。
     """
 
     async def stream() -> AsyncIterator[dict[str, str]]:
@@ -337,6 +339,44 @@ def _build_sse_stream(
                 "message_id": str(assistant_msg_id),
             },
         )
+
+        # autotitle 与 agent 完全并发：用户问题已经落 PG（见上方 user_msg flush），
+        # 不依赖 agent 答案，提前启动让标题尽快出现在 sidebar / chat header。
+        title_task: asyncio.Task[str | None] | None = None
+        if autotitle_question and title_client is not None:
+            title_task = asyncio.create_task(
+                _run_autotitle_llm(
+                    question=autotitle_question,
+                    chat_client=title_client,
+                    model=title_model or "",
+                )
+            )
+        title_emitted = False
+
+        async def _try_emit_title() -> dict[str, str] | None:
+            """title_task 已 done → 写库 + 返回要 yield 的 SSE event；否则 None。"""
+            nonlocal title_emitted
+            if title_emitted or title_task is None or not title_task.done():
+                return None
+            title_emitted = True
+            try:
+                new_title = title_task.result()
+            except asyncio.CancelledError:
+                return None
+            except Exception as exc:
+                log.warning("autotitle llm failed: run_id=%s err=%s", run_id, exc)
+                return None
+            if not new_title:
+                return None
+            try:
+                await db.execute(
+                    update(DBSession).where(DBSession.id == sid).values(title=new_title)
+                )
+                await db.commit()
+            except Exception as exc:
+                log.warning("autotitle db persist failed: run_id=%s err=%s", run_id, exc)
+                return None
+            return _sse("title", {"session_id": str(sid), "title": new_title})
 
         final_state: dict[str, Any] | None = None
         error_msg: str | None = None
@@ -407,8 +447,18 @@ def _build_sse_stream(
                         yield _sse("token", {"delta": delta})
                 elif kind == "on_custom_event" and name in ("chunks_hit", "chunks_rerank"):
                     yield _sse(name, data)
+
+                # 每次 LangGraph 事件后 poll 一次 title task；done 就立刻 emit。
+                # 即便上面 if/elif 都没 yield（如非节点的 on_chain_start），也保持低
+                # 延迟检查。LIGHT 模型一般几百 ms 就能返回，标题可能在第一个 token 之
+                # 前就到。
+                title_evt = await _try_emit_title()
+                if title_evt is not None:
+                    yield title_evt
         except asyncio.CancelledError:
             # ASGI 客户端断开 / 服务关闭 — 没人接收事件了，直接退出，不再写 DB
+            if title_task is not None and not title_task.done():
+                title_task.cancel()
             with contextlib.suppress(Exception):
                 await events_iter.aclose()
             if cancel_registry is not None:
@@ -480,26 +530,6 @@ def _build_sse_stream(
                     "confidence": confidence,
                 },
             )
-
-            # 首轮自动标题：空标题会话且本轮成功有答案 → LIGHT 模型起标题并通知前端。
-            # 标题是锦上添花，任何失败都 swallow，绝不影响 SSE 流收尾。
-            if answer and autotitle_question and title_client is not None:
-                try:
-                    from app.services.session_title import generate_session_title
-
-                    new_title = await generate_session_title(
-                        question=autotitle_question,
-                        chat_client=title_client,
-                        model=title_model or "",
-                    )
-                    if new_title:
-                        await db.execute(
-                            update(DBSession).where(DBSession.id == sid).values(title=new_title)
-                        )
-                        await db.commit()
-                        yield _sse("title", {"session_id": str(sid), "title": new_title})
-                except Exception as exc:
-                    log.warning("autotitle failed: run_id=%s err=%s", run_id, exc)
         else:
             # 没拿到 final_state 也没 error：保守标 failed
             await db.execute(
@@ -511,6 +541,17 @@ def _build_sse_stream(
                 {"code": "no_final_state", "message": "graph_did_not_produce_final"},
             )
 
+        # autotitle 兜底：agent 流跑完但 title 还没好（罕见，LIGHT 模型一般几百 ms）
+        # → 给 2s 短窗口等一下；超时就放弃，cancel 后台 task，不阻塞 end。
+        if title_task is not None and not title_emitted:
+            with contextlib.suppress(asyncio.TimeoutError, Exception):
+                await asyncio.wait_for(asyncio.shield(title_task), timeout=2.0)
+            title_evt = await _try_emit_title()
+            if title_evt is not None:
+                yield title_evt
+        if title_task is not None and not title_task.done():
+            title_task.cancel()
+
         yield _sse("end", {})
 
         # 收尾：清 cancel registry。CancelledError 路径已在 except 里清过
@@ -518,6 +559,21 @@ def _build_sse_stream(
             cancel_registry.pop(run_id, None)
 
     return stream()
+
+
+async def _run_autotitle_llm(
+    *, question: str, chat_client: Any, model: str
+) -> str | None:
+    """autotitle LLM 包装：只跑 LLM 不动 DB；DB 写由主 task 串行做，避免并发占同一
+    AsyncSession（SQLAlchemy AsyncSession 不是 task-safe）。
+    """
+    from app.services.session_title import generate_session_title
+
+    return await generate_session_title(
+        question=question,
+        chat_client=chat_client,
+        model=model,
+    )
 
 
 _CANCEL_SENTINEL: Any = object()
