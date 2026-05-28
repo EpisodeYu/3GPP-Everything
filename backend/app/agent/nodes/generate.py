@@ -35,10 +35,22 @@ from app.core.errors import LLMError
 log = logging.getLogger(__name__)
 
 
-# `[38.331 §5.3]` / `[23.501 §6.3.1]` / `[38.331 §5.3.5.1.2]`
+# Citation 正则（v5：放宽到 LLM 实际输出，让"格式漂移"的 citation 也能被认出来 +
+# 软对齐到 chunk）。识别两种形态：
+#   1) `[38.331 §5.3]` / `[23.501 §6.3.1]` / `[38.331 §5.3.5.1.2]` — 严格 dotted clause
+#   2) `[38.331 §*ControlResourceSet* information element]` / `[38.331 § —]` — 含
+#      `*` / 空格 / 破折号占位等非法 section（LLM 抄 chunk header 的常见模式）
+#   3) `[38.331]` — 无 § 段（v5 prompt 在 chunk 无 clause 时要求的形态）
+# `sect` 段一律放宽到"非 `]`、`¶` 的任意串"，与前端 `CitationInlineSyntax` 对齐；
+# `_match_chunk` 负责 strict → fuzzy（title 包含匹配） → spec-only 三段 fallback。
 _CITE_RE = re.compile(
-    r"\[\s*(?P<spec>[0-9]{2}\.[0-9]{3,4}[A-Za-z]?)\s*§\s*(?P<sect>[A-Za-z0-9.\-/]+)\s*\]"
+    r"\[\s*(?P<spec>[0-9]{2}\.[0-9]{3,4}[A-Za-z]?)" r"(?:\s*§\s*(?P<sect>[^\]¶]+?))?" r"\s*\]"
 )
+
+# IE 名 / 章节标题做模糊匹配前的归一：去 markdown 强调符（`*`/`_`/`**`/`__`）、
+# 多余空白、`<b>` / `</b>` 等 HTML 残留。保留字母数字和 `-` / `.`。
+_EMPHASIS_NORMALIZE_RE = re.compile(r"[\*_]")
+_HTML_TAG_RE = re.compile(r"</?[A-Za-z][^>]*>")
 
 
 _FALLBACK_EN = "Not found in the indexed 3GPP documents."
@@ -155,14 +167,19 @@ async def _emit_token(delta: str) -> None:
 
 
 def parse_citations(answer: str, chunks: list[StateChunk]) -> list[dict[str, Any]]:
-    """从答案文本抽 `[spec §section]` 并与 chunks 软对齐。
+    """从答案文本抽 `[spec §section]`（或仅 `[spec]`）并与 chunks 软对齐。
 
-    对齐规则：
-    1. spec_id 必须完全相同
-    2. section_path 取 chunk.section_path join('.')，**前缀** 匹配命中即视作对应
-       chunk（LLM 可能写到 5.3 而 chunk 是 5.3.5.1）
-    3. 同一 (spec, section) 多次出现只保留第一次（保留位置以利前端高亮）
-    返回结构：`[{"chunk_id":..., "spec_id":..., "section_path": "5.3.5", "rank": idx}]`
+    对齐规则（`_match_chunk` 三段 fallback）：
+    1. **strict**：spec + section_path 前缀双向匹配（LLM 可能写到 5.3 而 chunk 是
+       5.3.5.1，或反之）
+    2. **fuzzy**：section 段含 `*` / 空格 / IE 名等非 dotted-clause 形态时，
+       归一化后与 `chunk.section_title` 做包含匹配（用于救 LLM 抄 chunk header 的
+       `[38.331 §*ControlResourceSet* information element]` 这种 in-context 漂移）
+    3. **spec-only**：彻底匹不到时退到同 spec 第一条（兼容 `[38.331]` 无 § 形态 +
+       任何其它格式漂移）
+
+    同一 (spec, sect) 在同一答案里只保留第一次（保留位置以利前端高亮）。返回结构：
+    `[{"chunk_id":..., "spec_id":..., "section_path": "5.3.5", "rank": idx}]`
     """
     if not answer or not chunks:
         return []
@@ -171,7 +188,8 @@ def parse_citations(answer: str, chunks: list[StateChunk]) -> list[dict[str, Any
     out: list[dict[str, Any]] = []
     for m in _CITE_RE.finditer(answer):
         spec = m.group("spec").strip()
-        sect = m.group("sect").strip().rstrip(".")
+        sect_raw = m.group("sect")
+        sect = (sect_raw or "").strip().rstrip(".")
         key = (spec, sect)
         if key in seen:
             continue
@@ -192,28 +210,103 @@ def parse_citations(answer: str, chunks: list[StateChunk]) -> list[dict[str, Any
     return out
 
 
+def _normalize_for_fuzzy(s: str) -> str:
+    """归一化 IE 名 / section title 用于模糊匹配：去 HTML 标签、强调符、压空白、小写。"""
+    if not s:
+        return ""
+    s = _HTML_TAG_RE.sub("", s)
+    s = _EMPHASIS_NORMALIZE_RE.sub("", s)
+    return " ".join(s.split()).lower()
+
+
+def _looks_like_dotted_clause(sect: str) -> bool:
+    """判断 sect 是不是 `5.3.5.1` / `A.1.2` / `5a` 这种合法 clause 编号。
+
+    用于决定走 strict 还是 fuzzy 路径。`-` 也允许（出现在 `36.523-1` 这种 spec 后缀
+    场景，但章节侧偶尔也有 `5.3-1` 这种）。
+    """
+    if not sect:
+        return False
+    # 允许：字母前缀（Annex）+ 数字 + `.` / `-`；其它字符（`*` / 空格 / `_`）即非法
+    return bool(re.fullmatch(r"[A-Za-z]?[\d][\w.\-]*", sect))
+
+
 def _match_chunk(spec: str, sect: str, chunks: list[StateChunk]) -> StateChunk | None:
-    sect_norm = sect.rstrip(".")
-    for c in chunks:
-        if c.spec_id != spec:
-            continue
-        chunk_sect = ".".join(c.section_path)
-        if chunk_sect == sect_norm:
-            return c
-        if chunk_sect.startswith(sect_norm + ".") or sect_norm.startswith(chunk_sect + "."):
-            return c
-    # 退而求其次：同一 spec 任意 chunk
+    # 1) strict：spec + section_path 前缀双向匹配
+    if sect and _looks_like_dotted_clause(sect):
+        sect_norm = sect.rstrip(".")
+        for c in chunks:
+            if c.spec_id != spec:
+                continue
+            chunk_sect = ".".join(c.section_path)
+            if not chunk_sect:
+                continue
+            if chunk_sect == sect_norm:
+                return c
+            if chunk_sect.startswith(sect_norm + ".") or sect_norm.startswith(chunk_sect + "."):
+                return c
+
+    # 2) fuzzy：sect 不像 dotted clause（含 `*` / 空格 / IE 名等） → 与
+    #    chunk.section_title 归一化后包含匹配。让"LLM 抄 chunk header"的 citation
+    #    也能拿到对应 chunk_id，前端 chip 才有 chunk 上下文可展示。
+    if sect:
+        sect_fuzzy = _normalize_for_fuzzy(sect)
+        if sect_fuzzy:
+            for c in chunks:
+                if c.spec_id != spec:
+                    continue
+                title_fuzzy = _normalize_for_fuzzy(c.section_title)
+                if title_fuzzy and (sect_fuzzy in title_fuzzy or title_fuzzy in sect_fuzzy):
+                    return c
+
+    # 3) spec-only：同一 spec 任意 chunk（兼容 `[38.331]` 无 § + 彻底漂移兜底）
     for c in chunks:
         if c.spec_id == spec:
             return c
     return None
 
 
+# tool 路径 preview / definition / snippet 渲染前的 sanitize（v5）。
+# 修问题：raw 3GPP markdown 里含 `<b>...</b>` / `*xxx*` 强调符 / 表格管道分隔行；
+# 240 字符 preview 又常硬切在表格中间 → 前端 markdown 渲染时 HTML 标签原样回显、
+# 管道符乱码、强调符冗余。tool 路径直接把 chunk content/preview 拼成 markdown
+# 不过 LLM，所以这层 sanitize 是唯一防线。
+_TABLE_DELIM_LINE_RE = re.compile(r"^\s*\|?[\s\-:|]+\|[\s\-:|]+\s*$", re.MULTILINE)
+_EMPHASIS_INLINE_RE = re.compile(r"\*{1,3}([^*\n]{1,200}?)\*{1,3}")
+
+
+def _sanitize_preview(text: str, *, max_chars: int = 180) -> str:
+    """tool 路径展示 preview / definition / snippet 前的清洗。
+
+    操作（按序）：
+    1. 去 `<b>` / `</i>` 等 HTML 标签（保留内部文本）
+    2. 去表格分隔行 `|---|---|` / `|:--|`（其它表格行保留但管道符会被压成 ` | `）
+    3. 把 `*xxx*` / `**xxx**` 强调符解包成纯文本 `xxx`
+    4. 多个换行合并成单空格
+    5. 管道符两侧规范化为单空格
+    6. 连续空白压成 1 个
+    7. 超长截尾加 `…`
+    """
+    if not text:
+        return ""
+    s = _HTML_TAG_RE.sub("", text)
+    s = _TABLE_DELIM_LINE_RE.sub("", s)
+    s = _EMPHASIS_INLINE_RE.sub(r"\1", s)
+    s = re.sub(r"\s*\n+\s*", " ", s)
+    s = re.sub(r"\s*\|\s*", " | ", s)
+    s = re.sub(r"\s{2,}", " ", s).strip(" |").strip()
+    if len(s) > max_chars:
+        s = s[: max_chars - 1].rstrip() + "…"
+    return s
+
+
 def _render_tool_results(state: AgentState) -> str:
     """tool 路径专用：把 tool_results 渲染成简洁文本（不调 LLM）。
 
     M4.4 落最小可读形态；M4.5+ 可接入更精细的 prompt 渲染。每段以工具名分组，
-    web_search 强制带 §4.9 安全前缀。
+    web_search 强制带 §4.9 安全前缀。所有源自 chunk content 的字段（preview /
+    glossary.definition / web_search.snippet）都走 `_sanitize_preview` 清掉
+    HTML / 强调符 / 表格噪声（v5）。
     """
     results = state.tool_results or {}
     if not results:
@@ -223,7 +316,8 @@ def _render_tool_results(state: AgentState) -> str:
     for m in (glossary.get("matches") or [])[:15]:
         parts.append(
             f"- **{m.get('term')}** ({m.get('spec_id')} "
-            f"§{'.'.join(m.get('section_path') or [])}): {m.get('definition')}"
+            f"§{'.'.join(m.get('section_path') or [])}): "
+            f"{_sanitize_preview(m.get('definition') or '')}"
         )
     toc = results.get("toc") or {}
     if toc.get("items"):
@@ -238,12 +332,15 @@ def _render_tool_results(state: AgentState) -> str:
         parts.append("### Parameter / IE hits")
         for h in (params.get("hits") or [])[:20]:
             sp = ".".join(h.get("section_path") or [])
-            parts.append(f"- {h.get('spec_id')} §{sp}: {h.get('preview')}")
+            sect_seg = f"§{sp}" if sp else ""
+            preview = _sanitize_preview(h.get("preview") or "")
+            parts.append(f"- {h.get('spec_id')} {sect_seg}: {preview}".replace("  ", " "))
     web = results.get("web_search") or {}
     if web.get("results"):
         parts.append(web.get("prefix") or "")
         for r in (web.get("results") or [])[:8]:
-            parts.append(f"- [{r.get('title')}]({r.get('url')}): {r.get('snippet')}")
+            snippet = _sanitize_preview(r.get("snippet") or "")
+            parts.append(f"- [{r.get('title')}]({r.get('url')}): {snippet}")
     return "\n".join(p for p in parts if p).strip()
 
 

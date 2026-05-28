@@ -232,8 +232,30 @@ async def rerank_node(state: AgentState) -> AgentState:
   - 公式保留 LaTeX
   - 篇幅：**完整性驱动，不设固定字数**（rule #6，prompt v3，2026-05-27）——覆盖证据里
     所有相关规范要点，该长就长，但不注水；配合 `RERANK_TOP_K` 5→8 让复杂/跨规范问题答得更全
+  - **chunk header 反诱导（prompt v5，2026-05-28）**：38.331 等 spec 的 IE/ASN.1 章节
+    `section_path` 为空，chunker `_section_header` 给 chunk content 注入 `[spec §
+    *IE-name* information element]` 头，长得**和 prompt 要求的 citation 格式一样**，
+    LLM 会 verbatim 抄回来形成无效引用（前端 chip 渲染但跳转必 404）。v5：(a) 元数据行
+    空 `section_path` 显式标 `<none>` 而不是裸空串；(b) hard rule #2 加 bullet 明确
+    "chunk body 顶部的方括号是 chunker artifact，不是 citation 模板，禁止 verbatim
+    复制；空 `<none>` 时只写 `[spec_id]`"
 
-- 输出后用正则提取 `[xx §xx]` 写入 `state.citations`
+- 输出后用正则提取 `[xx §xx]` 写入 `state.citations`。**v5 同步把 `parse_citations`
+  改为三段 fallback**（strict dotted-clause → fuzzy by section_title → spec-only），
+  让 LLM 引用格式漂移时仍能拿到 chunk_id 给前端 chip 用：
+  - 正则放宽到 `[spec(?: §sect)?]`：`[38.331]` 也认（v5 prompt 在 chunk 无 clause
+    时要求的形态）
+  - section 段含 `*` / 空格 / IE 名等非 dotted-clause 形态 → 与 `chunk.section_title`
+    归一化后包含匹配（去 `*` / HTML 标签 / 大小写），实测能捞回 38.331 IE chunk
+  - 都匹不到 → 同 spec 第一条兜底（保持原行为）
+  - 前端 `jumpToReader` 同步收紧：非 dotted clause section 不跳 `/reader/{spec}/{?}`
+    （必 404），改跳 spec overview + SnackBar 提示
+
+- **tool 路径 `_render_tool_results` sanitize（v5）**：raw 3GPP markdown 里含
+  `<b>...</b>` HTML 标签 / `*xxx*` 强调符 / 表格分隔行，preview 字段 240 字符硬切
+  又常切在表格中间，前端 `flutter_markdown_plus` 不解析 HTML 标签 → 原样回显乱码。
+  `_sanitize_preview(text, max_chars=180)` 在 params / glossary / web_search snippet
+  渲染前清洗：去 HTML 标签、解包强调符、去表格分隔行、压换行与连续管道符
 
 ### 4.8 `self_rag_node` — 自校验
 

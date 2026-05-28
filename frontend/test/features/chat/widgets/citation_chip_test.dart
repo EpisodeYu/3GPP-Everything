@@ -331,5 +331,60 @@ void main() {
       expect(find.byKey(const Key('reader_spec_stub')), findsOneWidget);
       expect(find.text('READER 38.331'), findsOneWidget);
     });
+
+    // 用户报告复现（v5 治标）：LLM 抄 chunk header `[38.331 §*ControlResourceSet*
+    // information element]` 这种"含 * 和空格"的 section，前端 chip 会渲染（宽正则），
+    // 但 backend section 路由必 404。jumpToReader 应识别这种不规范 section，退到
+    // spec 概览页 + 给 SnackBar 提示，而不是跳到必 404 的 /reader/{spec}/{section}。
+    testWidgets('IE 名/含 * 的非法 section 单击退到 spec 概览页 + SnackBar 提示', (tester) async {
+      await tester.pumpWidget(_routerApp(
+        home: const MessageBubble(
+          role: 'assistant',
+          content: '见 [38.331 §*ControlResourceSet* information element]。',
+          citations: [],
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final chip = find.byKey(
+        const Key('citation_chip_38.331_*ControlResourceSet* information element_0'),
+      );
+      expect(chip, findsOneWidget);
+      await tester.tap(chip);
+      await tester.pump(); // pump SnackBar 入场动画
+      await tester.pump(const Duration(milliseconds: 100));
+      // 路由：落到 spec 概览页（不是必 404 的 section 路由）
+      expect(find.byKey(const Key('reader_spec_stub')), findsOneWidget);
+      expect(find.text('READER 38.331'), findsOneWidget);
+      // SnackBar：提示用户已退到规范主页（chunk_id 缺失版本）
+      expect(find.textContaining('规范主页'), findsOneWidget);
+    });
+
+    testWidgets('IE 名 section 但 chunkId 在时，SnackBar 文案提示 hover chip 看摘要', (tester) async {
+      await tester.pumpWidget(_routerApp(
+        home: const MessageBubble(
+          role: 'assistant',
+          content: '见 [38.331 §*ControlResourceSet* information element]。',
+          citations: [
+            MessageCitationOut(
+              chunkId: 'c-cors-1',
+              rank: 0,
+              specId: '38.331',
+              sectionPath: '',
+            ),
+          ],
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const Key('citation_chip_38.331_*ControlResourceSet* information element_0'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const Key('reader_spec_stub')), findsOneWidget);
+      expect(find.textContaining('hover chip'), findsOneWidget);
+    });
   });
+
 }

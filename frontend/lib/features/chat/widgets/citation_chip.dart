@@ -209,17 +209,46 @@ class CitationChip extends ConsumerWidget {
 
 /// 跳到 reader 对应章节；chunkId 在则带 `#chunk-` fragment 做锚点定位。
 ///
-/// section 放宽后可能是破折号占位（`§ —` → sectionPath `—`）等无可跳转目标的串：
-/// 剥掉前导破折号/空白后若为空，落到 spec 概览页 `/reader/{spec}`（ReaderPage 在
-/// sectionPath 为空时渲染 _SpecOverview），避免跳进一个加载不出的空章节。
+/// section 放宽后可能是 LLM 引用格式漂移的产物（实测形态）：
+/// - 破折号占位 `§ —` → sectionPath `—`
+/// - IE 名当章节 `§ *ControlResourceSet* information element` → sectionPath
+///   含 `*` 和空格
+/// - 下划线复合章节 `§ 5.2.3.2.1_5.3.3_1`（这种合法，是 GSMA 注入的多章节合并标记）
+///
+/// 处理：
+/// 1. 先剥前导破折号/空白
+/// 2. 判断是否像合法 dotted clause（`5.3.5.1` / `A.1.2` / `5a` / `5.2.3.2.1_5.3.3_1`）
+/// 3. 不像 → 退到 spec 概览页 `/reader/{spec}` 并给 SnackBar 提示，避免跳进 404
+///    章节路由（后端 `GET /docs/{spec}/sections/{?}` 必 404）
+/// 4. 像 → 正常跳 `/reader/{spec}/{section}`
+///
+/// chunkId 始终带为 `#chunk-` fragment（spec 概览页当前不识别，保留以备未来扩展）。
 void jumpToReader(BuildContext context, CitationRef ref) {
   final spec = Uri.encodeComponent(ref.specId);
   final cleaned = ref.sectionPath.replaceFirst(RegExp(r'^[\s—–-]+'), '').trim();
   final fragment = (ref.chunkId != null && ref.chunkId!.isNotEmpty)
       ? '#chunk-${ref.chunkId}'
       : '';
-  if (cleaned.isEmpty) {
+  final looksLikeClause = cleaned.isNotEmpty &&
+      RegExp(r'^[A-Za-z]?[\d][\w.\-]*$').hasMatch(cleaned);
+  if (cleaned.isEmpty || !looksLikeClause) {
+    // capture messenger 前置：route go 不会让 ScaffoldMessenger 失效（它是顶级
+    // MaterialApp.router 拥有的），但保留前置 capture 模式与 _defaultOnLongPress
+    // 一致，避免 context 在 go 后被异步路径访问到 disposed 实例。
+    final messenger = ScaffoldMessenger.maybeOf(context);
     GoRouter.of(context).go('/reader/$spec$fragment');
+    if (messenger != null && cleaned.isNotEmpty) {
+      final hasChunk = ref.chunkId != null && ref.chunkId!.isNotEmpty;
+      final msg = hasChunk
+          ? '引用未关联具体章节，已跳转到规范主页（hover chip 可看 chunk 摘要）'
+          : '引用无法定位到具体章节，已跳转到规范主页';
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
     return;
   }
   final sec = Uri.encodeComponent(cleaned);
@@ -248,8 +277,10 @@ class _CitationPreview extends ConsumerWidget {
     );
 
     if (ref.chunkId == null || ref.chunkId!.isEmpty) {
+      // 后端 parse_citations 在三段 fallback 都匹不到时不会填 chunk_id（罕见，
+      // 多见于 LLM 引用了未召回的 spec）。此时只能展示标题，不展示 chunk 摘要。
       return Text(
-        '$header（无 chunk 上下文）',
+        '$header（未关联 chunk）',
         key: const Key('citation_preview_no_chunk'),
         style: headerStyle,
       );
