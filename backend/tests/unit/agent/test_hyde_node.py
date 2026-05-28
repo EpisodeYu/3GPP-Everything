@@ -50,4 +50,4 @@ async def test_hyde_passes_enough_max_tokens_for_reasoning_model() -> None:
     deps = make_deps(llm=llm)
     await hyde_node(AgentState(user_input="What is AMF?"), deps=deps)
     chat = next(c for c in llm.calls if c["kind"] == "chat")
-    assert chat["max_tokens"] >= 2048
+    assert chat["max_tokens"] >= 8192

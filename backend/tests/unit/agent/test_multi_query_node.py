@@ -79,4 +79,4 @@ async def test_multi_query_passes_enough_max_tokens_for_reasoning_model() -> Non
     state = AgentState(rewritten_queries=["primary"])
     await multi_query_node(state, deps=deps)
     chat = next(c for c in llm.calls if c["kind"] == "chat")
-    assert chat["max_tokens"] >= 2048
+    assert chat["max_tokens"] >= 8192

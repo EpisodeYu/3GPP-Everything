@@ -46,12 +46,14 @@ async def multi_query_node(state: AgentState, *, deps: AgentDeps) -> dict[str, A
         # LIGHT 模型 (mimo-v2.5) 是 reasoning model：早期 max_tokens=400 在复杂查询上
         # 被 reasoning 吃满（实测 reasoning=399, content=''）→ 返回空 sub_queries，
         # complex 链路退化为单 query 检索，最该多角度展开的场景反而展不开。
-        # 2048 给 reasoning ~1000 + JSON 数组 ~300 + 余量，远超观测峰值（reasoning ~400）。
+        # reasoning 方差极大（同题 200~1500），输出又是 JSON 数组（~300 tokens），
+        # 8192 给 peak reasoning ~3000 + 数组 ~500 留 ~2.7x 余量；mimo 这种长 reasoning
+        # 加复杂输出，宁可上限给够也不要被截。
         resp = await deps.llm.chat(
             messages=[{"role": "user", "content": prompt}],
             model=deps.settings.LLM_LIGHT_MODEL,
             temperature=0.2,
-            max_tokens=2048,
+            max_tokens=8192,
         )
     except LLMError as exc:
         log.warning("multi_query_node llm failed: %s", exc)

@@ -34,7 +34,7 @@ async def test_generates_clean_title() -> None:
     # 早期 40 被 reasoning 吃光，content 永远空 → 自动标题永远 None（M5 反复修
     # 不生效的真因）。1024+ 给最复杂问题也留够余量，永不截断。
     assert cli.calls[0]["model"] == "light"
-    assert cli.calls[0]["max_tokens"] >= 1024
+    assert cli.calls[0]["max_tokens"] >= 4096
 
 
 async def test_strips_quotes_and_extra_lines() -> None:

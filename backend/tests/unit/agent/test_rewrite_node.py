@@ -32,4 +32,4 @@ async def test_rewrite_passes_enough_max_tokens_for_reasoning_model() -> None:
     deps = make_deps(llm=llm)
     await rewrite_node(AgentState(user_input="q"), deps=deps)
     chat = next(c for c in llm.calls if c["kind"] == "chat")
-    assert chat["max_tokens"] >= 1024
+    assert chat["max_tokens"] >= 4096
