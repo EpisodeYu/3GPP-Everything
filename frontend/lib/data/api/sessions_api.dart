@@ -116,6 +116,15 @@ class SessionsApi {
   Future<void> delete(String sid) async {
     await _dio.delete<void>('/sessions/$sid');
   }
+
+  /// 清空当前用户所有会话；后端 `DELETE /sessions`（M5.x 一键清空）。
+  /// 返回真实删除数（即使前端乐观清空成功，也用此值回显 snackbar）。
+  Future<int> deleteAll() async {
+    final resp = await _dio.delete<Map<String, dynamic>>('/sessions');
+    final data = resp.data;
+    if (data == null) return 0;
+    return (data['deleted'] as num?)?.toInt() ?? 0;
+  }
 }
 
 final sessionsApiProvider =

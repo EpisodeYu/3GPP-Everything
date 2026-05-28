@@ -202,5 +202,49 @@ void main() {
       // logout 改 auth state，AppShell 内的 username 应消失（变成 "-"）
       expect(find.text('alice'), findsNothing);
     });
+
+    testWidgets('一键清空：确认后调 deleteAll、列表清空、当前选中态回 /chat',
+        (tester) async {
+      final api = await _pumpShell(tester, size: const Size(1280, 800));
+
+      expect(find.byKey(const Key('sidebar_delete_all')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('sidebar_delete_all')));
+      await tester.pumpAndSettle();
+
+      // 二次确认对话框
+      expect(find.byKey(const Key('delete_all_dialog')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('delete_all_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(api.deleteAllCalls, 1);
+      expect(find.byKey(const Key('session_tile_a')), findsNothing);
+      expect(find.byKey(const Key('session_tile_b')), findsNothing);
+      // sessions 清空后按钮自动隐藏（避免空列表下 UI 噪声）
+      expect(find.byKey(const Key('sidebar_delete_all')), findsNothing);
+      // 当前停在 /sessions/a → deleteAll 成功后跳回 /chat
+      expect(find.text('chat-placeholder'), findsOneWidget);
+    });
+
+    testWidgets('一键清空：取消对话框不触发 API', (tester) async {
+      final api = await _pumpShell(tester, size: const Size(1280, 800));
+
+      await tester.tap(find.byKey(const Key('sidebar_delete_all')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('delete_all_cancel')));
+      await tester.pumpAndSettle();
+
+      expect(api.deleteAllCalls, 0);
+      expect(find.byKey(const Key('session_tile_a')), findsOneWidget);
+    });
+
+    testWidgets('空会话列表时不显示"清空全部"按钮', (tester) async {
+      await _pumpShell(
+        tester,
+        size: const Size(1280, 800),
+        initialSessions: const [],
+        initialRoute: '/chat',
+      );
+      expect(find.byKey(const Key('sidebar_delete_all')), findsNothing);
+    });
   });
 }

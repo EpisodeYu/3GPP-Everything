@@ -173,6 +173,30 @@ void main() {
       expect(adapter.calls.single.path, '/sessions/sid-5');
     });
 
+    test('deleteAll 走 DELETE /sessions，解析 {deleted}', () async {
+      final adapter = _ScriptedAdapter([
+        (_) => _json(200, {'deleted': 3}),
+      ]);
+      final api = SessionsApi(_makeDio(adapter));
+
+      final n = await api.deleteAll();
+
+      expect(n, 3);
+      expect(adapter.calls.single.method, 'DELETE');
+      expect(adapter.calls.single.path, '/sessions');
+    });
+
+    test('deleteAll 没 body 时返回 0，不抛', () async {
+      final adapter = _ScriptedAdapter([
+        (_) => _empty(200),
+      ]);
+      final api = SessionsApi(_makeDio(adapter));
+
+      final n = await api.deleteAll();
+
+      expect(n, 0);
+    });
+
     test('list 4xx 错误冒泡为 DioException', () async {
       final adapter = _ScriptedAdapter([
         (_) => _json(401, {'code': 'unauthorized', 'message': 'no'}),

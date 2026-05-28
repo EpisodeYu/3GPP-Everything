@@ -42,6 +42,22 @@
   "deleteDialogCancel": "Cancel",
   "deleteDialogConfirm": "Delete",
 
+  "sidebarDeleteAll": "Clear all sessions",
+  "deleteAllDialogTitle": "Clear all sessions",
+  "deleteAllDialogContent": "Permanently delete all {count} sessions and their messages for this account. This action cannot be undone.",
+  "@deleteAllDialogContent": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "deleteAllDialogConfirm": "Clear",
+  "snackbarDeleteAllSuccess": "Cleared {count} sessions",
+  "@snackbarDeleteAllSuccess": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "snackbarDeleteAllFailed": "Failed to clear: {error}",
+  "@snackbarDeleteAllFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+
   "chatEmptyTitle": "Start a new conversation",
   "messageStatusCancelled": "Cancelled",
   "messageStatusFailed": "Failed",

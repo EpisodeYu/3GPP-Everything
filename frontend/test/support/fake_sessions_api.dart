@@ -16,6 +16,7 @@ class FakeSessionsApi implements SessionsApi {
   int createCalls = 0;
   int patchCalls = 0;
   int deleteCalls = 0;
+  int deleteAllCalls = 0;
   int listCalls = 0;
 
   void _maybeThrow(String op) {
@@ -90,6 +91,15 @@ class FakeSessionsApi implements SessionsApi {
     deleteCalls += 1;
     _maybeThrow('delete');
     items.removeWhere((s) => s.id == sid);
+  }
+
+  @override
+  Future<int> deleteAll() async {
+    deleteAllCalls += 1;
+    _maybeThrow('deleteAll');
+    final n = items.length;
+    items.clear();
+    return n;
   }
 }
 

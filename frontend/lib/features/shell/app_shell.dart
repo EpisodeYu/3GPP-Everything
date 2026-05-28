@@ -130,6 +130,25 @@ class _SessionsSidebar extends ConsumerWidget {
             ),
           ),
         ),
+        // 仅在确实有会话时显示"清空全部"，避免空列表下 UI 噪声。
+        sessionsAsync.maybeWhen(
+          data: (items) => items.isEmpty
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                  child: TextButton.icon(
+                    key: const Key('sidebar_delete_all'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                    onPressed: () =>
+                        _onDeleteAll(context, ref, items.length),
+                    icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                    label: Text(t.sidebarDeleteAll),
+                  ),
+                ),
+          orElse: () => const SizedBox.shrink(),
+        ),
         const Divider(height: 1),
         _SidebarFooter(
           username: me?.username,
@@ -209,6 +228,54 @@ class _SessionsSidebar extends ConsumerWidget {
       await ref.read(sessionsControllerProvider.notifier).rename(s.id, newTitle);
     } on Object catch (e) {
       if (context.mounted) _snack(context, t.snackbarRenameFailed('$e'));
+    }
+  }
+
+  Future<void> _onDeleteAll(
+    BuildContext context,
+    WidgetRef ref,
+    int count,
+  ) async {
+    final t = AppLocalizations.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('delete_all_dialog'),
+        title: Text(t.deleteAllDialogTitle),
+        content: Text(t.deleteAllDialogContent(count)),
+        actions: [
+          TextButton(
+            key: const Key('delete_all_cancel'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(t.deleteDialogCancel),
+          ),
+          FilledButton(
+            key: const Key('delete_all_confirm'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(t.deleteAllDialogConfirm),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (!context.mounted) return;
+    _closeDrawerIfOpen(context);
+    final currentSid = _currentSidFromRoute(context);
+    try {
+      final deleted = await ref
+          .read(sessionsControllerProvider.notifier)
+          .deleteAll();
+      if (!context.mounted) return;
+      // 当前停在某会话页 → 跳回欢迎页（路由参数对应的 session 已被清掉）
+      if (currentSid != null) {
+        context.go('/chat');
+      }
+      _snack(context, t.snackbarDeleteAllSuccess(deleted));
+    } on Object catch (e) {
+      if (context.mounted) _snack(context, t.snackbarDeleteAllFailed('$e'));
     }
   }
 

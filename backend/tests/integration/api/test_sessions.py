@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from app.db.models import Session as DBSession
 
@@ -125,3 +125,74 @@ async def test_session_routes_require_auth(client: Any) -> None:
     assert r.status_code == 401
     r = await client.post("/api/v1/sessions", json={"title": "x"})
     assert r.status_code == 401
+    r = await client.delete("/api/v1/sessions")
+    assert r.status_code == 401
+
+
+async def test_delete_all_sessions_clears_only_caller(client: Any) -> None:
+    """DELETE /sessions 清掉调用者自己的所有会话，不影响其他用户。"""
+    await _bootstrap_admin(client)
+    admin = await _login(client, "admin1", "passw0rd!")
+    for u in ("alice", "bob"):
+        r = await client.post(
+            "/api/v1/users",
+            json={"username": u, "password": "passw0rd!", "role": "user"},
+            headers=_auth_headers(admin["access_token"]),
+        )
+        assert r.status_code == 201
+
+    a_token = (await _login(client, "alice", "passw0rd!"))["access_token"]
+    b_token = (await _login(client, "bob", "passw0rd!"))["access_token"]
+
+    for title in ("a1", "a2", "a3"):
+        r = await client.post(
+            "/api/v1/sessions", json={"title": title}, headers=_auth_headers(a_token)
+        )
+        assert r.status_code == 201
+    r = await client.post("/api/v1/sessions", json={"title": "b1"}, headers=_auth_headers(b_token))
+    assert r.status_code == 201
+
+    r = await client.delete("/api/v1/sessions", headers=_auth_headers(a_token))
+    assert r.status_code == 200, r.text
+    assert r.json() == {"deleted": 3}
+
+    r = await client.get("/api/v1/sessions", headers=_auth_headers(a_token))
+    assert r.json()["total"] == 0
+    # bob 的会话保留
+    r = await client.get("/api/v1/sessions", headers=_auth_headers(b_token))
+    assert r.json()["total"] == 1
+
+
+async def test_delete_all_sessions_when_empty_returns_zero(client: Any) -> None:
+    """无会话时返回 deleted=0，不报错。"""
+    token = await _new_user_token(client)
+    r = await client.delete("/api/v1/sessions", headers=_auth_headers(token))
+    assert r.status_code == 200
+    assert r.json() == {"deleted": 0}
+
+
+async def test_delete_all_sessions_removes_sessions_with_messages(
+    client: Any, db_session: Any
+) -> None:
+    """带 messages 的会话清空：session 行确实从 DB 删掉。
+
+    messages 行的 cascade 依赖 schema 上 `ON DELETE CASCADE` —— 在生产 PG/MySQL
+    工作；本测试跑在 SQLite in-memory 上 FK 默认关闭，仅断言 session 本身被删，
+    不强求 messages cascade（cascade 测试见 PG 集成回归 / production 行为）。
+    """
+    from app.db.models import Message
+
+    token = await _new_user_token(client)
+    h = _auth_headers(token)
+    r = await client.post("/api/v1/sessions", json={"title": "x"}, headers=h)
+    sid = r.json()["id"]
+    db_session.add(Message(session_id=uuid.UUID(sid), role="user", content="hi", status="ok"))
+    await db_session.commit()
+
+    r = await client.delete("/api/v1/sessions", headers=h)
+    assert r.status_code == 200
+    assert r.json()["deleted"] == 1
+
+    # session 行确实被删
+    res = await db_session.execute(select(DBSession).where(DBSession.id == uuid.UUID(sid)))
+    assert res.scalar_one_or_none() is None

@@ -83,6 +83,21 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
     }
   }
 
+  /// 一键清空当前用户所有会话。成功后列表置空；失败时回滚到调用前状态。
+  ///
+  /// 返回后端真实删除数（用于 snackbar 回显）。前端乐观清空与后端结果独立：
+  /// 即使后端返回 0（无数据可删），UI 仍按"清空成功"反馈，不让用户困惑。
+  Future<int> deleteAll() async {
+    final prev = state.value ?? const <SessionOut>[];
+    state = const AsyncData(<SessionOut>[]);
+    try {
+      return await _api.deleteAll();
+    } on Object {
+      state = AsyncData(prev);
+      rethrow;
+    }
+  }
+
   /// 从指定 checkpoint 分叉出新会话（M5.4）。成功后：
   /// - 旧 sid 在列表里 status 改成 `archived_branch`（视觉灰度 / "分叉历史" 分组）
   /// - 新会话插到列表头

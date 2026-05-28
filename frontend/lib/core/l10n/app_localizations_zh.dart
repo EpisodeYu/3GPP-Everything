@@ -100,6 +100,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deleteDialogConfirm => '删除';
 
   @override
+  String get sidebarDeleteAll => '清空全部会话';
+
+  @override
+  String get deleteAllDialogTitle => '清空所有会话';
+
+  @override
+  String deleteAllDialogContent(int count) {
+    return '将永久删除当前账号的全部会话与对话记录（$count 条），此操作不可撤销。';
+  }
+
+  @override
+  String get deleteAllDialogConfirm => '清空';
+
+  @override
+  String snackbarDeleteAllSuccess(int count) {
+    return '已清空 $count 个会话';
+  }
+
+  @override
+  String snackbarDeleteAllFailed(String error) {
+    return '清空失败：$error';
+  }
+
+  @override
   String get chatEmptyTitle => '开始一个新会话';
 
   @override

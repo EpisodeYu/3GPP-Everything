@@ -188,6 +188,41 @@ void main() {
       expect(items.length, 3);
     });
 
+    test('deleteAll 成功后清空列表，返回后端删除数', () async {
+      final api = FakeSessionsApi(initial: [
+        buildSession(id: 'a'),
+        buildSession(id: 'b'),
+        buildSession(id: 'c'),
+      ]);
+      final container = _container(api);
+      await container.read(sessionsControllerProvider.future);
+
+      final n = await container
+          .read(sessionsControllerProvider.notifier)
+          .deleteAll();
+
+      expect(n, 3);
+      expect(container.read(sessionsControllerProvider).value, isEmpty);
+      expect(api.deleteAllCalls, 1);
+    });
+
+    test('deleteAll 失败时回滚列表并 rethrow', () async {
+      final api = FakeSessionsApi(initial: [
+        buildSession(id: 'a'),
+        buildSession(id: 'b'),
+      ]);
+      final container = _container(api);
+      await container.read(sessionsControllerProvider.future);
+      api.failNext = true;
+
+      await expectLater(
+        container.read(sessionsControllerProvider.notifier).deleteAll(),
+        throwsA(isA<SessionsApiFakeError>()),
+      );
+      final items = container.read(sessionsControllerProvider).value!;
+      expect(items.map((e) => e.id), ['a', 'b']);
+    });
+
     test('fork 失败时不会修改 sessions 列表', () async {
       final api = FakeSessionsApi(initial: [buildSession(id: 'src')]);
       final ckpt = FakeCheckpointApi()..failNextOp = 'fork';

@@ -46,3 +46,13 @@ class SessionOut(BaseModel):
 class SessionListResponse(BaseModel):
     items: list[SessionOut]
     total: int
+
+
+class SessionsBulkDeleteResponse(BaseModel):
+    """DELETE /sessions（清空当前用户所有会话）的响应。
+
+    `deleted` 是后端 `DELETE FROM sessions WHERE user_id=?` 影响行数，跟前端
+    乐观更新（直接 `state = AsyncData([])`）独立，方便回显 snackbar。
+    """
+
+    deleted: int

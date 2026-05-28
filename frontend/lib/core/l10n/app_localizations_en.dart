@@ -102,6 +102,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteDialogConfirm => 'Delete';
 
   @override
+  String get sidebarDeleteAll => 'Clear all sessions';
+
+  @override
+  String get deleteAllDialogTitle => 'Clear all sessions';
+
+  @override
+  String deleteAllDialogContent(int count) {
+    return 'Permanently delete all $count sessions and their messages for this account. This action cannot be undone.';
+  }
+
+  @override
+  String get deleteAllDialogConfirm => 'Clear';
+
+  @override
+  String snackbarDeleteAllSuccess(int count) {
+    return 'Cleared $count sessions';
+  }
+
+  @override
+  String snackbarDeleteAllFailed(String error) {
+    return 'Failed to clear: $error';
+  }
+
+  @override
   String get chatEmptyTitle => 'Start a new conversation';
 
   @override

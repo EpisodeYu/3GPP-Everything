@@ -272,6 +272,42 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get deleteDialogConfirm;
 
+  /// No description provided for @sidebarDeleteAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all sessions'**
+  String get sidebarDeleteAll;
+
+  /// No description provided for @deleteAllDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all sessions'**
+  String get deleteAllDialogTitle;
+
+  /// No description provided for @deleteAllDialogContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete all {count} sessions and their messages for this account. This action cannot be undone.'**
+  String deleteAllDialogContent(int count);
+
+  /// No description provided for @deleteAllDialogConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get deleteAllDialogConfirm;
+
+  /// No description provided for @snackbarDeleteAllSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleared {count} sessions'**
+  String snackbarDeleteAllSuccess(int count);
+
+  /// No description provided for @snackbarDeleteAllFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to clear: {error}'**
+  String snackbarDeleteAllFailed(String error);
+
   /// No description provided for @chatEmptyTitle.
   ///
   /// In en, this message translates to:

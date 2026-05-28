@@ -42,6 +42,9 @@ class _EmptySessionsApi implements SessionsApi {
 
   @override
   Future<void> delete(String sid) async {}
+
+  @override
+  Future<int> deleteAll() async => 0;
 }
 
 /// 给 chat-flow smoke 用：固定返回一个 session 让登录后直接进 ChatView。
@@ -66,6 +69,9 @@ class _OneSessionApi implements SessionsApi {
 
   @override
   Future<void> delete(String sid) async {}
+
+  @override
+  Future<int> deleteAll() async => 0;
 }
 
 /// Scripted MessagesApi：把单测里调好的事件序列原样吐到 SSE。

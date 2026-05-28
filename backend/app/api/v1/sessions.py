@@ -28,6 +28,7 @@ from app.schemas.sessions import (
     SessionListResponse,
     SessionOut,
     SessionPatchBody,
+    SessionsBulkDeleteResponse,
 )
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -112,6 +113,31 @@ async def patch_session(
     await db.commit()
     await db.refresh(s)
     return SessionOut.model_validate(s, from_attributes=True)
+
+
+@router.delete("", response_model=SessionsBulkDeleteResponse)
+async def delete_all_sessions(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> SessionsBulkDeleteResponse:
+    """清空当前用户的全部会话（含 archived_branch）。
+
+    设计取舍：
+    - 先 SELECT 出当前用户所有 session，再用 `session.delete(obj)` 逐个删；这条
+      路径走 SQLAlchemy ORM 的 Python-level cascade（与 `DELETE /sessions/{sid}`
+      一致），不依赖 DB 层 FK ON DELETE CASCADE。后者在 PG/MySQL 上也有效，但
+      集成测试跑在 SQLite in-memory 上默认关 FK，靠 ORM cascade 才能保证 messages
+      也被清掉。
+    - N+1 query 对 "清空全部" 这种低频操作可接受（单用户上限通常 < 100 session）。
+    - LangGraph checkpoint 表不在本路径清，与既有 `DELETE /sessions/{sid}` 行为
+      一致（孤立 checkpoint 是已有的小遗留，不在本任务范围）。
+    """
+    res = await db.execute(select(DBSession).where(DBSession.user_id == user.id))
+    sessions = list(res.scalars().all())
+    for s in sessions:
+        await db.delete(s)
+    await db.commit()
+    return SessionsBulkDeleteResponse(deleted=len(sessions))
 
 
 @router.delete("/{sid}", status_code=status.HTTP_204_NO_CONTENT)
