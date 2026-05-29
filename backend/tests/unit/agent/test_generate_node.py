@@ -30,8 +30,7 @@ def _chunk(
 
 async def test_generate_streams_answer_and_extracts_citations() -> None:
     answer = (
-        "AMF is the Access and Mobility Management Function "
-        "[23.501 §6.3.1]. It anchors NAS signalling [23.501 §6.3.1]."
+        "AMF is the Access and Mobility Management Function " "[1]. It anchors NAS signalling [1]."
     )
     llm = StubLLM(responses=[answer])
     deps = make_deps(llm=llm)
@@ -47,11 +46,12 @@ async def test_generate_streams_answer_and_extracts_citations() -> None:
 
     out = await generate_node(state, deps=deps)
     assert "AMF" in out["final_answer"]
-    assert len(out["citations"]) == 1, "重复引用应去重"
+    assert len(out["citations"]) == 1, "重复 [1] 应去重"
     cite = out["citations"][0]
     assert cite["spec_id"] == "23.501"
     assert cite["chunk_id"] == "c1"
     assert cite["section_path"] == "6.3.1"
+    assert cite["rank"] == 1
     # 生产路径走 chat_stream（不是非流式 chat）
     stream_calls = [c for c in llm.calls if c["kind"] == "chat_stream"]
     assert len(stream_calls) == 1
@@ -77,7 +77,7 @@ async def test_generate_falls_back_to_nonstream_when_stream_fails() -> None:
             raise LLMError("network down")
             yield  # 让 mypy 知道这是 async generator
 
-    llm = _StreamBoomLLM(responses=["Fallback answer [23.501 §6.3.1]."])
+    llm = _StreamBoomLLM(responses=["Fallback answer [1]."])
     deps = make_deps(llm=llm)
     state = AgentState(
         user_input="X",
@@ -87,6 +87,7 @@ async def test_generate_falls_back_to_nonstream_when_stream_fails() -> None:
     out = await generate_node(state, deps=deps)
     assert "Fallback answer" in out["final_answer"]
     assert out["citations"][0]["chunk_id"] == "c1"
+    assert out["citations"][0]["rank"] == 1
     assert [c["kind"] for c in llm.calls] == ["chat_stream", "chat"]
 
 
@@ -103,88 +104,74 @@ async def test_no_chunks_returns_fallback_message() -> None:
     assert "未在已索引" in out_zh["final_answer"]
 
 
-def test_parse_citations_handles_section_prefix_match() -> None:
+# ===== parse_citations（v6 索引方案）单测 =====
+# 形态：`[N]`（N = 1-based 序号 → chunks 列表对应 chunk）；越界/重复/非数字均不入选。
+
+
+def test_parse_citations_basic_index_picks_correct_chunk() -> None:
     chunks = [
-        _chunk("c1", spec="38.331", section=("5", "3", "5", "1")),
+        _chunk("c1", spec="38.331", section=("5", "3")),
+        _chunk("c2", spec="23.501", section=("6", "3", "1")),
+        _chunk("c3", spec="38.213", section=("8", "1")),
     ]
-    answer = "see [38.331 §5.3] for details."
-    cites = parse_citations(answer, chunks)
-    assert len(cites) == 1
-    assert cites[0]["chunk_id"] == "c1"
-    assert cites[0]["cite_section_path"] == "5.3"
+    cites = parse_citations("see [2] for details, and [3] also.", chunks)
+    assert [(c["rank"], c["chunk_id"]) for c in cites] == [(2, "c2"), (3, "c3")]
+    assert cites[0]["spec_id"] == "23.501"
+    assert cites[0]["section_path"] == "6.3.1"
 
 
-def test_parse_citations_skips_unknown_spec() -> None:
+def test_parse_citations_dedupes_repeated_index() -> None:
     chunks = [_chunk("c1", spec="38.331", section=("5", "3"))]
-    answer = "see [99.999 §1.2] which we do not have."
-    assert parse_citations(answer, chunks) == []
+    cites = parse_citations("first [1] then [1] again [1].", chunks)
+    assert len(cites) == 1
+    assert cites[0]["rank"] == 1
 
 
-def test_parse_citations_accepts_spec_only_bracket() -> None:
-    """`[38.331]` 无 § 段（v5 prompt 在 chunk 无 clause 时要求的形态）→ 命中同 spec 第一条。"""
+def test_parse_citations_drops_out_of_bounds_index() -> None:
+    chunks = [_chunk("c1", spec="38.331", section=("5", "3"))]
+    # `[2]` 超界、`[0]` 不合法、`[1]` 命中
+    cites = parse_citations("[1] and [2] and [0].", chunks)
+    assert [c["rank"] for c in cites] == [1]
+
+
+def test_parse_citations_handles_multi_chunk_consecutive_brackets() -> None:
+    """LLM 多 chunk 引用形态 `[1][3]` —— 两个独立 match 都要留下。"""
     chunks = [
-        _chunk("c1", spec="38.331", section=(), title="*ControlResourceSet* IE"),
-        _chunk("c2", spec="38.331", section=("5", "3")),
+        _chunk("c1", spec="23.501", section=("6", "3", "1")),
+        _chunk("c2", spec="23.501", section=("6", "3", "2")),
+        _chunk("c3", spec="23.502", section=("4", "3", "2")),
     ]
-    cites = parse_citations("see [38.331] for the IE.", chunks)
+    cites = parse_citations("AMF/SMF/UPF 协同[1][2][3]。", chunks)
+    assert [c["rank"] for c in cites] == [1, 2, 3]
+
+
+def test_parse_citations_ignores_legacy_spec_section_format() -> None:
+    """v5 老格式 `[38.331 §5.3]` 已退役 —— 不再识别为引用（避免与 markdown link 误识）。"""
+    chunks = [_chunk("c1", spec="38.331", section=("5", "3"))]
+    cites = parse_citations("see [38.331 §5.3] for details.", chunks)
+    assert cites == []
+
+
+def test_parse_citations_does_not_match_markdown_links() -> None:
+    """`[text](url)` markdown link 内的数字不应被误识为索引引用。"""
+    chunks = [_chunk("c1", spec="38.331", section=("5", "3"))]
+    cites = parse_citations("see [my doc](https://example.com/page1) and [1].", chunks)
+    assert [c["rank"] for c in cites] == [1]
+
+
+def test_parse_citations_handles_ie_chunk_empty_section() -> None:
+    """IE chunk（section_path=()）通过 [N] 引用 → section_path 序列化为空串。"""
+    chunks = [_chunk("c-ie", spec="38.331", section=(), title="PUCCH-Config IE")]
+    cites = parse_citations("PUCCH-Config 定义见 [1]。", chunks)
     assert len(cites) == 1
     assert cites[0]["spec_id"] == "38.331"
-    assert cites[0]["chunk_id"] == "c1"
     assert cites[0]["section_path"] == ""
+    assert cites[0]["section_title"] == "PUCCH-Config IE"
 
 
-def test_parse_citations_fuzzy_matches_chunk_with_emphasis_in_title() -> None:
-    """LLM 抄 chunk header 的 in-context 漂移：`[38.331 §*ControlResourceSet* information element]`
-    应该 fuzzy 匹到 section_title=`*ControlResourceSet* information element` 的 IE chunk，
-    而不是退到 spec-only 兜底（会拿到无关 chunk）。"""
-    chunks = [
-        _chunk("c-other", spec="38.331", section=("5", "3"), title="RRC reconfiguration"),
-        _chunk(
-            "c-ie",
-            spec="38.331",
-            section=(),
-            title="*ControlResourceSet* information element",
-        ),
-    ]
-    answer = "见 [38.331 §*ControlResourceSet* information element]。"
-    cites = parse_citations(answer, chunks)
-    assert len(cites) == 1
-    assert cites[0]["chunk_id"] == "c-ie", "fuzzy 必须打到 IE chunk，而不是 spec 第一条"
-    assert cites[0]["cite_section_path"] == "*ControlResourceSet* information element"
-
-
-def test_parse_citations_fuzzy_matches_chunk_with_emphasis_in_cite() -> None:
-    """对称场景：chunk 标题干净（chunker 已 sanitize），LLM 仍写带 `*` 的引用。"""
-    chunks = [
-        _chunk(
-            "c-ie",
-            spec="38.331",
-            section=(),
-            title="ControlResourceSet information element",
-        ),
-    ]
-    cites = parse_citations("见 [38.331 §*ControlResourceSet*].", chunks)
-    assert len(cites) == 1
-    assert cites[0]["chunk_id"] == "c-ie"
-
-
-def test_parse_citations_dotted_clause_still_strict() -> None:
-    """`[38.331 §5.3.5]` 这种合法 dotted clause 走 strict 前缀匹配，不被 fuzzy 干扰。"""
-    chunks = [
-        _chunk("c-ie", spec="38.331", section=(), title="ControlResourceSet IE"),
-        _chunk("c1", spec="38.331", section=("5", "3", "5")),
-    ]
-    cites = parse_citations("[38.331 §5.3]", chunks)
-    assert len(cites) == 1
-    assert cites[0]["chunk_id"] == "c1", "strict 必须优先于 fuzzy 和 spec-only"
-
-
-def test_parse_citations_em_dash_placeholder_falls_through_to_spec_only() -> None:
-    """`[38.331 § —]` LLM 写不出 section 时的占位 → fuzzy 也匹不到 → spec-only 兜底。"""
-    chunks = [_chunk("c1", spec="38.331", section=("5", "3"))]
-    cites = parse_citations("[38.331 § —]", chunks)
-    assert len(cites) == 1
-    assert cites[0]["chunk_id"] == "c1"
+def test_parse_citations_empty_inputs_return_empty() -> None:
+    assert parse_citations("", [_chunk("c1", spec="38.331", section=("5",))]) == []
+    assert parse_citations("plain text [1]", []) == []
 
 
 def test_sanitize_preview_strips_html_tags() -> None:

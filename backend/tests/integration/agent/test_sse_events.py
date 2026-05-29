@@ -32,12 +32,15 @@ pytestmark = pytest.mark.integration
 
 
 def _simple_classify_resp() -> str:
+    # `query_class` 不能用 `definition`：graph._after_classify 在 2026-05-27 之后
+    # 把 definition 强制路由到 complex 路径（提升单 IE 定义召回）。本测试要走
+    # simple fast path，必须用其它 class（procedure 最贴近"AMF 是什么"语义）。
     return json.dumps(
         {
-            "query_class": "definition",
+            "query_class": "procedure",
             "complexity": "simple",
             "detected_language": "en",
-            "rewritten_query": "AMF definition",
+            "rewritten_query": "AMF function role",
             "needs_explicit_tools": [],
             "reason": "single term",
         }
@@ -61,7 +64,7 @@ async def test_astream_updates_emit_chunks_hit_after_retrieve() -> None:
     llm = StubLLM(
         responses=[
             _simple_classify_resp(),
-            "AMF is the Access and Mobility Management Function [23.501 §6.3.1].",
+            "AMF is the Access and Mobility Management Function [1].",
             _self_rag_accept_resp(),
         ]
     )
@@ -116,7 +119,7 @@ async def test_astream_events_v2_covers_all_nodes() -> None:
     llm = StubLLM(
         responses=[
             _simple_classify_resp(),
-            "AMF is the Access and Mobility Management Function [23.501 §6.3.1].",
+            "AMF is the Access and Mobility Management Function [1].",
             _self_rag_accept_resp(),
         ]
     )
@@ -190,7 +193,7 @@ async def test_final_state_has_answer_and_citations() -> None:
     llm = StubLLM(
         responses=[
             _simple_classify_resp(),
-            "AMF is the Access and Mobility Management Function [23.501 §6.3.1].",
+            "AMF is the Access and Mobility Management Function [1].",
             _self_rag_accept_resp(),
         ]
     )

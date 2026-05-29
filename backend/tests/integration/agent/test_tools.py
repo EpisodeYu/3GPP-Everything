@@ -204,7 +204,7 @@ async def test_non_explicit_tools_does_not_invoke_tools(monkeypatch: pytest.Monk
             "reason": "non-tool path",
         }
     )
-    generate_resp = "AMF stands for Access and Mobility Management Function [23.501 §6.3.1]."
+    generate_resp = "AMF stands for Access and Mobility Management Function [1]."
     llm = StubLLM(responses=[classify_resp, generate_resp, _self_rag_accept_resp()])
     chunk = make_chunk("c1", spec_id="23.501", section=("6", "3", "1"))
 

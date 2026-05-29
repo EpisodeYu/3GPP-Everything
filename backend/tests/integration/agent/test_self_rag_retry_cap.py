@@ -64,7 +64,7 @@ async def test_self_rag_retry_cap_forces_convergence_after_two_retries() -> None
     rewrite_resp = "RRC connection setup detailed steps"
     hyde_resp = "RRC connection setup involves SRB establishment ..."
     multi_query_resp = json.dumps(["RRC SRB setup", "RRC msg5 contents"])
-    generate_resp = "RRC connection establishment ... [38.331 §5.3.5]"
+    generate_resp = "RRC connection establishment ... [1]"
     # 排队足够多 self_rag 应答：永远说 retry。实际只会被消费 2 次。
     self_rag_resps = [
         _retry_resp(["msg5 fields"]),
@@ -103,9 +103,10 @@ async def test_self_rag_retry_cap_forces_convergence_after_two_retries() -> None
     assert state.retry_count == 2, f"retry_count 应=2，实际={state.retry_count}"
     # verdict 最后一次仍是 retry（self_rag_node 不会改 verdict，graph 强制 END）
     assert state.self_rag_verdict == "retry"
-    # 总 chat 调用 = classify + rewrite + hyde + multi_query + 2×(generate + self_rag) = 8
-    chat_calls = [c for c in llm.calls if c["kind"] == "chat"]
-    assert len(chat_calls) == 8, f"chat 调用应=8，实际={len(chat_calls)}"
+    # 总 LLM 调用 = classify + rewrite + hyde + multi_query + 2×(generate + self_rag) = 8
+    # generate_node 走 chat_stream（非流式 chat），其余节点走 chat，两类都要计入。
+    llm_calls = [c for c in llm.calls if c["kind"] in {"chat", "chat_stream"}]
+    assert len(llm_calls) == 8, f"LLM 调用应=8，实际={len(llm_calls)}"
     # missing_aspects 第三轮的内容（timer T300）不应进 rewritten_queries（第三次 self_rag 没被调）
     assert "timer T300" not in state.rewritten_queries
     # 前两轮的 missing 进了

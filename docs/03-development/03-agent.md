@@ -77,7 +77,7 @@ class AgentState(BaseModel):
 
     # 生成
     final_answer: str = ""
-    citations: list[dict] = []                       # [{chunk_id, spec, section, span}]
+    citations: list[dict] = []                       # [{chunk_id, spec_id, section_path, section_title, rank, rerank_score}]
     confidence: float = 0.0                          # self-RAG 自评
 
     # 自校验
@@ -251,7 +251,8 @@ async def rerank_node(state: AgentState) -> AgentState:
 - 模型：`mimo-v2.5-pro`（streaming=True）
 - Prompt 要点（见 §5 prompt 库）：
   - 严格 grounding：仅基于 `reranked` 内容
-  - 引用格式：`[spec_id §section_path ¶offset]`
+  - **引用格式：`[N]` 索引**（N = prompt 中 chunks 列表 1-based 序号，prompt v6
+    起，详见下方"引用契约"段）
   - 输出语言：`state.user_language`
   - 公式保留 LaTeX
   - 篇幅：**完整性驱动，不设固定字数**（rule #6，prompt v3 → v4，2026-05-27/28）——
@@ -262,24 +263,39 @@ async def rerank_node(state: AgentState) -> AgentState:
     全倒出、远超 cited chunk 支撑；可比对 ragas（n=37）faithfulness 0.578→0.499，
     definition 类 0.658→0.441 为重灾区。rule #6 v3→v4：**只答所问、每句须有 cited
     chunk 支撑、禁堆砌问题没问的 edge case**，保留完整性但加 grounding 上限。
-  - **chunk header 反诱导（prompt v5，2026-05-28）**：38.331 等 spec 的 IE/ASN.1 章节
-    `section_path` 为空，chunker `_section_header` 给 chunk content 注入 `[spec §
-    *IE-name* information element]` 头，长得**和 prompt 要求的 citation 格式一样**，
-    LLM 会 verbatim 抄回来形成无效引用（前端 chip 渲染但跳转必 404）。v5：(a) 元数据行
-    空 `section_path` 显式标 `<none>` 而不是裸空串；(b) hard rule #2 加 bullet 明确
-    "chunk body 顶部的方括号是 chunker artifact，不是 citation 模板，禁止 verbatim
-    复制；空 `<none>` 时只写 `[spec_id]`"
 
-- 输出后用正则提取 `[xx §xx]` 写入 `state.citations`。**v5 同步把 `parse_citations`
-  改为三段 fallback**（strict dotted-clause → fuzzy by section_title → spec-only），
-  让 LLM 引用格式漂移时仍能拿到 chunk_id 给前端 chip 用：
-  - 正则放宽到 `[spec(?: §sect)?]`：`[38.331]` 也认（v5 prompt 在 chunk 无 clause
-    时要求的形态）
-  - section 段含 `*` / 空格 / IE 名等非 dotted-clause 形态 → 与 `chunk.section_title`
-    归一化后包含匹配（去 `*` / HTML 标签 / 大小写），实测能捞回 38.331 IE chunk
-  - 都匹不到 → 同 spec 第一条兜底（保持原行为）
-  - 前端 `jumpToReader` 同步收紧：非 dotted clause section 不跳 `/reader/{spec}/{?}`
-    （必 404），改跳 spec overview + SnackBar 提示
+**引用契约（prompt v6，2026-05-29）—— 索引引用方案**：
+
+v2-v5 用 `[spec_id §section_path]` 文本引用，要求 prompt / `parse_citations`
+正则 / 前端 `CitationInlineSyntax` 正则三处约束完全对齐。LLM 实测会以多种方式漂移
+（`§ —` 占位 / `§ *IE-name* information element` 抄 chunker header / 中文括号 /
+下划线复合章节），每次漂移就要在三处同步打补丁。v2→v5 一共修了 5 版，每版只能堵
+当时已知的形态，新场景仍会冒新洞。
+
+v6 起切到**索引引用**：
+- prompt rule 2 要求 LLM 写 `[N]`（N = chunks 列表第 N 条的 1-based 序号），
+  禁掉 `[spec §section]` / `(N)` / `[chunk N]` / `［N］` 等形态
+- 后端 `parse_citations`：`re.compile(r"\[(\d+)\]")` 一行正则，越界 N 直接 drop，
+  重复 N 去重；citation 元数据（spec_id / section_path / section_title / chunk_id）
+  **不再从答案文本 parse**，按索引精准从 `state.reranked[N-1]` 回填
+- 前端 `CitationInlineSyntax`：pattern `r'\[(\d+)\]'`，从 `citationsByRank[N]`
+  反查后端回填的元数据；老 `[spec §section]` 文本格式**无 legacy fallback**（旧
+  消息 chip 不可点，文本仍可读）
+- 落库 `MessageCitation.rank` = LLM 引用的 N（1-based），与前端反查对齐
+
+收益：(a) prompt / 后端 / 前端三处耦合的引用格式约束**全部消除**，spec/section
+任何漂移空间为零；(b) chunker header 反诱导（v5 修过的 `[38.331 § *PUCCH-Config*
+information element]` 抄回来）自动失效——LLM 即便抄了头行也不会被识别为引用，因为
+不是 `[\d+]` 形态；(c) self_rag 的 `_citation_hit_rate` 同步退役（详见 §4.8）。
+
+spike 验证（2026-05-29，`backend/scripts/spike_citation_index.py`，已 cleanup）：
+mimo-v2.5-pro 在 v6 prompt 下跑 3 题（含 IE chunk + 跨 spec + 多 chunk 引用），
+18 个 `[N]` 输出 0 漂移、bullet 引用覆盖率 91.67%，远超推进阈值。
+
+- 输出后 `parse_citations(answer, reranked)` 抽 `[N]` 索引并按索引回填到
+  `state.citations`：每条含 `{chunk_id, spec_id, section_path, section_title,
+  rank, rerank_score}`。`rank` 即 LLM 写的 N，落库 `MessageCitation.rank`，前端按
+  此反查 chip 元数据。
 
 - **tool 路径 `_render_tool_results` sanitize（v5）**：raw 3GPP markdown 里含
   `<b>...</b>` HTML 标签 / `*xxx*` 强调符 / 表格分隔行，preview 字段 240 字符硬切
@@ -309,9 +325,22 @@ class SelfRagOutput(BaseModel):
 
 **性能策略**：
 
-- simple fast path 不默认跑完整 self-RAG retry 循环；只做轻量 citation/grounding check（同一 `self_rag_node`，但 `allow_retry=false`）。
+- simple fast path 不默认跑完整 self-RAG retry 循环；只做轻量 grounding check（同一 `self_rag_node`，但 `allow_retry=false`）。
 - complex 查询仍做 self-RAG 校验，最多 retry 2 次后强制收敛，避免成本失控。
 - 低置信度 simple 查询（rerank top score 低、引用不足、生成答案缺引用）才升级到完整 self-RAG retry。
+
+**citation 真实性核对历史（M4.9 batch B.1，已退役 2026-05-29）**：
+
+v2-v5 `[spec §section]` 文本引用时代，LLM 会编不存在的 spec/section/IE 名，引入
+`_citation_hit_rate(answer, reranked)` 重抽 `[spec §section]` 与 reranked 严格
+前缀交集，按阈值 0.5 触发：hit_rate < 0.5 + retry → 强制 `verdict=retry` + 把
+未命中 cite 塞回 `rewritten_queries`；0.5 ≤ hit_rate < 1.0 → `confidence *= hit_rate`。
+
+§4.7 v6 切到 `[N]` 索引后，`parse_citations` 已对越界 N 做 drop，进入 self_rag 的
+citation 必落在 reranked 集合内，hit_rate 恒为 1.0，原检测面归零。grounding 真实性
+全权交给 LLM `faithful` + `coverage` 字段判定（mimo `thinking=disabled` 后稳定）。
+`_citation_hit_rate` 整段已删；test_self_rag_node 中三条 R8+O3 case
+（partial / mostly hallucinated × 2）一并退役。
 
 ### 4.9 工具节点
 

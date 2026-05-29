@@ -47,7 +47,7 @@ async def test_simple_path_runs_all_nodes_in_order() -> None:
             "reason": "single term",
         }
     )
-    generate_resp = "AMF is the Access and Mobility Management Function [23.501 §6.3.1]."
+    generate_resp = "AMF is the Access and Mobility Management Function [1]."
     self_rag_resp = json.dumps(
         {
             "faithful": True,

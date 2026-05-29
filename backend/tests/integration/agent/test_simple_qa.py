@@ -8,7 +8,7 @@
 5 题来自 `eval/golden/v1.yaml` category=definition / language=en 的前 5 项；
 端到端跑 simple fast path（classify → retrieve → rerank → generate → self_rag），
 断言：
-1. final_answer 非空 + 含至少 1 个 `[spec §section]` 引用
+1. final_answer 非空 + 含至少 1 个 `[N]` 索引引用（v6 索引方案）
 2. citations 非空且对应 spec 与金标 `expected_specs` 至少 1 条交集
 3. retrieve_node P50 latency ≤ 800ms（dense + sparse + RRF）
 

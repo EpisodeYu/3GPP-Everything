@@ -71,19 +71,17 @@ def test_each_prompt_has_yaml_frontmatter_on_disk() -> None:
         yaml.safe_load(parts[1])
 
 
-def test_generate_qa_v5_marks_empty_section_path_as_none() -> None:
-    """v5 prompt：chunk 空 section_path 时，元数据行必须显示 `<none>` 而不是裸空串；
-    避免 LLM 看到 `section_path=` 后自行把 chunk body 里的 header 抄成 citation。"""
+def test_generate_qa_v6_chunks_are_numbered_with_index_prefix() -> None:
+    """v6 索引引用：每个 chunk 在 prompt 里以 `[N]` 1-based 前缀渲染，N 与
+    `parse_citations`/前端 `CitationInlineSyntax` 反查 citationsByRank 对齐。"""
     text = render(
         "generate_qa",
         chunks=[
             {
                 "spec_id": "38.331",
-                "section_path": [],  # IE chunk: 无 clause
-                "section_title": "*ControlResourceSet* information element",
-                "content": (
-                    "[38.331 § *ControlResourceSet* information element]\n\n" "-- ASN1START ..."
-                ),
+                "section_path": [],
+                "section_title": "PUCCH-Config IE",
+                "content": "-- ASN1START ...",
             },
             {
                 "spec_id": "23.501",
@@ -92,18 +90,20 @@ def test_generate_qa_v5_marks_empty_section_path_as_none() -> None:
                 "content": "AMF stands for ...",
             },
         ],
-        user_input="What is ControlResourceSet?",
+        user_input="What is PUCCH-Config?",
         user_language="en",
     )
-    # 空 section_path → `<none>`
+    # 索引前缀按 loop.index（1-based）注入
+    assert "[1] spec_id=38.331" in text
+    assert "[2] spec_id=23.501" in text
+    # 空 section_path 仍以 `<none>` 显式标，避免渲染成裸空串
     assert "section_path=<none>" in text
-    # 非空仍是 dotted clause
     assert "section_path=6.3.1" in text
 
 
-def test_generate_qa_v5_includes_chunk_header_antiwarning() -> None:
-    """v5 prompt 必须显式提示 chunk body 第一行的 `[spec § title]` 是 chunker artifact，
-    不能 verbatim 当 citation 抄。"""
+def test_generate_qa_v6_rule2_uses_index_citation_format() -> None:
+    """v6 rule 2 必须明确要求 `[N]` 索引引用形态，且禁掉 v5 老的 `[spec §section]`、
+    中文括号 `［N］`、`(N)` 等漂移形态。"""
     text = render(
         "generate_qa",
         chunks=[
@@ -117,11 +117,14 @@ def test_generate_qa_v5_includes_chunk_header_antiwarning() -> None:
         user_input="X",
         user_language="en",
     )
-    # 关键词出现即可（不锁死全文），避免 prompt 微调每次都要改测试
-    assert "chunker artifact" in text or "chunker-artifact" in text
-    assert "<none>" in text  # 规则 #2 的 `<none>` 显式 fallback 说明
+    # 核心约束：`[N]` 形态描述出现
+    assert "[N]" in text
+    assert "1-based" in text
+    # 防漂移护栏（不锁死具体措辞，关键字命中即可）
+    assert "[spec_id §section]" in text  # 明确禁项之一
+    assert "[chunk 1]" in text  # 明确禁项之一
 
 
-def test_generate_qa_v5_version_bumped() -> None:
+def test_generate_qa_v6_version_bumped() -> None:
     meta, _ = load_prompt("generate_qa")
-    assert meta.get("version", 0) >= 5, "generate_qa prompt 应该至少在 v5"
+    assert meta.get("version", 0) >= 6, "generate_qa prompt 应该至少在 v6（索引引用）"
