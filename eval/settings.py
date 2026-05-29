@@ -80,6 +80,10 @@ class EvalSettings(BaseSettings):
     llm_light_model: str = Field(default="mimo-v2.5")
     llm_judge_model: str = Field(default="deepseek-v4-pro")
     llm_negative_judge_model: str = Field(default="mimo-v2.5-pro")
+    # fact_coverage LLM judge（2026-05-29 由 substring 切到 LLM judge）；与
+    # negative_judge 同款 mimo-v2.5-pro + function_calling，避开 deepseek-v4-pro
+    # reasoning mode 不支持 `tool_choice` 的坑。
+    llm_fact_coverage_judge_model: str = Field(default="mimo-v2.5-pro")
 
     # M7.3 Langfuse Dataset / Trace 上报；缺任一 key 即 disable
     langfuse_public_key: str = Field(default="")

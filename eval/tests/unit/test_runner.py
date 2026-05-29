@@ -357,7 +357,12 @@ class TestComputeEvalMetrics:
         r = compute_eval_metrics(item, resp)
         assert r.context_recall_spec == 1.0
         assert r.context_recall_section == 1.0
+        # 主字段先填 substring（run_eval 注入 judge 后会覆盖）
         assert r.fact_coverage == 1.0
+        # 2026-05-29：substring 永远有值供诊断；judge 字段在 compute 阶段为 None
+        assert r.fact_coverage_substring == 1.0
+        assert r.fact_coverage_judge is None
+        assert r.fact_coverage_judge_details is None
         assert r.forbidden_violations == []
         assert r.negative_judge_verdict is None
         assert r.negative_judge_reason is None
@@ -411,6 +416,7 @@ class TestComputeEvalMetrics:
         resp = AgentResponse(answer="", terminal_event="error")
         r = compute_eval_metrics(item, resp)
         assert r.fact_coverage == 0.0
+        assert r.fact_coverage_substring == 0.0
         assert r.forbidden_violations == []
         assert r.terminal_event == "error"
 
@@ -687,3 +693,260 @@ async def test_run_eval_http_error_isolated(tmp_path: Path) -> None:
     assert len(results) == 1
     assert results[0].terminal_event == "http_error"
     assert results[0].error is not None
+
+
+# === fact_coverage_judge 注入路径（2026-05-29） ============================
+
+
+class _FakeFactCoverageJudge:
+    """run_eval fact_coverage_judge 参数的最小桩。
+
+    `score_item(item, resp)` 返回构造时给的 dict 或 raise 异常。
+    `calls` 记录被调过的 (item.id, answer)。
+    """
+
+    def __init__(
+        self,
+        *,
+        output: dict[str, object] | None = None,
+        raise_exc: Exception | None = None,
+    ) -> None:
+        self._output = output
+        self._raise = raise_exc
+        self.calls: list[tuple[str, str]] = []
+
+    def score_item(self, item, resp):  # type: ignore[no-untyped-def]
+        self.calls.append((item.id, resp.answer))
+        if self._raise is not None:
+            raise self._raise
+        return self._output or {}
+
+
+@pytest.mark.asyncio
+async def test_run_eval_fact_coverage_judge_overrides_main_field(tmp_path: Path) -> None:
+    """注入 judge 且打分成功 → fact_coverage 主字段切到 judge 值；substring 字段保留。"""
+    items = [
+        {
+            "id": "def-1",
+            "category": "definition",
+            "language": "en",
+            "source": "hand_crafted",
+            "question": "what?",
+            "expected_specs": [{"spec_id": "23.501", "sections": ["5.2.1"]}],
+            # substring 实际命中率：1/2 = 0.5（answer 仅含 "AMF"）
+            "expected_facts": ["AMF", "missing-fact"],
+            "forbidden": [],
+            "must_say_not_found": False,
+        }
+    ]
+    golden = tmp_path / "v1.yaml"
+    _write_minimal_golden(golden, items)
+
+    sse = _sse_body_text(
+        ("chunks_rerank", {"chunks": [{"spec_id": "23.501", "section_path": "5.2.1"}]}),
+        ("final", {"answer": "AMF only", "citations": [], "confidence": 0.6}),
+        ("end", {}),
+    )
+    transport = _mock_transport(sse_body=sse)
+
+    judge = _FakeFactCoverageJudge(
+        output={
+            "score": 0.75,
+            "verdicts": [
+                {"fact": "AMF", "verdict": "HIT", "reason": "在"},
+                {"fact": "missing-fact", "verdict": "PARTIAL", "reason": "提了相关"},
+            ],
+            "skipped": False,
+            "reason": None,
+        }
+    )
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        results = await run_eval(golden, client=client, auth_token="t", fact_coverage_judge=judge)
+    assert len(results) == 1
+    r = results[0]
+    # judge 应被调用一次
+    assert judge.calls == [("def-1", "AMF only")]
+    # 主字段 = judge score（0.75），覆盖了 substring 的 0.5
+    assert r.fact_coverage == pytest.approx(0.75)
+    assert r.fact_coverage_judge == pytest.approx(0.75)
+    # substring 字段保留诊断值
+    assert r.fact_coverage_substring == pytest.approx(0.5)
+    # per-fact 明细落到 result 上
+    assert r.fact_coverage_judge_details and len(r.fact_coverage_judge_details) == 2
+    assert r.fact_coverage_judge_details[0]["verdict"] == "HIT"
+
+
+@pytest.mark.asyncio
+async def test_run_eval_fact_coverage_judge_failure_falls_back_to_substring(
+    tmp_path: Path,
+) -> None:
+    """judge 抛异常 → 主字段保留 substring fallback；judge 字段 None；不挂 runner。"""
+    items = [
+        {
+            "id": "def-1",
+            "category": "definition",
+            "language": "en",
+            "source": "hand_crafted",
+            "question": "?",
+            "expected_specs": [{"spec_id": "23.501", "sections": ["5.2.1"]}],
+            "expected_facts": ["AMF"],  # answer 包含 → substring=1.0
+            "forbidden": [],
+            "must_say_not_found": False,
+        }
+    ]
+    golden = tmp_path / "v1.yaml"
+    _write_minimal_golden(golden, items)
+
+    sse = _sse_body_text(
+        ("chunks_rerank", {"chunks": [{"spec_id": "23.501", "section_path": "5.2.1"}]}),
+        ("final", {"answer": "AMF here", "citations": [], "confidence": 0.6}),
+        ("end", {}),
+    )
+    transport = _mock_transport(sse_body=sse)
+
+    judge = _FakeFactCoverageJudge(raise_exc=RuntimeError("boom"))
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        results = await run_eval(golden, client=client, auth_token="t", fact_coverage_judge=judge)
+    assert len(results) == 1
+    r = results[0]
+    # judge 调用过但崩溃 → 主字段 fallback 回 substring
+    assert judge.calls == [("def-1", "AMF here")]
+    assert r.fact_coverage == pytest.approx(1.0)  # substring fallback
+    assert r.fact_coverage_substring == pytest.approx(1.0)
+    assert r.fact_coverage_judge is None
+    assert r.fact_coverage_judge_details is None
+
+
+@pytest.mark.asyncio
+async def test_run_eval_fact_coverage_judge_skipped_for_empty_facts(
+    tmp_path: Path,
+) -> None:
+    """expected_facts=[] → judge 不被调用（runner 早 return）；fact_coverage 保持 None。"""
+    items = [
+        {
+            "id": "neg-1",
+            "category": "negative",
+            "language": "en",
+            "source": "hand_crafted",
+            "question": "fake question?",
+            "expected_specs": [],
+            "expected_facts": [],
+            "forbidden": [],
+            "must_say_not_found": True,
+        }
+    ]
+    golden = tmp_path / "v1.yaml"
+    _write_minimal_golden(golden, items)
+
+    sse = _sse_body_text(
+        ("final", {"answer": "not found", "citations": [], "confidence": 0.0}),
+        ("end", {}),
+    )
+    transport = _mock_transport(sse_body=sse)
+
+    judge = _FakeFactCoverageJudge(
+        output={"score": 1.0, "verdicts": [], "skipped": False, "reason": None}
+    )
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        results = await run_eval(golden, client=client, auth_token="t", fact_coverage_judge=judge)
+    assert len(results) == 1
+    r = results[0]
+    # judge 不该被调用
+    assert judge.calls == []
+    # negative item expected_facts=[] → fact_coverage None（compute 阶段就 None）
+    assert r.fact_coverage is None
+    assert r.fact_coverage_substring is None
+    assert r.fact_coverage_judge is None
+
+
+@pytest.mark.asyncio
+async def test_run_eval_fact_coverage_judge_skipped_for_empty_answer(
+    tmp_path: Path,
+) -> None:
+    """answer 空 → judge 不被调用；fact_coverage 保持 substring 计算值（0.0）。"""
+    items = [
+        {
+            "id": "def-1",
+            "category": "definition",
+            "language": "en",
+            "source": "hand_crafted",
+            "question": "?",
+            "expected_specs": [{"spec_id": "23.501", "sections": ["5.2.1"]}],
+            "expected_facts": ["AMF"],
+            "forbidden": [],
+            "must_say_not_found": False,
+        }
+    ]
+    golden = tmp_path / "v1.yaml"
+    _write_minimal_golden(golden, items)
+
+    # 没 final，answer 留空（terminal_event=end）
+    sse = _sse_body_text(("end", {}))
+    transport = _mock_transport(sse_body=sse)
+
+    judge = _FakeFactCoverageJudge(
+        output={"score": 0.5, "verdicts": [], "skipped": False, "reason": None}
+    )
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        results = await run_eval(golden, client=client, auth_token="t", fact_coverage_judge=judge)
+    assert len(results) == 1
+    r = results[0]
+    assert judge.calls == []  # 空 answer → 不调用
+    assert r.fact_coverage == 0.0  # substring 命中 0
+    assert r.fact_coverage_substring == 0.0
+    assert r.fact_coverage_judge is None
+
+
+# === aggregate 双轨字段 ===================================================
+
+
+class TestAggregateFactCoverageDualTrack:
+    """2026-05-29：aggregate 同时输出 fact_coverage / _judge / _substring 三路均值。"""
+
+    def test_dual_track_means(self) -> None:
+        rows = [
+            _eval_row(
+                item_id="a",
+                fact_coverage=0.8,  # judge 覆盖后值
+                fact_coverage_judge=0.8,
+                fact_coverage_substring=0.5,
+            ),
+            _eval_row(
+                item_id="b",
+                fact_coverage=0.4,
+                fact_coverage_judge=0.4,
+                fact_coverage_substring=0.4,
+            ),
+        ]
+        agg = aggregate(rows)
+        assert agg["fact_coverage"] == pytest.approx(0.6)
+        assert agg["fact_coverage_judge"] == pytest.approx(0.6)
+        assert agg["fact_coverage_substring"] == pytest.approx(0.45)
+
+    def test_judge_none_excluded_from_judge_mean(self) -> None:
+        """judge 失败题 (judge=None) 不进 judge mean，但 substring mean 仍含。"""
+        rows = [
+            _eval_row(
+                item_id="a",
+                fact_coverage=1.0,  # substring fallback
+                fact_coverage_judge=None,
+                fact_coverage_substring=1.0,
+            ),
+            _eval_row(
+                item_id="b",
+                fact_coverage=0.5,
+                fact_coverage_judge=0.5,
+                fact_coverage_substring=0.5,
+            ),
+        ]
+        agg = aggregate(rows)
+        # main = mean(1.0, 0.5) = 0.75
+        assert agg["fact_coverage"] == pytest.approx(0.75)
+        # judge 仅 0.5 一条
+        assert agg["fact_coverage_judge"] == pytest.approx(0.5)
+        # substring = mean(1.0, 0.5) = 0.75
+        assert agg["fact_coverage_substring"] == pytest.approx(0.75)

@@ -4,10 +4,13 @@
 修正） + BM25 by_spec/*.jsonl 用作 chunk content 查找源。
 
 输出 eval-results/m8-baseline/{results.json, report.md}：
-- 重算的 substring 指标（fact_coverage / forbidden_violations / spec_recall /
-  section_recall）—— 对新 golden
+- 重算的 substring 指标（fact_coverage_substring / forbidden_violations /
+  spec_recall / section_recall）—— 对新 golden
 - 用 **deepseek-v4-pro** 重跑的 ragas 4 metric（去掉 GLM-5.1 时期判分污染）
 - 用 **deepseek-v4-pro** 重跑的 negative_judge_verdict
+- 用 **mimo-v2.5-pro** 重跑的 fact_coverage LLM judge（2026-05-29 新增；HIT/PARTIAL/MISS
+  三档加权 → fact_coverage_judge 字段；主 `fact_coverage` 字段优先用 judge，
+  judge 缺时 fallback substring，保持与 daily harness 同口径）
 - 保留：agent answer / citations / retrieved_specs / retrieved_sections /
   latency / cost / terminal_event（这些都是 agent 跑出来的，不重判）
 
@@ -40,6 +43,10 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
+from eval.fact_coverage_judge import (
+    FactCoverageJudge,
+    build_default_fact_coverage_judge,
+)
 from eval.langfuse_dataset import (
     get_client,
     make_eval_trace_id,
@@ -149,9 +156,7 @@ def build_chunk_content_index(bm25_dir: Path, *, needed_specs: set[str]) -> dict
     return out
 
 
-def _hydrate_citations(
-    citations: list[dict], chunk_idx: dict[str, str]
-) -> list[dict]:
+def _hydrate_citations(citations: list[dict], chunk_idx: dict[str, str]) -> list[dict]:
     """给 citations 注入 content 字段（从 chunk_idx 查；缺失时空字符串保留 placeholder fallback）."""
     out: list[dict] = []
     for c in citations or []:
@@ -213,6 +218,31 @@ def _do_negative_judge(
         return None, str(exc)[:200]
 
 
+def _do_fact_coverage_judge(
+    judge: FactCoverageJudge | None,
+    item: GoldenItem,
+    resp: AgentResponse,
+) -> dict[str, Any]:
+    """rejudge fact_coverage：返回 {fact_coverage_judge, fact_coverage_judge_details}。
+
+    judge 未注入 / expected_facts 空 / answer 空 / 异常 → judge=None, details=None。
+    """
+    if judge is None or not item.expected_facts or not resp.answer:
+        return {"fact_coverage_judge": None, "fact_coverage_judge_details": None}
+    try:
+        out = judge.score_item(item, resp)
+    except Exception as exc:
+        log.warning("fact_coverage_judge failed for %s: %s", item.id, exc)
+        return {"fact_coverage_judge": None, "fact_coverage_judge_details": None}
+    score = out.get("score")
+    return {
+        "fact_coverage_judge": float(score) if isinstance(score, (int, float)) else None,
+        "fact_coverage_judge_details": (
+            out.get("verdicts") if isinstance(out.get("verdicts"), list) else None
+        ),
+    }
+
+
 def _aggregate(rows: list[dict]) -> dict[str, Any]:
     def _safe_mean(xs: list[Any]) -> float | None:
         v = [x for x in xs if isinstance(x, (int, float)) and x == x]
@@ -224,6 +254,8 @@ def _aggregate(rows: list[dict]) -> dict[str, Any]:
         "context_recall_spec": _safe_mean([r.get("context_recall_spec") for r in rows]),
         "context_recall_section": _safe_mean([r.get("context_recall_section") for r in rows]),
         "fact_coverage": _safe_mean([r.get("fact_coverage") for r in rows]),
+        "fact_coverage_judge": _safe_mean([r.get("fact_coverage_judge") for r in rows]),
+        "fact_coverage_substring": _safe_mean([r.get("fact_coverage_substring") for r in rows]),
         "forbidden_hit_rate": (
             sum(1 for r in rows if r.get("forbidden_violations")) / n if n else 0.0
         ),
@@ -272,7 +304,9 @@ def _write_report(out_dir: Path, agg: dict, by_source: dict, by_category: dict, 
     lines.append("# M8 Baseline — Judge-only Rejudge 报告")
     lines.append("")
     lines.append(f"- 生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append("- 不重跑 agent；仅在已有 answer + 重新 hydrate 的 contexts 上跑 ragas + negative_judge")
+    lines.append(
+        "- 不重跑 agent；仅在已有 answer + 重新 hydrate 的 contexts 上跑 ragas + negative_judge"
+    )
     lines.append("- judge LLM: **deepseek-v4-pro** (M7.7 起替代 GLM-5.1，单价 -50%/-75%)")
     lines.append("")
     lines.append("## 整体")
@@ -312,9 +346,7 @@ def _write_report(out_dir: Path, agg: dict, by_source: dict, by_category: dict, 
     lines.append("")
     lines.append("## by category")
     lines.append("")
-    lines.append(
-        "| category | n | spec_recall | section_recall | fact_cov | faith | answer_rel |"
-    )
+    lines.append("| category | n | spec_recall | section_recall | fact_cov | faith | answer_rel |")
     lines.append("|---|---:|---:|---:|---:|---:|---:|")
     for cat, a in sorted(by_category.items()):
         lines.append(
@@ -348,6 +380,11 @@ def main() -> int:
     ap.add_argument("--run-label", default="m8-baseline")
     ap.add_argument("--skip-ragas", action="store_true", help="只重跑 negative_judge + substring")
     ap.add_argument("--skip-negative", action="store_true")
+    ap.add_argument(
+        "--skip-fact-judge",
+        action="store_true",
+        help="跳过 fact_coverage LLM judge（2026-05-29 新增；缺则只算 substring）",
+    )
     ap.add_argument("--push-langfuse", action="store_true")
     ap.add_argument("--limit", type=int, default=0, help=">0 = 仅前 N 题 (debug)")
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -394,6 +431,13 @@ def main() -> int:
         except Exception as exc:
             log.warning("negative_judge init failed; disabled: %s", exc)
 
+    fact_judge: FactCoverageJudge | None = None
+    if not args.skip_fact_judge:
+        try:
+            fact_judge = build_default_fact_coverage_judge(settings)
+        except Exception as exc:
+            log.warning("fact_coverage_judge init failed; falling back to substring: %s", exc)
+
     lf_client = get_client(settings) if args.push_langfuse else None
     if args.push_langfuse and lf_client is None:
         log.warning("--push-langfuse set but client unavailable; skipping LF upload")
@@ -426,18 +470,28 @@ def main() -> int:
         # Negative judge
         nj_verdict, nj_reason = _do_negative_judge(judge, item, resp)
 
+        # Fact-coverage LLM judge（2026-05-29 由 substring 切到 LLM judge）
+        fc_judge_out = _do_fact_coverage_judge(fact_judge, item, resp)
+        fc_judge_score = fc_judge_out["fact_coverage_judge"]
+
+        # 主字段：judge 成功 → 用 judge；否则 fallback substring（保持向后兼容）
+        fc_main = fc_judge_score if fc_judge_score is not None else new_fc
+
         new_row = {
             **row,
             "context_recall_spec": new_spec_r,
             "context_recall_section": new_section_r,
-            "fact_coverage": new_fc,
+            "fact_coverage": fc_main,
+            "fact_coverage_substring": new_fc,
+            "fact_coverage_judge": fc_judge_score,
+            "fact_coverage_judge_details": fc_judge_out["fact_coverage_judge_details"],
             "forbidden_violations": new_fb,
-            "negative_judge_verdict": nj_verdict
-            if nj_verdict is not None
-            else row.get("negative_judge_verdict"),
-            "negative_judge_reason": nj_reason
-            if nj_reason is not None
-            else row.get("negative_judge_reason"),
+            "negative_judge_verdict": (
+                nj_verdict if nj_verdict is not None else row.get("negative_judge_verdict")
+            ),
+            "negative_judge_reason": (
+                nj_reason if nj_reason is not None else row.get("negative_judge_reason")
+            ),
             **ragas_scores,
         }
         new_rows.append(new_row)
@@ -452,9 +506,9 @@ def main() -> int:
                         "context_recall_spec": new_row.get("context_recall_spec"),
                         "context_recall_section": new_row.get("context_recall_section"),
                         "fact_coverage": new_row.get("fact_coverage"),
-                        "forbidden_violation": 1.0
-                        if new_row.get("forbidden_violations")
-                        else 0.0,
+                        "fact_coverage_judge": new_row.get("fact_coverage_judge"),
+                        "fact_coverage_substring": new_row.get("fact_coverage_substring"),
+                        "forbidden_violation": 1.0 if new_row.get("forbidden_violations") else 0.0,
                         "ragas_faithfulness": new_row.get("ragas_faithfulness"),
                         "ragas_answer_relevance": new_row.get("ragas_answer_relevance"),
                         "ragas_context_recall": new_row.get("ragas_context_recall"),
@@ -462,11 +516,15 @@ def main() -> int:
                         "negative_judge_valid": (
                             1.0
                             if new_row.get("negative_judge_verdict") == "VALID_REFUSAL"
-                            else 0.0
-                            if new_row.get("negative_judge_verdict") == "INVALID"
-                            else 0.5
-                            if new_row.get("negative_judge_verdict") == "PARTIAL_REFUSAL"
-                            else None
+                            else (
+                                0.0
+                                if new_row.get("negative_judge_verdict") == "INVALID"
+                                else (
+                                    0.5
+                                    if new_row.get("negative_judge_verdict") == "PARTIAL_REFUSAL"
+                                    else None
+                                )
+                            )
                         ),
                     },
                     comment="M8 baseline rejudge",
@@ -522,10 +580,12 @@ def main() -> int:
     _write_report(out_dir, agg, by_source, by_category, neg)
     print(f"wrote: {out_dir / 'results.json'}")
     print(f"wrote: {out_dir / 'report.md'}")
-    print(f"overall faith={_fmt(agg.get('ragas_faithfulness'))} "
-          f"spec_recall={_fmt(agg.get('context_recall_spec'))} "
-          f"fact_cov={_fmt(agg.get('fact_coverage'))} "
-          f"neg_pass={_fmt(neg.get('weighted_pass_rate'))}")
+    print(
+        f"overall faith={_fmt(agg.get('ragas_faithfulness'))} "
+        f"spec_recall={_fmt(agg.get('context_recall_spec'))} "
+        f"fact_cov={_fmt(agg.get('fact_coverage'))} "
+        f"neg_pass={_fmt(neg.get('weighted_pass_rate'))}"
+    )
     return 0
 
 

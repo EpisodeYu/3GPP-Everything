@@ -81,8 +81,18 @@ class EvalResult:
     # answer
     answer: str
     citations: list[dict]
+    # fact_coverage 主字段：优先 LLM judge 值；judge 缺 / 失败 / 未注入 →
+    # fallback 到 substring 值。daily 阈值断言 + Langfuse 已有 evaluator filter
+    # 都挂在这个名字上，保持向后兼容。
     fact_coverage: float | None
     forbidden_violations: list[str]
+    # 2026-05-29：substring 命中率单独保留为诊断字段（compute_eval_metrics 总会算）
+    fact_coverage_substring: float | None = None
+    # 2026-05-29：LLM judge 加权分（HIT*1 + PARTIAL*0.5）/ total；judge 未注入或异常 → None
+    fact_coverage_judge: float | None = None
+    # 2026-05-29：per-fact verdict 明细 [{fact, verdict, reason}, ...]；落 results.json
+    # 用于诊断哪条 fact 被 judge 判 MISS / PARTIAL（runner 只持有，不参与聚合）
+    fact_coverage_judge_details: list[dict] | None = None
     # negative-判定（2026-05-20 由 substring 切到 LLM judge；非 negative item 永远 None）
     # verdict ∈ {"VALID_REFUSAL", "PARTIAL_REFUSAL", "INVALID", None}
     negative_judge_verdict: str | None = None
@@ -306,11 +316,15 @@ def compute_eval_metrics(item: GoldenItem, resp: AgentResponse) -> EvalResult:
         recall_spec = None
         recall_section = None
 
-    fact_cov = _fact_coverage(answer, item.expected_facts)
+    # substring 命中率：保留作诊断字段 + LLM judge 失败时 fact_coverage 主字段的
+    # fallback。compute_eval_metrics 本身仍是纯函数（不打 LLM）。
+    fact_cov_substr = _fact_coverage(answer, item.expected_facts)
     violations = _forbidden_violations(answer, item.forbidden)
 
-    # negative_judge_verdict 由 run_eval 在外层调 NegativeJudge.score_item 填；
-    # compute_eval_metrics 本身只做纯函数指标，不打 LLM。
+    # fact_coverage 主字段先填 substring 值；run_eval 注入 fact_coverage_judge 后会
+    # 用 judge 值覆盖。这条 fallback 路径让单元测试 / 无 LLM key 环境（CI smoke、
+    # backend ASGI in-process daily smoke）依旧拿得到 fact_coverage 数值。
+    # negative_judge_verdict 由 run_eval 在外层调 NegativeJudge.score_item 填。
     return EvalResult(
         item_id=item.id,
         category=item.category,
@@ -321,8 +335,9 @@ def compute_eval_metrics(item: GoldenItem, resp: AgentResponse) -> EvalResult:
         context_recall_section=recall_section,
         answer=answer,
         citations=resp.citations,
-        fact_coverage=fact_cov,
+        fact_coverage=fact_cov_substr,
         forbidden_violations=violations,
+        fact_coverage_substring=fact_cov_substr,
         duration_ms=resp.duration_ms,
         terminal_event=resp.terminal_event,
         error=resp.error,
@@ -360,10 +375,18 @@ def _result_to_langfuse_scores(result: EvalResult) -> dict[str, float | bool | N
     2026-05-20：`must_say_not_found_passed` 替换为 `negative_judge_score`
     （VALID=1.0 / PARTIAL=0.5 / INVALID=0.0；None → 不上传）。
     """
+    # 2026-05-29：fact_coverage 主字段切到 LLM judge；substring 单独上传供诊断。
+    # 三路同上 Cloud：
+    # - `fact_coverage`：主指标（judge → fallback substring），与历史 evaluator
+    #   filter 兼容，daily 报告主轴
+    # - `fact_coverage_judge`：纯 LLM judge（缺时 None，自动 skip 上传）
+    # - `fact_coverage_substring`：纯 substring（永远有值，可用于趋势对照）
     return {
         "context_recall_section": result.context_recall_section,
         "context_recall_spec": result.context_recall_spec,
         "fact_coverage": result.fact_coverage,
+        "fact_coverage_judge": result.fact_coverage_judge,
+        "fact_coverage_substring": result.fact_coverage_substring,
         "negative_judge_score": _VERDICT_TO_NUMERIC.get(result.negative_judge_verdict or ""),
         "forbidden_violation": 1.0 if result.forbidden_violations else 0.0,
         "ragas_faithfulness": result.ragas_faithfulness,
@@ -577,6 +600,7 @@ async def run_eval(
     api_prefix: str = "/api/v1",
     ragas_scorer: RagasScorer | None = None,
     negative_judge: Any | None = None,
+    fact_coverage_judge: Any | None = None,
     langfuse_run_label: str | None = None,
     langfuse_dataset_name: str | None = None,
     langfuse_client: Any | None = None,
@@ -594,6 +618,14 @@ async def run_eval(
     2026-05-20 negative_judge：`negative_judge` 传入时对每条 `must_say_not_found`
     item 跑一次三档枚举 LLM judge（VALID_REFUSAL / PARTIAL_REFUSAL / INVALID）。
     单题异常隔离同 ragas；不传则 verdict 字段保持 None。
+
+    2026-05-29 fact_coverage_judge：`fact_coverage_judge` 传入时对每条
+    `expected_facts` 非空且 answer 非空的 item 跑一次三档 LLM judge
+    （HIT / PARTIAL / MISS），加权分（HIT*1 + PARTIAL*0.5 / total）写入
+    `fact_coverage_judge` + 覆盖 `fact_coverage` 主字段。judge 失败 / 未注入 →
+    `fact_coverage` 保留 substring fallback（`fact_coverage_substring` 永远是
+    `compute_eval_metrics` 算的纯函数 substring 值）。单题异常隔离同 ragas /
+    negative_judge。
 
     M7.3：`langfuse_run_label` 传入时启用 Langfuse 上报；缺 key / SDK / 网络都会让
     `eval.langfuse_dataset.get_client()` 返回 None → runner 自动 disable，原路径不受影响。
@@ -662,6 +694,27 @@ async def run_eval(
                 judgement = {"verdict": None, "reason": f"runner_caught: {exc}"[:300]}
             result.negative_judge_verdict = judgement.get("verdict")
             result.negative_judge_reason = judgement.get("reason")
+
+        if fact_coverage_judge is not None and it.expected_facts and resp.answer:
+            try:
+                fc_out = fact_coverage_judge.score_item(it, resp)
+            except Exception as exc:
+                # FactCoverageJudge.score_item 已 try/except；此处兜底
+                log.warning("fact_coverage_judge crashed on %s: %s", it.id, exc)
+                fc_out = {
+                    "score": None,
+                    "verdicts": None,
+                    "skipped": False,
+                    "reason": f"runner_caught: {exc}"[:300],
+                }
+            judge_score = fc_out.get("score")
+            verdicts = fc_out.get("verdicts")
+            if isinstance(judge_score, (int, float)):
+                result.fact_coverage_judge = float(judge_score)
+                # 主字段切到 judge 值；substring 仍在 fact_coverage_substring 里
+                result.fact_coverage = float(judge_score)
+            if isinstance(verdicts, list):
+                result.fact_coverage_judge_details = verdicts
 
         if lf_client is not None and langfuse_run_label is not None:
             from eval.langfuse_dataset import push_run_score
@@ -733,7 +786,10 @@ def aggregate(results: list[EvalResult]) -> dict[str, Any]:
         "by_category": by_cat,
         "context_recall_section": _safe_mean([r.context_recall_section for r in results]),
         "context_recall_spec": _safe_mean([r.context_recall_spec for r in results]),
+        # 主指标（judge → fallback substring）+ 双轨诊断字段（2026-05-29 起）
         "fact_coverage": _safe_mean([r.fact_coverage for r in results]),
+        "fact_coverage_judge": _safe_mean([r.fact_coverage_judge for r in results]),
+        "fact_coverage_substring": _safe_mean([r.fact_coverage_substring for r in results]),
         "forbidden_violation_rate": (
             sum(1 for r in results if r.forbidden_violations) / len(results) if results else 0.0
         ),
@@ -790,6 +846,8 @@ def write_report(results: list[EvalResult], outdir: Path) -> None:
     lines.append(f"- context_recall_section: {agg['context_recall_section']}")
     lines.append(f"- context_recall_spec: {agg['context_recall_spec']}")
     lines.append(f"- fact_coverage: {agg['fact_coverage']}")
+    lines.append(f"- fact_coverage_judge: {agg.get('fact_coverage_judge')}")
+    lines.append(f"- fact_coverage_substring: {agg.get('fact_coverage_substring')}")
     lines.append(f"- forbidden_violation_rate: {agg['forbidden_violation_rate']}")
     lines.append(f"- negative_judge: {agg['negative_judge']}")
     lines.append(f"- ragas: {agg.get('ragas')}")

@@ -248,6 +248,18 @@ async def test_golden_v1_daily() -> None:
 
     judge = build_default_negative_judge()
 
+    # 2026-05-29：fact_coverage 改用 LLM judge（HIT / PARTIAL / MISS，加权分）
+    # 详见 docs/04-handoff/2026-05-29-fact-coverage-llm-judge.md
+    # 缺 LITELLM_API_KEY / 包未装 → log warning + 不传，runner 自动 fallback substring
+    fact_judge: object | None
+    try:
+        from eval.fact_coverage_judge import build_default_fact_coverage_judge
+
+        fact_judge = build_default_fact_coverage_judge()
+    except Exception as e:  # FactCoverageJudgeError + ImportError 等
+        print(f"[eval] fact_coverage_judge disabled (fallback to substring): {e}")
+        fact_judge = None
+
     async with httpx.AsyncClient(base_url=base_url, timeout=60) as client:
         results = await run_eval(
             GOLDEN_V1,
@@ -255,6 +267,7 @@ async def test_golden_v1_daily() -> None:
             auth_token=token,
             source_filter="hand_crafted",
             negative_judge=judge,
+            fact_coverage_judge=fact_judge,
         )
 
     # M7.6 CI: 写 results.json + report.md 供 GH Actions artifact 上传；
@@ -298,8 +311,35 @@ async def test_golden_v1_full() -> None:
     base_url = os.environ.get("EVAL_BACKEND_BASE_URL", "http://localhost:8000")
     token = os.environ["EVAL_BACKEND_TOKEN"]
 
+    # 2026-05-29：weekly 全集也走 LLM fact_coverage_judge + negative_judge；缺 key
+    # → fallback 到 substring（同 daily 逻辑）。weekly 跑 175 题 → 增量 175 LLM call，
+    # 与 ragas 4 metric 主路径相比仍是小头。
+    from eval.negative_judge import build_default_negative_judge
+
+    neg_judge: object | None
+    try:
+        neg_judge = build_default_negative_judge()
+    except Exception as e:
+        print(f"[eval] negative_judge disabled: {e}")
+        neg_judge = None
+
+    fact_judge: object | None
+    try:
+        from eval.fact_coverage_judge import build_default_fact_coverage_judge
+
+        fact_judge = build_default_fact_coverage_judge()
+    except Exception as e:
+        print(f"[eval] fact_coverage_judge disabled (fallback to substring): {e}")
+        fact_judge = None
+
     async with httpx.AsyncClient(base_url=base_url, timeout=60) as client:
-        results = await run_eval(GOLDEN_V1, client=client, auth_token=token)
+        results = await run_eval(
+            GOLDEN_V1,
+            client=client,
+            auth_token=token,
+            negative_judge=neg_judge,
+            fact_coverage_judge=fact_judge,
+        )
 
     _maybe_write_report(results, default="eval-results/m7-weekly-latest")
 

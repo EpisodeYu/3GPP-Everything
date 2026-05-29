@@ -164,8 +164,9 @@ recall（不引"凑数 chunk"）。
       验本次 daily 56 题样本是否被极端值带偏
 - [ ] **rejudge 2026-05-27 after-ad（v5 era）**：补"纯 citation 切换"增量数据；
       LLM proxy 不并发跑 v6 时单线程 ~90 min 可完成
-- [ ] **fact_coverage 评分升级**：substring 匹配对 paraphrasing 太脆（本次 daily
-      4.88pp 跌大半是措辞差异），考虑接 ragas 子模块或 LLM judge
+- [x] **fact_coverage 评分升级**（2026-05-29 落）：substring 切到 LLM judge
+      （三档 HIT / PARTIAL / MISS，加权分），mimo-v2.5-pro + function_calling，
+      单题异常隔离 + fallback substring。详见 [`2026-05-29-fact-coverage-llm-judge.md`](2026-05-29-fact-coverage-llm-judge.md)
 
 ## 8. 操作复盘 / 经验值
 

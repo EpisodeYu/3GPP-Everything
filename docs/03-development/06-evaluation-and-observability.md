@@ -320,8 +320,15 @@ class EvalResult:
     # 答案
     answer: str
     citations: list[dict]
+    # 主字段：优先 LLM judge，fallback substring（2026-05-29 切换；详见 §4.1）
     fact_coverage: float | None
     forbidden_violations: list[str]
+    # 2026-05-29：substring 命中率单独保留为诊断字段（compute_eval_metrics 总会算）
+    fact_coverage_substring: float | None = None
+    # 2026-05-29：LLM judge 加权分（HIT*1 + PARTIAL*0.5 / total）；judge 未注入 / 异常 → None
+    fact_coverage_judge: float | None = None
+    # 2026-05-29：per-fact verdict 明细，落 results.json 用于诊断
+    fact_coverage_judge_details: list[dict] | None = None
     # negative-判定（2026-05-20 由 substring 切到 LLM judge，三档枚举）
     negative_judge_verdict: str | None = None     # VALID_REFUSAL / PARTIAL_REFUSAL / INVALID / None
     negative_judge_reason: str | None = None
@@ -374,7 +381,10 @@ async def run_eval(
 |---|---|
 | `context_recall_spec` | `1.0 if any` over `chunks_rerank → chunks_hit → citations`（与 `eval/retrieval/metrics.py::is_spec_hit` 一致）；空 `expected_specs` → `None` |
 | `context_recall_section` | 同上但用 `is_section_hit`（`.` 切段做章节前缀匹配）|
-| `fact_coverage` | substring case-insensitive 命中率；空 list → `None` |
+| `fact_coverage` | **2026-05-29 起**：主字段 = LLM judge 加权分（`fact_coverage_judge`）；judge 未注入 / 异常 / 空答案 → fallback `fact_coverage_substring`。daily 阈值 + Langfuse evaluator filter 都挂这个名字，向后兼容。空 `expected_facts` → `None` |
+| `fact_coverage_judge` | LLM judge 三档加权分：`(HIT*1 + PARTIAL*0.5) / len(expected_facts)`。一题一次 LLM call，逐条 fact 独立判 HIT/PARTIAL/MISS（详见 `eval/fact_coverage_judge.py`，judge=`mimo-v2.5-pro` + function_calling）。判分逻辑严格：数值类 fact 必须出现该数值；拒答 / "未找到"答案应当大量给 MISS（不因诚实就放水）。详见 [`../04-handoff/2026-05-29-fact-coverage-llm-judge.md`](../04-handoff/2026-05-29-fact-coverage-llm-judge.md) |
+| `fact_coverage_substring` | 旧 substring case-insensitive 命中率；2026-05-29 起降级为诊断字段。空 list → `None` |
+| `fact_coverage_judge_details` | per-fact verdict 明细 `[{fact, verdict, reason}, ...]`；落 results.json，不参与聚合，用于诊断哪条 fact 被判 MISS / PARTIAL |
 | `forbidden_violations` | substring case-insensitive 命中字符串数组 |
 | `negative_judge_verdict` | **2026-05-20 二轮修订**：彻底放弃 substring 拒答词表，改为 LLM judge（`eval/negative_judge.py::NegativeJudge`）。仅 negative item 调，glm-5.1 + function_calling 输出三档枚举：`VALID_REFUSAL` / `PARTIAL_REFUSAL` / `INVALID`。原 `must_say_not_found_passed: bool` 字段移除；`negative_judge_reason: str` 同行落地裁判简述便于 report 排查（详见 [`../04-handoff/2026-05-20-daily-eval-findings.md`](../04-handoff/2026-05-20-daily-eval-findings.md)） |
 | `duration_ms` | `time.perf_counter()` 从 POST /messages 起，到 SSE 流结束 |
@@ -469,7 +479,9 @@ results = await run_eval(
 1. `make_eval_trace_id(run_label, item.id)` → 用 `client.create_trace_id(seed="m7-daily-2026-05-20:def-001")` 得到 32 字符幂等 trace_id（同一 (label, id) 多次跑 → 同一 trace_id）
 2. `client.create_event(name="eval-item-<id>", trace_context={"trace_id": trace_id}, input={question,category,language}, output={answer,terminal_event,citations}, metadata={item_id,source,dataset,duration_ms})` —— 让 Cloud UI 看到 IO，evaluator 可读
 3. `push_run_score(trace_id, result_score_dict, ...)` —— 把 9 个 metric 全部按 NUMERIC 上传：
-   - `context_recall_section` / `context_recall_spec` / `fact_coverage`
+   - `context_recall_section` / `context_recall_spec`
+   - `fact_coverage`（2026-05-29 起主字段=LLM judge → fallback substring；与历史 evaluator filter 兼容）
+   - `fact_coverage_judge` / `fact_coverage_substring`（2026-05-29 新增；双轨诊断字段，judge 缺时自动 skip）
    - `negative_judge_score`（VALID_REFUSAL → 1.0 / PARTIAL_REFUSAL → 0.5 / INVALID → 0.0；非 negative 或未判定 → 自动 skip。2026-05-20 由原 `must_say_not_found_passed` 改）
    - `forbidden_violation`（0/1，命中 forbidden = 1）
    - `ragas_faithfulness` / `ragas_answer_relevance` / `ragas_context_recall` / `ragas_context_precision`（Ragas 启用时填）
@@ -783,6 +795,18 @@ async def main():
 - [ ] `[auto]` Daily eval **连跑 2 次 ≥ D13 第一档阈值** — `[blocked-on-deploy]`：GH-hosted runner 跑 live eval 需要 backend 对 CI 可达，等 M8 上线 + HTTPS + GH Secrets 配齐 `EVAL_BACKEND_BASE_URL` / `EVAL_BACKEND_TOKEN` 后再跑两次（决策见 [`../04-handoff/2026-05-24-m7-complete.md` §3](../04-handoff/2026-05-24-m7-complete.md)）
 - [x] `[auto]` 最终回归：`make lint`（backend ruff/black/mypy + ingestion ruff/black 全绿）+ `pytest -m unit`（backend 287 / ingestion 18 passed）+ `pytest -m eval`（smoke passed，daily/full skipped 符合预期，无 RUN_LIVE_EVAL）
 - [x] `[human]` 交付 `docs/04-handoff/2026-05-24-m7-complete.md` 完成报告
+
+### 增量改进：fact_coverage 改 LLM judge（2026-05-29）
+
+> 详见 [`../04-handoff/2026-05-29-fact-coverage-llm-judge.md`](../04-handoff/2026-05-29-fact-coverage-llm-judge.md)
+
+- [x] `[auto]` `eval/fact_coverage_judge.py`：一题一次 LLM call、三档枚举（HIT / PARTIAL / MISS）、加权分 `(HIT*1 + PARTIAL*0.5) / total`、单题异常隔离；judge=`mimo-v2.5-pro` + function_calling（与 negative_judge 同款通路，避开 deepseek-v4-pro reasoning mode 的 tool_choice 坑）
+- [x] `[auto]` `eval/runner.py::EvalResult` 加字段：`fact_coverage_substring` / `fact_coverage_judge` / `fact_coverage_judge_details`；主字段 `fact_coverage` 优先 LLM judge，judge 缺 / 失败 / 未注入 → fallback substring（与历史 daily 阈值断言 + Langfuse evaluator filter 兼容）
+- [x] `[auto]` `run_eval(fact_coverage_judge=...)` 注入；daily / weekly harness（`backend/tests/eval/test_golden_v1.py`）默认尝试 build；缺 `LITELLM_API_KEY` → log + fallback substring
+- [x] `[auto]` Langfuse 三路上传：主 `fact_coverage`（向后兼容）+ `fact_coverage_judge` + `fact_coverage_substring`（双轨诊断）
+- [x] `[auto]` `eval/scripts/rejudge_results.py` 加 `--skip-fact-judge` 开关，对历史 results.json 重判
+- [x] `[auto]` 30 单测覆盖（19 fact_coverage_judge + 11 runner 注入 / aggregate 双轨）；backend ASGI smoke 仍绿
+- [ ] `[auto]` 跑一次 v6 子集（4 道掉分题 + baseline 已命中题）双轨对比 → 据此定 daily 新阈值（`fact_coverage` 量级会上一档）
 
 ### 非 M7 范围（保留行）
 
