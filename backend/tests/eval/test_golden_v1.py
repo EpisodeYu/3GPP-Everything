@@ -297,6 +297,22 @@ async def test_golden_v1_daily() -> None:
             f"INVALID={len(neg) - valid - partial - unjudged}"
         )
 
+    # fact_coverage：2026-05-29 由 substring 切到 LLM judge 后立的新阈值（≥ 0.55）。
+    # v6 56 题实测 0.647；阈值留 ~10pp 容差覆盖 LLM run-to-run variance + 偏低
+    # 类别（multi_section / table_lookup）。详见 06-md §7 + 04-handoff/
+    # 2026-05-29-fact-coverage-llm-judge.md §5.1。
+    # negative item expected_facts=[] → fact_coverage=None，被 _safe_mean 跳过；
+    # 这里只看非 None 的样本均值。fact_judge 未注入时 fact_coverage 主字段
+    # fallback substring，仍能跑（旧阈值 ~0.30 量级，改 judge 后跳到 ~0.65）。
+    fact_covs = [r.fact_coverage for r in results if r.fact_coverage is not None]
+    if fact_covs:
+        avg_fc = mean(fact_covs)
+        assert avg_fc >= 0.55, (
+            f"fact_coverage 太低: {avg_fc:.3f}；"
+            f"非 None 样本数 {len(fact_covs)} / 总 {len(results)}；"
+            f"judge 注入={fact_judge is not None}（None → 走 substring fallback，量级会低）"
+        )
+
 
 @pytest.mark.eval
 @pytest.mark.skipif(not _RUN_LIVE, reason=_LIVE_SKIP_REASON)

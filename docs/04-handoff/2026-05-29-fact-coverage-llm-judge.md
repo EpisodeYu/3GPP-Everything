@@ -263,9 +263,9 @@ variance + 特别是 multi_section / table_lookup 这两类天然偏低的类别
       MISS、数值不出 MISS"的设计预期
 - [x] **据此定 daily 新阈值**（F 选项 2026-05-29 落）：建议 `fact_coverage ≥ 0.55`
       （详见 §5.1 末段；分类别细化阈值留给观察 7 天 daily 后再上）
-- [ ] **跟进项**：把 `06-md §7` 的 D13 阈值表更新为 `fact_coverage ≥ 0.55`
-      （配合 daily harness 在 PR 里加显式 assert，目前 daily 测试只断言
-      negative weighted_pass + context_recall_section，未对 fact_coverage 设阈）
+- [x] **06-md §7 阈值表更新 + daily harness assert**（2026-05-29 同日落）：
+      宽松档 `fact_coverage ≥ 0.55` / 严格档 ≥ 0.65（M8 上线前 PR 再收紧）；
+      `backend/tests/eval/test_golden_v1.py::test_golden_v1_daily` 加 assert
 - [ ] **mimo 自评偏差监控**：weekly 跑后看 `fact_coverage_judge` vs
       `ragas_faithfulness` 的相关性；若发现 judge 假阳性 ≫ ragas，切 deepseek-v4
       JSON mode 是预案 B（成本：单 judge call 多算 ~30-60s reasoning latency）

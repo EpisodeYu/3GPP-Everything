@@ -511,12 +511,14 @@ results = await run_eval(
 > 实装），用于尽早暴露 retrieval / agent 质量问题；M8 上线门槛用严格版（`test_golden_v1_full` 当前实装），
 > 仅在上线前 PR 收紧（详见 `04-handoff/2026-05-18-tech-debt-cleanup-todo.md` Q1 与 batch C / D）。
 >
-> | 档位 | 触发时机 | faithfulness | context recall | answer relevancy | answer correctness | latency-p50 | cost-p50 | negative weighted pass |
-> |---|---|---|---|---|---|---|---|---|
-> | **宽松（M7 nightly）** | M7 启动后每日 | ≥ 0.75 | ≥ 0.65 | ≥ 0.70 | ≥ 0.55 | ≤ 6s | ≤ ¥0.30 | ≥ 0.85（VALID + 0.5·PARTIAL）|
-> | **严格（M8 上线门槛）** | M8 上线前 PR | ≥ 0.85 | ≥ 0.80 | （收紧 PR 时定）| （收紧 PR 时定）| （同上）| （同上）| 1.0（VALID only）|
+> | 档位 | 触发时机 | faithfulness | context recall | answer relevancy | answer correctness | fact_coverage | latency-p50 | cost-p50 | negative weighted pass |
+> |---|---|---|---|---|---|---|---|---|---|
+> | **宽松（M7 nightly）** | M7 启动后每日 | ≥ 0.75 | ≥ 0.65 | ≥ 0.70 | ≥ 0.55 | ≥ 0.55（LLM judge）| ≤ 6s | ≤ ¥0.30 | ≥ 0.85（VALID + 0.5·PARTIAL）|
+> | **严格（M8 上线门槛）** | M8 上线前 PR | ≥ 0.85 | ≥ 0.80 | （收紧 PR 时定）| （收紧 PR 时定）| ≥ 0.65（LLM judge）| （同上）| （同上）| 1.0（VALID only）|
 >
 > **negative weighted pass** 是 2026-05-20 由原 substring `must_say_not_found_passed` 切到 LLM judge 后新增的口径：在 negative item 上 `(VALID_REFUSAL + 0.5 × PARTIAL_REFUSAL) / total ≥ 阈值`。详见 `eval/negative_judge.py` + `04-handoff/2026-05-20-daily-eval-findings.md`。
+>
+> **fact_coverage** 阈值 2026-05-29 立：substring → LLM judge 切换后量级跳一档（v6 56 题实测 substring 0.303 → judge 0.647）。宽松档 ≥ 0.55 留 ~10pp 容差覆盖 run-to-run variance + multi_section / table_lookup 偏低类别（实测 0.46 / 0.55）；严格档 ≥ 0.65 待 M8 上线前 PR 收紧（届时整体应能爬到 0.7+）。详见 `eval/fact_coverage_judge.py` + [`../04-handoff/2026-05-29-fact-coverage-llm-judge.md §5.1`](../04-handoff/2026-05-29-fact-coverage-llm-judge.md)。`fact_coverage_judge` 未注入时主字段 fallback substring（旧 0.30 量级，会触发 fail，给操作者明确信号该装 LLM key）。
 >
 > 实施位置（2026-05-19 决策 Q1）：宽松版断言在 `test_golden_v1_daily`（每日跑 `source==hand_crafted` 切片，≥ 20 题）；
 > 严格版断言在 `test_golden_v1_full`（每周一全集 ≥ 140 题）；M7 → M8 之间一次性 PR 把严格版
