@@ -283,6 +283,29 @@ async def test_rate_limit_returns_429_when_bucket_exhausted(
     assert res.json()["code"] == "rate_limited"
 
 
+# === 登录限流（暴力破解防护，按 IP，预鉴权）===
+
+
+async def test_login_rate_limited_after_threshold(client: Any) -> None:
+    """同 IP 连续登录尝试超过 login bucket 上限 → 429；触顶前的失败仍是 401。"""
+    from app.core.ratelimit import BUCKETS
+
+    await _bootstrap_admin(client)  # bootstrap-admin 也走 login bucket，已占 1 次
+    limit = BUCKETS["login"].limit
+    statuses: list[int] = []
+    res: Any = None
+    for _ in range(limit):
+        res = await client.post(
+            "/api/v1/auth/login",
+            json={"username": "admin1", "password": "WRONG-PASSWORD"},
+        )
+        statuses.append(res.status_code)
+    # 触顶前：凭据错但未限流 → 401；最后一次累计越界 → 429
+    assert statuses[0] == 401
+    assert statuses[-1] == 429
+    assert res.json()["code"] == "rate_limited"
+
+
 async def test_refresh_tokens_table_state_after_full_flow(client: Any, db_session: Any) -> None:
     """完整 flow 后 DB 状态：login + refresh + logout 应留下 2 条 RefreshToken，全部 revoked。"""
     await _bootstrap_admin(client)

@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from app.core.errors import RateLimitedError
-from app.core.ratelimit import BUCKETS, consume
+from app.core.ratelimit import BUCKETS, _client_ip, consume
 
 
 class FakeRedis:
@@ -90,3 +90,37 @@ async def test_consume_returns_count() -> None:
     c1: Any = await consume(client, user_id=uid, bucket="chat", now=1000)
     c2 = await consume(client, user_id=uid, bucket="chat", now=1000)
     assert c1 == 1 and c2 == 2
+
+
+# === _client_ip：登录限流用的 IP 解析（X-Real-IP 优先，不信任 XFF leftmost）===
+
+
+class _FakeClient:
+    def __init__(self, host: str) -> None:
+        self.host = host
+
+
+class _FakeRequest:
+    def __init__(self, headers: dict[str, str], client_host: str | None) -> None:
+        self.headers = headers
+        self.client = _FakeClient(client_host) if client_host is not None else None
+
+
+def test_client_ip_prefers_x_real_ip() -> None:
+    req = _FakeRequest({"x-real-ip": "203.0.113.7"}, client_host="10.0.0.1")
+    assert _client_ip(req) == "203.0.113.7"  # type: ignore[arg-type]
+
+
+def test_client_ip_strips_whitespace() -> None:
+    req = _FakeRequest({"x-real-ip": "  203.0.113.7 "}, client_host=None)
+    assert _client_ip(req) == "203.0.113.7"  # type: ignore[arg-type]
+
+
+def test_client_ip_falls_back_to_peer_host() -> None:
+    req = _FakeRequest({}, client_host="10.0.0.5")
+    assert _client_ip(req) == "10.0.0.5"  # type: ignore[arg-type]
+
+
+def test_client_ip_unknown_when_no_source() -> None:
+    req = _FakeRequest({}, client_host=None)
+    assert _client_ip(req) == "unknown"  # type: ignore[arg-type]

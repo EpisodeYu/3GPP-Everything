@@ -38,6 +38,7 @@ from app.core.auth import (
 )
 from app.core.config import Settings, get_settings
 from app.core.errors import ConflictError, UnauthorizedError
+from app.core.ratelimit import login_rate_limit
 from app.db.base import get_db
 from app.db.models import RefreshToken, User
 from app.schemas.auth import (
@@ -78,7 +79,12 @@ async def _issue_token_pair(db: AsyncSession, *, user: User, settings: Settings)
     )
 
 
-@router.post("/bootstrap-admin", status_code=status.HTTP_201_CREATED, response_model=MeResponse)
+@router.post(
+    "/bootstrap-admin",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MeResponse,
+    dependencies=[Depends(login_rate_limit)],
+)
 async def bootstrap_admin(
     body: BootstrapAdminBody,
     request: Request,
@@ -141,7 +147,7 @@ async def bootstrap_admin(
     return MeResponse.model_validate(user, from_attributes=True)
 
 
-@router.post("/login", response_model=TokenPair)
+@router.post("/login", response_model=TokenPair, dependencies=[Depends(login_rate_limit)])
 async def login(
     body: LoginBody,
     request: Request,

@@ -435,9 +435,14 @@ async def test_sse_error_path_writes_failed_status(app_and_state: Any, db_sessio
             headers=_auth_headers(token),
         )
         assert r.status_code == 200
-        kinds = [k for k, _ in _parse_sse(r.text)]
+        events = _parse_sse(r.text)
+        kinds = [k for k, _ in events]
         assert "error" in kinds
         assert kinds[-1] == "end"
+        # 内部异常详情不外泄：error 事件的 message 不含原始异常文本
+        error_data = next(d for k, d in events if k == "error")
+        assert "agent_boom" not in error_data
+        assert "RuntimeError" not in error_data
 
     res = await db_session.execute(select(Message).where(Message.role == "assistant"))
     assistant = res.scalar_one()

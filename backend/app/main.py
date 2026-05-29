@@ -118,7 +118,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="3GPP-Everything API", version="0.2.0", lifespan=lifespan)
+    # Swagger / ReDoc / openapi.json 仅在 dev 暴露；prod 关闭以缩小信息暴露面
+    # （不对公网公开完整 API 形状）。
+    docs_enabled = settings.APP_ENV == "dev"
+    app = FastAPI(
+        title="3GPP-Everything API",
+        version="0.2.0",
+        lifespan=lifespan,
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+        openapi_url="/openapi.json" if docs_enabled else None,
+    )
 
     if settings.ALLOWED_ORIGINS:
         app.add_middleware(

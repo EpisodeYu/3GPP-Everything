@@ -417,11 +417,16 @@ def require_role(*roles: str):
 
 `backend/app/core/ratelimit.py`：
 
-- Redis 令牌桶：`tgpp:rl:{user_id}:{bucket}`
+- Redis 令牌桶：`tgpp:rl:{user_id}:{bucket}`（`login` bucket 的 key 用客户端 IP 取代 `user_id`）
 - bucket：
   - `chat`：60 req/小时
   - `tools_websearch`：20 calls/天（成本控制）
   - `admin_crawl`：5/天
+  - `login`：10 次 / 5 分钟，**按客户端 IP**（非 user）—— 登录暴力破解 / 撞库防护。
+    预鉴权依赖 `login_rate_limit`（不依赖 `get_current_user`），挂在 `POST /auth/login`
+    与 `POST /auth/bootstrap-admin`，成功 / 失败都计数。IP 取 `X-Real-IP`（生产由
+    ingress nginx 用 `$remote_addr` 强制写入，客户端伪造会被覆盖；**不**信任 XFF
+    leftmost），dev 直连退回 ASGI peer host。
   - `chat_daily`：普通用户（`role="user"`）每天最多 `DAILY_CHAT_LIMIT`（默认 100）次对话；
     按 `APP_TIMEZONE` 本地日切（key 含 `YYYYMMDD`），`admin` 角色豁免。挂在
     `POST /sessions/{sid}/messages`，与 `chat`（60/h）叠加生效。

@@ -493,7 +493,9 @@ def _build_sse_stream(
                 update(Message).where(Message.id == assistant_msg_id).values(status="failed")
             )
             await db.commit()
-            yield _sse("error", {"code": "agent_failed", "message": error_msg})
+            # 内部异常详情只进日志（上面 log.exception），不外泄给客户端——避免
+            # DB / 上游连接串、内部路径等经 SSE error 事件泄露。
+            yield _sse("error", {"code": "agent_failed", "message": "internal agent error"})
         elif final_state is not None:
             answer = final_state.get("final_answer") or ""
             citations = final_state.get("citations") or []

@@ -50,6 +50,8 @@ BUCKETS: dict[str, BucketSpec] = {
     "chat": BucketSpec("chat", 60, 3600),
     "tools_websearch": BucketSpec("tools_websearch", 20, 86400),
     "admin_crawl": BucketSpec("admin_crawl", 5, 86400),
+    # 登录 / 凭据端点暴力破解防护：按客户端 IP（非 user）限，预鉴权。10 次 / 5min。
+    "login": BucketSpec("login", 10, 300),
 }
 
 
@@ -131,6 +133,32 @@ def rate_limit(bucket: str):
         await consume(client, user_id=user.id, bucket=bucket)
 
     return _dep
+
+
+def _client_ip(request: Request) -> str:
+    """限流用的真实客户端 IP。
+
+    生产在 ingress(nginx) 之后：ingress 用 `proxy_set_header X-Real-IP $remote_addr`
+    把连接对端 IP 强制写入（客户端伪造的同名 header 被覆盖），可安全作为限流 key。
+    **不**取 `X-Forwarded-For` leftmost：ingress 用 `$proxy_add_x_forwarded_for` 会把
+    客户端自带的 XFF 前置，leftmost 可被伪造，不能用于安全限流。dev 直连无 X-Real-IP
+    → 退回 ASGI peer host。
+    """
+    xri = request.headers.get("x-real-ip")
+    if xri and xri.strip():
+        return xri.strip()
+    return request.client.host if request.client else "unknown"
+
+
+async def login_rate_limit(request: Request) -> None:
+    """预鉴权登录限流：按客户端 IP 限 `login` bucket，挡暴力破解 / 撞库。
+
+    与 `rate_limit()` 的区别：**不**依赖 `get_current_user`（登录前还没有 user），
+    按 IP 计数。挂在 `/auth/login` 与 `/auth/bootstrap-admin` 这两个 pre-auth
+    凭据端点；成功 / 失败都计数（计的是"尝试次数"）。
+    """
+    client = getattr(request.app.state, "redis", None) or get_redis()
+    await consume(client, user_id=_client_ip(request), bucket="login")
 
 
 # === 普通用户每日对话配额（role=="user"；admin 豁免）===
