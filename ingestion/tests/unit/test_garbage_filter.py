@@ -75,6 +75,45 @@ def test_toc_table_dropped() -> None:
     assert is_drop and reason and reason.startswith("toc-table")
 
 
+def test_table_heavy_technical_section_not_dropped() -> None:
+    """复现 2026-05-28 报告的 DCI 1_1 误杀 bug。
+
+    38.212 §7.3.1.2.2 (Format 1_1) 真实 body 含 12+ 张大型 DCI 字段查表，
+    pipe_ratio ≈ 0.857 会命中旧版 TOC 启发式被静默丢弃，导致 BM25/向量索引完
+    全缺失这一节，agent 检索 DCI 1_1 字段时返回不相关 IE hits。
+
+    修复后 TOC 启发式要求 pipe 行多数 (> 0.5) 像 `| <页码> |` 结尾才判垃圾；
+    技术表的右列是参数值 / bit pattern 不匹配，因此被正确保留。
+    """
+    # 真实采样：技术表行右列是 bit 模式 / 字段名 / 配置组合，不是页码
+    rows = [
+        "| 00     | First repetition factor                 |",
+        "| 01     | Second repetition factor                |",
+        "| 10     | Third repetition factor if provided     |",
+        "| 11     | Fourth repetition factor if provided    |",
+        "| Bit field | Antenna port(s) (1000 + DMRS port) |",
+        "| 0      | port 1000                                |",
+        "| 1      | ports 1000, 1001                         |",
+        "| 2      | ports 1000, 1001, 1002, 1003            |",
+        "|-----------|----------------------------------------|",
+        "**Table 7.3.1.2.2-1: Antenna port(s) (1000 + DMRS port)**",
+    ]
+    body = "\n".join(rows * 6)  # 60 lines, >85% pipe-prefixed
+    sec = _sec(title="Format 1\\_1", body=body, clause="7.3.1.2.2")
+    is_drop, reason = is_garbage(sec)
+    assert not is_drop, f"technical table section wrongly dropped: reason={reason!r}"
+
+
+def test_real_toc_still_dropped_after_fix() -> None:
+    """sanity check：修复后真 TOC（pipe 行末尾是页码）仍被正确丢弃。"""
+    body_lines = [
+        f"| {i//3 + 4}.{i%3 + 1} Some Section Title ..... | {i + 10} |" for i in range(60)
+    ]
+    sec = _sec(title="Random Wrapper", body="\n".join(body_lines), clause="x")
+    is_drop, reason = is_garbage(sec)
+    assert is_drop and reason and reason.startswith("toc-table") and "page-tails" in reason
+
+
 def test_short_body_dropped() -> None:
     sec = _sec(title="Empty", body="x")
     assert is_garbage(sec)[0]

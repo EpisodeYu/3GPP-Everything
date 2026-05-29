@@ -40,6 +40,10 @@ _STOP_TITLES: frozenset[str] = frozenset(
 
 _DECOR_RE = re.compile(r"[*_`#\s]+")
 _PIPE_LINE_RE = re.compile(r"^\s*\|")
+# 真 TOC 行的页码尾：`| 页码 |` / `| 页码 |` —— 末尾紧跟纯数字单元；技术表的
+# 末列是参数值 / bit pattern / 配置组合，几乎不会匹配。两侧加 `|?` 兼容"末单元
+# 后没有闭合管道"的渲染漂移。
+_TOC_PAGE_TAIL_RE = re.compile(r"\|\s*\d{1,4}\s*\|?\s*$")
 _SPEC_ID_LIKE_RE = re.compile(r"^\d{2}\.\d{3}(-\d+)?$")
 # 标题包含 "3rd Generation Partnership Project" / "Technical Specification Group" 是
 # 标准 spec 第二行 H2 模板段，content 多为 logo + 元信息，不是技术内容。
@@ -47,6 +51,14 @@ _SPEC_TEMPLATE_TITLE_RE = re.compile(
     r"3rd\s+Generation\s+Partnership\s+Project|Technical\s+Specification\s+Group",
     re.IGNORECASE,
 )
+
+# TOC 启发式的两条阈值：pipe 行占比 + pipe 行中"末尾是页码"的占比。
+# 真 TOC 实测（38.212 Contents 段）：pipe_ratio=0.994，page_tail=0.959。
+# 误判案例（38.212 §7.3.1.2.2 Format 1_1，含 12+ 张 DCI 字段查表）：
+# pipe_ratio=0.857（超 0.80 阈值会触发 v1 误杀），page_tail=0.132。
+# 加 page_tail > 0.5 作为 AND 条件可完美区分两类（详见 2026-05-28 DCI 1_1 handoff）。
+_TOC_PIPE_RATIO_THRESHOLD = 0.80
+_TOC_PAGE_TAIL_RATIO_THRESHOLD = 0.50
 
 
 def _normalize_title(title: str) -> str:
@@ -83,12 +95,22 @@ def is_garbage(section: SectionBlock) -> tuple[bool, str | None]:
     if len(body_stripped) < 600 and any(kw in body for kw in contact_kw):
         return True, "contact-info"
 
-    # 规则 4：TOC 启发式（多数行以 | 起首）
+    # 规则 4：TOC 启发式（多数行以 | 起首 AND 多数 pipe 行像「目录页码行」）
+    # 单条 pipe_ratio 阈值会误杀 DCI Format 1_1 这种含 12+ 张大型查表的真实
+    # 技术段（实测 38.212 §7.3.1.2.2 pipe_ratio=0.857，被旧实现当 TOC 扔掉）。
+    # 加 page_tail AND 条件后：真 TOC page_tail≈0.96 通过，技术段 ≈0.13 通过不了。
     lines = [ln for ln in body.splitlines() if ln.strip()]
     if len(lines) > 20:
-        pipe_lines = sum(1 for ln in lines if _PIPE_LINE_RE.match(ln))
-        if pipe_lines / len(lines) > 0.8:
-            return True, f"toc-table:{pipe_lines}/{len(lines)}-pipe-lines"
+        pipe_lines = [ln for ln in lines if _PIPE_LINE_RE.match(ln)]
+        pipe_ratio = len(pipe_lines) / len(lines)
+        if pipe_ratio > _TOC_PIPE_RATIO_THRESHOLD:
+            page_tail = sum(1 for ln in pipe_lines if _TOC_PAGE_TAIL_RE.search(ln))
+            page_tail_ratio = page_tail / max(len(pipe_lines), 1)
+            if page_tail_ratio > _TOC_PAGE_TAIL_RATIO_THRESHOLD:
+                return True, (
+                    f"toc-table:{len(pipe_lines)}/{len(lines)}-pipe-lines"
+                    f",{page_tail}-page-tails"
+                )
 
     return False, None
 
