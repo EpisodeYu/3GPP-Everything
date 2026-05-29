@@ -56,6 +56,82 @@ class FactCoverageJudgeError(Exception):
     """fact_coverage_judge 对外异常基类（依赖缺失 / 配置错误）。"""
 
 
+# === Pydantic schemas（模块级，方便 langchain function_calling + 单测复用）======
+
+
+def _pre_parse_verdicts(v: Any) -> Any:
+    """before-validator 兜底：mimo-v2.5-pro 偶发把 list 编码成 JSON 字符串塞进
+    tool_call.arguments（实测 2026-05-29 56 题里 ~5% 复现率）。这里在 pydantic
+    实例化之前先 json.loads 一次。失败 → 返回原值让原始 ValidationError 抛出
+    （score_item 会兜底转 judge_error）。
+
+    2026-05-29 实测：langchain 1.4 / pydantic 2.13 的 PydanticToolsParser 路径
+    上 before-validator 未被触发（未深查 langchain 内部），所以生产代码改走
+    `bind_tools` + 自解析 + `_normalize_verdicts_field`。本 validator 仍保留
+    在 schema 上作为防御性多重保险（model 级别的 user `model_validate`
+    依旧能用，单测覆盖）。
+    """
+    import json
+
+    if isinstance(v, str):
+        try:
+            return json.loads(v)
+        except (json.JSONDecodeError, ValueError):
+            return v
+    return v
+
+
+def _normalize_verdicts_field(v: Any) -> Any:
+    """把 LLM 返回的 verdicts 字段归一化成 list（或保持原状让 caller 兜底）。
+
+    - list → 透传
+    - str：尝试 `json.loads`；解出 list 则返回 list；解出非 list（dict / 数字）
+      或解析失败 → 返回原 string（让 score_item 的 isinstance(..., list)
+      检测命中 judge_unknown_shape，分数判 None）
+    - 其它类型 → 透传（caller 的 isinstance check 会拒绝）
+
+    与 schema 上的 `_pre_parse_verdicts` 等价；多一道防线在生产 path 上稳。
+    """
+    import json
+
+    if isinstance(v, str):
+        try:
+            parsed = json.loads(v)
+        except (json.JSONDecodeError, ValueError):
+            return v
+        return parsed if isinstance(parsed, list) else v
+    return v
+
+
+def _build_schemas(*, n_facts: int) -> tuple[type, type]:
+    """每次调动态构造 _Schema（description 内嵌 n_facts 提示 LLM 长度对齐）。
+
+    抽到模块级方便单测直接喂字符串验证 before-validator。返回
+    `(_FactVerdict, _Schema)` 类。
+    """
+    from pydantic import BaseModel, Field, field_validator
+
+    class _FactVerdict(BaseModel):
+        fact: str = Field(description="The expected fact verbatim from input list")
+        verdict: str = Field(description="One of HIT / PARTIAL / MISS, all uppercase")
+        reason: str = Field(description="One short sentence justifying the verdict")
+
+    class _Schema(BaseModel):
+        verdicts: list[_FactVerdict] = Field(
+            description=(
+                f"Verdicts in the SAME order as the expected facts list, "
+                f"length = {n_facts}. Do not skip or reorder facts."
+            )
+        )
+
+        @field_validator("verdicts", mode="before")
+        @classmethod
+        def _parse(cls, v: Any) -> Any:
+            return _pre_parse_verdicts(v)
+
+    return _FactVerdict, _Schema
+
+
 _PROMPT_ZH = """你是 3GPP RAG 评测裁判。逐条判定 agent 答案是否覆盖了"期望事实"列表中的每条事实。
 
 问题：
@@ -254,39 +330,43 @@ class FactCoverageJudge:
         }
 
     def _invoke_structured(self, prompt: str, *, n_facts: int) -> dict[str, Any]:
-        """走 with_structured_output(method='function_calling') 拿结构化结果。
+        """绑定 `_Schema` 作为 OpenAI tool，强制 `tool_choice` 命中本工具，
+        手动解析 tool_call.args（不走 `with_structured_output` 的
+        `PydanticToolsParser`，避免在 pydantic 实例化阶段被 mimo 的奇怪
+        encoding 干掉）。
 
-        function_calling 在 LiteLLM proxy → mimo-v2.5-pro 上验证可用（与 negative_judge
-        同款；2026-05-23 起 deepseek-v4-pro reasoning mode 不支持 tool_choice，本路径
-        故意不切到 deepseek，避免回归 GLM 时期的 1e-8 / 400 那批坑）。
+        function_calling 在 LiteLLM proxy → mimo-v2.5-pro 上验证可用（与
+        negative_judge 同款；2026-05-23 起 deepseek-v4-pro reasoning mode 不
+        支持 tool_choice，本路径故意不切到 deepseek）。
 
-        `n_facts` 仅用于 schema description 提示 LLM 期望返回长度；
-        实际对齐在 score_item 内按 index 兜底。
+        2026-05-29 实测：mimo-v2.5-pro 偶发把 `verdicts` 字段返回成
+        JSON-encoded 字符串而非数组（function_calling tool_call.arguments 里
+        嵌套 JSON 编码了一层）。原本走 `with_structured_output` 时
+        PydanticToolsParser 会直接 `_Schema(**args)` 触发 ValidationError
+        （before-validator 在 langchain 1.4 / pydantic 2.13 这条具体 path 上
+        实测未被触发，未深查；不依赖 schema 兜底更稳）。这里改成自取
+        `tool_call.args`，再让 caller 的 `isinstance(verdicts_raw, list)` /
+        `_normalize_verdicts_field` 做 string → json.loads → list 兜底。
+
+        `n_facts` 用于 schema description 提示 LLM 期望返回长度，并通过
+        `bind_tools(tool_choice=...)` 强制 LLM 调用本工具。
         """
-        from pydantic import BaseModel, Field
+        _FactVerdict, _Schema = _build_schemas(n_facts=n_facts)
 
-        class _FactVerdict(BaseModel):
-            fact: str = Field(description="The expected fact verbatim from input list")
-            verdict: str = Field(description="One of HIT / PARTIAL / MISS, all uppercase")
-            reason: str = Field(description="One short sentence justifying the verdict")
-
-        class _Schema(BaseModel):
-            verdicts: list[_FactVerdict] = Field(
-                description=(
-                    f"Verdicts in the SAME order as the expected facts list, "
-                    f"length = {n_facts}. Do not skip or reorder facts."
-                )
-            )
-
-        chain = self.llm.with_structured_output(_Schema, method="function_calling")
-        result = chain.invoke(prompt)
-        if isinstance(result, _Schema):
-            return {"verdicts": [v.model_dump() for v in result.verdicts]}
-        if isinstance(result, dict):
-            # 注意：verdicts 字段透传不强转。caller 用 isinstance(..., list) 检测
-            # garbage shape（直接 list("not a list") 会把字符串拆字符，掩盖错误）
-            return {"verdicts": result.get("verdicts")}
-        raise FactCoverageJudgeError(f"unexpected structured output type: {type(result).__name__}")
+        chain = self.llm.bind_tools(
+            [_Schema],
+            tool_choice={"type": "function", "function": {"name": _Schema.__name__}},
+            parallel_tool_calls=False,
+        )
+        ai_msg = chain.invoke(prompt)
+        tool_calls = getattr(ai_msg, "tool_calls", None) or []
+        if not tool_calls:
+            raise FactCoverageJudgeError("no tool_call returned (LLM ignored tool_choice?)")
+        args = tool_calls[0].get("args") or {}
+        if not isinstance(args, dict):
+            raise FactCoverageJudgeError(f"tool_call.args expected dict, got {type(args).__name__}")
+        # 透传 verdicts 字段；string / list / 其它 shape 都让 score_item 兜底
+        return {"verdicts": _normalize_verdicts_field(args.get("verdicts"))}
 
 
 def build_default_fact_coverage_judge(

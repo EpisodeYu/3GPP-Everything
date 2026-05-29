@@ -806,7 +806,7 @@ async def main():
 - [x] `[auto]` Langfuse 三路上传：主 `fact_coverage`（向后兼容）+ `fact_coverage_judge` + `fact_coverage_substring`（双轨诊断）
 - [x] `[auto]` `eval/scripts/rejudge_results.py` 加 `--skip-fact-judge` 开关，对历史 results.json 重判
 - [x] `[auto]` 30 单测覆盖（19 fact_coverage_judge + 11 runner 注入 / aggregate 双轨）；backend ASGI smoke 仍绿
-- [ ] `[auto]` 跑一次 v6 子集（4 道掉分题 + baseline 已命中题）双轨对比 → 据此定 daily 新阈值（`fact_coverage` 量级会上一档）
+- [x] `[auto]` v6 子集 56 题双轨对比（2026-05-29 14:14-14:27 跑完，0 crash）：substring 0.303 → judge **0.647**；4 道掉分题判定符合设计预期（paraphrase HIT、诚实拒答 MISS）；建议 daily 新阈值 `fact_coverage ≥ 0.55`。详见 [`../04-handoff/2026-05-29-fact-coverage-llm-judge.md §5.1`](../04-handoff/2026-05-29-fact-coverage-llm-judge.md)
 
 ### 非 M7 范围（保留行）
 

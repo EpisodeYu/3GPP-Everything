@@ -37,30 +37,66 @@ def _item(
     )
 
 
-class _FakeStructured:
-    """ChatOpenAI.with_structured_output(...).invoke(prompt) 的最小桩。"""
+def _verdicts_to_ai_msg(output: Any) -> Any:
+    """把 `{"verdicts": [...]}` 包成最简 AIMessage with tool_calls。"""
 
-    def __init__(self, *, output: Any = None, raise_exc: Exception | None = None) -> None:
-        self._output = output
+    class _Msg:
+        def __init__(self, tool_calls: list[dict[str, Any]]) -> None:
+            self.tool_calls = tool_calls
+
+    if output is None:
+        return _Msg([])
+    if isinstance(output, dict) and "verdicts" in output:
+        return _Msg([{"name": "_Schema", "args": output, "id": "c-1", "type": "tool_call"}])
+    # 其它（比如直接给 string / 别的 shape） — 让 args 字段走 dict 校验路径
+    return _Msg([{"name": "_Schema", "args": output, "id": "c-1", "type": "tool_call"}])
+
+
+class _FakeBoundInvoker:
+    """`llm.bind_tools(...).invoke(prompt)` 返回的 chain 桩。"""
+
+    def __init__(self, *, ai_message: Any = None, raise_exc: Exception | None = None) -> None:
+        self._ai = ai_message
         self._raise = raise_exc
 
     def invoke(self, prompt: str) -> Any:
         if self._raise is not None:
             raise self._raise
-        return self._output
+        return self._ai
 
 
 class _FakeChat:
-    """ChatOpenAI 的最小桩；记录 with_structured_output 的调用参数。"""
+    """ChatOpenAI 的最小桩（bind_tools 路径）；保留 `calls` API 与旧测试兼容。
+
+    构造参数 `output` 形如 `{"verdicts": [...]}`，会被自动包成
+    AIMessage.tool_calls[0].args；也允许直接传 AIMessage-shape 对象。
+    """
 
     def __init__(self, *, output: Any = None, raise_exc: Exception | None = None) -> None:
-        self._output = output
+        # 旧测试通过 `output={"verdicts": [...]}` 期望被 invoke 返回；
+        # bind_tools 路径下我们包成 tool_call 形式
+        if output is not None and not hasattr(output, "tool_calls"):
+            self._ai = _verdicts_to_ai_msg(output)
+        else:
+            self._ai = output
         self._raise = raise_exc
         self.calls: list[dict[str, Any]] = []
 
-    def with_structured_output(self, schema: Any, *, method: str) -> _FakeStructured:
-        self.calls.append({"schema": schema, "method": method})
-        return _FakeStructured(output=self._output, raise_exc=self._raise)
+    def bind_tools(
+        self,
+        tools: list[Any],
+        *,
+        tool_choice: Any | None = None,
+        parallel_tool_calls: bool | None = None,
+    ) -> _FakeBoundInvoker:
+        self.calls.append(
+            {
+                "tools": tools,
+                "tool_choice": tool_choice,
+                "parallel_tool_calls": parallel_tool_calls,
+            }
+        )
+        return _FakeBoundInvoker(ai_message=self._ai, raise_exc=self._raise)
 
 
 # === Happy path ===========================================================
@@ -117,11 +153,15 @@ class TestScoreItemHappyPath:
         out = judge.score_item(_item(), AgentResponse(answer="支持 QPSK"))
         assert out["score"] == pytest.approx(0.5)
 
-    def test_uses_function_calling_method(self) -> None:
+    def test_bind_tools_with_forced_tool_choice(self) -> None:
+        """生产 path 改走 bind_tools + tool_choice 强制命中 _Schema。"""
         llm = _FakeChat(output={"verdicts": [{"fact": "QPSK", "verdict": "HIT", "reason": "在"}]})
         judge = FactCoverageJudge(llm=llm)
         judge.score_item(_item(facts=["QPSK"]), AgentResponse(answer="支持 QPSK"))
-        assert llm.calls and llm.calls[0]["method"] == "function_calling"
+        assert llm.calls
+        choice = llm.calls[0]["tool_choice"]
+        assert choice and choice["function"]["name"] == "_Schema"
+        assert llm.calls[0]["parallel_tool_calls"] is False
 
     def test_zh_and_en_prompts_both_runnable(self) -> None:
         for lang in ("zh", "en"):
@@ -303,3 +343,239 @@ class TestBuildDefault:
 def test_allowed_verdicts_constants() -> None:
     """守门：三档枚举不要漂移。"""
     assert {"HIT", "PARTIAL", "MISS"} == ALLOWED_FACT_VERDICTS
+
+
+# === pydantic before-validator（2026-05-29 实测 mimo-v2.5-pro 复现）==========
+
+
+class TestPreParseVerdictsValidator:
+    """mimo-v2.5-pro function_calling 偶发把 verdicts 编码成 JSON 字符串。
+
+    `_pre_parse_verdicts` before-validator 应在 pydantic 实例化前 json.loads
+    兜底。覆盖：
+    - 字符串形式 list → 自动解析成功
+    - 字符串非合法 JSON → 透传，让原 ValidationError 抛出
+    - 字符串非 list shape（json.loads 解出 dict / 数字） → 透传，让原
+      ValidationError 抛出（caller 兜底转 judge_error）
+    - 已经是 list / 任何其他类型 → 透传不动
+    """
+
+    def test_str_with_valid_json_list_parses(self) -> None:
+        from pydantic import ValidationError
+
+        from eval.fact_coverage_judge import _build_schemas
+
+        _, schema_cls = _build_schemas(n_facts=2)
+        # mimo 实测返回 shape：tool_call.arguments 里 verdicts 是 JSON 字符串
+        json_str = (
+            '[{"fact": "QPSK", "verdict": "HIT", "reason": "在"},'
+            ' {"fact": "16QAM", "verdict": "MISS", "reason": "缺"}]'
+        )
+        try:
+            obj = schema_cls.model_validate({"verdicts": json_str})
+        except ValidationError as e:
+            raise AssertionError(f"validator should accept JSON string: {e}") from e
+        assert len(obj.verdicts) == 2
+        assert obj.verdicts[0].verdict == "HIT"
+        assert obj.verdicts[1].verdict == "MISS"
+
+    def test_str_with_garbage_falls_through_to_validation_error(self) -> None:
+        from pydantic import ValidationError
+
+        from eval.fact_coverage_judge import _build_schemas
+
+        _, schema_cls = _build_schemas(n_facts=1)
+        with pytest.raises(ValidationError):
+            schema_cls.model_validate({"verdicts": "not even json"})
+
+    def test_str_with_dict_shape_falls_through(self) -> None:
+        """json.loads 解出 dict（不是 list）→ 仍然 ValidationError，让 caller 兜底。"""
+        from pydantic import ValidationError
+
+        from eval.fact_coverage_judge import _build_schemas
+
+        _, schema_cls = _build_schemas(n_facts=1)
+        with pytest.raises(ValidationError):
+            schema_cls.model_validate({"verdicts": '{"fact": "x", "verdict": "HIT"}'})
+
+    def test_native_list_pass_through(self) -> None:
+        """已经是 list（正常路径） → before-validator 不动，正常实例化。"""
+        from eval.fact_coverage_judge import _build_schemas
+
+        _, schema_cls = _build_schemas(n_facts=1)
+        obj = schema_cls.model_validate(
+            {"verdicts": [{"fact": "QPSK", "verdict": "HIT", "reason": "在"}]}
+        )
+        assert obj.verdicts[0].fact == "QPSK"
+
+    def test_real_world_sample_from_2026_05_29(self) -> None:
+        """复现 hand-def-001 真实失败样本（中文 fact + 句末标点）。"""
+        from eval.fact_coverage_judge import _build_schemas
+
+        _, schema_cls = _build_schemas(n_facts=1)
+        # 重建 mimo 当时实际返回的 shape（节选）
+        sample = (
+            '[{"fact": "公共参考信号 (CRS)", "verdict": "MISS",' ' "reason": "答案未覆盖该事实。"}]'
+        )
+        obj = schema_cls.model_validate({"verdicts": sample})
+        assert len(obj.verdicts) == 1
+        assert obj.verdicts[0].verdict == "MISS"
+
+
+class TestNormalizeVerdictsField:
+    """生产 path：`_invoke_structured` 用 `bind_tools` + `_normalize_verdicts_field`
+    手动归一化，绕过 langchain 1.4 / pydantic 2.13 上 before-validator 失效的坑。
+    """
+
+    def test_list_passes_through(self) -> None:
+        from eval.fact_coverage_judge import _normalize_verdicts_field
+
+        v = [{"fact": "X", "verdict": "HIT", "reason": "y"}]
+        assert _normalize_verdicts_field(v) == v
+
+    def test_json_str_list_parsed(self) -> None:
+        from eval.fact_coverage_judge import _normalize_verdicts_field
+
+        s = '[{"fact": "X", "verdict": "HIT", "reason": "y"}]'
+        out = _normalize_verdicts_field(s)
+        assert isinstance(out, list)
+        assert out[0]["verdict"] == "HIT"
+
+    def test_json_str_dict_falls_back_to_string(self) -> None:
+        """json.loads 解出非 list（dict / 数字）→ 返回原 string，caller 兜底拒判。"""
+        from eval.fact_coverage_judge import _normalize_verdicts_field
+
+        s = '{"fact": "X"}'
+        assert _normalize_verdicts_field(s) == s
+
+    def test_garbage_str_returns_string(self) -> None:
+        from eval.fact_coverage_judge import _normalize_verdicts_field
+
+        assert _normalize_verdicts_field("not json") == "not json"
+
+    def test_none_passes_through(self) -> None:
+        from eval.fact_coverage_judge import _normalize_verdicts_field
+
+        assert _normalize_verdicts_field(None) is None
+
+    def test_real_world_2026_05_29_string_form_normalized(self) -> None:
+        """2026-05-29 hand-def-003 实测的 mimo 字符串 verdict shape。"""
+        from eval.fact_coverage_judge import _normalize_verdicts_field
+
+        # 节选自 terminal log 真实 input_value
+        s = '[{"fact": "传输块的", "verdict": "MISS", "reason": "未在资料中找到。"}]'
+        out = _normalize_verdicts_field(s)
+        assert isinstance(out, list)
+        assert len(out) == 1
+        assert out[0]["verdict"] == "MISS"
+
+
+# === bind_tools production path（自解析 tool_call.args） ====================
+
+
+class _FakeBoundChain:
+    """`llm.bind_tools(...)` 返回的 chain 桩。`invoke(prompt)` 返回构造时给的
+    AIMessage（带 tool_calls）或 raise。
+    """
+
+    def __init__(self, *, ai_message: Any = None, raise_exc: Exception | None = None) -> None:
+        self._ai = ai_message
+        self._raise = raise_exc
+        self.calls: list[dict[str, Any]] = []
+
+    def invoke(self, prompt: str) -> Any:
+        if self._raise is not None:
+            raise self._raise
+        return self._ai
+
+
+class _FakeChatBindTools:
+    """ChatOpenAI 的最小桩（bind_tools 路径）；记录 bind_tools 调用参数。"""
+
+    def __init__(self, *, ai_message: Any = None, raise_exc: Exception | None = None) -> None:
+        self._chain = _FakeBoundChain(ai_message=ai_message, raise_exc=raise_exc)
+        self.bind_calls: list[dict[str, Any]] = []
+
+    def bind_tools(
+        self,
+        tools: list[Any],
+        *,
+        tool_choice: Any | None = None,
+        parallel_tool_calls: bool | None = None,
+    ) -> _FakeBoundChain:
+        self.bind_calls.append(
+            {
+                "tools": tools,
+                "tool_choice": tool_choice,
+                "parallel_tool_calls": parallel_tool_calls,
+            }
+        )
+        return self._chain
+
+
+def _ai_msg_with_tool_call(args: Any, *, tool_name: str = "_Schema") -> Any:
+    """构造 AIMessage shape（最简）；只用 tool_calls 字段。"""
+
+    class _Msg:
+        def __init__(self, tool_calls: list[dict[str, Any]]) -> None:
+            self.tool_calls = tool_calls
+
+    return _Msg([{"name": tool_name, "args": args, "id": "c-1", "type": "tool_call"}])
+
+
+class TestProductionBindToolsPath:
+    """`_invoke_structured` 改走 `bind_tools` 路径后，对 mimo 的 string verdicts
+    返回需要在自解析层归一化。"""
+
+    def test_string_verdicts_normalized_to_list(self) -> None:
+        from eval.fact_coverage_judge import FactCoverageJudge
+
+        s = '[{"fact": "QPSK", "verdict": "HIT", "reason": "在"}]'
+        ai = _ai_msg_with_tool_call({"verdicts": s})
+        llm = _FakeChatBindTools(ai_message=ai)
+        judge = FactCoverageJudge(llm=llm)
+        out = judge.score_item(_item(facts=["QPSK"]), AgentResponse(answer="QPSK"))
+        assert out["score"] == pytest.approx(1.0)
+        assert out["verdicts"][0]["verdict"] == "HIT"
+        # 验证 bind_tools 被正确调用：tool_choice 强制 _Schema
+        assert llm.bind_calls
+        choice = llm.bind_calls[0]["tool_choice"]
+        assert choice and choice["function"]["name"] == "_Schema"
+        assert llm.bind_calls[0]["parallel_tool_calls"] is False
+
+    def test_native_list_args_works(self) -> None:
+        from eval.fact_coverage_judge import FactCoverageJudge
+
+        ai = _ai_msg_with_tool_call(
+            {"verdicts": [{"fact": "QPSK", "verdict": "MISS", "reason": "缺"}]}
+        )
+        llm = _FakeChatBindTools(ai_message=ai)
+        judge = FactCoverageJudge(llm=llm)
+        out = judge.score_item(_item(facts=["QPSK"]), AgentResponse(answer="x"))
+        assert out["score"] == pytest.approx(0.0)
+        assert out["verdicts"][0]["verdict"] == "MISS"
+
+    def test_no_tool_calls_treated_as_judge_error(self) -> None:
+        from eval.fact_coverage_judge import FactCoverageJudge
+
+        class _NoToolMsg:
+            def __init__(self) -> None:
+                self.tool_calls: list[Any] = []
+
+        llm = _FakeChatBindTools(ai_message=_NoToolMsg())
+        judge = FactCoverageJudge(llm=llm)
+        out = judge.score_item(_item(facts=["QPSK"]), AgentResponse(answer="x"))
+        assert out["score"] is None
+        assert "judge_error" in (out["reason"] or "")
+        assert "no tool_call" in (out["reason"] or "")
+
+    def test_args_not_dict_raises(self) -> None:
+        from eval.fact_coverage_judge import FactCoverageJudge
+
+        # tool_call.args 偶尔会是字符串（langchain 边界情况）
+        ai = _ai_msg_with_tool_call("garbage-string-not-dict")
+        llm = _FakeChatBindTools(ai_message=ai)
+        judge = FactCoverageJudge(llm=llm)
+        out = judge.score_item(_item(facts=["QPSK"]), AgentResponse(answer="x"))
+        assert out["score"] is None
+        assert "judge_error" in (out["reason"] or "")

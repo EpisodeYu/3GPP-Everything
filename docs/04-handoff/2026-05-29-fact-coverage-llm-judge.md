@@ -105,9 +105,9 @@ fact_coverage_judge_details  # per-fact verdict 明细，落 results.json 用于
 `fact_coverage`。Langfuse 三路同上：`fact_coverage` 主轴 +
 `fact_coverage_judge` / `fact_coverage_substring` 双轨诊断。
 
-### 3.4 judge model = `mimo-v2.5-pro` + function_calling
+### 3.4 judge model = `mimo-v2.5-pro` + bind_tools（自解析 tool_call）
 
-沿用 negative_judge 已验证的通路。**不**用 deepseek-v4-pro 是因为它的 reasoning
+沿用 negative_judge 的 LiteLLM 通路。**不**用 deepseek-v4-pro 是因为它的 reasoning
 mode 不支持 `tool_choice` → `with_structured_output(method="function_calling")`
 会 400（详见 `eval/negative_judge.py` 顶部注释 + `06-md §5`）。
 
@@ -118,6 +118,32 @@ negative judge 解耦。
 > 须出现、拒答应该大量 MISS）是首道防线。weekly 跑后看 judge vs ragas
 > faithfulness 的相关性，若发现 judge 假阳性多于 ragas，再考虑切到 deepseek-v4
 > JSON mode（不走 function_calling）。
+
+### 3.5 实施过程踩到的坑：mimo verdicts JSON-string 编码
+
+**现象**（2026-05-29 14:05 v6 56 题首跑）：mimo-v2.5-pro 在 function_calling
+返回时偶发把 `verdicts` 字段编码成 JSON-encoded 字符串而非数组。
+56 题里 hand-def-001 / hand-def-003 命中（~3% 复现率）：
+
+```text
+fact_coverage_judge crashed on hand-def-003: 1 validation error for _Schema
+verdicts
+  Input should be a valid list [type=list_type,
+    input_value='[{"fact": "传输块的...资料中找到。"}]', input_type=str]
+```
+
+**第一次修法（无效）**：在 `_Schema.verdicts` 加 pydantic
+`field_validator(mode="before")` 自动 `json.loads`。本地 `S(**{"verdicts": "[...]"})`
+能 work，但 langchain 1.4 / pydantic 2.13 的 `PydanticToolsParser` 实际生产
+path 上 before-validator 未被触发（未深查 langchain 内部，多半是用了别的
+实例化路径）。
+
+**第二次修法（采用）**：改走 `llm.bind_tools([_Schema], tool_choice=..., parallel_tool_calls=False)`，自己解析
+`ai_msg.tool_calls[0]["args"]`，让 `_normalize_verdicts_field()` 在解析阶段
+先 `json.loads` 一次。两道防线（schema 上的 `_pre_parse_verdicts` 仍保留作
+defense-in-depth）。
+
+后续完整跑（2026-05-29 14:14-14:27）：56 题 0 crash，13.5 分钟跑完。
 
 ## 4. 配置选择记录
 
@@ -134,7 +160,7 @@ negative judge 解耦。
 
 ```
 $ uv run --project eval pytest eval/tests/unit/ -q
-444 passed in 9.98s
+459 passed in 10.50s
 
 $ cd backend && uv run pytest tests/eval/test_golden_v1.py::test_runner_smoke_against_canned_backend -q
 1 passed in 4.41s
@@ -142,7 +168,7 @@ $ cd backend && uv run pytest tests/eval/test_golden_v1.py::test_runner_smoke_ag
 
 新增覆盖：
 
-- `eval/tests/unit/test_fact_coverage_judge.py`（19 单测）：
+- `eval/tests/unit/test_fact_coverage_judge.py`（33 单测）：
   - HIT/PARTIAL/MISS 三档 + lowercase 归一化
   - 空答案 / 空 expected_facts / 全空白 facts → skipped
   - LLM 漏判 / 多判 / 未知档 → 该条 verdict=None；全条不合法 → score=None
@@ -150,13 +176,73 @@ $ cd backend && uv run pytest tests/eval/test_golden_v1.py::test_runner_smoke_ag
   - LLM crash → judge_error 兜底
   - 中英 prompt 都 runnable
   - 缺 `LITELLM_API_KEY` → `FactCoverageJudgeError`
+  - **`_pre_parse_verdicts` validator**（schema 兜底；5 单测）：JSON 字符串
+    list 自动解析 / 非合法 JSON / dict shape / 原 list 透传 / 实际 mimo 样本
+  - **`_normalize_verdicts_field`**（生产 path 兜底；6 单测）：list / JSON 字符串 / dict shape / garbage / None / 真实 mimo 样本
+  - **`bind_tools` 生产 path**（4 单测）：string verdicts 归一化、原生 list、
+    无 tool_call 兜底为 judge_error、args 非 dict 兜底
 - `eval/tests/unit/test_runner.py`（+11 单测）：
   - judge 成功 → 主字段切到 judge 值，substring 字段保留
   - judge 抛异常 → 主字段 fallback substring
   - empty expected_facts / empty answer → judge 早 return（不打 LLM）
   - aggregate 三路均值 + judge=None 不进 judge mean
 
-ReadLints：无 error/warning（修改文件 5 个）。
+ReadLints：无 error/warning。
+
+## 5.1 v6 daily 56 题实测（2026-05-29 14:14-14:27）
+
+`eval/scripts/rejudge_results.py` 跑 v6 baseline（`eval-results/v6-citation-index-20260529T092708Z`）的 56 题 →
+`eval-results/2026-05-29-fact-judge-poc/{results.json,report.md}`。
+**0 crash，13.5 分钟**（mimo-v2.5-pro，平均 ~25s/题，串行）。
+
+### 整体对比
+
+| 指标 | substring | LLM judge | Δ |
+|---|---:|---:|---:|
+| **fact_coverage** | 0.303 | **0.647** | **+34.4pp** |
+| forbidden_hit_rate | 0.464 | 0.464 | 0 |
+| context_recall_section | 0.825 | 0.825 | 0 |
+| context_recall_spec | 0.925 | 0.925 | 0 |
+| negative weighted_pass | 1.000 | 1.000 | 0 |
+
+### 4 道用户提到的"掉分最厉害的题"
+
+| Item | substring | judge | judge 判定 | 验证 |
+|---|---:|---:|---|---|
+| **hand-proc-003** (procedure) | 0.000 | **1.000** | 全 3 条 HIT —— "通过截断 MSB" / "减小位宽" / "使大小相等"全语义命中 | ✅ 救活 paraphrase |
+| **hand-proc-004** (procedure) | 0.000 | **1.000** | 全 4 条 HIT —— "I_MCS 最高" / "highest I_MCS" / "I_MCS 相同" / "复用第一传输块" | ✅ 救活 paraphrase |
+| **hand-multi-001** (multi_section) | 0.250 | **0.000** | 全 8 条 MISS —— agent 说 "无法根据 chunks 回答支持哪些方案" | ✅ 严格判：诚实拒答 ≠ 事实覆盖 |
+| **hand-table-007** (table_lookup) | 0.429 | **0.000** | 全 7 条 MISS —— agent 说 "无法给出确切数值" + 引错表 | ✅ 严格判：未给值就是 MISS |
+
+判定模式与设计预期完全一致：
+
+- paraphrase / 数值等价 → HIT（救起 substring 假阴性）
+- 诚实拒答 / "未找到" → MISS（修正 substring 假阳性，agent 答了相关词就部分命中）
+- 引错表 / 数值不出 → MISS（hand-table-007：substring 把"目标码率"/"频谱效率"当部分命中，judge 拒绝）
+
+### 按 category（n=8/类，negative 16 题 expected_facts 空 → 不计）
+
+| category | judge fact_cov | 解读 |
+|---|---:|---|
+| definition | **0.881** | 最高，定义题 ground truth 直接命中 |
+| procedure | 0.781 | proc-003/004 救活后整体提升 |
+| formula | 0.561 | 公式类一半含具体表达式，覆盖参差 |
+| table_lookup | 0.552 | agent 拒答数值类 → 真 MISS，分确实低 |
+| multi_section | 0.460 | 最低，multi-section 答案最不全（M8 已知短板） |
+
+### 决策（F 选项）：daily 阈值建议
+
+substring 时代实际跑值：v5 baseline=0.352 / v6=0.303。
+LLM judge 实际跑值：v6 hand_crafted=**0.647**。
+
+建议 **新阈值 `fact_coverage ≥ 0.55`**（保留 ~10pp 容差，覆盖 LLM judge run-to-run
+variance + 特别是 multi_section / table_lookup 这两类天然偏低的类别）。
+也可以分类别设：definition/procedure ≥ 0.75，其余 ≥ 0.45。先单一阈值，
+观察 7 天 daily 后再分级。
+
+> **未来更严的阈值**（M8+）：随着 multi_section / table_lookup 答题质量提升
+> （参 docs/04-handoff/2026-05-29-v6-citation-index-eval-findings.md §4），
+> 整体 fact_coverage 应能爬到 0.7+，届时阈值再上调到 0.65。
 
 ## 6. 自主决策记录
 
@@ -172,12 +258,14 @@ ReadLints：无 error/warning（修改文件 5 个）。
 
 ## 7. 留给人审 / 后续
 
-- [ ] **跑一次 v6 子集双轨对比**：4 道掉分题（hand-table-007 / hand-multi-001 /
-      hand-proc-003 / hand-proc-004）+ baseline 已命中题各 5 道，看 judge 是否
-      给出符合预期的分（诚实拒答 → MISS；paraphrase → HIT；数值类不答 → MISS）
-- [ ] **据此定 daily 新阈值**（F 选项）：现行 substring 时代 `≥ 0.28`，judge 量级
-      预期上一档；若双轨对比显示 judge 更接近真实信号，把 `06-md §7` 的"非
-      negative `fact_coverage ≥ 0.5`"目标对应到新主字段
+- [x] **跑一次 v6 子集双轨对比**（2026-05-29 14:14-14:27 完成）：4 道掉分题与
+      56 题整体对比见 §5.1；judge 行为完全符合"paraphrase HIT、诚实拒答
+      MISS、数值不出 MISS"的设计预期
+- [x] **据此定 daily 新阈值**（F 选项 2026-05-29 落）：建议 `fact_coverage ≥ 0.55`
+      （详见 §5.1 末段；分类别细化阈值留给观察 7 天 daily 后再上）
+- [ ] **跟进项**：把 `06-md §7` 的 D13 阈值表更新为 `fact_coverage ≥ 0.55`
+      （配合 daily harness 在 PR 里加显式 assert，目前 daily 测试只断言
+      negative weighted_pass + context_recall_section，未对 fact_coverage 设阈）
 - [ ] **mimo 自评偏差监控**：weekly 跑后看 `fact_coverage_judge` vs
       `ragas_faithfulness` 的相关性；若发现 judge 假阳性 ≫ ragas，切 deepseek-v4
       JSON mode 是预案 B（成本：单 judge call 多算 ~30-60s reasoning latency）
