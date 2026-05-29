@@ -125,7 +125,7 @@ ingestion/hf_loader/
 |-------|------|------|
 | `spec_id` | string | 对外展示与 API 使用的 dotted 编号 |
 | `release` | string | "Rel-18" / "Rel-19" |
-| `clause` | string | 章节号 "5.2.1" |
+| `clause` | string | 章节号；支持普通编号（`"5"` / `"5.2.1"`）、字母后缀（`"5.7a"` / `"5.15.11.5a"` / `"5.7a.1"`，常见于 38.321 MBS DRX 等 add-on 章节）、附录（`"A.1.2"` / `"B.3a"`）。无数字前缀的标题（`Foreword` / `Annex A (informative)`）→ `clause=""`。解析正则见 `_CLAUSE_RE` |
 | `section_title` | string | 章节标题 |
 | `body` | string | section markdown（表格/公式 inline） |
 | `body_chars` | int32 | 字符数 |
@@ -784,6 +784,12 @@ return [list(v) for v in resp.vectors]   # 1024 维，直接 upsert，无 trunca
 | Vision 描述费用超预算 | 主库约 27.0k 图片引用，但唯一图片 hash 约 6.4k；若未命中 hash 缓存会重复计费 | 按保留集全量 Vision 要求继续处理，但必须用 hash 缓存、低并发、每日预算阈值、失败队列与人工暂停机制控风险 |
 | HF 数据集需要授权但 token 失败 | HF 服务状态 / token 配置错 | M0 阶段验证 token 可拉取单篇 `raw.md` 与图片；CI 中走匿名公共子集 fixture |
 | Docling fallback 解析失败 | 老格式 / 嵌入特殊对象 | 失败计入 PG 状态表；known_issues 记录 |
+
+### 7.1 已知数据债（待下次 ingest 自然清）
+
+| 日期 | 现象 | 涉及范围 | 已修代码 | 待修数据 |
+|---|---|---|---|---|
+| 2026-05-29 | 字母后缀 clause（`5.7a` / `5.15.11.5a` / `B.3a` 等）被旧 `_CLAUSE_RE` 拒识 → chunk 入库时 `clause=""` / `section_path=[]` → 前端 chip 标签缺 §xxx、跳转走"未关联章节"分支 | **5826 chunk × 190 spec**（38.321 / 36.523-1 / 38.331 / 36.331 / 29.212 是 TOP-5；38.321 §5.7a/§5.7b MBS DRX、5.1.4a MSGB RA 等热门章节均在内）| `ingestion/hf_loader/markdown_parser.py::_CLAUSE_RE` 已重写并补 7 个回归测试（commit `62f608b`）| 现网 PG `chunks_meta.section_path` + Qdrant payload `section_path` + BM25 metadata 仍为 `[]`。下次重 ingest 受影响 spec 即自动修；不重 ingest 则 chip 标签 / 跳转仍坏。详见 [`docs/04-handoff/2026-05-29-clause-letter-suffix-fix.md`](../04-handoff/2026-05-29-clause-letter-suffix-fix.md) |
 
 ## 8. 验收清单
 
