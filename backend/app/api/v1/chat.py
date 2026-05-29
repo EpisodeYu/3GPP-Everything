@@ -509,12 +509,15 @@ def _build_sse_stream(
                     langfuse_trace_id=str(final_state.get("trace_id") or "") or None,
                 )
             )
-            for rank, cit in enumerate(citations):
+            # v6 索引方案：rank = parse_citations 写入的 1-based N（与 prompt
+            # chunks 序号一致），前端 `citationsByRank[N]` 反查。旧的 enumerate
+            # 顺序号（0/1/2）已退役 —— 索引必须保留 LLM 原始 N，否则前端找不到 chip。
+            for cit in citations:
                 db.add(
                     MessageCitation(
                         message_id=assistant_msg_id,
                         chunk_id=str(cit.get("chunk_id") or ""),
-                        rank=rank,
+                        rank=int(cit.get("rank") or 0),
                         rerank_score=cit.get("rerank_score"),
                         spec_id=str(cit.get("spec_id") or ""),
                         section_path=str(cit.get("section_path") or ""),
@@ -561,9 +564,7 @@ def _build_sse_stream(
     return stream()
 
 
-async def _run_autotitle_llm(
-    *, question: str, chat_client: Any, model: str
-) -> str | None:
+async def _run_autotitle_llm(*, question: str, chat_client: Any, model: str) -> str | None:
     """autotitle LLM 包装：只跑 LLM 不动 DB；DB 写由主 task 串行做，避免并发占同一
     AsyncSession（SQLAlchemy AsyncSession 不是 task-safe）。
     """

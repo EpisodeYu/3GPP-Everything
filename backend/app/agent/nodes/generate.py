@@ -8,8 +8,10 @@
   （chat.py 的 `on_custom_event` 处理器 → `token` 事件 → 前端 `partialAnswer`
   逐字渲染）。不走 `on_chat_model_stream` 路径：那条路径只在节点里调用
   LangChain 兼容 chat model 时才触发，本项目走自定义 httpx 客户端。
-- 用 `parse_citations()` 从答案文本里抽 `[spec_id §section_path]`，与 reranked
-  列表按 (spec_id, section_path) 软对齐。
+- 用 `parse_citations()` 从答案文本抽 `[N]` 索引引用（N = chunks 列表 1-based
+  序号），按索引精准回填 chunk 元数据。**v6 已切到索引方案**——LLM 不再拼
+  spec_id/section_path，漂移空间归零；老 v2-v5 的 strict/fuzzy/spec-only 三段
+  fallback 已删除。详见 prompts/generate_qa.md frontmatter v6 notes。
 - "未在已索引 3GPP 文档中找到 …" 兜底：reranked 为空直接产 fallback 答案。
 - 流式失败兜底（网络抖动 / LiteLLM 异常）：catch `LLMError` 后回退到非流式
   `chat()` 再试一次；都失败才返回 fallback。
@@ -35,21 +37,13 @@ from app.core.errors import LLMError
 log = logging.getLogger(__name__)
 
 
-# Citation 正则（v5：放宽到 LLM 实际输出，让"格式漂移"的 citation 也能被认出来 +
-# 软对齐到 chunk）。识别两种形态：
-#   1) `[38.331 §5.3]` / `[23.501 §6.3.1]` / `[38.331 §5.3.5.1.2]` — 严格 dotted clause
-#   2) `[38.331 §*ControlResourceSet* information element]` / `[38.331 § —]` — 含
-#      `*` / 空格 / 破折号占位等非法 section（LLM 抄 chunk header 的常见模式）
-#   3) `[38.331]` — 无 § 段（v5 prompt 在 chunk 无 clause 时要求的形态）
-# `sect` 段一律放宽到"非 `]`、`¶` 的任意串"，与前端 `CitationInlineSyntax` 对齐；
-# `_match_chunk` 负责 strict → fuzzy（title 包含匹配） → spec-only 三段 fallback。
-_CITE_RE = re.compile(
-    r"\[\s*(?P<spec>[0-9]{2}\.[0-9]{3,4}[A-Za-z]?)" r"(?:\s*§\s*(?P<sect>[^\]¶]+?))?" r"\s*\]"
-)
+# Citation 正则（v6：索引方案）。
+# LLM 输出形如 `[1]` / `[3]` / `[1][3]`；N 直接对应 prompt chunks 列表的 1-based 序号。
+# 不再识别 `[spec §section]` 文本格式 —— LLM 不会写它（prompt v6 显式禁止），即便
+# 漂移写了，按"未引用"处理，避免与 markdown link `[text](url)` 误识。
+_CITE_RE = re.compile(r"\[(\d+)\]")
 
-# IE 名 / 章节标题做模糊匹配前的归一：去 markdown 强调符（`*`/`_`/`**`/`__`）、
-# 多余空白、`<b>` / `</b>` 等 HTML 残留。保留字母数字和 `-` / `.`。
-_EMPHASIS_NORMALIZE_RE = re.compile(r"[\*_]")
+# `<b>` / `</b>` 等 HTML 残留：tool 路径 _sanitize_preview 用到，保留。
 _HTML_TAG_RE = re.compile(r"</?[A-Za-z][^>]*>")
 
 
@@ -167,103 +161,48 @@ async def _emit_token(delta: str) -> None:
 
 
 def parse_citations(answer: str, chunks: list[StateChunk]) -> list[dict[str, Any]]:
-    """从答案文本抽 `[spec §section]`（或仅 `[spec]`）并与 chunks 软对齐。
+    """从答案文本抽 `[N]` 索引引用并按索引回填 chunk 元数据（v6 索引方案）。
 
-    对齐规则（`_match_chunk` 三段 fallback）：
-    1. **strict**：spec + section_path 前缀双向匹配（LLM 可能写到 5.3 而 chunk 是
-       5.3.5.1，或反之）
-    2. **fuzzy**：section 段含 `*` / 空格 / IE 名等非 dotted-clause 形态时，
-       归一化后与 `chunk.section_title` 做包含匹配（用于救 LLM 抄 chunk header 的
-       `[38.331 §*ControlResourceSet* information element]` 这种 in-context 漂移）
-    3. **spec-only**：彻底匹不到时退到同 spec 第一条（兼容 `[38.331]` 无 § 形态 +
-       任何其它格式漂移）
+    规则：
+    - 只识别 `[N]`（N 为正整数），N 是 prompt chunks 列表的 1-based 序号。
+    - **越界**（N < 1 或 N > len(chunks)）→ drop（LLM 极少漂到这里，多为边角错误）。
+    - **重复**：同一 N 多次出现 → 只保留首次；多 chunk 引用 `[1][3]` 作为两个 match
+      分别保留。
+    - 顺序：答案文本中首次出现的顺序。
 
-    同一 (spec, sect) 在同一答案里只保留第一次（保留位置以利前端高亮）。返回结构：
-    `[{"chunk_id":..., "spec_id":..., "section_path": "5.3.5", "rank": idx}]`
+    返回结构：
+    `[{"chunk_id":..., "spec_id":..., "section_path": "5.3.5", "section_title":...,
+       "rank": <N>, "rerank_score": ...}]`
+
+    `rank` 字段 = LLM 引用的 N（1-based），与 prompt chunks 序号一致。chat.py
+    持久化 `MessageCitation.rank` 直接取此值；前端 `CitationInlineSyntax` 提取
+    `[N]` 的 N 后做 `citationsByRank[N]` 反查。
     """
     if not answer or not chunks:
         return []
-
-    seen: set[tuple[str, str]] = set()
+    n = len(chunks)
+    seen: set[int] = set()
     out: list[dict[str, Any]] = []
     for m in _CITE_RE.finditer(answer):
-        spec = m.group("spec").strip()
-        sect_raw = m.group("sect")
-        sect = (sect_raw or "").strip().rstrip(".")
-        key = (spec, sect)
-        if key in seen:
+        try:
+            idx = int(m.group(1))
+        except ValueError:
             continue
-        match_chunk = _match_chunk(spec, sect, chunks)
-        if match_chunk is None:
+        if idx < 1 or idx > n or idx in seen:
             continue
-        seen.add(key)
+        seen.add(idx)
+        c = chunks[idx - 1]
         out.append(
             {
-                "chunk_id": match_chunk.chunk_id,
-                "spec_id": match_chunk.spec_id,
-                "section_path": ".".join(match_chunk.section_path),
-                "section_title": match_chunk.section_title,
-                "cite_section_path": sect,
-                "rerank_score": match_chunk.score_rerank,
+                "chunk_id": c.chunk_id,
+                "spec_id": c.spec_id,
+                "section_path": ".".join(c.section_path),
+                "section_title": c.section_title,
+                "rank": idx,
+                "rerank_score": c.score_rerank,
             }
         )
     return out
-
-
-def _normalize_for_fuzzy(s: str) -> str:
-    """归一化 IE 名 / section title 用于模糊匹配：去 HTML 标签、强调符、压空白、小写。"""
-    if not s:
-        return ""
-    s = _HTML_TAG_RE.sub("", s)
-    s = _EMPHASIS_NORMALIZE_RE.sub("", s)
-    return " ".join(s.split()).lower()
-
-
-def _looks_like_dotted_clause(sect: str) -> bool:
-    """判断 sect 是不是 `5.3.5.1` / `A.1.2` / `5a` 这种合法 clause 编号。
-
-    用于决定走 strict 还是 fuzzy 路径。`-` 也允许（出现在 `36.523-1` 这种 spec 后缀
-    场景，但章节侧偶尔也有 `5.3-1` 这种）。
-    """
-    if not sect:
-        return False
-    # 允许：字母前缀（Annex）+ 数字 + `.` / `-`；其它字符（`*` / 空格 / `_`）即非法
-    return bool(re.fullmatch(r"[A-Za-z]?[\d][\w.\-]*", sect))
-
-
-def _match_chunk(spec: str, sect: str, chunks: list[StateChunk]) -> StateChunk | None:
-    # 1) strict：spec + section_path 前缀双向匹配
-    if sect and _looks_like_dotted_clause(sect):
-        sect_norm = sect.rstrip(".")
-        for c in chunks:
-            if c.spec_id != spec:
-                continue
-            chunk_sect = ".".join(c.section_path)
-            if not chunk_sect:
-                continue
-            if chunk_sect == sect_norm:
-                return c
-            if chunk_sect.startswith(sect_norm + ".") or sect_norm.startswith(chunk_sect + "."):
-                return c
-
-    # 2) fuzzy：sect 不像 dotted clause（含 `*` / 空格 / IE 名等） → 与
-    #    chunk.section_title 归一化后包含匹配。让"LLM 抄 chunk header"的 citation
-    #    也能拿到对应 chunk_id，前端 chip 才有 chunk 上下文可展示。
-    if sect:
-        sect_fuzzy = _normalize_for_fuzzy(sect)
-        if sect_fuzzy:
-            for c in chunks:
-                if c.spec_id != spec:
-                    continue
-                title_fuzzy = _normalize_for_fuzzy(c.section_title)
-                if title_fuzzy and (sect_fuzzy in title_fuzzy or title_fuzzy in sect_fuzzy):
-                    return c
-
-    # 3) spec-only：同一 spec 任意 chunk（兼容 `[38.331]` 无 § + 彻底漂移兜底）
-    for c in chunks:
-        if c.spec_id == spec:
-            return c
-    return None
 
 
 # tool 路径 preview / definition / snippet 渲染前的 sanitize（v5）。
