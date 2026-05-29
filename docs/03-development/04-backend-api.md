@@ -422,6 +422,12 @@ def require_role(*roles: str):
   - `chat`：60 req/小时
   - `tools_websearch`：20 calls/天（成本控制）
   - `admin_crawl`：5/天
+  - `chat_daily`：普通用户（`role="user"`）每天最多 `DAILY_CHAT_LIMIT`（默认 100）次对话；
+    按 `APP_TIMEZONE` 本地日切（key 含 `YYYYMMDD`），`admin` 角色豁免。挂在
+    `POST /sessions/{sid}/messages`，与 `chat`（60/h）叠加生效。
+    普通用户「当日首次对话（count==1）/ 首次越界（count==limit+1）」时各经 Server酱
+    （`SERVERCHAN_URL`，复用运维同一通道）fire-and-forget 推一次通知；推送失败不影响
+    限流与对话（`services/notify.py`）。
 
 超限返回 `429 Too Many Requests`。
 

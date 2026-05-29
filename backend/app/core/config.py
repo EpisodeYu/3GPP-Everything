@@ -168,6 +168,16 @@ class Settings(BaseSettings):
     # 显式开关：测试 / 单进程 worker 部署可关掉 scheduler；缺省走 lifespan 自动启动。
     ALERT_SCHEDULER_ENABLED: bool = True
 
+    # === Server酱 推送（用户每日对话配额通知用；与 infra/monitor 同一通道）===
+    # 完整推送 URL（含 SendKey），形如 https://sctapi.ftqq.com/<SendKey>.send；
+    # 空字符串 = 不推送（功能降级为 no-op）。secret，不入日志。
+    SERVERCHAN_URL: SecretStr = SecretStr("")
+
+    # === 普通用户每日对话配额（role=="user"；admin 豁免）===
+    # 每个普通用户每天最多对话次数（一次 POST /sessions/{sid}/messages 计 1 次），
+    # 按 APP_TIMEZONE 本地日 0 点切换。<= 0 视作关闭（不限流、不通知）。
+    DAILY_CHAT_LIMIT: int = 100
+
     @property
     def database_url_sync(self) -> str:
         """同步 driver URL（alembic / sqlite 单测用），把 +asyncpg 换成默认 psycopg。"""

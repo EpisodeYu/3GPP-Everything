@@ -36,7 +36,7 @@ from app.agent.utils.history_compactor import RECENT_N, HistoryMessage, compact_
 from app.core.auth import get_current_user
 from app.core.config import Settings, get_settings
 from app.core.errors import ConflictError, NotFoundError
-from app.core.ratelimit import rate_limit
+from app.core.ratelimit import daily_chat_quota, rate_limit
 from app.db.base import get_db
 from app.db.models import Message, MessageCitation, User
 from app.db.models import Session as DBSession
@@ -186,7 +186,7 @@ async def _load_history(
 
 @router.post(
     "/{sid}/messages",
-    dependencies=[Depends(rate_limit("chat"))],
+    dependencies=[Depends(rate_limit("chat")), Depends(daily_chat_quota())],
 )
 async def send_message(
     sid: uuid.UUID,
