@@ -8,63 +8,55 @@ import '../../../data/api/docs_api.dart';
 import '../../../data/api/messages_api.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
-/// 解析自 markdown 文本 `[<spec_id> §<section_path>( ¶<rank>)?]` 的引用句柄。
+/// 解析自 markdown 文本 `[N]`（N = 1-based 索引，对应 `message.citations[rank=N]`）
+/// 的引用句柄。
 ///
-/// 来源锚：`docs/03-development/05-frontend.md §5.4`：
-/// > chip 与 `message.citations[rank]` 按 `rank` 索引一一对应；
-/// > chunk_id 是 Qdrant point id 字符串。
-///
-/// [rank] 可缺省：generate 节点的 LLM 实际只稳定输出 `[spec §section]`（无 `¶rank`），
-/// 此时 rank 取哨兵值 `0`，chip 仍按 spec+section 跳转，只是 hover 预览拿不到对应 chunk。
-///
-/// [chunkId] 可空：当 message 没带 citation 元数据（如裸 markdown 预览 / 历史脏数据），
-/// chip 仍能跳转到 spec + section 阅读位（只是 hover 预览拉不到 chunk 全文）。
+/// v6（索引引用）锚：`docs/03-development/05-frontend.md §5.4`。
+/// LLM 只输出 `[N]`，spec / section / chunk_id / title 等元数据全部从
+/// `MessageCitationOut`（后端按 N 精准回填）里读，不再从 inline 文本 parse。
+/// 旧 v5 `[spec §section]` 格式 **无 legacy fallback**：旧消息中的引用文本
+/// 会按裸文本显示，不渲染 chip（亦不可点）。文本仍可读。
 class CitationRef {
   const CitationRef({
-    required this.specId,
-    required this.sectionPath,
     required this.rank,
     required this.rawText,
+    this.specId = '',
+    this.sectionPath = '',
     this.chunkId,
   });
 
-  final String specId;
-  final String sectionPath;
+  /// `[N]` 中的 N（1-based）。
   final int rank;
+
+  /// 来自 `MessageCitationOut.specId`；streaming 期间 citations 尚未到达可能为空。
+  final String specId;
+
+  /// 来自 `MessageCitationOut.sectionPath`；streaming 期间或后端没回填可能为空。
+  final String sectionPath;
+
+  /// 来自 `MessageCitationOut.chunkId`；null/空时跳转退到 spec 概览页。
   final String? chunkId;
 
-  /// 原始引用文本（含中括号），供长按复制使用。
+  /// 原始引用文本（含中括号，形如 `[3]`），供长按复制使用。
   final String rawText;
 }
 
-/// markdown 内联引用语法：`[23.501 §5.6.1 ¶3]` / `[38.213 §8.1]`（无 ¶rank）/
-/// `[36.523-1 §7.1.6.2.2]`（多部分 spec 带 `-N` 后缀）。
+/// markdown 内联引用语法：`[N]`（N 为正整数，对齐 v6 索引引用方案）。
 ///
 /// 设计要点：
-/// - 正则 `\[(\d+\.\d+(-\d+)?) §\s*([^\]¶]+?)( ¶\d+)?\]`，`¶rank` 整段可选——后端
-///   generate 的 LLM 实际只稳定输出 `[spec §section]`，强制三段会让引用退化成普通文本。
-/// - section 段刻意放宽到"非 `]`/`¶` 的任意串"（先前 `[\d\.]+` 只认数字+点）：实测
-///   LLM 会输出 `§ 5.2.3.2.1_5.3.3_1`（下划线复合章节）、`§ PDSCH-Config`（IE 名当章节）、
-///   `§ —`（章节未知时的破折号占位），且 `§` 后常多打一个空格。窄正则会让这些整条退化成
-///   裸文本（chip 不渲染 = "超链接失效"）。放宽后至少渲染出 chip；占位/IE 名这类无效目标的
-///   跳转兜底见 [jumpToReader]。根治仍靠 prompt 收紧 LLM 的引用格式。
-/// - 不与 markdown link `[text](url)` 冲突：仍要求 `[` 后紧跟 spec 号且串内含 ` §`。
-/// - spec 号 `\d+\.\d+(-\d+)?` 允许 `23.501` / `38.331`，以及多部分测试规范
-///   `36.523-1` / `38.523-2`（`-N` 后缀不可漏，否则整条引用不渲染）。
+/// - 正则 `\[(\d+)\]`：仅识别纯数字索引。`[spec §section]`（v5 老格式）/
+///   `[link](url)` markdown link 均不匹配，避免误识。
+/// - 元数据（spec / section / chunkId）不在 inline 文本里 —— 由
+///   [CitationElementBuilder] 用 `rank` 反查 `MessageCitationOut`。
 class CitationInlineSyntax extends md.InlineSyntax {
   CitationInlineSyntax() : super(_pattern);
 
-  static const String _pattern =
-      r'\[(\d+\.\d+(?:-\d+)?) §\s*([^\]¶]+?)(?: ¶(\d+))?\]';
+  static const String _pattern = r'\[(\d+)\]';
 
   @override
   bool onMatch(md.InlineParser parser, Match match) {
     final el = md.Element.empty('citation')
-      ..attributes['spec'] = match[1]!
-      // section 段可能带 § 后空格或末尾空白（`§ 5.6.1 ` / `§ — PDSCH-Config`）→ trim
-      ..attributes['section'] = match[2]!.trim()
-      // group 3（¶rank）可能未捕获 → 缺省哨兵 '0'
-      ..attributes['rank'] = match[3] ?? '0'
+      ..attributes['rank'] = match[1]!
       ..attributes['raw'] = match[0]!;
     parser.addNode(el);
     return true;
@@ -74,6 +66,9 @@ class CitationInlineSyntax extends md.InlineSyntax {
 /// `<citation>` element → [CitationChip] widget。
 ///
 /// 调用方在 `MarkdownBody.builders` 里注入：`'citation': CitationElementBuilder(...)`。
+///
+/// **缺 citation 兜底**：rank 未在 `citationsByRank` 中（streaming 中途 / 历史消息 /
+/// LLM 引用了越界 N 被 backend drop）→ 渲染原始 `[N]` 文本（不出 chip 形态、不可点）。
 class CitationElementBuilder extends MarkdownElementBuilder {
   CitationElementBuilder({
     required this.citationsByRank,
@@ -81,7 +76,8 @@ class CitationElementBuilder extends MarkdownElementBuilder {
     this.onLongPress,
   });
 
-  /// 按 `rank` 查 citation 元数据（拿 chunkId）。message 没 citations → 传空 map。
+  /// 按 `rank` 查 citation 元数据（拿 spec / section / chunkId / title）。
+  /// streaming 期间或老消息无 citation → 传空 map / 缺 key → 触发兜底渲染。
   final Map<int, MessageCitationOut> citationsByRank;
 
   /// 点击 chip 触发；默认行为 = 直跳 reader。null 表示交给 [CitationChip] 自处理。
@@ -97,17 +93,20 @@ class CitationElementBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    final spec = element.attributes['spec'] ?? '';
-    final section = element.attributes['section'] ?? '';
     final rank = int.tryParse(element.attributes['rank'] ?? '') ?? 0;
     final raw = element.attributes['raw'] ?? '';
     final citation = citationsByRank[rank];
+    if (citation == null) {
+      // 兜底：rank 找不到对应 citation（streaming 中途 / 老消息 / 越界）。
+      // 渲染裸文本，避免出现空 chip 或丢失字符。
+      return Text(raw, style: preferredStyle);
+    }
     final ref = CitationRef(
-      specId: spec,
-      sectionPath: section,
       rank: rank,
       rawText: raw,
-      chunkId: citation?.chunkId,
+      specId: citation.specId,
+      sectionPath: citation.sectionPath,
+      chunkId: citation.chunkId.isEmpty ? null : citation.chunkId,
     );
     return CitationChip(
       ref: ref,
@@ -124,7 +123,7 @@ class CitationElementBuilder extends MarkdownElementBuilder {
 ///   不再弹 bottom sheet
 /// - hover：弹 [Tooltip] 预览对应 chunk 上下文（拉 `GET /chunks/{chunk_id}`）；
 ///   缺 chunkId 时只显示 "spec §section（无 chunk 上下文）"
-/// - 长按：复制原始引用文本到剪贴板
+/// - 长按：复制原始引用文本（`[N]`）到剪贴板
 class CitationChip extends ConsumerWidget {
   const CitationChip({
     super.key,
@@ -140,9 +139,8 @@ class CitationChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef wref) {
     final scheme = Theme.of(context).colorScheme;
-    // rank 为哨兵 0（无 ¶）时不展示 "¶0"，只显示 spec §section。
-    final label = ref.rank > 0
-        ? '${ref.specId} §${ref.sectionPath} ¶${ref.rank}'
+    final label = ref.sectionPath.isEmpty
+        ? ref.specId
         : '${ref.specId} §${ref.sectionPath}';
     final chip = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -150,7 +148,7 @@ class CitationChip extends ConsumerWidget {
         color: scheme.surfaceContainerHighest,
         shape: StadiumBorder(side: BorderSide(color: scheme.primary)),
         child: InkWell(
-          key: Key('citation_chip_${ref.specId}_${ref.sectionPath}_${ref.rank}'),
+          key: Key('citation_chip_${ref.rank}_${ref.specId}_${ref.sectionPath}'),
           customBorder: const StadiumBorder(),
           onTap: () => (onTap ?? _defaultOnTap)(context, ref),
           onLongPress: () => (onLongPress ?? _defaultOnLongPress)(context, ref),
@@ -209,38 +207,27 @@ class CitationChip extends ConsumerWidget {
 
 /// 跳到 reader 对应章节；chunkId 在则带 `#chunk-` fragment 做锚点定位。
 ///
-/// section 放宽后可能是 LLM 引用格式漂移的产物（实测形态）：
-/// - 破折号占位 `§ —` → sectionPath `—`
-/// - IE 名当章节 `§ *ControlResourceSet* information element` → sectionPath
-///   含 `*` 和空格
-/// - 下划线复合章节 `§ 5.2.3.2.1_5.3.3_1`（这种合法，是 GSMA 注入的多章节合并标记）
-///
-/// 处理：
-/// 1. 先剥前导破折号/空白
-/// 2. 判断是否像合法 dotted clause（`5.3.5.1` / `A.1.2` / `5a` / `5.2.3.2.1_5.3.3_1`）
-/// 3. 不像 → 退到 spec 概览页 `/reader/{spec}` 并给 SnackBar 提示，避免跳进 404
-///    章节路由（后端 `GET /docs/{spec}/sections/{?}` 必 404）
-/// 4. 像 → 正常跳 `/reader/{spec}/{section}`
-///
-/// chunkId 始终带为 `#chunk-` fragment（spec 概览页当前不识别，保留以备未来扩展）。
+/// v6（索引引用）后 sectionPath 直接来自后端 `MessageCitationOut.sectionPath`，
+/// 即 chunks_meta.section_path 的 join('.') 结果——形态稳定（dotted clause 或空串），
+/// 不再有 v5 LLM 漂移的 `*ControlResourceSet*` / `—` 占位等。处理：
+/// 1. 空 → 跳 spec 概览页 `/reader/{spec}`，SnackBar 提示
+/// 2. 合法 dotted clause（`5.3.5.1` / `A.1.2` / `5a` / `5.2.3.2.1_5.3.3_1`）→ 正常跳
+/// 3. 其它（极少，理论上不该发生）→ 概览页兜底
 void jumpToReader(BuildContext context, CitationRef ref) {
   final spec = Uri.encodeComponent(ref.specId);
-  final cleaned = ref.sectionPath.replaceFirst(RegExp(r'^[\s—–-]+'), '').trim();
+  final cleaned = ref.sectionPath.trim();
   final fragment = (ref.chunkId != null && ref.chunkId!.isNotEmpty)
       ? '#chunk-${ref.chunkId}'
       : '';
   final looksLikeClause = cleaned.isNotEmpty &&
       RegExp(r'^[A-Za-z]?[\d][\w.\-]*$').hasMatch(cleaned);
   if (cleaned.isEmpty || !looksLikeClause) {
-    // capture messenger 前置：route go 不会让 ScaffoldMessenger 失效（它是顶级
-    // MaterialApp.router 拥有的），但保留前置 capture 模式与 _defaultOnLongPress
-    // 一致，避免 context 在 go 后被异步路径访问到 disposed 实例。
     final messenger = ScaffoldMessenger.maybeOf(context);
     GoRouter.of(context).go('/reader/$spec$fragment');
-    if (messenger != null && cleaned.isNotEmpty) {
+    if (messenger != null) {
       final hasChunk = ref.chunkId != null && ref.chunkId!.isNotEmpty;
       final msg = hasChunk
-          ? '引用未关联具体章节，已跳转到规范主页（hover chip 可看 chunk 摘要）'
+          ? '引用未关联具体章节（IE/ASN.1 chunk），已跳转到规范主页（hover chip 可看 chunk 摘要）'
           : '引用无法定位到具体章节，已跳转到规范主页';
       messenger.showSnackBar(
         SnackBar(
@@ -267,7 +254,9 @@ class _CitationPreview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef wref) {
     final theme = Theme.of(context);
-    final header = '${ref.specId} §${ref.sectionPath}';
+    final header = ref.sectionPath.isEmpty
+        ? ref.specId
+        : '${ref.specId} §${ref.sectionPath}';
     final headerStyle = theme.textTheme.labelLarge?.copyWith(
       color: theme.colorScheme.onSurface,
       fontWeight: FontWeight.w600,
@@ -277,8 +266,8 @@ class _CitationPreview extends ConsumerWidget {
     );
 
     if (ref.chunkId == null || ref.chunkId!.isEmpty) {
-      // 后端 parse_citations 在三段 fallback 都匹不到时不会填 chunk_id（罕见，
-      // 多见于 LLM 引用了未召回的 spec）。此时只能展示标题，不展示 chunk 摘要。
+      // v6 索引方案：parse_citations 必然回填 chunk_id，此分支只剩极端兜底
+      // （DB 老数据 / chunk_id 写入失败）。
       return Text(
         '$header（未关联 chunk）',
         key: const Key('citation_preview_no_chunk'),

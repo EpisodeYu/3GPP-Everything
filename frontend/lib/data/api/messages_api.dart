@@ -188,8 +188,8 @@ class Citation {
     required this.chunkId,
     required this.specId,
     required this.sectionPath,
+    required this.rank,
     this.sectionTitle,
-    this.citeSectionPath,
     this.rerankScore,
   });
 
@@ -197,16 +197,19 @@ class Citation {
         chunkId: (j['chunk_id'] as String?) ?? '',
         specId: (j['spec_id'] as String?) ?? '',
         sectionPath: (j['section_path'] as String?) ?? '',
+        rank: (j['rank'] as num?)?.toInt() ?? 0,
         sectionTitle: j['section_title'] as String?,
-        citeSectionPath: j['cite_section_path'] as String?,
         rerankScore: (j['rerank_score'] as num?)?.toDouble(),
       );
 
   final String chunkId;
   final String specId;
   final String sectionPath;
+
+  /// v6 索引引用方案：`[N]` 中的 N（1-based），与 `MessageCitationOut.rank` 对齐。
+  /// 老消息（v5 数据）该字段缺失 → 默认 0。
+  final int rank;
   final String? sectionTitle;
-  final String? citeSectionPath;
   final double? rerankScore;
 }
 

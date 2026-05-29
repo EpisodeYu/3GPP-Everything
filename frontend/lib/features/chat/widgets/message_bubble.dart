@@ -13,9 +13,10 @@ import 'citation_chip.dart';
 /// LaTeX 仅识别块级 `$$ ... $$`；内联 `$ ... $` 留 M5.6 视语料反馈再加，
 /// 避免 markdown 里的美元符号被误判（如 "$10"）。
 ///
-/// 引用 chip（M5.3）：消息文本里 `[<spec_id> §<section_path> ¶<rank>]` 由
+/// 引用 chip（v6 索引方案）：消息文本里 `[N]`（N = 1-based 索引）由
 /// [CitationInlineSyntax] + [CitationElementBuilder] 渲染成可点击 chip；
-/// [citations] 按 rank 映射到 chunk_id，让 chip 点击能弹出 bottom sheet。
+/// [citations] 按 `rank=N` 反查拿到 spec / section / chunk_id 等元数据。
+/// 老消息 v5 `[spec §section]` 格式无 legacy fallback，仅按裸文本显示。
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
     super.key,
@@ -91,8 +92,9 @@ class MessageBubble extends StatelessWidget {
 
 /// 流式 token 累积态下的 assistant 气泡（带闪烁光标）。
 ///
-/// streaming 期间还没有 final.citations，chip 仍能渲染（只是点开拉详情可能 404
-/// —— 但 streaming 时基本不会有完整 `[X §Y ¶Z]` 串）。
+/// streaming 期间 citations 还未到达 → `[N]` 索引找不到对应元数据，
+/// [CitationElementBuilder] 按裸文本渲染 `[N]`。final 事件到达后整条消息重渲染，
+/// `[N]` 被替换成完整 chip。
 class StreamingAssistantBubble extends StatelessWidget {
   const StreamingAssistantBubble({super.key, required this.partial});
 
