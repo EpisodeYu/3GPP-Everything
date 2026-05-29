@@ -82,13 +82,31 @@ async def classify_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
         out = _parse_classify(resp) or _FALLBACK
 
     rewritten = out.rewritten_query.strip() or user_input
-    explicit_tools = list(out.needs_explicit_tools or [])
+    explicit_tools_from_llm = list(out.needs_explicit_tools or [])
+    # v2 防御性兜底（2026-05-28）：classify prompt 已不再触发 `params`，但
+    # 1) prompt v1 缓存场景 / 2) 模型偶发漂移 仍可能产 `params`。为彻底消除
+    # "DCI X 字段 → BM25 dump 冒充答案" 回归路径，这里硬过滤掉 LLM 自动产的
+    # params。注意：用户在前端 / API 显式勾选 `params`（写入 state.explicit_tools）
+    # 仍尊重，因为那是用户主动意图，不是路由误判。
+    explicit_tools_from_llm = [t for t in explicit_tools_from_llm if t != "params"]
+    explicit_tools = list(explicit_tools_from_llm)
     explicit_tools.extend(t for t in state.explicit_tools if t not in explicit_tools)
+
+    query_class = out.query_class
+    # 如果 LLM 把 query 路由到 tool 但唯一指向 params（被我们过滤了），
+    # tool 路径会走到空 tool_results → 触发 generate fallback "未找到"，
+    # 比 RAG 答案更差。降级成 `definition` 走正常 RAG 路径。
+    if query_class == "tool" and not explicit_tools:
+        log.info(
+            "classify_node: downgrading query_class=tool→definition because "
+            "all tool intents were filtered (likely v1 params drift)"
+        )
+        query_class = "definition"
 
     detected_lang = "zh" if out.detected_language == "zh" else "en"
 
     return {
-        "query_class": out.query_class,
+        "query_class": query_class,
         "complexity": out.complexity,
         "user_language": cast(Any, detected_lang),
         "rewritten_queries": [rewritten],
