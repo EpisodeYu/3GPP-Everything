@@ -524,14 +524,19 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
       },
       createdAt: now,
       confidence: run.confidence,
+      // v6 索引方案：rank 必须沿用后端 final 事件里的 1-based N（即 LLM 原始
+      // `[N]` 中的 N，由 backend `parse_citations` 写入），**禁止用 loop 索引**。
+      // 用 loop 索引会让 [6][8] 这类非连续 / 跳号引用在 citationsByRank 里找不到
+      // 对应条目 → chip 退化为裸文本；同时 [1][2] 会反查到错位的 chunk 元数据，
+      // 表现为多个 chip 显示同一 spec §section（用户 2026-05-29 复现）。
       citations: [
-        for (var i = 0; i < run.citations.length; i++)
+        for (final cit in run.citations)
           MessageCitationOut(
-            chunkId: run.citations[i].chunkId,
-            rank: i,
-            specId: run.citations[i].specId,
-            sectionPath: run.citations[i].sectionPath,
-            rerankScore: run.citations[i].rerankScore,
+            chunkId: cit.chunkId,
+            rank: cit.rank,
+            specId: cit.specId,
+            sectionPath: cit.sectionPath,
+            rerankScore: cit.rerankScore,
           ),
       ],
     );

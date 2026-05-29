@@ -73,9 +73,9 @@ void main() {
       const TokenEvent(delta: 'lo'),
       const FinalEvent(
         messageId: 'asst-1',
-        answer: 'Hello',
+        answer: 'Hello [1]',
         citations: [
-          Citation(chunkId: 'c1', specId: '23.501', sectionPath: '5.6.1'),
+          Citation(chunkId: 'c1', specId: '23.501', sectionPath: '5.6.1', rank: 1),
         ],
         confidence: 0.83,
       ),
@@ -93,9 +93,46 @@ void main() {
     expect(s.history[0].role, 'user');
     expect(s.history[0].content, 'hi');
     expect(s.history[1].role, 'assistant');
-    expect(s.history[1].content, 'Hello');
+    expect(s.history[1].content, 'Hello [1]');
     expect(s.history[1].citations.length, 1);
+    expect(s.history[1].citations.first.rank, 1);
     expect(s.history[1].confidence, 0.83);
+  });
+
+  // v6 索引方案回归（2026-05-29 用户复现）：final 事件里的 Citation.rank
+  // （1-based，来自 backend `parse_citations` 写入的 N）必须原样写到
+  // MessageCitationOut.rank。原 _flushDoneToHistory 误用 loop 索引（0/1/2/3），
+  // 导致 LLM 输出 [1][2][6][8] 时：
+  //   - [1][2] 反查到错位 chunk 元数据（多个 chip 显示同一 spec §section）
+  //   - [6][8] 在 byRank 里缺失 → 退化为裸文本 chip 不可点
+  test('final 事件含非连续 rank（1/2/6/8）→ MessageCitationOut.rank 沿用后端 N', () async {
+    final api = FakeMessagesApi(events: [
+      const RunStartEvent(runId: 'r', sessionId: sid, messageId: 'asst-1'),
+      const FinalEvent(
+        messageId: 'asst-1',
+        answer: '一段 [1][2] 中间 [6] 又一段 [8]。',
+        citations: [
+          Citation(chunkId: 'c-1', specId: '38.321', sectionPath: '5.7', rank: 1),
+          Citation(chunkId: 'c-2', specId: '38.321', sectionPath: '5.7', rank: 2),
+          Citation(chunkId: 'c-6', specId: '38.321', sectionPath: '5.7.3', rank: 6),
+          Citation(chunkId: 'c-8', specId: '36.321', sectionPath: '5.5', rank: 8),
+        ],
+        confidence: 0.9,
+      ),
+      const EndEvent(),
+    ]);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    await c.read(chatControllerProvider(sid).notifier).send('q');
+
+    final s = c.read(chatControllerProvider(sid)).value!;
+    expect(s.run.status, RunStatus.idle);
+    expect(s.history.length, 2);
+    final cits = s.history[1].citations;
+    expect(cits.map((e) => e.rank).toList(), [1, 2, 6, 8]);
+    expect(cits.map((e) => e.chunkId).toList(),
+        ['c-1', 'c-2', 'c-6', 'c-8']);
   });
 
   test('token 累积到 partialAnswer；final 覆盖为 answer', () async {
