@@ -2,16 +2,18 @@
 
 > 基于 3GPP 规范文档的生产级 RAG Agent —— 让你像查代码一样查协议。
 
-[![Status](https://img.shields.io/badge/status-M0--M7%20%2B%20M5%20✅%20%2F%20M8%20上线进行中-blue)]() [![Index](https://img.shields.io/badge/index-1270%20specs%20%2F%20394k%20chunks-success)]() [![Golden](https://img.shields.io/badge/golden-175%20items-informational)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-3%20parts-orange)](./docs/README.md)
+### 🌐 在线体验：**[https://3gpp-everything.org](https://3gpp-everything.org)**
+
+[![Live](https://img.shields.io/badge/live-3gpp--everything.org-brightgreen)](https://3gpp-everything.org) [![Status](https://img.shields.io/badge/status-M0--M8%20✅%20公网运行中-blue)]() [![Index](https://img.shields.io/badge/index-1270%20specs%20%2F%20394.8k%20chunks-success)]() [![Golden](https://img.shields.io/badge/golden-175%20items-informational)]() [![Tests](https://img.shields.io/badge/tests-be%20469%20%2F%20fe%20190%2B%20%2F%20ingest%20290-success)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-4%20parts-orange)](./docs/README.md)
 
 ## 是什么
 
 一个对 3GPP 标准文档做深度 RAG 的 Agent 系统。你可以：
 
 - **问问题，拿原文**：用自然语言问"PDU Session 建立完整流程是什么"，得到带段落级原文引用的回答，点击引用直接跳到完整章节阅读器
-- **找原文**：切到"纯检索"模式，输入关键词返回相关章节段落 + 跳转
 - **跨文档对比**：问"23.501 R18 vs R19 在 NEF 服务上的差异"，Agent 自动走多文档检索 + 对比
 - **工具型查询**：缩写表、章节目录、参数 IE 字段查询
+- **读原文**：阅读器内按 spec / 章节直接检索定位段落，引用 chip 一键跳转
 
 **严格 grounding**：找不到证据就直说"未在 3GPP 文档中找到"，绝不用模型通用知识糊弄。
 
@@ -19,23 +21,24 @@
 
 ```
 M0 准备 ─ M1 数据接入 ─ M2 索引 POC ─ M3 维度决胜 ─ M4 Agent+后端 ─ M6 全量索引 ─ M7 评测扩展 ─ M5 前端 ─ M8 上线
-   ✅        ✅           ✅            ✅(1024)      ✅              ✅(1270 specs)  ✅             ✅(M5.0-M5.6) ⏳ 公网就绪/待真机回归 + 回滚演练
+   ✅        ✅           ✅            ✅(1024)      ✅              ✅(1270 specs)  ✅             ✅(M5.0-M5.6)  ✅ 公网运行中
 ```
+
+**全链路打通**：从 GSMA HF 数据集 → 全量索引 → LangGraph Agent → Flutter Web/Android → HTTPS 公网，已端到端跑通并部署在 **[3gpp-everything.org](https://3gpp-everything.org)**。剩 Chrome/Android 真机交互回归（人主审）。
 
 **阶段性产出**：
 
 | 里程碑 | 关键产出 |
 |---|---|
 | M3 (2026-05-16) | Voyage `voyage-4-large` **1024 维**胜出（MRL，2048 vs 1024 retrieval 差距 ≤ 2pp，tie-fallback 选 1024） |
-| M4 (2026-05-18) | LangGraph 主干 9 节点 + self-RAG + 工具 dispatch + dual-path（simple/complex/raw_lookup）；FastAPI 全套路由（auth/sessions/chat SSE/checkpoint/reader/tools/admin/health）；176 unit + 80 integration 全绿 |
+| M4 (2026-05-18) | LangGraph 主干 9 节点 + self-RAG + 工具 dispatch + dual-path（simple/complex）；FastAPI 全套路由（auth/sessions/chat SSE/checkpoint/reader/tools/admin/health） |
 | M6 (2026-05-17) | GSMA Rel-18+Rel-19 5G 系列 TS **1270 篇**全量索引：394,859 chunks 入 `tgpp_chunks_voyage_d1024` + BM25 持久化（by_spec/jsonl）+ PG `chunks_meta`；Voyage 94.4M tokens / 9.5h |
 | M7.0 (2026-05-20) | 金标准 `eval/golden/v1.yaml` 扩到 **175 题**（119 TeleQnA 转化 + 56 手写） |
-| M7.5 (2026-05-22) | retrieval ablation runner + 默认参数校准；175 题 post-fix baseline（M8 调优起点） |
-| M7.6 (2026-05-24) | `.github/workflows/eval-{daily,weekly}.yml` 落地：cron + workflow_dispatch + 阈值未达自动开 issue + artifact 上传；judge 从 `glm-5.1` 升 `deepseek-v4-pro`（与生成模型异源） |
-| M7.7+ (2026-05-24) | M8 baseline (`eval-results/m8-baseline/`) + Langfuse Cloud 推 175 dataset items + 1 dataset run，留作 M8 调优锚 |
-| M5 规划 (2026-05-24) | 前端规划同步：拆 **M5.0~M5.6** 七段子里程碑（骨架→AppShell→SSE 流式核心→引用 chip + Reader→Checkpoint UX→Admin→i18n + Docker）；详见 [`docs/03-development/05-frontend.md §0`](./docs/03-development/05-frontend.md) |
-
-**当前焦点**：M8 上线收尾 —— 业务容器 + 独立 ingress 项目 + Let's Encrypt 已就绪，`https://3gpp-everything.org/` 公网 200；剩 Chrome/Android 真机回归（人主审）、live eval × 2 次连跑（待 GH secrets 配齐）、失败回滚演练 1 次；详见 [`docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md`](./docs/04-handoff/2026-05-26-m8-deploy-bootstrap.md) §六 硬门禁。
+| M7.6 (2026-05-24) | `.github/workflows/eval-{daily,weekly}.yml` 落地：cron + workflow_dispatch + 阈值未达自动开 issue + artifact 上传；judge 从 `glm-5.1` 升 `deepseek-v4-pro`（与生成模型异源避免 self-bias） |
+| M5 (2026-05-25) | Flutter Web+Android **M5.0~M5.6 全部子里程碑**：骨架→AppShell→真流式 SSE→引用 chip + Reader→Checkpoint UX→Admin→i18n + 主题 + Docker |
+| M8 (2026-05-27) | 公网上线：业务容器（api/web/ingest）+ 独立 ingress 项目（Nginx + Let's Encrypt + 跨项目分流）+ PG/Redis 自带；备份/沙箱恢复演练（419 MB dump → 21s 恢复，9 表全对账）+ live eval round 1 通过 |
+| v6 (2026-05-29) | **引用契约重构**：`[spec_id §section_path]` 文本 → `[N]` 索引方案，消除 prompt/后端/前端三处正则耦合，净减 217 行；ragas faithfulness 0.52 → **0.69** |
+| 增量 (2026-05-29) | 普通用户每日对话配额（100/天 + Server酱通知）；安全加固（登录限流 + SSE 错误脱敏 + prod 关 Swagger）；fact_coverage 由 substring 子串匹配切到 LLM judge |
 
 里程碑按"完成度门禁"推进（**不绑定时间表**）：上一个里程碑的门禁未全绿，不进下一个。
 完整里程碑与"必须自动化 / 必须人审"清单见 [`docs/03-development/00-overview.md`](./docs/03-development/00-overview.md)。
@@ -83,6 +86,7 @@ M0 准备 ─ M1 数据接入 ─ M2 索引 POC ─ M3 维度决胜 ─ M4 Agent
 | 层 | 选型 |
 |---|---|
 | 后端 | FastAPI + SSE + Pydantic v2 + python-jose（JWT + refresh + RBAC） |
+| 安全 / 限流 | 登录暴力破解防护（`login` 桶 10 次/5min，按 `X-Real-IP`）+ 普通用户每日对话配额（100/天，admin 豁免，Redis 按本地日切计数）+ SSE 错误脱敏（内部异常只进日志，对外仅回通用文案）+ prod 关闭 Swagger/ReDoc |
 | 前端 | Flutter 3.x（Web + Android 同码） + Riverpod 2.x + go_router + dio (SSE) + flutter_markdown_plus + flutter_math_fork；**黑白主调 + 冷调蓝 accent**（参考 Google AI Studio / Grok mobile） |
 | Web 搜索（用户显式触发） | Tavily |
 | 监控 | Langfuse Cloud（每节点 span + token stream + dataset run）|
@@ -176,9 +180,11 @@ reranked = await voyage_client.rerank(query, [c.content for c in unique], model=
 **严格 grounding 三层守约**：
 
 1. Prompt 强约束："仅基于 reranked 内容生成；找不到 → 明示'未在 3GPP 文档中找到 …'"
-2. 引用格式 `[spec_id § section_path ¶offset]` + 正则抽取写入 `state.citations`
-3. self-RAG 用**独立模型**避免同源偏差；`insufficient` 直接走"找不到"分支
+2. **引用 = `[N]` 索引方案（v6，2026-05-29）**：LLM 只输出 chunks 列表的 1-based 下标 `[N]`，后端做一行索引边界检查 + 去重回填 `spec_id / section_path` 元数据，前端正则 `\[(\d+)\]` 按 rank 反查渲染成可点 chip → 完整章节阅读器。**消除了过去 prompt / 后端正则 / 前端正则三处文本格式耦合导致的引用漂移**（旧方案 100+ 行三段 fallback → 净减 217 行）
+3. self-RAG 用**独立模型**（`mimo-v2.5`，与生成主脑 `mimo-v2.5-pro` 异源）避免同源偏差；`insufficient` 直接走"找不到"分支
 4. `web_search` 工具仅在用户**显式触发**（`explicit_tools` 含 `"web_search"`）才调用，结果强制加前缀"以下内容来自 Web 搜索，未经 3GPP 验证："
+
+> **为什么 `[N]` 比 `[spec §section]` 好**：文本引用要让 LLM 精确复述 spec_id + 章节路径，任何一个字符漂移（全角括号、漏空格、section 号笔误）都会让前端正则匹配失败、chip 渲染成死链。改成索引后，LLM 只需吐一个数字，"哪个 chunk"的事实由后端用 chunks 列表权威回填，引用正确性不再依赖模型的字符级精度。
 
 ### 流式 + 可控
 
@@ -188,6 +194,26 @@ reranked = await voyage_client.rerank(query, [c.content for c in unique], model=
 - **多轮历史压缩**：取最近 6 条原文 + 旧消息 `mimo-v2.5` summary 注入 prompt 头部，Redis `tgpp:cache:history_summary:{session_id}` TTL 24h
 
 详细节点实现 / Prompt 库 / Checkpoint 操作集见 [`docs/03-development/03-agent.md`](./docs/03-development/03-agent.md)。
+
+## 工程亮点（关键决策 & 踩过的坑）
+
+> 选了几个值得展开的技术细节，多数来自真实事故复盘 —— 见 [`docs/04-handoff/`](./docs/04-handoff/) 每个里程碑的完成报告。
+
+- **引用 `[N]` 索引化（v6）**：文本引用 `[spec §section]` 要求 LLM 字符级精确复述章节路径，任何漂移都让前端 chip 渲染成死链；改成让 LLM 只吐 chunks 下标 `[N]`、后端权威回填元数据后，整类"引用格式漂移"bug 被结构性消除，引用解析从 100+ 行三段 fallback 缩到一行边界检查。
+
+- **`chunk_id` 真·幂等**：`uuid5(spec_id + clause + sha256(content)[:16])` —— 内容不变 → ID 不变 → 重跑全量索引零重复、可断点续跑。394,859 chunks 全量重建不依赖"先清后建"。
+
+- **reasoning model 的 `max_tokens` 陷阱**：MiMo 思考模式会把 `temperature` 偷偷改成 1.0，且 reasoning token 会吃光 `max_tokens` 预算 —— 表现为自动标题 / 改写节点 `content` 永远为空。短输出节点统一 `thinking=disabled`（LiteLLM 必须用 `extra_body` 包裹），长推理节点才放宽预算。
+
+- **chunker `garbage_filter` 误杀大表**：单条 `pipe_ratio > 0.80` 的 TOC 启发式把 38.212 §7.3.1.2.2（31.7 万字符、12+ 张 DCI 字段查表）整段静默 drop，导致"列出 DCI 1_1 字段"查不到原文。修复加 AND 条件（pipe 行多数末尾匹配页码模式才判 TOC），单 spec 找回 1020 个 chunks。
+
+- **small2big + 原子块切分**：~250 token 小检索 chunk 命中后按 `parent_section_id` 回捞整段 section 喂 reranker / LLM；表格 / 公式 / 图片 / ASN.1 / RRC action list 走原子切片不切碎；chunk 头部强制注入 `[<spec_id> § <clause> <title>]` 让 BM25 命中标题词、embedding 获得上下文。
+
+- **Vision 方案 E（单次调用结构化）**：mimo-v2.5 一次调用同时产出图片 description + 结构化字段（figure_kind / visible_labels / visible_acronyms / spec_role），Redis 按 `sha256(image_bytes)` 永久去重缓存（27k 图片引用 → 6.4k 唯一），把全量 Vision 成本压到一半以下。
+
+- **eval judge 与生成异源**：ragas faithfulness / relevancy / correctness 用 `deepseek-v4-pro`（M7.6 从 `glm-5.1` 升级），刻意与生成主脑 `mimo-v2.5-pro` 不同供应商，避免 self-bias 把"自己写的答案"判高分。fact_coverage 也从脆弱的子串匹配升级为 LLM judge（子串对 paraphrasing 太敏感，诚实拒答反而被扣分）；拒答题则由独立的 negative judge 三档判别。
+
+- **复用宿主服务**：在一台 2 核 / 3.8GB 内存的机器上，Qdrant / Redis / LiteLLM 全部复用宿主已运行实例、仅靠命名空间隔离，不再起第二套；PG/Redis 后来按需与共享实例解耦为本项目自带（`tgpp-postgres` / `tgpp-redis`）。
 
 ## 架构速览
 
@@ -219,7 +245,7 @@ flowchart LR
 
 ## 文档
 
-整个 Plan 分三部分，按顺序阅读：
+整个 Plan 分四部分，按顺序阅读：
 
 | # | 文档 | 主题 |
 |---|------|------|
@@ -261,13 +287,14 @@ uv run --project eval python -m eval.cli golden validate -f eval/golden/v1.yaml
 uv run --project eval python -m eval.cli golden stats    -f eval/golden/v1.yaml
 
 # ── 测试 / lint ─────────────────────────────────────────
-make lint                                             # ruff + black + mypy
-cd backend    && uv run pytest -m unit                # 176 unit
-cd backend    && uv run pytest -m integration         # 86 + 20 integration (含 F-1~F-6 hotfix 后)
-cd ingestion  && uv run pytest                        # 292 passed, 6 skipped
+make lint                                             # ruff + black + mypy 全绿
+cd backend    && uv run pytest -m unit                # 313 unit
+cd backend    && uv run pytest -m integration         # 116 integration（最近全量回归 469 passed / 1 skipped）
+cd ingestion  && uv run pytest                        # ~290 passed
+cd frontend   && flutter test                         # 190+ widget/unit；flutter analyze 0
 ```
 
-> Flutter 前端 (`frontend/`) 已完成 **M5.0–M5.6 全部子里程碑**（2026-05-25 收尾）：Riverpod + go_router + dio SSE + 真流式 Fetch+ReadableStream + checkpoint UI + admin + i18n + 主题切换 + golden + Docker，168 测试 + analyze 0 / web-smoke / web-build CI 全绿；详见 [`docs/03-development/05-frontend.md §0`](./docs/03-development/05-frontend.md) 与 `docs/04-handoff/2026-05-25-m5.6-completion.md`。
+> Flutter 前端 (`frontend/`) 已完成 **M5.0–M5.6 全部子里程碑**（2026-05-25 收尾）：Riverpod + go_router + dio SSE + 真流式 Fetch+ReadableStream + checkpoint UI + admin + i18n + 主题切换 + golden + Docker，analyze 0 / web-smoke / web-build CI 全绿；详见 [`docs/03-development/05-frontend.md §0`](./docs/03-development/05-frontend.md) 与 `docs/04-handoff/2026-05-25-m5.6-completion.md`。
 
 ## 生产部署
 
@@ -352,10 +379,10 @@ make prod-restore BACKUP=./backups/<ts>
 完整版见 [`docs/01-requirements.md §6`](./docs/01-requirements.md#6-验收标准高阶)。
 
 - ✅ GSMA Rel-18 + Rel-19 5G 系列 TS（1270 篇）完成索引
-- ✅ 金标准 175 题落地；`eval-{daily,weekly}` CI 已就位；M8 baseline + Langfuse dataset run 推送完毕（连跑 2 次 ≥ 严格阈值留到 M8 backend 公网部署后跑）
-- ✅ Web 端走完"提问 → 流式响应 → 看引用 → 跳章节"（M5.0-M5.6 全部子里程碑完成；Android 真机回归 [human] 待跑）
-- ✅ Docker Compose 一键拉起；✅ Nginx + HTTPS + Let's Encrypt 公网可访问（M8 ingress + 证书已落地，`https://3gpp-everything.org/` 200）
-- ✅ CI lint + unit + integration 全绿；eval-daily / eval-weekly cron 已就位（live eval × 2 次连跑待 backend 公网 secrets 配齐）
+- ✅ 金标准 175 题落地；`eval-{daily,weekly}` CI 已就位；M8 baseline + Langfuse dataset run 推送完毕；公网 live eval round 1 通过（round 2 经人决定按 round 1 为准）
+- ✅ Web 端走完"提问 → 流式响应 → 看引用 → 跳章节"（M5.0-M5.6 全部子里程碑完成；Android 真机交互回归 [human] 待跑）
+- ✅ Docker Compose 一键拉起；✅ Nginx + HTTPS + Let's Encrypt 公网可访问（`https://3gpp-everything.org/` 运行中）
+- ✅ CI lint + unit + integration 全绿；eval-daily / eval-weekly cron 已就位；备份 + 沙箱恢复演练通过（419 MB dump → 21s 恢复，9 表对账）
 
 ## 不在本期范围
 
@@ -373,12 +400,12 @@ make prod-restore BACKUP=./backups/<ts>
 
 ## English (brief)
 
-A production-grade RAG agent over 3GPP specifications.
+A production-grade RAG agent over 3GPP specifications — **live at [3gpp-everything.org](https://3gpp-everything.org)**.
 
 - **Stack**: LangGraph (orchestration) + LlamaIndex (retrieval) + LangChain (tools); FastAPI + SSE backend; Flutter Web/Android frontend (mono / cool-blue accent, AI-Studio-like)
-- **Models**: `mimo-v2.5-pro` / `mimo-v2.5` (local LiteLLM, omni multimodal) + Voyage `voyage-4-large` @ 1024d (MRL-truncated) + `rerank-2.5`; judge `deepseek-v4-pro` (cross-vendor anti self-bias)
-- **RAG strategy**: GSMA/3GPP HF dataset → small2big chunking (target 250 / max 400 / overlap 50 Voyage tokens, atomic blocks for tables/formulas/ASN.1/figures) → mimo-v2.5 Vision for figures → hybrid retrieval (Qdrant dense + LlamaIndex BM25 + RRF) → Voyage rerank → LangGraph dual-path (simple fast / complex with HyDE+multi-query+self-RAG / raw lookup)
-- **Grounding**: strict citation-only generation; web search only when explicitly invoked; self-RAG verifier with cap-2 retry
-- **Status (2026-05-24)**: M0–M4, M6, M7 done (1270 specs / 394,859 chunks indexed; 175-item golden + daily/weekly CI; M8 baseline + Langfuse dataset run pushed). **M5 Flutter frontend starting (M5.0~M5.6 sub-milestones planned); M8 deploy preparation in parallel.**
+- **Models**: `mimo-v2.5-pro` / `mimo-v2.5` (local LiteLLM, omni multimodal) + Voyage `voyage-4-large` @ 1024d (MRL-truncated) + `rerank-2.5`; judges `deepseek-v4-pro` / `mimo-v2.5-pro` (cross-vendor anti self-bias)
+- **RAG strategy**: GSMA/3GPP HF dataset → small2big chunking (target 250 / max 400 / overlap 50 Voyage tokens, atomic blocks for tables/formulas/ASN.1/figures) → mimo-v2.5 Vision for figures → hybrid retrieval (Qdrant dense + LlamaIndex BM25 + RRF) → Voyage rerank → LangGraph dual-path (simple fast / complex with HyDE+multi-query+self-RAG)
+- **Grounding**: strict citation-only generation with `[N]` index-based citations (v6 — kills prompt/backend/frontend regex coupling); web search only when explicitly invoked; cross-model self-RAG verifier with cap-2 retry
+- **Status (2026-05-29)**: M0–M8 done — deployed to public HTTPS at [3gpp-everything.org](https://3gpp-everything.org). 1270 specs / 394,859 chunks indexed; 175-item golden + daily/weekly CI (ragas faithfulness 0.69); per-user daily quota + login rate-limiting + SSE error redaction shipped. Remaining: human-driven Chrome/Android device regression.
 
 See [`docs/`](./docs/) for the full plan.
