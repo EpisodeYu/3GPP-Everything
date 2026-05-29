@@ -237,6 +237,66 @@ void main() {
       );
     });
 
+    // 真实场景回归（2026-05-29 用户复现"什么是 DRX"）：同一 rank [1] 在文本里出现
+    // 多次 → 每次都得渲染成同一 chip（key 相同 → Flutter 视为同一逻辑节点，
+    // 但渲染出来的 widget label 必须一致）。
+    testWidgets('同一 rank [1] 在文本出现多次 → 都映射到同一 chip label', (tester) async {
+      await tester.pumpWidget(_wrap(
+        child: const MessageBubble(
+          role: 'assistant',
+          content: 'a [1]。b [1]。c [1]。',
+          citations: [
+            MessageCitationOut(
+                chunkId: 'c-1', rank: 1, specId: '36.321', sectionPath: '5.7'),
+          ],
+        ),
+      ));
+      await tester.pumpAndSettle();
+      // 三次 [1] 都应渲染成 "36.321 §5.7" chip（key 相同，但 widget tree 里
+      // 出现 3 次）。Flutter test 框架找的是 widget 实例数。
+      expect(find.text('36.321 §5.7'), findsNWidgets(3));
+      expect(find.byType(CitationChip), findsNWidgets(3));
+    });
+
+    // 真实场景回归（2026-05-29 "什么是 DRX"完整复现）：streaming 里 LLM 输出
+    //   [1] ... [1][5] ... [1] ... [2][4] ... [1] ... [3]
+    // 后端 parse_citations 拿到 5 个 unique rank：1, 5, 2, 4, 3（按首现序）。
+    // 多个 chunk 落在同一 §5.7 是正常 retrieval 现象（rank=1 和 rank=2 都在
+    // 36.321 §5.7；rank=5 和 rank=4 都在 38.321 §5.7；rank=3 无 section）。
+    // chip label 重复属正常视觉效果，但 **每个 chip 必须按其 rank 取对元数据**。
+    testWidgets('真实 DRX 场景：[1] x4 + [1][5] + [2][4] + [3] 全部按 rank 取对元数据',
+        (tester) async {
+      await tester.pumpWidget(_wrap(
+        child: const MessageBubble(
+          role: 'assistant',
+          content:
+              'DRX [1]。配置 [1][5]。机制 [1]。状态 [2][4]。场景 [1]。MBS [3]。',
+          citations: [
+            MessageCitationOut(
+                chunkId: 'c-1', rank: 1, specId: '36.321', sectionPath: '5.7'),
+            MessageCitationOut(
+                chunkId: 'c-2', rank: 2, specId: '36.321', sectionPath: '5.7'),
+            MessageCitationOut(
+                chunkId: 'c-3', rank: 3, specId: '38.321', sectionPath: ''),
+            MessageCitationOut(
+                chunkId: 'c-4', rank: 4, specId: '38.321', sectionPath: '5.7'),
+            MessageCitationOut(
+                chunkId: 'c-5', rank: 5, specId: '38.321', sectionPath: '5.7'),
+          ],
+        ),
+      ));
+      await tester.pumpAndSettle();
+      // 总 chip 数 = streaming markers 数 = 4 + 2 + 1 + 2 + 1 + 1 = ... 不对
+      // 文本里实际 [N] 个数：[1] x4（DRX/机制/场景 + 配置里的一个）+ [5] + [2] + [4] + [3] = 8 chip
+      expect(find.byType(CitationChip), findsNWidgets(8));
+      // [1] x4 → "36.321 §5.7"；[2] → "36.321 §5.7"；共 5 个 "36.321 §5.7" chip
+      expect(find.text('36.321 §5.7'), findsNWidgets(5));
+      // [5] + [4] → "38.321 §5.7"；共 2 个
+      expect(find.text('38.321 §5.7'), findsNWidgets(2));
+      // [3] → 无 section → label 只显示 "38.321"
+      expect(find.text('38.321'), findsOneWidget);
+    });
+
     testWidgets('citationsByRank 缺失 → 渲染裸 [N] 文本（不出 chip）', (tester) async {
       await tester.pumpWidget(_wrap(
         child: const MessageBubble(
