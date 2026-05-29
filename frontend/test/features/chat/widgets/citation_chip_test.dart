@@ -156,7 +156,7 @@ void main() {
       expect(captured?.rank, 2);
     });
 
-    testWidgets('label 展示 "spec §section"（section 非空）', (tester) async {
+    testWidgets('label 形态 "spec §section [N]"（section 非空 + rank>0）', (tester) async {
       await tester.pumpWidget(_wrap(
         child: const CitationChip(
           ref: CitationRef(
@@ -167,10 +167,10 @@ void main() {
           ),
         ),
       ));
-      expect(find.text('38.331 §5.3.5'), findsOneWidget);
+      expect(find.text('38.331 §5.3.5 [7]'), findsOneWidget);
     });
 
-    testWidgets('section 空时 label 只显示 spec', (tester) async {
+    testWidgets('section 空 + rank>0 → "spec [N]"', (tester) async {
       await tester.pumpWidget(_wrap(
         child: const CitationChip(
           ref: CitationRef(
@@ -182,7 +182,23 @@ void main() {
           ),
         ),
       ));
-      expect(find.text('38.331'), findsOneWidget);
+      expect(find.text('38.331 [1]'), findsOneWidget);
+    });
+
+    // rank=0 = v6 legacy 兜底（老消息 / streaming 中途 byRank 缺失）→ 不挂 [0]
+    // 后缀，避免视觉噪声。
+    testWidgets('rank=0 → label 不挂 [0] 后缀', (tester) async {
+      await tester.pumpWidget(_wrap(
+        child: const CitationChip(
+          ref: CitationRef(
+            rank: 0,
+            rawText: '[0]',
+            specId: '38.331',
+            sectionPath: '5.3.5',
+          ),
+        ),
+      ));
+      expect(find.text('38.331 §5.3.5'), findsOneWidget);
     });
 
     testWidgets('默认长按行为：复制 rawText 到剪贴板', (tester) async {
@@ -252,9 +268,9 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      // 三次 [1] 都应渲染成 "36.321 §5.7" chip（key 相同，但 widget tree 里
+      // 三次 [1] 都应渲染成 "36.321 §5.7 [1]" chip（key 相同，但 widget tree 里
       // 出现 3 次）。Flutter test 框架找的是 widget 实例数。
-      expect(find.text('36.321 §5.7'), findsNWidgets(3));
+      expect(find.text('36.321 §5.7 [1]'), findsNWidgets(3));
       expect(find.byType(CitationChip), findsNWidgets(3));
     });
 
@@ -286,15 +302,17 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      // 总 chip 数 = streaming markers 数 = 4 + 2 + 1 + 2 + 1 + 1 = ... 不对
       // 文本里实际 [N] 个数：[1] x4（DRX/机制/场景 + 配置里的一个）+ [5] + [2] + [4] + [3] = 8 chip
       expect(find.byType(CitationChip), findsNWidgets(8));
-      // [1] x4 → "36.321 §5.7"；[2] → "36.321 §5.7"；共 5 个 "36.321 §5.7" chip
-      expect(find.text('36.321 §5.7'), findsNWidgets(5));
-      // [5] + [4] → "38.321 §5.7"；共 2 个
-      expect(find.text('38.321 §5.7'), findsNWidgets(2));
-      // [3] → 无 section → label 只显示 "38.321"
-      expect(find.text('38.321'), findsOneWidget);
+      // 加 [N] 后缀后，相同 spec §section 也能视觉区分：
+      // [1] x4 → "36.321 §5.7 [1]" x4；[2] → "36.321 §5.7 [2]" x1
+      expect(find.text('36.321 §5.7 [1]'), findsNWidgets(4));
+      expect(find.text('36.321 §5.7 [2]'), findsOneWidget);
+      // [5] / [4] → 同 §5.7 但 [N] 不同 → 视觉可分
+      expect(find.text('38.321 §5.7 [4]'), findsOneWidget);
+      expect(find.text('38.321 §5.7 [5]'), findsOneWidget);
+      // [3] → 无 section → "38.321 [3]"
+      expect(find.text('38.321 [3]'), findsOneWidget);
     });
 
     testWidgets('citationsByRank 缺失 → 渲染裸 [N] 文本（不出 chip）', (tester) async {
@@ -339,8 +357,9 @@ void main() {
       expect(
         find.byKey(const Key('citation_chip_8_36.321_5.5')), findsOneWidget);
       // label 也跟着 rank 走（[6] 取的是 38.321 §5.7.3，不是错位的 §5.7）
-      expect(find.text('38.321 §5.7.3'), findsOneWidget);
-      expect(find.text('36.321 §5.5'), findsOneWidget);
+      // 同时 label 末尾挂 [N] 后缀 → 同 spec/section 也能视觉区分
+      expect(find.text('38.321 §5.7.3 [6]'), findsOneWidget);
+      expect(find.text('36.321 §5.5 [8]'), findsOneWidget);
     });
 
     testWidgets('单击 chip 直跳 reader（带 chunk 锚点）', (tester) async {

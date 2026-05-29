@@ -116,6 +116,23 @@ class CitationElementBuilder extends MarkdownElementBuilder {
   }
 }
 
+/// chip / hover tooltip 共用的 label 生成。
+///
+/// 形态：`spec §section [N]`（section 空 → 退到 `spec [N]`；rank<=0 → 不挂后缀）。
+/// `[N]` 后缀是 2026-05-29 加的：同 section 多 chunk 召回时（典型："什么是 DRX"
+/// LTE/NR 两本 MAC 各贡献多个 §5.7 chunk），前缀 `spec §section` 完全相同，
+/// 用 LLM 引用索引 `[N]` 当尾标，让用户一眼看出"这是 LLM 引的第几个 chunk"，
+/// 同时与答案文本里 LLM 原写的 `[N]` 对得上号。
+///
+/// rank=0 兜底：v6 老消息（数据库里 rank 字段缺省 0）/ streaming 期间 byRank 缺失
+/// 退化都不挂 `[0]`，避免视觉噪声。
+String _formatLabel(CitationRef ref) {
+  final base = ref.sectionPath.isEmpty
+      ? ref.specId
+      : '${ref.specId} §${ref.sectionPath}';
+  return ref.rank > 0 ? '$base [${ref.rank}]' : base;
+}
+
 /// 引用 chip：圆角胶囊 + 主色边框/文字，宽度自适应文本。
 ///
 /// 行为锚：`docs/03-development/05-frontend.md §5.4`（B3 决策）。
@@ -139,9 +156,7 @@ class CitationChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef wref) {
     final scheme = Theme.of(context).colorScheme;
-    final label = ref.sectionPath.isEmpty
-        ? ref.specId
-        : '${ref.specId} §${ref.sectionPath}';
+    final label = _formatLabel(ref);
     final chip = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Material(
@@ -254,9 +269,7 @@ class _CitationPreview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef wref) {
     final theme = Theme.of(context);
-    final header = ref.sectionPath.isEmpty
-        ? ref.specId
-        : '${ref.specId} §${ref.sectionPath}';
+    final header = _formatLabel(ref);
     final headerStyle = theme.textTheme.labelLarge?.copyWith(
       color: theme.colorScheme.onSurface,
       fontWeight: FontWeight.w600,
