@@ -61,9 +61,9 @@ def parse_sse_text(text: str) -> list[SSEEvent]:
         if line.startswith(":"):
             continue  # ping 注释
         if line.startswith("event:"):
-            event = line[len("event:"):].strip()
+            event = line[len("event:") :].strip()
         elif line.startswith("data:"):
-            data_lines.append(line[len("data:"):].lstrip())
+            data_lines.append(line[len("data:") :].lstrip())
     if event is not None:
         out.append(SSEEvent(event=event, data="\n".join(data_lines)))
     return out
@@ -101,9 +101,9 @@ class SSEStreamParser:
         if line.startswith(":"):
             return
         if line.startswith("event:"):
-            self._event = line[len("event:"):].strip()
+            self._event = line[len("event:") :].strip()
         elif line.startswith("data:"):
-            self._data.append(line[len("data:"):].lstrip())
+            self._data.append(line[len("data:") :].lstrip())
 
     def drain(self) -> Iterator[SSEEvent]:
         """yield 当前 buffer 中已完成的事件，并清空。"""

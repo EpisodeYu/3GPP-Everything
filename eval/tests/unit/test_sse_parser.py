@@ -56,7 +56,7 @@ class TestParseSseText:
         text = (
             ": ping\n"
             "event: run_start\n"
-            "data: {\"run_id\": \"r1\"}\n"
+            'data: {"run_id": "r1"}\n'
             "\n"
             ": keepalive\n"
             "event: end\n"

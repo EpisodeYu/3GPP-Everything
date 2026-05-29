@@ -75,12 +75,11 @@ def main() -> int:
         return 0
 
     needed_specs = {
-        c.get("spec_id")
-        for r in targets
-        for c in (r.get("citations") or [])
-        if c.get("spec_id")
+        c.get("spec_id") for r in targets for c in (r.get("citations") or []) if c.get("spec_id")
     }
-    chunk_idx = build_chunk_content_index(args.bm25_dir, needed_specs={s for s in needed_specs if s})
+    chunk_idx = build_chunk_content_index(
+        args.bm25_dir, needed_specs={s for s in needed_specs if s}
+    )
 
     settings = EvalSettings()
     scorer = build_default_ragas_scorer(settings)
@@ -92,7 +91,7 @@ def main() -> int:
         resp = _build_agent_response(row, hydrated)
         try:
             scores = scorer.score_item(item, resp, run_config=run_config)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.warning("retry score_item failed item=%s: %s", row["item_id"], exc)
             scores = {}
         new_faith = scores.get("ragas_faithfulness")
@@ -126,7 +125,13 @@ def main() -> int:
     doc["negative_summary"] = _negative_pass_rate(rows)
 
     args.results.write_text(json.dumps(doc, indent=2, ensure_ascii=False, default=str))
-    _write_report(args.results.parent, doc["overall"], doc["by_source"], doc["by_category"], doc["negative_summary"])
+    _write_report(
+        args.results.parent,
+        doc["overall"],
+        doc["by_source"],
+        doc["by_category"],
+        doc["negative_summary"],
+    )
 
     valid = sum(1 for r in rows if r.get("ragas_faithfulness") is not None)
     print(

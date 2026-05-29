@@ -237,7 +237,9 @@ def main() -> int:
     actions_done = []
     if args.clean_traces:
         n = _clean_traces(cli, dry_run=args.dry_run)
-        actions_done.append(f"clean_traces: {n} traces {'(dry-run)' if args.dry_run else 'deleted'}")
+        actions_done.append(
+            f"clean_traces: {n} traces {'(dry-run)' if args.dry_run else 'deleted'}"
+        )
         # be polite to Cloud: small pause before next big batch op
         if not args.dry_run:
             time.sleep(2)

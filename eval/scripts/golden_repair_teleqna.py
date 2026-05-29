@@ -107,10 +107,7 @@ def _save_yaml(data: dict[str, Any], path: Path) -> None:
 
 
 def _is_teleqna_non_negative(item: dict[str, Any]) -> bool:
-    return (
-        item.get("source", "").startswith("teleqna")
-        and item.get("category") != "negative"
-    )
+    return item.get("source", "").startswith("teleqna") and item.get("category") != "negative"
 
 
 def _audit(items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -170,10 +167,7 @@ def _call_litellm_rewrite(
     timeout_s: float = 60.0,
 ) -> list[str] | None:
     """Single sync HTTP call to litellm; return new facts list or None on error."""
-    user_msg = (
-        f"question: {question}\ncurrent_facts:\n"
-        + "\n".join(f"  - {f}" for f in facts)
-    )
+    user_msg = f"question: {question}\ncurrent_facts:\n" + "\n".join(f"  - {f}" for f in facts)
     payload = {
         "model": model,
         "messages": [
@@ -240,15 +234,11 @@ def repair_facts(
         if not cur:
             continue
         # Heuristic: skip if all facts already look atomic (≤ 4 words, no trailing period)
-        atomic = all(
-            (not f.endswith(".") and f.count(" ") <= 3) for f in cur if isinstance(f, str)
-        )
+        atomic = all((not f.endswith(".") and f.count(" ") <= 3) for f in cur if isinstance(f, str))
         if atomic:
             continue
         log.info("[%s] rewriting %d facts", it["id"], len(cur))
-        new_facts = _call_litellm_rewrite(
-            settings, question=it["question"], facts=cur, model=model
-        )
+        new_facts = _call_litellm_rewrite(settings, question=it["question"], facts=cur, model=model)
         if not new_facts:
             errors += 1
             continue

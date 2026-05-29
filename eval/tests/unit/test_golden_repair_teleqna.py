@@ -97,9 +97,7 @@ class TestRepairFactsLLMStub:
         items = [
             _item("def-1", facts=["QPSK", "16QAM", "240 kHz"]),  # already atomic
         ]
-        touched, errors = M.repair_facts(
-            items, settings=s, model="x", budget=10
-        )
+        touched, errors = M.repair_facts(items, settings=s, model="x", budget=10)
         assert touched == 0
         assert errors == 0
         assert called == []
@@ -116,9 +114,7 @@ class TestRepairFactsLLMStub:
         items = [
             _item("def-1", facts=["Long sentence about something.", "short"]),
         ]
-        touched, _err = M.repair_facts(
-            items, settings=s, model="x", budget=10
-        )
+        touched, _err = M.repair_facts(items, settings=s, model="x", budget=10)
         assert touched == 1
         assert items[0]["expected_facts"] == ["Atom1", "Atom2"]
         # original archived
@@ -149,8 +145,7 @@ class TestRepairFactsLLMStub:
 
         s = EvalSettings(_env_file=None)  # type: ignore[call-arg]
         items = [
-            _item(f"def-{i}", facts=["Long sentence one.", "Long sentence two."])
-            for i in range(5)
+            _item(f"def-{i}", facts=["Long sentence one.", "Long sentence two."]) for i in range(5)
         ]
         touched, _err = M.repair_facts(items, settings=s, model="x", budget=2)
         assert touched == 2

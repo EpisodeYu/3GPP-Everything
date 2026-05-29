@@ -181,11 +181,13 @@ def _normalize_specs(raw: list[Any]) -> list[str]:
 
 
 def _current_expected_specs(item: dict[str, Any]) -> list[str]:
-    return sorted({
-        str(es.get("spec_id", "")).strip()
-        for es in item.get("expected_specs") or []
-        if es.get("spec_id")
-    })
+    return sorted(
+        {
+            str(es.get("spec_id", "")).strip()
+            for es in item.get("expected_specs") or []
+            if es.get("spec_id")
+        }
+    )
 
 
 def _call_llm(
@@ -287,13 +289,19 @@ def main() -> int:
         tq_rec = tq_data.get(origin or "")
         if not tq_rec:
             results.append(
-                {"id": it["id"], "status": "missing_teleqna_record", "current": _current_expected_specs(it)}
+                {
+                    "id": it["id"],
+                    "status": "missing_teleqna_record",
+                    "current": _current_expected_specs(it),
+                }
             )
             continue
         attr = attribute_item(s, it, tq_rec, model=args.model)
         n_called += 1
         if not attr:
-            results.append({"id": it["id"], "status": "llm_error", "current": _current_expected_specs(it)})
+            results.append(
+                {"id": it["id"], "status": "llm_error", "current": _current_expected_specs(it)}
+            )
             continue
         cur = _current_expected_specs(it)
         proposed = attr["spec_ids"]
@@ -329,7 +337,9 @@ def main() -> int:
             # Preserve sections if old expected_specs[*].spec_id matched a new one
             old_section_map: dict[str, list[str]] = {}
             for es in old_es:
-                old_section_map[str(es.get("spec_id", ""))] = [str(s) for s in (es.get("sections") or [])]
+                old_section_map[str(es.get("spec_id", ""))] = [
+                    str(s) for s in (es.get("sections") or [])
+                ]
             new_es = []
             for sid in r["proposed"]:
                 new_es.append({"spec_id": sid, "sections": old_section_map.get(sid, [])})

@@ -111,9 +111,9 @@ def main() -> int:
                 "category": cat,
                 "fact_old": old_fc,
                 "fact_new": new_fc,
-                "fact_delta": (new_fc - old_fc)
-                if (old_fc is not None and new_fc is not None)
-                else None,
+                "fact_delta": (
+                    (new_fc - old_fc) if (old_fc is not None and new_fc is not None) else None
+                ),
                 "fb_old": len(old_fb),
                 "fb_new": len(new_fb),
                 "sr_old": old_sr,
@@ -144,8 +144,12 @@ def main() -> int:
     all_fc_old = [d["fact_old"] for d in delta_rows if d["fact_old"] is not None]
     all_sr_new = [d["sr_new"] for d in delta_rows if d["sr_new"] is not None]
     all_sr_old = [d["sr_old"] for d in delta_rows if d["sr_old"] is not None]
-    all_fb_new = sum(1 for d in delta_rows if d["fb_new"] > 0) / len(delta_rows) if delta_rows else 0
-    all_fb_old = sum(1 for d in delta_rows if d["fb_old"] > 0) / len(delta_rows) if delta_rows else 0
+    all_fb_new = (
+        sum(1 for d in delta_rows if d["fb_new"] > 0) / len(delta_rows) if delta_rows else 0
+    )
+    all_fb_old = (
+        sum(1 for d in delta_rows if d["fb_old"] > 0) / len(delta_rows) if delta_rows else 0
+    )
 
     lines: list[str] = []
     lines.append("# Substring + spec_recall 指标重算（不重跑 agent）")
@@ -178,8 +182,16 @@ def main() -> int:
         fc_o, fc_n = _safe_mean(v["fact_coverage_old"]), _safe_mean(v["fact_coverage_new"])
         sr_o, sr_n = _safe_mean(v["spec_recall_old"]), _safe_mean(v["spec_recall_new"])
         fb_o, fb_n = (
-            (sum(v["forbidden_hit_old"]) / len(v["forbidden_hit_old"])) if v["forbidden_hit_old"] else 0,
-            (sum(v["forbidden_hit_new"]) / len(v["forbidden_hit_new"])) if v["forbidden_hit_new"] else 0,
+            (
+                (sum(v["forbidden_hit_old"]) / len(v["forbidden_hit_old"]))
+                if v["forbidden_hit_old"]
+                else 0
+            ),
+            (
+                (sum(v["forbidden_hit_new"]) / len(v["forbidden_hit_new"]))
+                if v["forbidden_hit_new"]
+                else 0
+            ),
         )
         sr_d = (sr_n - sr_o) if sr_o is not None and sr_n is not None else None
         fc_d = (fc_n - fc_o) if fc_o is not None and fc_n is not None else None

@@ -22,16 +22,23 @@ import statistics as st
 from pathlib import Path
 
 import httpx
+
 from eval.ragas_eval import build_default_ragas_scorer
 from eval.runner import AgentResponse, _fact_coverage, call_agent
 from eval.runner_retrieval import load_golden
 from eval.settings import EvalSettings
 
 QIDS = [
-    "hand-def-002", "hand-def-006", "hand-def-007",
-    "hand-proc-001", "hand-proc-004",
-    "hand-formula-001", "hand-formula-003",
-    "hand-multi-004", "hand-table-002", "hand-table-005",
+    "hand-def-002",
+    "hand-def-006",
+    "hand-def-007",
+    "hand-proc-001",
+    "hand-proc-004",
+    "hand-formula-001",
+    "hand-formula-003",
+    "hand-multi-004",
+    "hand-table-002",
+    "hand-table-005",
 ]
 OUT = Path("eval-results/2026-05-28-prompt-ab")
 GEN_MODEL = os.getenv("LLM_AGENT_MODEL", "mimo-v2.5-pro")
@@ -98,7 +105,9 @@ def build_prompt(approach_key: str, chunks: list[dict], question: str, lang: str
         sec = c.get("section_path") or ""
         if isinstance(sec, list):
             sec = ".".join(str(x) for x in sec)
-        parts.append(f"---\n[{i}] spec_id={c.get('spec_id')} section_path={sec} title={c.get('section_title')}")
+        parts.append(
+            f"---\n[{i}] spec_id={c.get('spec_id')} section_path={sec} title={c.get('section_title')}"
+        )
         parts.append(c.get("content") or "")
     parts.append(f"---\n\nUser question ({lang}):\n{question}")
     return "\n".join(parts)
@@ -112,11 +121,15 @@ async def generate(client: httpx.AsyncClient, key: str, prompt: str) -> str:
             r = await client.post(
                 "/chat/completions",
                 headers={"Authorization": f"Bearer {key}"},
-                json={"model": GEN_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0.1},
+                json={
+                    "model": GEN_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                },
             )
             r.raise_for_status()
             return (r.json()["choices"][0]["message"]["content"] or "").strip()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             last = exc
             print(f"      generate 重试 {attempt+1}/3: {type(exc).__name__}", flush=True)
             await asyncio.sleep(3)
@@ -152,10 +165,13 @@ async def main() -> None:
         try:
             resp = await call_agent(client=backend, auth_token=token, question=item.question)
             ctx = resp.chunks_rerank or []
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"   call_agent 失败，跳过该题: {exc}", flush=True)
             continue
-        print(f"   ctx chunks={len(ctx)} (content有={sum(1 for c in ctx if c.get('content'))})", flush=True)
+        print(
+            f"   ctx chunks={len(ctx)} (content有={sum(1 for c in ctx if c.get('content'))})",
+            flush=True,
+        )
         for key in _APPROACH:
             if (qid, key) in done:
                 continue
@@ -166,28 +182,47 @@ async def main() -> None:
                 try:
                     scored = AgentResponse(answer=ans, chunks_rerank=ctx, terminal_event="final")
                     sc = scorer.score_item(item, scored, run_config=rc)
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     print(f"      score 失败: {exc}", flush=True)
             fc = _fact_coverage(ans, item.expected_facts) if ans else None
-            rows.append({
-                "qid": qid, "category": item.category, "prompt": key,
-                "ans_len": len(ans),
-                "faith": sc.get("ragas_faithfulness"),
-                "ans_rel": sc.get("ragas_answer_relevance"),
-                "fact_cov": fc, "answer": ans,
-            })
+            rows.append(
+                {
+                    "qid": qid,
+                    "category": item.category,
+                    "prompt": key,
+                    "ans_len": len(ans),
+                    "faith": sc.get("ragas_faithfulness"),
+                    "ans_rel": sc.get("ragas_answer_relevance"),
+                    "fact_cov": fc,
+                    "answer": ans,
+                }
+            )
             rows_path.write_text(json.dumps(rows, ensure_ascii=False, indent=2))  # 增量落盘
-            print(f"   {key:14} len={len(ans):5} faith={sc.get('ragas_faithfulness')} relev={sc.get('ragas_answer_relevance')} fact={fc}", flush=True)
+            print(
+                f"   {key:14} len={len(ans):5} faith={sc.get('ragas_faithfulness')} relev={sc.get('ragas_answer_relevance')} fact={fc}",
+                flush=True,
+            )
 
     # 聚合
     print("\n\n========== 按 prompt 聚合（10 题均值） ==========")
     print(f"{'prompt':14}{'n_faith':>8}{'faith':>8}{'ans_rel':>9}{'fact_cov':>9}{'avg_len':>9}")
-    def m(xs): xs=[x for x in xs if isinstance(x,(int,float))]; return round(st.mean(xs),3) if xs else None
+
+    def m(xs):
+        xs = [x for x in xs if isinstance(x, (int, float))]
+        return round(st.mean(xs), 3) if xs else None
+
     for key in _APPROACH:
-        pr=[r for r in rows if r["prompt"]==key]
-        fa=[r["faith"] for r in pr if r["faith"] is not None]
-        print(f"{key:14}{len(fa):>8}{str(m([r['faith'] for r in pr])):>8}{str(m([r['ans_rel'] for r in pr])):>9}{str(m([r['fact_cov'] for r in pr])):>9}{str(m([r['ans_len'] for r in pr])):>9}")
-    await backend.aclose(); await llm.aclose()
+        pr = [r for r in rows if r["prompt"] == key]
+        fa = [r["faith"] for r in pr if r["faith"] is not None]
+        print(
+            f"{key:14}{len(fa):>8}"
+            f"{m([r['faith'] for r in pr])!s:>8}"
+            f"{m([r['ans_rel'] for r in pr])!s:>9}"
+            f"{m([r['fact_cov'] for r in pr])!s:>9}"
+            f"{m([r['ans_len'] for r in pr])!s:>9}"
+        )
+    await backend.aclose()
+    await llm.aclose()
 
 
 if __name__ == "__main__":
