@@ -23,8 +23,19 @@ import re
 from .models import SectionBlock
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$", re.MULTILINE)
-# clause 形如 "1.2.3" / "5" / "A.1.2"（附录），允许字母前缀。
-_CLAUSE_RE = re.compile(r"^([A-Z]?[\dA-Z][\d.]*)\s+(.+)$", re.IGNORECASE)
+# clause 形如：
+#   "5" / "5.1" / "5.1.2"            — 普通编号
+#   "5.7a" / "5.15.11.5a" / "5.7a.1" — 字母后缀（38.321 §5.7a/§5.7b MBS DRX 等）
+#   "A" / "A.1" / "A.1.2" / "B.3a"   — 附录
+#
+# 设计：
+# - 分两支：annex（`[A-Z](\.\d+[a-z]*)*`）或编号（`\d+[a-z]*(\.\d+[a-z]*)*`）
+# - 不开 IGNORECASE：annex 字母按 3GPP 约定恒大写；clause 字母后缀恒小写
+#   （避免 `Foreword` / `Annex A (informative)` 这类纯文本标题被误识为 clause）
+# - 之前正则 `[\d.]*` 完全不收字母后缀，导致 `5.7a Discontinuous Reception for
+#   MBS Broadcast` 整段 backtrack 失败 → clause="" / section_path=[]
+#   （chunker/builder.py §400 注释里点过这个 workaround；本次正面修）
+_CLAUSE_RE = re.compile(r"^([A-Z](?:\.\d+[a-z]*)*|\d+[a-z]*(?:\.\d+[a-z]*)*)\s+(.+)$")
 # 标题最大长度安全网（防 GSMA marker 把整行表格内容误打 `####` 注入成"标题"
 # 这种漏网 pseudo-heading）。阈值取 1200：基于本地 2559 spec / 50w heading 扫描，
 # 真实最长合法标题为 23.502 / 33.220 procedure spec 的 1137 字符步骤标题（如

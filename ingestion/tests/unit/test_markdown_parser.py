@@ -157,6 +157,94 @@ class TestDetectSpecTypeAndTitle:
         assert title is None
 
 
+class TestClauseLetterSuffix:
+    """字母后缀 clause（`5.7a`、`5.15.11.5a` 等）必须正常解析。
+
+    历史 bug（2026-05-29 用户复现 38.321 §5.7a/§5.7b MBS DRX）：
+    `_CLAUSE_RE` 用 `[\\d.]*` 不收字母 → backtrack 全部失败 → clause 留空 →
+    chunks_meta.section_path = [] → 前端 chip 标签缺 §5.7a，跳转走"未关联章节"。
+    """
+
+    def test_letter_suffix_at_tail(self):
+        md = (
+            "# 3GPP TS 38.321 V19.0.0\n\n"
+            "## 5.7a Discontinuous Reception for MBS Broadcast\n\n"
+            "Body of 5.7a.\n"
+        )
+        sections = parse_markdown_sections(md, spec_id="38.321", release="Rel-19")
+        s = next(s for s in sections if s.clause == "5.7a")
+        assert s.section_title == "Discontinuous Reception for MBS Broadcast"
+        assert "Body of 5.7a." in s.body
+
+    def test_letter_suffix_in_middle(self):
+        # 真实案例（builder.py §400 注释里点过的）：5.15.11.5a
+        md = (
+            "# 3GPP TS 38.331 V19.0.0\n\n"
+            "## 5.15.11.5a Sub-clause with mid letter suffix\n\n"
+            "Body.\n"
+        )
+        sections = parse_markdown_sections(md, spec_id="38.331", release="Rel-19")
+        s = next(s for s in sections if s.clause == "5.15.11.5a")
+        assert s.section_title == "Sub-clause with mid letter suffix"
+
+    def test_letter_suffix_followed_by_number(self):
+        md = "# 3GPP TS 38.321 V19.0.0\n\n" "## 5.7a.1 First sub of 5.7a\n\n" "Body.\n"
+        sections = parse_markdown_sections(md, spec_id="38.321", release="Rel-19")
+        s = next(s for s in sections if s.clause == "5.7a.1")
+        assert s.section_title == "First sub of 5.7a"
+
+    def test_annex_with_letter_suffix(self):
+        md = "# 3GPP TS 38.331 V19.0.0\n\n" "## B.3a Annex subsection with letter\n\n" "Body.\n"
+        sections = parse_markdown_sections(md, spec_id="38.331", release="Rel-19")
+        s = next(s for s in sections if s.clause == "B.3a")
+        assert s.section_title == "Annex subsection with letter"
+
+    def test_plain_clauses_still_parse(self):
+        # 老路径不退化：纯数字 / annex.数字 / 多级编号都得继续工作
+        md = (
+            "# 3GPP TS 38.331 V19.0.0\n\n"
+            "## 5 Top\n\n"
+            "Body 5.\n\n"
+            "## 5.1 Mid\n\n"
+            "Body 5.1.\n\n"
+            "## 5.1.2 Leaf\n\n"
+            "Body 5.1.2.\n\n"
+            "## A.1.2 Annex leaf\n\n"
+            "Body A.1.2.\n"
+        )
+        sections = parse_markdown_sections(md, spec_id="38.331", release="Rel-19")
+        clauses = {s.clause for s in sections}
+        assert {"5", "5.1", "5.1.2", "A.1.2"} <= clauses
+
+    def test_pure_text_heading_not_matched(self):
+        # 不带数字的标题（Foreword / Annex A informative 等）保留为 clause=""
+        md = (
+            "# 3GPP TS 38.331 V19.0.0\n\n"
+            "## Foreword\n\n"
+            "Body.\n\n"
+            "## Annex A (informative)\n\n"
+            "Body annex.\n"
+        )
+        sections = parse_markdown_sections(md, spec_id="38.331", release="Rel-19")
+        # 这俩都应当 clause="" 且 section_title 保留原文
+        titles = [s.section_title for s in sections if s.clause == ""]
+        assert "Foreword" in titles
+        assert "Annex A (informative)" in titles
+
+    def test_step_list_text_not_matched_as_clause(self):
+        # 'next-line' regression：14a-c. 是 step 列表标号不是 section clause
+        # 当它单独出现在 `##` 行时，由于 `-` 不在 clause 字符集，必须 clause=""
+        # （留给上层 _is_pseudo_heading / 整段当 title）
+        md = (
+            "# 3GPP TS 23.502 V19.0.0\n\n"
+            "## 14a-c. If the AMF has changed since registration\n\n"
+            "Body.\n"
+        )
+        sections = parse_markdown_sections(md, spec_id="23.502", release="Rel-19")
+        # 不应被识别为 clause=14a 或 14a-c
+        assert all(s.clause not in {"14a", "14a-c", "14"} for s in sections)
+
+
 class TestPseudoHeadingAndLongTitle:
     """覆盖 §6.5 of `2026-05-15-m1-poc-38331.md`：GSMA marker 偶发把表行误打 #### 前缀。"""
 
