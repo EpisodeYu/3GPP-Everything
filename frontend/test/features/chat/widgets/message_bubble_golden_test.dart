@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tgpp/core/theme.dart';
+import 'package:tgpp/data/api/messages_api.dart';
 import 'package:tgpp/features/chat/widgets/message_bubble.dart';
 
 import '../../../support/localized.dart';
@@ -52,8 +53,16 @@ void main() {
                         MessageBubble(
                           role: 'assistant',
                           content:
-                              'PDU Session 建立按 [23.501 §5.6.1 ¶1] 描述，'
+                              'PDU Session 建立按 [1] 描述，'
                               'UE 发起 PDU Session Establishment Request。',
+                          citations: [
+                            MessageCitationOut(
+                              chunkId: 'c-gold-1',
+                              rank: 1,
+                              specId: '23.501',
+                              sectionPath: '5.6.1',
+                            ),
+                          ],
                         ),
                         MessageBubble(
                           role: 'assistant',
