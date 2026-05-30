@@ -14,7 +14,8 @@ categories:
 items:
 - category: definition
   language: en
-  question: How is the UE's access to network exposure information controlled in 5G networks?
+  question: How is the UE's access to network exposure information controlled in 5G
+    networks?
   expected_specs:
   - spec_id: '29.503'
     sections: []
@@ -27,10 +28,13 @@ items:
   notes: 'Based on UDM subscription data for network exposure
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: ["AF''s request to NEF", ''SMF subscription record'', ''UE PDU Session ID'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: ["AF''s request
+    to NEF", ''SMF subscription record'', ''UE PDU Session ID'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1054
   id: def-001
@@ -41,7 +45,8 @@ items:
   - Part of UE subscription data
 - category: definition
   language: en
-  question: Describe the F1AP message in which the gNB-DU includes the low layer configuration for the UE during initial connection setup.
+  question: Describe the F1AP message in which the gNB-DU includes the low layer configuration
+    for the UE during initial connection setup.
   expected_specs:
   - spec_id: '38.473'
     sections:
@@ -55,7 +60,8 @@ items:
   notes: 'Defined in 3GPP TS 38.473 F1AP messages.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1287
   id: def-002
@@ -67,7 +73,8 @@ items:
   - Used during initial RRC connection establishment.
 - category: definition
   language: en
-  question: What information does the H-SMF provide to the V-SMF in the Nsmf_PDUSession_Create Response according to 3GPP specifications?
+  question: What information does the H-SMF provide to the V-SMF in the Nsmf_PDUSession_Create
+    Response according to 3GPP specifications?
   expected_specs:
   - spec_id: '29.502'
     sections: []
@@ -80,10 +87,13 @@ items:
   notes: 'Relates to Nsmf_PDUSession_Create service operation in 3GPP 29.502
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''V-EASDF IP address'', ''DNS server address provided by HPLMN'', ''HR-SBO authorization result'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''V-EASDF
+    IP address'', ''DNS server address provided by HPLMN'', ''HR-SBO authorization
+    result'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1822
   id: def-003
@@ -95,7 +105,8 @@ items:
   - Part of H-SMF to V-SMF interaction
 - category: definition
   language: en
-  question: Describe the purpose of the Binding Indication in the context of NF service discovery procedures in 5G systems.
+  question: Describe the purpose of the Binding Indication in the context of NF service
+    discovery procedures in 5G systems.
   expected_specs:
   - spec_id: '29.510'
     sections: []
@@ -109,13 +120,19 @@ items:
   notes: 'Concept related to service discovery in 5G SBI per 3GPP 29.500.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''To authorize the request from the NF service consumer'', ''To select the NF service producer instance'', ''To notify of newly registered NF instances'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''To authorize
+    the request from the NF service consumer'', ''To select the NF service producer
+    instance'', ''To notify of newly registered NF instances'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Binding Indication in NF service discovery is defined in the NRF service specification TS 29.510.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: Binding Indication in NF service discovery is defined in the NRF service
+    specification TS 29.510.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1881
   id: def-004
@@ -130,7 +147,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: In LTE's Licensed Spectrum Access (LAA), what determines the maximum transmission duration for the Physical Downlink Shared Channel (PDSCH)?
+  question: In LTE's Licensed Spectrum Access (LAA), what determines the maximum transmission
+    duration for the Physical Downlink Shared Channel (PDSCH)?
   expected_specs:
   - spec_id: '36.213'
     sections: []
@@ -142,17 +160,22 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 2128
   id: def-005
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''channel bandwidth'', "device''s power level", ''number of connected devices'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''channel
+    bandwidth'', "device''s power level", ''number of connected devices'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - Maximum PDSCH transmission duration in LAA is 2-10 ms.
   - Determined by the channel access priority class.
   - Specific to LTE Licensed Spectrum Access (LAA).
 - category: definition
   language: en
-  question: What is the function of the Service Communication Proxy (SCP) in the indirect communication model when delegated discovery is not used in the 5G Service Based Architecture?
+  question: What is the function of the Service Communication Proxy (SCP) in the indirect
+    communication model when delegated discovery is not used in the 5G Service Based
+    Architecture?
   expected_specs:
   - spec_id: '29.500'
     sections:
@@ -168,10 +191,13 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 216
   id: def-006
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''SCP selects the NF service producer instance'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''SCP
+    selects the NF service producer instance'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - SCP routes NF service requests
   - In indirect communication model
@@ -180,7 +206,8 @@ items:
   - To a selected NF service producer instance
 - category: definition
   language: en
-  question: What is the purpose of providing potential TRS/CSI-RS occasions to idle or inactive UEs in New Radio?
+  question: What is the purpose of providing potential TRS/CSI-RS occasions to idle
+    or inactive UEs in New Radio?
   expected_specs:
   - spec_id: '38.214'
     sections: []
@@ -194,7 +221,8 @@ items:
   notes: 'Relevant to NR idle/inactive mode power saving for synchronization.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 2210
   id: def-007
@@ -206,7 +234,8 @@ items:
   - For UEs not in connected mode
 - category: definition
   language: en
-  question: In the Non-Standalone (NSA) architecture, what type of bearer is used for IMS Signalling and IMS voice?
+  question: In the Non-Standalone (NSA) architecture, what type of bearer is used
+    for IMS Signalling and IMS voice?
   expected_specs:
   - spec_id: '38.300'
     sections: []
@@ -221,10 +250,13 @@ items:
   notes: 'Bearer type defined in 3GPP specifications for NSA architecture.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Master Cell Group bearer'', ''Split bearer'', ''Primary Cell Group bearer'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Master
+    Cell Group bearer'', ''Split bearer'', ''Primary Cell Group bearer'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 2278
   id: def-008
@@ -236,7 +268,8 @@ items:
   - 5G NR bearer type
 - category: definition
   language: en
-  question: Describe the purpose and function of the NG-C interface in the NG-RAN architecture.
+  question: Describe the purpose and function of the NG-C interface in the NG-RAN
+    architecture.
   expected_specs:
   - spec_id: '38.401'
     sections: []
@@ -250,13 +283,19 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 2477
   id: def-009
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Transport of user plane data'', ''Transport of NAS messages'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Transport
+    of user plane data'', ''Transport of NAS messages'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The NG-C interface is defined in the NG-RAN architecture specification TS 38.401, which describes the interface between NG-RAN nodes and the AMF for control plane information transport.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: The NG-C interface is defined in the NG-RAN architecture specification
+    TS 38.401, which describes the interface between NG-RAN nodes and the AMF for
+    control plane information transport.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - NG-C interface connects NG-RAN node and AMF
   - It transports control plane information
@@ -269,7 +308,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: Explain the role and function of the Open Distributed Unit (O-DU) in the 5G RAN architecture.
+  question: Explain the role and function of the Open Distributed Unit (O-DU) in the
+    5G RAN architecture.
   expected_specs:
   - spec_id: '38.401'
     sections: []
@@ -289,10 +329,12 @@ items:
   - It is a distributed unit in the NG-RAN.
   - It is positioned close to the radio unit.
   - It implements RLC, MAC, and partial PHY layer functions.
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 - category: definition
   language: en
-  question: What is the purpose of User Plane Security Enforcement information in 5G systems?
+  question: What is the purpose of User Plane Security Enforcement information in
+    5G systems?
   expected_specs:
   - spec_id: '38.413'
     sections: []
@@ -304,13 +346,18 @@ items:
   - integrity protection
   - NG-AP
   forbidden: []
-  notes: 'User Plane Security Enforcement is an Information Element in NG-AP messages for PDU session security.
+  notes: 'User Plane Security Enforcement is an Information Element in NG-AP messages
+    for PDU session security.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''maximum UP integrity protection data rate'', ''determine User Plane Security Policy locally'', ''communicate maximum supported data rate for integrity protection'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''maximum
+    UP integrity protection data rate'', ''determine User Plane Security Policy locally'',
+    ''communicate maximum supported data rate for integrity protection'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 2936
   id: def-011
@@ -321,7 +368,8 @@ items:
   - Information is communicated via NG-AP protocol.
 - category: definition
   language: en
-  question: What is the control mechanism for the additional behavior of the SMF related to 3GPP PS Data Off?
+  question: What is the control mechanism for the additional behavior of the SMF related
+    to 3GPP PS Data Off?
   expected_specs:
   - spec_id: '23.503'
     sections: []
@@ -334,10 +382,13 @@ items:
   notes: 'Related to 3GPP Release 18 for PS Data Off feature.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''UE provisioned list of exempt services'', ''ATSSS feature'', ''IMS domain policy'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''UE provisioned
+    list of exempt services'', ''ATSSS feature'', ''IMS domain policy'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3236
   id: def-012
@@ -348,7 +399,8 @@ items:
   - Controlled by PCF configuration
 - category: definition
   language: en
-  question: What is the power saving scheme in NR that reduces UE power consumption by decreasing the number of PDCCH blind decoding operations?
+  question: What is the power saving scheme in NR that reduces UE power consumption
+    by decreasing the number of PDCCH blind decoding operations?
   expected_specs:
   - spec_id: '38.213'
     sections: []
@@ -360,13 +412,19 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 3389
   id: def-013
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Triggering of PDCCH monitoring'', ''Go-to-sleep signaling'', ''Dynamic DRX configuration'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Triggering
+    of PDCCH monitoring'', ''Go-to-sleep signaling'', ''Dynamic DRX configuration'']);
+    see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PDCCH skipping is a power-saving scheme defined in TS 38.213 (NR PHY procedures for control), where the UE can skip PDCCH blind decoding in configured slots.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: PDCCH skipping is a power-saving scheme defined in TS 38.213 (NR PHY
+    procedures for control), where the UE can skip PDCCH blind decoding in configured
+    slots.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - PDCCH skipping is a power saving mechanism.
   - It reduces the number of PDCCH blind decodings.
@@ -394,7 +452,8 @@ items:
   notes: 'Commonly defined in PHY layer specifications for power control.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3642
   id: def-014
@@ -406,7 +465,8 @@ items:
   - Stands for Downlink Reference Symbol power.
 - category: definition
   language: en
-  question: What enhancements were specified for the 3GPP Northbound APIs in Release 16?
+  question: What enhancements were specified for the 3GPP Northbound APIs in Release
+    16?
   expected_specs:
   - spec_id: '29.500'
     sections: []
@@ -427,10 +487,12 @@ items:
   - Handling communication failure cases
   - HTTP-based protocol or OpenAPI file improvements
   - Additional deployment models
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 - category: definition
   language: en
-  question: What RNTI is responsible for controlling the transmit power of Sounding Reference Signals (SRS)?
+  question: What RNTI is responsible for controlling the transmit power of Sounding
+    Reference Signals (SRS)?
   expected_specs:
   - spec_id: '38.213'
     sections: []
@@ -443,13 +505,18 @@ items:
   notes: 'Relevant for NR uplink power control as per 3GPP TS 38.214.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''TPC-PUCCH-RNTI'', ''TPC-PUSCH-RNTI'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''TPC-PUCCH-RNTI'',
+    ''TPC-PUSCH-RNTI'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: TPC-SRS-RNTI and its use for SRS power control via DCI are normatively defined in TS 38.213 (NR PHY procedures - power control).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: TPC-SRS-RNTI and its use for SRS power control via DCI are normatively
+    defined in TS 38.213 (NR PHY procedures - power control).); original archived
+    under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3794
   id: def-016
@@ -464,7 +531,8 @@ items:
     - '7'
 - category: definition
   language: en
-  question: What does a UE configured for bandwidth part (BWP) operation receive from higher layers?
+  question: What does a UE configured for bandwidth part (BWP) operation receive from
+    higher layers?
   expected_specs:
   - spec_id: '38.331'
     sections:
@@ -478,10 +546,13 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 3822
   id: def-017
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Frequency domain resource allocation'', ''Scheduling cell information'', ''PDCCH and PDSCH transmissions'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Frequency
+    domain resource allocation'', ''Scheduling cell information'', ''PDCCH and PDSCH
+    transmissions'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - BWP parameter configurations
   - For downlink and uplink BWPs
@@ -489,7 +560,8 @@ items:
   - UE configured for BWP operation
 - category: definition
   language: en
-  question: What is the intended purpose of EAS Relocation as specified in the 3GPP Release 16 capabilities for edge computing?
+  question: What is the intended purpose of EAS Relocation as specified in the 3GPP
+    Release 16 capabilities for edge computing?
   expected_specs:
   - spec_id: '23.502'
     sections:
@@ -503,10 +575,13 @@ items:
   notes: 'Refer to TS 23.502 Annex F for EAS Relocation procedures.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''enable roaming PDU Sessions'', ''provide low packet loss'', ''support Edge Relocation involving AF change'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''enable
+    roaming PDU Sessions'', ''provide low packet loss'', ''support Edge Relocation
+    involving AF change'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3853
   id: def-018
@@ -517,7 +592,8 @@ items:
   - Illustrates scenarios for edge application server relocation
 - category: definition
   language: en
-  question: List the service types supported for QoE Measurement Collection in 3GPP Release 18.
+  question: List the service types supported for QoE Measurement Collection in 3GPP
+    Release 18.
   expected_specs:
   - spec_id: '23.502'
     sections: []
@@ -533,10 +609,12 @@ items:
   - QoE Measurement Collection supports DASH streaming services.
   - QoE Measurement Collection supports MTSI services.
   - QoE Measurement Collection supports VR services.
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 - category: definition
   language: en
-  question: What is the role of VarMeasConfig in 3GPP NR specifications regarding UE measurements?
+  question: What is the role of VarMeasConfig in 3GPP NR specifications regarding
+    UE measurements?
   expected_specs:
   - spec_id: '38.331'
     sections:
@@ -551,13 +629,16 @@ items:
   notes: 'VarMeasConfig is specified in 38.331 for UE measurement configuration.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''configure mobility behavior'', ''configure measurement reporting'', ''configure random-access procedure'']); see eval-results/m7-post-m75-baseline/report.md §6.3'
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''configure
+    mobility behavior'', ''configure measurement reporting'', ''configure random-access
+    procedure'']); see eval-results/m7-post-m75-baseline/report.md §6.3'
   source: teleqna_transformed
   teleqna_origin_id: question 3987
   id: def-020
 - category: definition
   language: en
-  question: Describe the charging architecture utilized by the 5G Data Connectivity domain in the context of 3GPP Release 15.
+  question: Describe the charging architecture utilized by the 5G Data Connectivity
+    domain in the context of 3GPP Release 15.
   expected_specs:
   - spec_id: '32.240'
     sections: []
@@ -572,13 +653,19 @@ items:
   notes: 'References 3GPP Release 15 charging architecture specifications.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Unified charging architecture'', ''Distributed charging architecture'', ''Separate charging architecture'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Unified
+    charging architecture'', ''Distributed charging architecture'', ''Separate charging
+    architecture'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The generic converged charging architecture for 5G is normatively defined in TS 32.240 (charging architecture) and TS 32.255 (5G converged charging).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: The generic converged charging architecture for 5G is normatively defined
+    in TS 32.240 (charging architecture) and TS 32.255 (5G converged charging).);
+    original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 4079
   id: def-021
@@ -592,7 +679,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: What are the components of the NAS protocol used on the N1 interface in 5G systems?
+  question: What are the components of the NAS protocol used on the N1 interface in
+    5G systems?
   expected_specs:
   - spec_id: '24.501'
     sections:
@@ -607,10 +695,12 @@ items:
   notes: 'As defined in 3GPP TS 24.501
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''NAS-LTE'', ''NAS-RAN'', ''NAS-UPF'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''NAS-LTE'',
+    ''NAS-RAN'', ''NAS-UPF'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 4333
   id: def-022
@@ -622,7 +712,8 @@ items:
   - Used for UE-AMF communication
 - category: definition
   language: en
-  question: What is the purpose of the UE-assistance indication in load-balancing steering mode according to 3GPP specifications?
+  question: What is the purpose of the UE-assistance indication in load-balancing
+    steering mode according to 3GPP specifications?
   expected_specs:
   - spec_id: '24.501'
     sections: []
@@ -637,7 +728,8 @@ items:
   id: def-023
 - category: definition
   language: en
-  question: What is the responsibility of the network slice broker in a 5G network slicing environment?
+  question: What is the responsibility of the network slice broker in a 5G network
+    slicing environment?
   expected_specs:
   - spec_id: '23.501'
     sections:
@@ -652,10 +744,14 @@ items:
   notes: 'Defined in network slicing context
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''orchestrate US-NSIs'', ''securely expose services to every US-NSI'', "translate tenant requirements to US-NSIs'' requirements"]); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''orchestrate
+    US-NSIs'', ''securely expose services to every US-NSI'', "translate tenant requirements
+    to US-NSIs'' requirements"]); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 4772
   id: def-024
@@ -666,7 +762,8 @@ items:
   - Part of network slice management functions
 - category: definition
   language: en
-  question: What type of inter-slice switching allows the UE to make the final decision to switch slices after the successful completion of the Registration process?
+  question: What type of inter-slice switching allows the UE to make the final decision
+    to switch slices after the successful completion of the Registration process?
   expected_specs:
   - spec_id: '23.502'
     sections: []
@@ -678,10 +775,12 @@ items:
   notes: 'Inter-slice switching types described in 3GPP specifications
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Network-Triggered inter-slice switching'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Network-Triggered
+    inter-slice switching'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5154
   id: def-025
@@ -705,17 +804,21 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 5259
   id: def-026
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Wi-Fi signal strength'', ''GPS measurements'', ''cellular tower triangulation'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Wi-Fi
+    signal strength'', ''GPS measurements'', ''cellular tower triangulation'']); see
+    eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - Network resources perform the location calculation
   - Based on radio ranging measurements
   - Measurements are provided by the UE
 - category: definition
   language: en
-  question: Describe the information included in the request for PDU Session traffic analytics as specified in 3GPP Release 18.
+  question: Describe the information included in the request for PDU Session traffic
+    analytics as specified in 3GPP Release 18.
   expected_specs:
   - spec_id: '23.288'
     sections: []
@@ -730,7 +833,12 @@ items:
   notes: 'Information pertains to Nsmf service-based interface for analytics.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PDU Session traffic analytics are part of the Data Collection/Analytics architecture defined in TS 23.288 (Architecture enhancements for 5G System (5GS) to support network data analytics services), which normatively specifies the request parameters including SUPI, Application Identifier, Area of Int); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: PDU Session traffic analytics are part of the Data Collection/Analytics
+    architecture defined in TS 23.288 (Architecture enhancements for 5G System (5GS)
+    to support network data analytics services), which normatively specifies the request
+    parameters including SUPI, Application Identifier, Area of Int); original archived
+    under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5317
   id: def-027
@@ -739,7 +847,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: What is the purpose of the NR Coverage and Capacity Optimization (CCO) function?
+  question: What is the purpose of the NR Coverage and Capacity Optimization (CCO)
+    function?
   expected_specs:
   - spec_id: '32.521'
     sections: []
@@ -753,13 +862,19 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 5736
   id: def-028
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''enable inter-system load balancing'', ''optimize 2-step RACH procedure'', ''enhance mobility optimization'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''enable
+    inter-system load balancing'', ''optimize 2-step RACH procedure'', ''enhance mobility
+    optimization'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The NR CCO function is normatively defined in TS 32.521 (SON for NR), which specifies self-organizing network functions including coverage and capacity optimization.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: The NR CCO function is normatively defined in TS 32.521 (SON for NR),
+    which specifies self-organizing network functions including coverage and capacity
+    optimization.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - Detect coverage issues
   - Mitigate coverage issues
@@ -771,7 +886,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: Describe the types of information stored in the Home Subscriber Server (HSS).
+  question: Describe the types of information stored in the Home Subscriber Server
+    (HSS).
   expected_specs:
   - spec_id: '23.002'
     sections: []
@@ -785,10 +901,15 @@ items:
   notes: 'HSS is a key network element in the EPS architecture.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: HSS functions and the information it holds (user identification, numbering, security, location, profile) are normatively defined in TS 23.002 (Network architecture), which is the canonical specification for HSS role and responsibilities.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: HSS functions and the information it holds (user identification, numbering,
+    security, location, profile) are normatively defined in TS 23.002 (Network architecture),
+    which is the canonical specification for HSS role and responsibilities.); original
+    archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5825
   id: def-029
@@ -816,10 +937,13 @@ items:
   notes: 'Subscription service types are defined in the context of UDM services.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Teleservices'', ''Bearer services'', ''Value added services'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Teleservices'',
+    ''Bearer services'', ''Value added services'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 589
   id: def-030
@@ -830,7 +954,8 @@ items:
   - Subscriptions define services provided by network operators
 - category: definition
   language: en
-  question: What charging architecture is specified for 5G data connectivity in Phase 1 of the 5G System Architecture according to 3GPP Release 18?
+  question: What charging architecture is specified for 5G data connectivity in Phase
+    1 of the 5G System Architecture according to 3GPP Release 18?
   expected_specs:
   - spec_id: '23.503'
     sections: []
@@ -844,10 +969,13 @@ items:
   notes: 'Charging architecture specified in 3GPP 23.503
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''NG-RAN charging architecture'', ''CHF charging architecture'', ''SMF charging architecture'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''NG-RAN
+    charging architecture'', ''CHF charging architecture'', ''SMF charging architecture'']);
+    see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 6115
   id: def-031
@@ -859,7 +987,8 @@ items:
   - defined in the 5G charging framework
 - category: definition
   language: en
-  question: What physical channel is used to carry Hybrid ARQ ACK/NAKs in response to uplink transmissions?
+  question: What physical channel is used to carry Hybrid ARQ ACK/NAKs in response
+    to uplink transmissions?
   expected_specs:
   - spec_id: '36.211'
     sections: []
@@ -878,10 +1007,13 @@ items:
   - Physical Hybrid ARQ Indicator Channel
   - HARQ feedback in LTE for uplink
   - PHICH provides ACK/NAK indication
-  notes: 'M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: 'M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PHICH is an LTE physical channel normatively defined in TS 36.211 (E-UTRA Physical Channels and Modulation).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: PHICH is an LTE physical channel normatively defined in TS 36.211 (E-UTRA
+    Physical Channels and Modulation).); original archived under `_original_expected_specs`.'
   _original_expected_specs:
   - spec_id: '36.213'
     sections:
@@ -907,17 +1039,22 @@ items:
   - For uplink transmission
   - For downlink transmission
   - Scheduler operates in MAC layer
-  notes: 'M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: 'M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The MAC scheduler''s purpose and resource allocation function in the gNB is normatively described in TS 38.321 (NR MAC protocol specification).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: The MAC scheduler''s purpose and resource allocation function in the
+    gNB is normatively described in TS 38.321 (NR MAC protocol specification).); original
+    archived under `_original_expected_specs`.'
   _original_expected_specs:
   - spec_id: '38.300'
     sections:
     - 5.3.5
 - category: definition
   language: en
-  question: What is the intended purpose of Application Specific Congestion control for Data Communication (ACDC) as defined in 3GPP?
+  question: What is the intended purpose of Application Specific Congestion control
+    for Data Communication (ACDC) as defined in 3GPP?
   expected_specs:
   - spec_id: '24.501'
     sections: []
@@ -935,10 +1072,12 @@ items:
   - Control is based on particular applications.
   - Purpose is application-specific congestion control.
   - Differentiates access attempts by application type.
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 - category: definition
   language: en
-  question: What is the primary purpose of the Random Access Channel (RACH) in 5G NR systems?
+  question: What is the primary purpose of the Random Access Channel (RACH) in 5G
+    NR systems?
   expected_specs:
   - spec_id: '38.321'
     sections: []
@@ -948,16 +1087,23 @@ items:
   - limited control information
   - random access procedure
   forbidden: []
-  notes: 'RACH purpose defined in NR specifications for initial access and scheduling requests.
+  notes: 'RACH purpose defined in NR specifications for initial access and scheduling
+    requests.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Transmit data themselves'', ''Carry ACK/NAK feedback'', ''Indicate resource and other transmission parameters'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Transmit
+    data themselves'', ''Carry ACK/NAK feedback'', ''Indicate resource and other transmission
+    parameters'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: RACH procedure and its purpose (including carrying scheduling requests) is canonically defined in TS 38.321 (MAC specification) for NR.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: RACH procedure and its purpose (including carrying scheduling requests)
+    is canonically defined in TS 38.321 (MAC specification) for NR.); original archived
+    under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 6602
   id: def-035
@@ -972,7 +1118,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: What is the primary objective of the MINT feature as defined in 3GPP Release 17?
+  question: What is the primary objective of the MINT feature as defined in 3GPP Release
+    17?
   expected_specs:
   - spec_id: '23.502'
     sections: []
@@ -985,10 +1132,13 @@ items:
   notes: 'MINT is associated with Disaster Roaming features in 3GPP Release 17.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''any PLMN'', ''without Disaster Roaming service'', ''from 4G or 3G networks specifically'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''any PLMN'',
+    ''without Disaster Roaming service'', ''from 4G or 3G networks specifically'']);
+    see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 6777
   id: def-036
@@ -999,7 +1149,8 @@ items:
   - Part of 3GPP Release 17 for crisis management scenarios
 - category: definition
   language: en
-  question: What service operation does the UDM use to update session management subscriber data that is stored in the SMF?
+  question: What service operation does the UDM use to update session management subscriber
+    data that is stored in the SMF?
   expected_specs:
   - spec_id: '29.503'
     sections: []
@@ -1012,10 +1163,13 @@ items:
   notes: 'Service operation defined in 3GPP 29.503
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Nudr_DM_Unsubscribe'', ''Nudm_UECM_Deregistration'', ''Nudr_DM_Update'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Nudr_DM_Unsubscribe'',
+    ''Nudm_UECM_Deregistration'', ''Nudr_DM_Update'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 681
   id: def-037
@@ -1026,7 +1180,8 @@ items:
   - The operation is part of Nudm SDM services.
 - category: definition
   language: en
-  question: What identifier is used to uniquely identify the UE within the AMF in the 5G System?
+  question: What identifier is used to uniquely identify the UE within the AMF in
+    the 5G System?
   expected_specs:
   - spec_id: '38.413'
     sections: []
@@ -1039,10 +1194,12 @@ items:
   notes: 'Identifier defined in NGAP protocol for N2 interface.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''SUPI'', ''5G-GUTI'', ''GUAMI'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''SUPI'',
+    ''5G-GUTI'', ''GUAMI'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7005
   id: def-038
@@ -1054,7 +1211,8 @@ items:
   - Uniquely identifies UE in AMF context
 - category: definition
   language: en
-  question: What measurement is agreed to be introduced for sidelink positioning using sidelink PRS measurements in 3GPP Release 18?
+  question: What measurement is agreed to be introduced for sidelink positioning using
+    sidelink PRS measurements in 3GPP Release 18?
   expected_specs:
   - spec_id: '38.214'
     sections: []
@@ -1066,10 +1224,13 @@ items:
   notes: 'SL RSRP measurement is specified for sidelink positioning in NR PHY procedures.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''SL RSRQ measurement'', ''SL RTOA measurement'', ''SL RSSI measurement'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''SL RSRQ
+    measurement'', ''SL RTOA measurement'', ''SL RSSI measurement'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7267
   id: def-039
@@ -1080,7 +1241,8 @@ items:
   - agreed in 3GPP Release 18
 - category: definition
   language: en
-  question: What type of data is provided by the EAS address and DNAI Mapping Information record in the UDR within a 5G network?
+  question: What type of data is provided by the EAS address and DNAI Mapping Information
+    record in the UDR within a 5G network?
   expected_specs:
   - spec_id: '29.503'
     sections: []
@@ -1093,10 +1255,13 @@ items:
   notes: 'Concept related to 5G edge computing and UDR data in Release 18
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''EAS address information'', ''DNN and S-NSSAI'', ''AF Identifier'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''EAS address
+    information'', ''DNN and S-NSSAI'', ''AF Identifier'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7315
   id: def-040
@@ -1107,7 +1272,8 @@ items:
   - Part of 5G core network data
 - category: definition
   language: en
-  question: Explain the role of the gNB-CU in the NG-RAN architecture as defined in 3GPP standards.
+  question: Explain the role of the gNB-CU in the NG-RAN architecture as defined in
+    3GPP standards.
   expected_specs:
   - spec_id: '38.401'
     sections: []
@@ -1122,10 +1288,13 @@ items:
   notes: 'Refers to 3GPP Release 17 NG-RAN architecture.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''gNB-CU interconnects gNBs via Xn interface'', ''gNB-CU consists of CU-CP and CU-UPs'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''gNB-CU
+    interconnects gNBs via Xn interface'', ''gNB-CU consists of CU-CP and CU-UPs'']);
+    see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7330
   id: def-041
@@ -1135,7 +1304,8 @@ items:
   - Facilitates connectivity between gNBs and core NFs like AMF
 - category: definition
   language: en
-  question: What is the finest granularity of QoS differentiation at the NAS level in a PDU session?
+  question: What is the finest granularity of QoS differentiation at the NAS level
+    in a PDU session?
   expected_specs:
   - spec_id: '23.501'
     sections:
@@ -1148,7 +1318,8 @@ items:
   notes: 'QoS model details in 23.501 clause 5.7.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7534
   id: def-042
@@ -1158,7 +1329,9 @@ items:
   - QoS flows are part of PDU sessions.
 - category: definition
   language: en
-  question: Describe the mechanism for determining the contention window size in the listen-before-talk algorithm used for transmitting the Physical Downlink Shared Channel in Licensed Assisted Access.
+  question: Describe the mechanism for determining the contention window size in the
+    listen-before-talk algorithm used for transmitting the Physical Downlink Shared
+    Channel in Licensed Assisted Access.
   expected_specs:
   - spec_id: '36.213'
     sections:
@@ -1173,10 +1346,13 @@ items:
   notes: 'Refers to LBT channel access in LAA for downlink shared channel.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''fixed for all devices'', ''based on channel frequency'', ''determined randomly'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''fixed for
+    all devices'', ''based on channel frequency'', ''determined randomly'']); see
+    eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7641
   id: def-043
@@ -1188,7 +1364,8 @@ items:
   - The contention window size is selected based on priority class.
 - category: definition
   language: en
-  question: Describe the purpose of an MRB context in a gNB-DU as specified in 3GPP standards.
+  question: Describe the purpose of an MRB context in a gNB-DU as specified in 3GPP
+    standards.
   expected_specs:
   - spec_id: '38.473'
     sections: []
@@ -1202,7 +1379,8 @@ items:
   notes: 'Concept defined in 3GPP TS 38.473 for F1AP MBS procedures.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7828
   id: def-044
@@ -1214,7 +1392,8 @@ items:
   - for multicast/broadcast traffic
 - category: definition
   language: en
-  question: What is the reference point for mobility management and paging procedures between EPS and CS domain?
+  question: What is the reference point for mobility management and paging procedures
+    between EPS and CS domain?
   expected_specs:
   - spec_id: '23.401'
     sections: []
@@ -1228,10 +1407,13 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 7839
   id: def-045
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Gs-interface'', ''S6a-interface'', ''Gr-interface'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Gs-interface'',
+    ''S6a-interface'', ''Gr-interface'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - SGs-interface is the reference point
   - between EPS and CS domain
@@ -1239,7 +1421,8 @@ items:
   - handles paging procedures
 - category: definition
   language: en
-  question: What symbols are included in the last slots of a slot configuration period in NR?
+  question: What symbols are included in the last slots of a slot configuration period
+    in NR?
   expected_specs:
   - spec_id: '38.214'
     sections: []
@@ -1251,10 +1434,13 @@ items:
   notes: 'Concept related to TDD frame structure and scheduling.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''downlink symbols in last slots'', ''flexible symbols in last slots'', ''no symbols in last slots'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''downlink
+    symbols in last slots'', ''flexible symbols in last slots'', ''no symbols in last
+    slots'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7866
   id: def-046
@@ -1276,13 +1462,18 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 7935
   id: def-047
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Non-Geographical Radio Access Network'', ''New Generation Radio Antenna Node'', ''Network Gateway Radio Access Node'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Non-Geographical
+    Radio Access Network'', ''New Generation Radio Antenna Node'', ''Network Gateway
+    Radio Access Node'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: NG-RAN (Next Generation Radio Access Network) is defined in TS 38.300, the NR/NG-RAN overall description.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: NG-RAN (Next Generation Radio Access Network) is defined in TS 38.300,
+    the NR/NG-RAN overall description.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - NG-RAN stands for Next Generation Radio Access Network.
   - It refers to the radio access network for 5G systems.
@@ -1292,7 +1483,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: What is the purpose of the Control Plane Protocol Stack for service-based interfaces in the 5G Core Network?
+  question: What is the purpose of the Control Plane Protocol Stack for service-based
+    interfaces in the 5G Core Network?
   expected_specs:
   - spec_id: '29.500'
     sections: []
@@ -1306,10 +1498,14 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 8168
   id: def-048
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Manages NAS transport procedures'', ''Establishes secure connection between UPF and SMF'', ''Manages user plane PDU Session establishment'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Manages
+    NAS transport procedures'', ''Establishes secure connection between UPF and SMF'',
+    ''Manages user plane PDU Session establishment'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - Manages service-based interfaces in the 5GC
   - Control plane protocol stack handles SBI management
@@ -1332,13 +1528,19 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 8171
   id: def-049
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''orchestrate and manage US-NSIs'', ''dynamically allocate network resources'', ''translate tenant requirements'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''orchestrate
+    and manage US-NSIs'', ''dynamically allocate network resources'', ''translate
+    tenant requirements'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: SCEF (Service Capability Exposure Function) is canonically defined and specified in TS 23.682 as the function that securely exposes network services and capabilities to third-party applications.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: SCEF (Service Capability Exposure Function) is canonically defined
+    and specified in TS 23.682 as the function that securely exposes network services
+    and capabilities to third-party applications.); original archived under `_original_expected_specs`.'
   _original_expected_facts:
   - SCEF securely exposes services and capabilities
   - Exposure is to every US-NSI
@@ -1350,7 +1552,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: According to 3GPP 5G specifications, what charging principle should be possible to apply during an active session?
+  question: According to 3GPP 5G specifications, what charging principle should be
+    possible to apply during an active session?
   expected_specs:
   - spec_id: '23.503'
     sections: []
@@ -1362,10 +1565,13 @@ items:
   notes: 'Charging principle for active sessions in PCC framework
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Charge a 3rd party'', ''Split charging'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Charge
+    a 3rd party'', ''Split charging'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 8266
   id: def-050
@@ -1375,7 +1581,8 @@ items:
   - Charging principle specified in standards
 - category: definition
   language: en
-  question: What is the function responsible for routing User Plane data towards the Serving Gateway?
+  question: What is the function responsible for routing User Plane data towards the
+    Serving Gateway?
   expected_specs:
   - spec_id: '23.401'
     sections:
@@ -1388,10 +1595,12 @@ items:
   notes: 'Function related to eNB in LTE/EPS architecture.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''5G'', ''AMF'', ''UPF'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''5G'', ''AMF'',
+    ''UPF'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 8389
   id: def-051
@@ -1402,7 +1611,8 @@ items:
   - eNB handles data routing in EPS
 - category: definition
   language: en
-  question: What information is included in the Location Reporting Control message sent by the AMF to the NG-RAN?
+  question: What information is included in the Location Reporting Control message
+    sent by the AMF to the NG-RAN?
   expected_specs:
   - spec_id: '38.413'
     sections:
@@ -1415,10 +1625,12 @@ items:
   notes: 'Message defined in NG-AP protocol.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 8508
   id: def-052
@@ -1428,7 +1640,8 @@ items:
   - Request Reference ID
 - category: definition
   language: en
-  question: What specific capability does the LCS feature provide for a Target UE regarding its positioning and Quality of Service requirements?
+  question: What specific capability does the LCS feature provide for a Target UE
+    regarding its positioning and Quality of Service requirements?
   expected_specs:
   - spec_id: '23.273'
     sections: []
@@ -1441,10 +1654,14 @@ items:
   notes: 'Based on 3GPP Release 17
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: LCS (Location Services) feature enabling positioning within a specified QoS is normatively defined in TS 23.273, the 5GS LCS specification.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: LCS (Location Services) feature enabling positioning within a specified
+    QoS is normatively defined in TS 23.273, the 5GS LCS specification.); original
+    archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 9112
   id: def-053
@@ -1458,7 +1675,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: What identity is used to identify an Access and Mobility Management Function (AMF) in the NG-RAN architecture?
+  question: What identity is used to identify an Access and Mobility Management Function
+    (AMF) in the NG-RAN architecture?
   expected_specs:
   - spec_id: '38.413'
     sections:
@@ -1472,10 +1690,12 @@ items:
   notes: 'AMF Name is defined in 3GPP TS 38.413 for NG-AP procedures, such as NG Setup.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''NSAG'', ''NID'', ''gNB ID'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''NSAG'',
+    ''NID'', ''gNB ID'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 9118
   id: def-054
@@ -1487,7 +1707,8 @@ items:
   - Ensures correct routing to AMF
 - category: definition
   language: en
-  question: What is the term used to describe the 5G Access Network when it is connected to a 5G Core Network?
+  question: What is the term used to describe the 5G Access Network when it is connected
+    to a 5G Core Network?
   expected_specs:
   - spec_id: '23.501'
     sections: []
@@ -1501,10 +1722,12 @@ items:
   notes: 'Concept defined in 3GPP TS 23.501 architecture specifications
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Non-Stand Alone'', ''NSA'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Non-Stand
+    Alone'', ''NSA'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 9243
   id: def-055
@@ -1528,7 +1751,8 @@ items:
   notes: 'Concept defined in 3GPP 23.501 section 5.30
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 9269
   id: def-056
@@ -1539,7 +1763,8 @@ items:
   - Defined in 5G System architecture for private networks
 - category: definition
   language: en
-  question: What is the Mobile Originating Location capability in the context of LCS (Location Services)?
+  question: What is the Mobile Originating Location capability in the context of LCS
+    (Location Services)?
   expected_specs:
   - spec_id: '23.271'
     sections: []
@@ -1552,13 +1777,20 @@ items:
   notes: 'Concept related to Location Services in 5G systems
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''obtaining location of another mobile station'', ''third-party location acquisition'', ''transferring location to another mobile station'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''obtaining
+    location of another mobile station'', ''third-party location acquisition'', ''transferring
+    location to another mobile station'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Mobile Originating Location (MO-LR) capability is canonically defined in TS 23.271, which specifies the LCS (Location Services) architecture and procedures.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: Mobile Originating Location (MO-LR) capability is canonically defined
+    in TS 23.271, which specifies the LCS (Location Services) architecture and procedures.);
+    original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 9308
   id: def-057
@@ -1573,7 +1805,8 @@ items:
     sections: []
 - category: definition
   language: en
-  question: What does the acronym SI represent in the context of the RRC protocol for NR?
+  question: What does the acronym SI represent in the context of the RRC protocol
+    for NR?
   expected_specs:
   - spec_id: '38.331'
     sections:
@@ -1587,10 +1820,13 @@ items:
   notes: 'Abbreviation defined in NR RRC, 38.331
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Signal Integrity'', ''Service Interface'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Signal
+    Integrity'', ''Service Interface'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 9653
   id: def-058
@@ -1616,10 +1852,13 @@ items:
   notes: 'Definition related to emergency services in NAS context.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''provides normal service'', ''not barred and fulfills cell selection criteria'', ''reserved for operator use'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''provides
+    normal service'', ''not barred and fulfills cell selection criteria'', ''reserved
+    for operator use'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 976
   id: def-059
@@ -1630,7 +1869,8 @@ items:
   - It enables receiving CMAS notifications
 - category: definition
   language: en
-  question: What is the intended purpose of Fleet and Asset Management services in 3GPP specifications?
+  question: What is the intended purpose of Fleet and Asset Management services in
+    3GPP specifications?
   expected_specs:
   - spec_id: '23.280'
     sections: []
@@ -1646,10 +1886,15 @@ items:
   _original_expected_specs:
   - spec_id: '29.518'
     sections: []
-  notes: 'M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Fleet and Asset Management is a mission-critical (MC) service feature defined in TS 23.280 (Common functional architecture to support mission critical services).); original archived under `_original_expected_specs`.'
+  notes: 'M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: Fleet and Asset Management is a mission-critical (MC) service feature
+    defined in TS 23.280 (Common functional architecture to support mission critical
+    services).); original archived under `_original_expected_specs`.'
 - category: formula
   language: en
-  question: What is the mathematical formula used to compute the angle between the unit vectors of the Global Coordinate System (GCS) and the Local Coordinate System (LCS) in 5G NR?
+  question: What is the mathematical formula used to compute the angle between the
+    unit vectors of the Global Coordinate System (GCS) and the Local Coordinate System
+    (LCS) in 5G NR?
   expected_specs:
   - spec_id: '38.214'
     sections: []
@@ -1662,10 +1907,12 @@ items:
   notes: 'Formula for computing angle between coordinate system unit vectors
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''atan2 function'', ''asin function'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''atan2 function'',
+    ''asin function'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3931
   id: form-001
@@ -1677,7 +1924,8 @@ items:
   - Angle = acos(u1*u2 + v1*v2 + w1*w2)
 - category: multi_section
   language: en
-  question: What are the key functionalities that the RRC sublayer provides for sidelink communication in 3GPP Release 18?
+  question: What are the key functionalities that the RRC sublayer provides for sidelink
+    communication in 3GPP Release 18?
   expected_specs:
   - spec_id: '38.331'
     sections: []
@@ -1689,10 +1937,12 @@ items:
   - UE assistance information
   - SL traffic patterns
   forbidden: []
-  notes: 'Functionalities are defined across multiple sections in 38.331, such as sidelink configuration and reporting.
+  notes: 'Functionalities are defined across multiple sections in 38.331, such as
+    sidelink configuration and reporting.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1078
   id: multi-001
@@ -1703,7 +1953,8 @@ items:
   - Reporting of UE assistance information for SL traffic patterns
 - category: multi_section
   language: en
-  question: Identify the 3GPP system entities that are affected by the MUSIM feature in Release 17.
+  question: Identify the 3GPP system entities that are affected by the MUSIM feature
+    in Release 17.
   expected_specs:
   - spec_id: '23.401'
     sections: []
@@ -1722,7 +1973,8 @@ items:
   notes: 'MUSIM impact in Release 17
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3920
   id: multi-002
@@ -1733,7 +1985,8 @@ items:
   - SGW-C and SMF are impacted by MUSIM
 - category: multi_section
   language: en
-  question: What are the main functionalities of the Enhancement of support for Edge Computing feature in the 5G Core network as specified in 3GPP Release 17?
+  question: What are the main functionalities of the Enhancement of support for Edge
+    Computing feature in the 5G Core network as specified in 3GPP Release 17?
   expected_specs:
   - spec_id: '23.501'
     sections:
@@ -1752,10 +2005,14 @@ items:
   notes: 'Edge Computing enhancements in 3GPP Release 17
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Enhancement of Edge Computing in 5GC is normatively described across TS 23.501 (architecture) and TS 23.502 (procedures), which are the canonical specs for 5GS edge computing support.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: Enhancement of Edge Computing in 5GC is normatively described across
+    TS 23.501 (architecture) and TS 23.502 (procedures), which are the canonical specs
+    for 5GS edge computing support.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5156
   id: multi-003
@@ -1777,7 +2034,8 @@ items:
     - '6.1'
 - category: negative
   language: en
-  question: What is the specified behavior of a UE upon receiving an RRC message on DCCH or CCCH that lacks a mandatory field according to 3GPP specifications?
+  question: What is the specified behavior of a UE upon receiving an RRC message on
+    DCCH or CCCH that lacks a mandatory field according to 3GPP specifications?
   expected_specs:
   - spec_id: '38.331'
     sections:
@@ -1798,7 +2056,8 @@ items:
   id: neg-001
 - category: negative
   language: en
-  question: What is the support for deploying a NAT between EASDF and PSA UPF in 3GPP Release 18?
+  question: What is the support for deploying a NAT between EASDF and PSA UPF in 3GPP
+    Release 18?
   expected_specs:
   - spec_id: '23.501'
     sections: []
@@ -1818,7 +2077,8 @@ items:
   id: neg-002
 - category: negative
   language: en
-  question: What aspect is not part of the flexible network operations defined in the 5G system architecture?
+  question: What aspect is not part of the flexible network operations defined in
+    the 5G system architecture?
   expected_specs:
   - spec_id: '23.501'
     sections: []
@@ -1852,13 +2112,16 @@ items:
   notes: 'Power saving mechanism via scheduling offsets in NR PHY procedures.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''PDCCH monitoring enables power saving'', ''eDRX configuration for active-time'', ''adapting scheduling offsets alone'']); see eval-results/m7-post-m75-baseline/report.md §6.3'
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''PDCCH monitoring
+    enables power saving'', ''eDRX configuration for active-time'', ''adapting scheduling
+    offsets alone'']); see eval-results/m7-post-m75-baseline/report.md §6.3'
   source: teleqna_transformed
   teleqna_origin_id: question 1066
   id: proc-001
 - category: procedure
   language: en
-  question: In the NR random-access procedure, how is the indication of reduced capabilities communicated?
+  question: In the NR random-access procedure, how is the indication of reduced capabilities
+    communicated?
   expected_specs:
   - spec_id: '38.331'
     sections: []
@@ -1872,10 +2135,13 @@ items:
   notes: 'Specific to NR random-access message procedures
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Message 2'', ''Message 4'', ''PUCCH'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Message
+    2'', ''Message 4'', ''PUCCH'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1097
   id: proc-002
@@ -1886,7 +2152,8 @@ items:
   - Allows network to adjust for reduced UE capabilities
 - category: procedure
   language: en
-  question: How is 5G VN group configuration information communicated to the UE in the context of 3GPP Release 18?
+  question: How is 5G VN group configuration information communicated to the UE in
+    the context of 3GPP Release 18?
   expected_specs:
   - spec_id: '23.503'
     sections: []
@@ -1900,13 +2167,17 @@ items:
   - NAS
   - AMF
   forbidden: []
-  notes: 'Key components: PCF, URSP, UE Configuration Update procedure in 3GPP Release 18.
+  notes: 'Key components: PCF, URSP, UE Configuration Update procedure in 3GPP Release
+    18.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''delivered via UDM'', ''delivered via SMF'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''delivered
+    via UDM'', ''delivered via SMF'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1099
   id: proc-003
@@ -1918,7 +2189,8 @@ items:
   - Part of 5G policy control framework
 - category: procedure
   language: en
-  question: Describe the contents of the Location Report message sent by the NG-RAN to the AMF when the UE moves out of or into multiple areas of interest.
+  question: Describe the contents of the Location Report message sent by the NG-RAN
+    to the AMF when the UE moves out of or into multiple areas of interest.
   expected_specs:
   - spec_id: '38.413'
     sections: []
@@ -1928,10 +2200,12 @@ items:
   - Request Reference ID
   - multiple areas of interest
   forbidden: []
-  notes: 'Based on NG-AP protocol for Location Report message in location reporting procedure.
+  notes: 'Based on NG-AP protocol for Location Report message in location reporting
+    procedure.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1189
   id: proc-004
@@ -1942,7 +2216,8 @@ items:
   - Multiple pairs for multiple areas of interest
 - category: procedure
   language: en
-  question: When the SMF receives an enabling request for analytics information exposure from a UE, what is its initial action concerning Analytics ID subscriptions?
+  question: When the SMF receives an enabling request for analytics information exposure
+    from a UE, what is its initial action concerning Analytics ID subscriptions?
   expected_specs:
   - spec_id: '29.502'
     sections: []
@@ -1956,10 +2231,14 @@ items:
   notes: 'Procedure based on Nsmf services for analytics exposure handling.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Subscribes to the Analytics ID for the UE'', ''Requests analytics information from NWDAF'', ''Unsubscribes from the Analytics ID'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Subscribes
+    to the Analytics ID for the UE'', ''Requests analytics information from NWDAF'',
+    ''Unsubscribes from the Analytics ID'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1226
   id: proc-005
@@ -1970,7 +2249,8 @@ items:
   - Action to prevent duplicate subscriptions
 - category: procedure
   language: en
-  question: Under what condition does the V-SMF delete the DNS context from the selected V-EASDF in the context of HR-SBO?
+  question: Under what condition does the V-SMF delete the DNS context from the selected
+    V-EASDF in the context of HR-SBO?
   expected_specs:
   - spec_id: '23.502'
     sections: []
@@ -1983,10 +2263,14 @@ items:
   notes: 'Refer to HR-SBO authorization in SMF procedures
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''When V-SMF selects a new V-EASDF'', ''When UE initiates Mobility Registration Update'', ''When AF triggers EAS rediscovery'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''When V-SMF
+    selects a new V-EASDF'', ''When UE initiates Mobility Registration Update'', ''When
+    AF triggers EAS rediscovery'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 123
   id: proc-006
@@ -1998,7 +2282,8 @@ items:
   - Authorization check by V-SMF
 - category: procedure
   language: en
-  question: What additional functions does an eNB support in the case of SIPTO@LN with a collocated L-GW?
+  question: What additional functions does an eNB support in the case of SIPTO@LN
+    with a collocated L-GW?
   expected_specs:
   - spec_id: '23.401'
     sections: []
@@ -2012,20 +2297,26 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 1855
   id: proc-007
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Transfer of S-GW IP address'', ''MME-triggered S-GW relocation'', ''Notification of uplink TEID(s)'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Transfer
+    of S-GW IP address'', ''MME-triggered S-GW relocation'', ''Notification of uplink
+    TEID(s)'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7 2026-05-23 fact list manually re-merged to avoid LLM over-rewrite regression (kept original phrasing + atomic variants); was [''first packet sending'', ''buffering subsequent packets'', ''L-GW-eNB direct user path management'']'
+    M7.7 2026-05-23 fact list manually re-merged to avoid LLM over-rewrite regression
+    (kept original phrasing + atomic variants); was [''first packet sending'', ''buffering
+    subsequent packets'', ''L-GW-eNB direct user path management'']'
   _original_expected_facts:
   - First packet sending
   - Buffering of subsequent packets
   - Internal direct L-GW-eNB user path management
 - category: procedure
   language: en
-  question: What procedure in the 5G NAS protocol is used to update certain configurations at the User Equipment, such as the Allowed NSSAI?
+  question: What procedure in the 5G NAS protocol is used to update certain configurations
+    at the User Equipment, such as the Allowed NSSAI?
   expected_specs:
   - spec_id: '24.501'
     sections: []
@@ -2038,7 +2329,8 @@ items:
   notes: 'Procedure defined in 24.501 for UE configuration updates.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 2032
   id: proc-008
@@ -2063,10 +2355,13 @@ items:
   notes: 'Refers to LTE PHY procedures for transmission timing.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''immediately in the same TTI'', ''after random time period'', ''after predefined number of TTIs'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''immediately
+    in the same TTI'', ''after random time period'', ''after predefined number of
+    TTIs'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 2728
   id: proc-009
@@ -2077,7 +2372,8 @@ items:
   - TTI is the Transmission Time Interval in LTE
 - category: procedure
   language: en
-  question: In 5G Systems, how does a Multi-USIM UE adjust the timing of its paging occasions?
+  question: In 5G Systems, how does a Multi-USIM UE adjust the timing of its paging
+    occasions?
   expected_specs:
   - spec_id: '24.501'
     sections: []
@@ -2097,10 +2393,12 @@ items:
   - Reallocation occurs without specific indication.
   - Operates in 5GS context.
   - Involves NAS signaling.
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 - category: procedure
   language: en
-  question: Describe the mechanism by which the UDM informs the AMF when a user profile change in the UDM/UDR affects the AMF's user profile.
+  question: Describe the mechanism by which the UDM informs the AMF when a user profile
+    change in the UDM/UDR affects the AMF's user profile.
   expected_specs:
   - spec_id: '29.503'
     sections:
@@ -2115,10 +2413,13 @@ items:
   notes: 'Service operation defined in 3GPP TS 29.503
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Nudm_SDM_Info'', ''UE Configuration Update procedure'', ''UE Parameters Update via UDM Control Plane Procedure'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Nudm_SDM_Info'',
+    ''UE Configuration Update procedure'', ''UE Parameters Update via UDM Control
+    Plane Procedure'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 2995
   id: proc-011
@@ -2130,7 +2431,8 @@ items:
   - Part of Nudm SDM service
 - category: procedure
   language: en
-  question: What is the outcome when a location request fails due to breaking in 3GPP Release 17 location services?
+  question: What is the outcome when a location request fails due to breaking in 3GPP
+    Release 17 location services?
   expected_specs:
   - spec_id: '29.518'
     sections: []
@@ -2144,10 +2446,13 @@ items:
   notes: 'Relates to LCS barring handling in AMF services
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''request is postponed'', ''request is cancelled'', ''request is forwarded'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''request
+    is postponed'', ''request is cancelled'', ''request is forwarded'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3562
   id: proc-012
@@ -2157,7 +2462,8 @@ items:
   - LCS Requestor receives error indication
 - category: procedure
   language: en
-  question: What HARQ-ACK information does the UE generate when it correctly decodes a transport block?
+  question: What HARQ-ACK information does the UE generate when it correctly decodes
+    a transport block?
   expected_specs:
   - spec_id: '38.213'
     sections: []
@@ -2170,10 +2476,14 @@ items:
   notes: 'HARQ-ACK is defined in PHY layer procedures
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: HARQ-ACK generation for correctly decoded transport blocks is normatively defined in TS 38.213 (NR physical layer procedures for control, specifically sections on HARQ-ACK reporting).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: HARQ-ACK generation for correctly decoded transport blocks is normatively
+    defined in TS 38.213 (NR physical layer procedures for control, specifically sections
+    on HARQ-ACK reporting).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3657
   id: proc-013
@@ -2192,7 +2502,8 @@ items:
     - '5.3'
 - category: procedure
   language: en
-  question: Explain what the I-SMF Context Transfer procedure involves in 5G systems according to 3GPP specifications.
+  question: Explain what the I-SMF Context Transfer procedure involves in 5G systems
+    according to 3GPP specifications.
   expected_specs:
   - spec_id: '23.502'
     sections: []
@@ -2205,13 +2516,19 @@ items:
   notes: 'Procedure defined in 3GPP Release 18 for 5G service-based interfaces.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''AMF sends indication to New SMF'', ''New service transaction triggered'', ''I-SMF selected from SMF set'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''AMF sends
+    indication to New SMF'', ''New service transaction triggered'', ''I-SMF selected
+    from SMF set'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: I-SMF Context Transfer procedure and the Nsmf_PDUSession_SMContextStatusNotify service operation are defined in TS 23.502 (5GS procedures).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: I-SMF Context Transfer procedure and the Nsmf_PDUSession_SMContextStatusNotify
+    service operation are defined in TS 23.502 (5GS procedures).); original archived
+    under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3836
   id: proc-014
@@ -2225,7 +2542,8 @@ items:
     sections: []
 - category: procedure
   language: en
-  question: In the F1AP protocol, what message does the SN-DU send to the SN-CU as a response after receiving a UE CONTEXT RELEASE command?
+  question: In the F1AP protocol, what message does the SN-DU send to the SN-CU as
+    a response after receiving a UE CONTEXT RELEASE command?
   expected_specs:
   - spec_id: '38.473'
     sections:
@@ -2239,7 +2557,8 @@ items:
   notes: 'UE Context Release procedure defined in F1AP for gNB-DU to gNB-CU interaction.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 4241
   id: proc-015
@@ -2250,7 +2569,8 @@ items:
   - Part of UE Context Release procedure for DU-CU
 - category: procedure
   language: en
-  question: In LTE/EPS, what is the purpose of the selected core network information used by the eNodeB for handover operations?
+  question: In LTE/EPS, what is the purpose of the selected core network information
+    used by the eNodeB for handover operations?
   expected_specs:
   - spec_id: '23.401'
     sections:
@@ -2264,10 +2584,14 @@ items:
   notes: 'Section 5.10 of TS 23.401 covers handover procedures in EPS.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''To indicate the PLMN-index to the SGSN'', ''To transmit in broadcast system information'', ''To select the GERAN/UTRAN target network'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''To indicate
+    the PLMN-index to the SGSN'', ''To transmit in broadcast system information'',
+    ''To select the GERAN/UTRAN target network'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 4401
   id: proc-016
@@ -2279,7 +2603,8 @@ items:
   - for future handover decisions
 - category: procedure
   language: en
-  question: What synchronization signals does a UE receive to perform cell search in 5G NR?
+  question: What synchronization signals does a UE receive to perform cell search
+    in 5G NR?
   expected_specs:
   - spec_id: '38.211'
     sections: []
@@ -2296,16 +2621,21 @@ items:
   - UE receives primary synchronization signal (PSS)
   - UE receives secondary synchronization signal (SSS)
   - Both PSS and SSS are required for cell search
-  notes: 'M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: 'M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PSS and SSS definitions and structures are canonically specified in TS 38.211 (NR Physical channels and modulation), specifically in Sections 7.4.2 and 7.4.3.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: PSS and SSS definitions and structures are canonically specified in
+    TS 38.211 (NR Physical channels and modulation), specifically in Sections 7.4.2
+    and 7.4.3.); original archived under `_original_expected_specs`.'
   _original_expected_specs:
   - spec_id: '38.300'
     sections: []
 - category: procedure
   language: en
-  question: Describe the mechanism for exchanging analytics between the Home PLMN and Visited PLMN in a 5G roaming architecture.
+  question: Describe the mechanism for exchanging analytics between the Home PLMN
+    and Visited PLMN in a 5G roaming architecture.
   expected_specs:
   - spec_id: '23.288'
     sections: []
@@ -2319,13 +2649,18 @@ items:
   notes: 'Based on 3GPP Release 18 for analytics exchange in roaming scenarios.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Via SEPPs'', ''Via Nnwdaf interface'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Via SEPPs'',
+    ''Via Nnwdaf interface'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: NWDAF analytics exchange between HPLMN and VPLMN via H-RE-NWDAF/V-RE-NWDAF is defined in TS 23.288 (Architecture enhancements for 5G System for network data analytics).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: NWDAF analytics exchange between HPLMN and VPLMN via H-RE-NWDAF/V-RE-NWDAF
+    is defined in TS 23.288 (Architecture enhancements for 5G System for network data
+    analytics).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5706
   id: proc-018
@@ -2342,7 +2677,8 @@ items:
     sections: []
 - category: procedure
   language: en
-  question: What actions should a UE perform if a cell is indicated as barred for cell selection or reselection in a 5G NR system?
+  question: What actions should a UE perform if a cell is indicated as barred for
+    cell selection or reselection in a 5G NR system?
   expected_specs:
   - spec_id: '38.331'
     sections: []
@@ -2357,7 +2693,8 @@ items:
   notes: 'Actions defined in NR RRC specifications for cell barring procedures.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5725
   id: proc-019
@@ -2380,10 +2717,13 @@ items:
   notes: 'Inferred from NG-AP context for information reporting.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''always reported'', ''only when Dual Connectivity is activated'', ''never reported'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''always
+    reported'', ''only when Dual Connectivity is activated'', ''never reported'']);
+    see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5802
   id: proc-020
@@ -2395,7 +2735,9 @@ items:
   - This is part of NG-AP protocol procedures.
 - category: procedure
   language: en
-  question: What information element is included in the UE CONTEXT SETUP REQUEST message when sent to the candidate gNB-DU during the Intra-CU topology adaptation procedure in Standalone mode?
+  question: What information element is included in the UE CONTEXT SETUP REQUEST message
+    when sent to the candidate gNB-DU during the Intra-CU topology adaptation procedure
+    in Standalone mode?
   expected_specs:
   - spec_id: '38.473'
     sections:
@@ -2406,13 +2748,18 @@ items:
   - candidate gNB-DU
   - Intra-CU topology adaptation
   forbidden: []
-  notes: 'Intra-CU topology adaptation procedure defined in 38.401 §8.9; UE CONTEXT SETUP REQUEST message defined in 38.473
+  notes: 'Intra-CU topology adaptation procedure defined in 38.401 §8.9; UE CONTEXT
+    SETUP REQUEST message defined in 38.473
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: The UE CONTEXT SETUP REQUEST message and its contents for intra-CU topology adaptation are defined in TS 38.473 (F1-AP specification).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: The UE CONTEXT SETUP REQUEST message and its contents for intra-CU
+    topology adaptation are defined in TS 38.473 (F1-AP specification).); original
+    archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 6206
   id: proc-021
@@ -2431,7 +2778,8 @@ items:
     - 8.4.1
 - category: procedure
   language: en
-  question: In 3GPP Release 17, how are user-plane resources over a 3GPP access established when supporting an MA PDU Session?
+  question: In 3GPP Release 17, how are user-plane resources over a 3GPP access established
+    when supporting an MA PDU Session?
   expected_specs:
   - spec_id: '23.501'
     sections: []
@@ -2447,10 +2795,13 @@ items:
   notes: 'Rel-17 MA PDU Session feature enabling EPC involvement
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''always established in 5G core'', ''only established over NG-RAN access'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''always
+    established in 5G core'', ''only established over NG-RAN access'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 6377
   id: proc-022
@@ -2461,7 +2812,8 @@ items:
   - This is a Rel-17 enhancement for multi-access PDU Sessions
 - category: procedure
   language: en
-  question: Which network entities are involved in the PDU Session establishment procedure when HR-SBO is supported in VPLMN?
+  question: Which network entities are involved in the PDU Session establishment procedure
+    when HR-SBO is supported in VPLMN?
   expected_specs:
   - spec_id: '23.502'
     sections: []
@@ -2475,10 +2827,13 @@ items:
   notes: 'HR-SBO is a Release 18 feature for VPLMN support
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''UE and H-SMF'', ''H-SMF involved in HR-SBO'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''UE and
+    H-SMF'', ''H-SMF involved in HR-SBO'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 6612
   id: proc-023
@@ -2490,7 +2845,9 @@ items:
   - HR-SBO support requires AMF and V-SMF interaction
 - category: procedure
   language: en
-  question: What does a RedCap UE expect regarding the initial DL BWP when it monitors PDCCH according to the Type1-PDCCH CSS set and does not monitor PDCCH according to the Type2-PDCCH CSS set?
+  question: What does a RedCap UE expect regarding the initial DL BWP when it monitors
+    PDCCH according to the Type1-PDCCH CSS set and does not monitor PDCCH according
+    to the Type2-PDCCH CSS set?
   expected_specs:
   - spec_id: '38.213'
     sections: []
@@ -2504,13 +2861,19 @@ items:
   notes: 'RedCap UE behavior related to PDCCH monitoring and BWP configuration
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Initial DL BWP includes SS/PBCH blocks'', ''Initial DL BWP includes CORESET with index 0'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Initial
+    DL BWP includes SS/PBCH blocks'', ''Initial DL BWP includes CORESET with index
+    0'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PDCCH CSS set types, CORESET index 0, and RedCap UE monitoring expectations for initial DL BWP are normatively defined in TS 38.213 (NR physical layer procedures for control).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: PDCCH CSS set types, CORESET index 0, and RedCap UE monitoring expectations
+    for initial DL BWP are normatively defined in TS 38.213 (NR physical layer procedures
+    for control).); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 669
   id: proc-024
@@ -2524,7 +2887,8 @@ items:
     sections: []
 - category: procedure
   language: en
-  question: Under what circumstances does the PCF include the Duplicated notification indication in a PCC rule?
+  question: Under what circumstances does the PCF include the Duplicated notification
+    indication in a PCC rule?
   expected_specs:
   - spec_id: '23.503'
     sections: []
@@ -2537,10 +2901,13 @@ items:
   notes: 'Based on 3GPP Release 18, related to PCC rules in 5G policy framework
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''When AF initiates AF session'', ''When L-PSA UPF detects QoS monitoring event'', ''When AF revokes AF session'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''When AF
+    initiates AF session'', ''When L-PSA UPF detects QoS monitoring event'', ''When
+    AF revokes AF session'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 6741
   id: proc-025
@@ -2551,7 +2918,8 @@ items:
   - Duplicated notification indication is part of policy decision by PCF
 - category: procedure
   language: en
-  question: Describe the action performed by a UE on a BWP inactivity timer for a cell when the timer is running.
+  question: Describe the action performed by a UE on a BWP inactivity timer for a
+    cell when the timer is running.
   expected_specs:
   - spec_id: '38.321'
     sections: []
@@ -2566,13 +2934,19 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 6828
   id: proc-026
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Increments the timer'', ''Suspends the timer'', ''Resets the timer'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Increments
+    the timer'', ''Suspends the timer'', ''Resets the timer'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: BWP inactivity timer decrement behavior (subframe for FR1, half subframe for FR2) is normatively specified in TS 38.321 (MAC procedures).); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: BWP inactivity timer decrement behavior (subframe for FR1, half subframe
+    for FR2) is normatively specified in TS 38.321 (MAC procedures).); original archived
+    under `_original_expected_specs`.'
   _original_expected_facts:
   - UE decrements the BWP inactivity timer when it is running
   - Decrement happens at the end of a subframe for FR1
@@ -2583,7 +2957,8 @@ items:
     sections: []
 - category: procedure
   language: en
-  question: What is the essential action for a UE to access network services while in idle mode according to 3GPP specifications?
+  question: What is the essential action for a UE to access network services while
+    in idle mode according to 3GPP specifications?
   expected_specs:
   - spec_id: '38.300'
     sections: []
@@ -2599,17 +2974,21 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 74
   id: proc-027
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''location registration'', ''CN type selection'', ''RNA update'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''location
+    registration'', ''CN type selection'', ''RNA update'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - Camping on a cell is necessary to access services in idle mode.
   - UEs must camp on a cell in idle mode to receive services.
   - Access to idle mode services requires cell camping.
 - category: procedure
   language: en
-  question: What is the primary purpose of the SMF Service Context Transfer procedures in the 5G System?
+  question: What is the primary purpose of the SMF Service Context Transfer procedures
+    in the 5G System?
   expected_specs:
   - spec_id: '29.502'
     sections: []
@@ -2626,10 +3005,12 @@ items:
   - Transfer context-specific information between SMF Sets.
   - SMF Sets must support the same DNN and S-NSSAI pair.
   - Involves SM (Session Management) contexts.
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 - category: procedure
   language: en
-  question: In the F1AP procedure, what message does the gNB-DU send after receiving the RRCRelease message?
+  question: In the F1AP procedure, what message does the gNB-DU send after receiving
+    the RRCRelease message?
   expected_specs:
   - spec_id: '38.473'
     sections: []
@@ -2642,10 +3023,13 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 7511
   id: proc-029
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''RRCResumeRequest message'', ''PAGING message'', ''UE CONTEXT SETUP RESPONSE message'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''RRCResumeRequest
+    message'', ''PAGING message'', ''UE CONTEXT SETUP RESPONSE message'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - UE CONTEXT RELEASE COMPLETE message
   - sent by gNB-DU
@@ -2654,7 +3038,8 @@ items:
   - in F1AP protocol
 - category: procedure
   language: en
-  question: What criteria are considered for periodic network selection attempts according to 3GPP?
+  question: What criteria are considered for periodic network selection attempts according
+    to 3GPP?
   expected_specs:
   - spec_id: '24.501'
     sections: []
@@ -2668,20 +3053,25 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 7614
   id: proc-030
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Signal quality'', ''User preferences'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Signal
+    quality'', ''User preferences'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7 2026-05-23 fact list manually re-merged to avoid LLM over-rewrite regression (kept original phrasing + atomic variants); was [''PLMN priority'', ''PLMN availability'']'
+    M7.7 2026-05-23 fact list manually re-merged to avoid LLM over-rewrite regression
+    (kept original phrasing + atomic variants); was [''PLMN priority'', ''PLMN availability'']'
   _original_expected_facts:
   - Priority of PLMNs
   - Availability of PLMNs
   - Criteria for periodic network selection attempts
 - category: procedure
   language: en
-  question: Describe scenarios where a network operator can minimize network traffic while maintaining Quality of Service (QoS).
+  question: Describe scenarios where a network operator can minimize network traffic
+    while maintaining Quality of Service (QoS).
   expected_specs:
   - spec_id: '23.503'
     sections: []
@@ -2695,10 +3085,13 @@ items:
   notes: 'Concept related to policy control for QoS optimization in 5G systems.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Asset management services'', ''Privacy Exception List'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Asset management
+    services'', ''Privacy Exception List'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7622
   id: proc-031
@@ -2710,7 +3103,8 @@ items:
   - Application responsibility for decision
 - category: procedure
   language: en
-  question: Under what conditions does the gNB-CU trigger the UE Context Setup procedure in 5G NR architecture?
+  question: Under what conditions does the gNB-CU trigger the UE Context Setup procedure
+    in 5G NR architecture?
   expected_specs:
   - spec_id: '38.473'
     sections:
@@ -2726,10 +3120,13 @@ items:
   notes: 'Procedure specified in 3GPP TS 38.473 for F1AP between gNB-CU and gNB-DU.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''active to inactive transitions'', ''idle to inactive transitions'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''active
+    to inactive transitions'', ''idle to inactive transitions'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7640
   id: proc-032
@@ -2761,10 +3158,12 @@ items:
   - Part of 5G mobility procedures for RAT change.
   - Enables UE move from E-UTRAN or other RAT to NR.
   - Connection transfer ensures continuity during handover.
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 - category: procedure
   language: en
-  question: Describe the outcome when a PDU Session configured with UP confidentiality protection set to Required is handed over to EPS.
+  question: Describe the outcome when a PDU Session configured with UP confidentiality
+    protection set to Required is handed over to EPS.
   expected_specs:
   - spec_id: '23.501'
     sections:
@@ -2783,10 +3182,13 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 7929
   id: proc-034
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''modified to Not Needed'', ''disabled'', ''modified to Preferred'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''modified
+    to Not Needed'', ''disabled'', ''modified to Preferred'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - PDU Session is released during handover to EPS.
   - UP confidentiality protection is set to Required.
@@ -2795,7 +3197,8 @@ items:
   - Session continuity is not maintained in EPS.
 - category: procedure
   language: en
-  question: Describe the purpose of the Intra-CU Backhaul RLF recovery procedure for IAB-nodes operating in standalone mode.
+  question: Describe the purpose of the Intra-CU Backhaul RLF recovery procedure for
+    IAB-nodes operating in standalone mode.
   expected_specs:
   - spec_id: '38.401'
     sections: []
@@ -2810,13 +3213,19 @@ items:
   notes: 'IAB procedure for backhaul RLF recovery in 3GPP Release 17
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''establishing new RRC connection for UE'', ''configuring data bearers in source gNB-DU'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''establishing
+    new RRC connection for UE'', ''configuring data bearers in source gNB-DU'']);
+    see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Intra-CU Backhaul RLF recovery for IAB-nodes is defined in TS 38.401, which covers NG-RAN architecture and IAB procedures.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: Intra-CU Backhaul RLF recovery for IAB-nodes is defined in TS 38.401,
+    which covers NG-RAN architecture and IAB procedures.); original archived under
+    `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7984
   id: proc-035
@@ -2834,7 +3243,8 @@ items:
     sections: []
 - category: procedure
   language: en
-  question: Identify the message sent by the AMF to the NG-RAN during procedures such as mobility registration, AM policy modification, and handover.
+  question: Identify the message sent by the AMF to the NG-RAN during procedures such
+    as mobility registration, AM policy modification, and handover.
   expected_specs:
   - spec_id: '38.413'
     sections: []
@@ -2847,10 +3257,14 @@ items:
   notes: 'Message defined in 3GPP TS 38.413 for NGAP protocol
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''5G access stratum time distribution indication'', ''Uu time synchronization error budget'', ''Clock quality detail level'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''5G access
+    stratum time distribution indication'', ''Uu time synchronization error budget'',
+    ''Clock quality detail level'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 8200
   id: proc-036
@@ -2877,13 +3291,17 @@ items:
   - LTE
   - NR
   forbidden: []
-  notes: 'Cell search is part of initial access and involves synchronization and random access.
+  notes: 'Cell search is part of initial access and involves synchronization and random
+    access.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Channel Access procedures'', ''HARQ related procedures'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Channel
+    Access procedures'', ''HARQ related procedures'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 8213
   id: proc-037
@@ -2894,7 +3312,8 @@ items:
   - NR specifies random access procedures in the PHY layer.
 - category: procedure
   language: en
-  question: When a UE cancels a PUSCH or SRS transmission based on a DCI format, what scheduling expectation does it have for subsequent transmissions?
+  question: When a UE cancels a PUSCH or SRS transmission based on a DCI format, what
+    scheduling expectation does it have for subsequent transmissions?
   expected_specs:
   - spec_id: '38.214'
     sections: []
@@ -2904,10 +3323,12 @@ items:
   - second DCI format
   - cancelled symbols
   forbidden: []
-  notes: 'Refers to behavior after DCI format 2_4 cancellation as per 3GPP Release 17.
+  notes: 'Refers to behavior after DCI format 2_4 cancellation as per 3GPP Release
+    17.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 8703
   id: proc-038
@@ -2917,7 +3338,8 @@ items:
   - Transmission over symbols that include cancelled symbols
 - category: procedure
   language: en
-  question: What specific action does the AMF take after purging subscriber data and MM context for a deregistered UE?
+  question: What specific action does the AMF take after purging subscriber data and
+    MM context for a deregistered UE?
   expected_specs:
   - spec_id: '29.503'
     sections: []
@@ -2930,10 +3352,13 @@ items:
   notes: 'Operation defined in Nudm service interface
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Initiates AMF initiated Deregistration'', ''Updates UE context in UDR via Nudr_DM_Update'', ''Sets UE Purged flag'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''Initiates
+    AMF initiated Deregistration'', ''Updates UE context in UDR via Nudr_DM_Update'',
+    ''Sets UE Purged flag'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 8770
   id: proc-039
@@ -2944,7 +3369,8 @@ items:
   - Context is for a deregistered UE
 - category: procedure
   language: en
-  question: What additional function does the eNB perform when supporting SIPTO@LN with a stand-alone gateway?
+  question: What additional function does the eNB perform when supporting SIPTO@LN
+    with a stand-alone gateway?
   expected_specs:
   - spec_id: '23.401'
     sections: []
@@ -2965,7 +3391,8 @@ items:
   - Function is for SIPTO@LN with stand-alone gateway
   - It is an additional function supported by eNB
   - Signaling occurs in certain messages
-  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+  notes: M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences
+    → atomic phrases); original archived under `_original_expected_facts`.
 - category: table_lookup
   language: en
   question: What is the maximum number of PDU Sessions as per 3GPP Release 17 specifications?
@@ -2982,7 +3409,8 @@ items:
   notes: 'Value typically found in 3GPP 23.501 PDU Session definitions.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 108
   id: table-001
@@ -2992,7 +3420,8 @@ items:
   - PDU Session count up to 256
 - category: table_lookup
   language: en
-  question: According to NR specifications, what identity is used to indicate pre-emption in the downlink?
+  question: According to NR specifications, what identity is used to indicate pre-emption
+    in the downlink?
   expected_specs:
   - spec_id: '38.213'
     sections: []
@@ -3004,13 +3433,19 @@ items:
   notes: 'INT-RNTI defined in 38.331 section 7.1 for RNTI values
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''C-RNTI indicates pre-emption'', ''CI-RNTI is used for downlink pre-emption'', ''CS-RNTI indicates pre-emption in downlink'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''C-RNTI
+    indicates pre-emption'', ''CI-RNTI is used for downlink pre-emption'', ''CS-RNTI
+    indicates pre-emption in downlink'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: INT-RNTI for downlink pre-emption indication is defined in TS 38.213 (NR physical layer procedures)); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: INT-RNTI for downlink pre-emption indication is defined in TS 38.213
+    (NR physical layer procedures)); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 111
   id: table-002
@@ -3026,7 +3461,9 @@ items:
     - '7.1'
 - category: table_lookup
   language: en
-  question: In 3GPP Release 18 specifications for NR physical layer procedures, what SNR target is defined for higher Channel Bandwidths (CBWs) based on the assumption of 16 dB?
+  question: In 3GPP Release 18 specifications for NR physical layer procedures, what
+    SNR target is defined for higher Channel Bandwidths (CBWs) based on the assumption
+    of 16 dB?
   expected_specs:
   - spec_id: '38.214'
     sections: []
@@ -3039,10 +3476,12 @@ items:
   notes: 'Value related to SNR assumptions in NR specifications for higher bandwidths.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''14.4 dB'', ''18.6 dB'', ''20 dB'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''14.4 dB'',
+    ''18.6 dB'', ''20 dB'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1274
   id: table-003
@@ -3053,7 +3492,8 @@ items:
   - Applicable to 5G NR physical layer procedures.
 - category: table_lookup
   language: en
-  question: What are the new QoS Class Identifiers introduced in 5G Release 18 for Ultra Low Latency GBR services?
+  question: What are the new QoS Class Identifiers introduced in 5G Release 18 for
+    Ultra Low Latency GBR services?
   expected_specs:
   - spec_id: '23.501'
     sections:
@@ -3067,10 +3507,13 @@ items:
   notes: 'QCI definitions are specified in the QoS model clause of 23.501
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''QCI 80 and QCI 81'', ''QCI 82 and QCI 83'', ''QCI 86 and QCI 87'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''QCI 80
+    and QCI 81'', ''QCI 82 and QCI 83'', ''QCI 86 and QCI 87'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 1524
   id: table-004
@@ -3080,7 +3523,8 @@ items:
   - These QCIs are added in 5G Release 18 for Ultra Low Latency GBR
 - category: table_lookup
   language: en
-  question: What is the number of downlink HARQ processes specified for UEs supporting full-duplex FDD operation in LTE?
+  question: What is the number of downlink HARQ processes specified for UEs supporting
+    full-duplex FDD operation in LTE?
   expected_specs:
   - spec_id: '36.321'
     sections: []
@@ -3092,13 +3536,19 @@ items:
   notes: 'Based on 3GPP Release 14 enhancements for E-UTRA full-duplex FDD.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''6 DL HARQ processes'', ''12 DL HARQ processes'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''6 DL HARQ
+    processes'', ''12 DL HARQ processes'']); see eval-results/m7-post-m75-baseline/report.md
+    §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: Number of DL HARQ processes is a MAC-layer parameter normatively defined in TS 36.321 (LTE MAC specification), which defines HARQ entity and process handling for full-duplex FDD.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: Number of DL HARQ processes is a MAC-layer parameter normatively defined
+    in TS 36.321 (LTE MAC specification), which defines HARQ entity and process handling
+    for full-duplex FDD.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 3722
   id: table-005
@@ -3113,7 +3563,8 @@ items:
     sections: []
 - category: table_lookup
   language: en
-  question: How are the modulation order (Qm) and target code rate (R) determined for PSSCH transmission in NR sidelink?
+  question: How are the modulation order (Qm) and target code rate (R) determined
+    for PSSCH transmission in NR sidelink?
   expected_specs:
   - spec_id: '38.214'
     sections:
@@ -3126,13 +3577,18 @@ items:
   - target code rate
   - PSSCH
   forbidden: []
-  notes: 'Determination as per sidelink procedures in 38.214, using MCS table and SCI format 1-A.
+  notes: 'Determination as per sidelink procedures in 38.214, using MCS table and
+    SCI format 1-A.
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''DM-RS configuration determines modulation order and code rate'', ''Number of REs in the slot determines modulation and coding'', ''Redundancy version determines modulation order'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''DM-RS configuration
+    determines modulation order and code rate'', ''Number of REs in the slot determines
+    modulation and coding'', ''Redundancy version determines modulation order'']);
+    see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 388
   id: table-006
@@ -3144,7 +3600,8 @@ items:
   - Modulation and coding scheme is indexed in the MCS table
 - category: table_lookup
   language: en
-  question: What is the minimum number of grid points required for the TRP Measurement Grid with constant density?
+  question: What is the minimum number of grid points required for the TRP Measurement
+    Grid with constant density?
   expected_specs:
   - spec_id: 38.141-3
     sections: []
@@ -3157,10 +3614,14 @@ items:
   notes: 'Value likely from a table or definition in 3GPP TS 38.214.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: TRP measurement grid requirements for FR2 are normatively defined in TS 38.141-3 (Radiated performance requirements for NR), which specifies 62 minimum grid points for constant density TRP measurement.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: TRP measurement grid requirements for FR2 are normatively defined in
+    TS 38.141-3 (Radiated performance requirements for NR), which specifies 62 minimum
+    grid points for constant density TRP measurement.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 5821
   id: table-007
@@ -3173,7 +3634,8 @@ items:
     sections: []
 - category: table_lookup
   language: en
-  question: What is the NAS error response that indicates the requested service option is not authorized in the PLMN?
+  question: What is the NAS error response that indicates the requested service option
+    is not authorized in the PLMN?
   expected_specs:
   - spec_id: '24.501'
     sections:
@@ -3186,10 +3648,13 @@ items:
   source: teleqna_transformed
   teleqna_origin_id: question 6007
   id: table-008
-  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''PLMN not allowed'', ''Serving network not authorized'', ''Temporarily not authorized for this SNPN'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+  notes: 'M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''PLMN
+    not allowed'', ''Serving network not authorized'', ''Temporarily not authorized
+    for this SNPN'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   _original_expected_facts:
   - Requested service option not authorized in this PLMN
   - 5GMM cause value for service authorization
@@ -3197,7 +3662,8 @@ items:
   - Defined in 3GPP 24.501
 - category: table_lookup
   language: en
-  question: What is the maximum rank supported for slot or subslot PDSCH repetition in LTE according to 3GPP Release 18?
+  question: What is the maximum rank supported for slot or subslot PDSCH repetition
+    in LTE according to 3GPP Release 18?
   expected_specs:
   - spec_id: '36.213'
     sections: []
@@ -3211,7 +3677,8 @@ items:
   notes: 'Numerical value from LTE PHY procedures in 36.213.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 7028
   id: table-009
@@ -3221,7 +3688,8 @@ items:
   - LTE PDSCH repetition rank limit is 2
 - category: table_lookup
   language: en
-  question: What is the reference point between the Session Management Function (SMF) and the Charging Function (CHF) within the same PLMN in 5G systems?
+  question: What is the reference point between the Session Management Function (SMF)
+    and the Charging Function (CHF) within the same PLMN in 5G systems?
   expected_specs:
   - spec_id: '23.501'
     sections:
@@ -3234,10 +3702,12 @@ items:
   notes: 'Reference point defined in 3GPP TS 23.501
 
 
-    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''N28'', ''N41'', ''N42'']); see eval-results/m7-post-m75-baseline/report.md §6.3
+    M7.7 2026-05-23 cleared MCQ-distractor-derived forbidden list (was: [''N28'',
+    ''N41'', ''N42'']); see eval-results/m7-post-m75-baseline/report.md §6.3
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 731
   id: table-010
@@ -3249,7 +3719,8 @@ items:
   - Reference point defined in 3GPP Release 18
 - category: table_lookup
   language: en
-  question: What modulation schemes are used for narrowband transmissions such as NPUSCH and sub-PRB PUSCH in LTE and NR?
+  question: What modulation schemes are used for narrowband transmissions such as
+    NPUSCH and sub-PRB PUSCH in LTE and NR?
   expected_specs:
   - spec_id: '36.211'
     sections: []
@@ -3259,13 +3730,17 @@ items:
   - NPUSCH
   - sub-PRB PUSCH
   forbidden: []
-  notes: 'NPUSCH modulation defined in 36.213 §10.1; NR sub-PRB modulation in 38.214 §6.1
+  notes: 'NPUSCH modulation defined in 36.213 §10.1; NR sub-PRB modulation in 38.214
+    §6.1
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high; reasoning: PUCCH and NPUSCH modulation schemes (π/2-BPSK and QPSK) are defined in the LTE PHY channels spec TS 36.211 for NB-IoT.); original archived under `_original_expected_specs`.'
+    M7.7+ 2026-05-24 expected_specs attribution fixed via mimo-v2.5-pro (confidence=high;
+    reasoning: PUCCH and NPUSCH modulation schemes (π/2-BPSK and QPSK) are defined
+    in the LTE PHY channels spec TS 36.211 for NB-IoT.); original archived under `_original_expected_specs`.'
   source: teleqna_transformed
   teleqna_origin_id: question 8531
   id: table-011
@@ -3284,7 +3759,8 @@ items:
     - '6.1'
 - category: table_lookup
   language: en
-  question: Which industrial scenario in 3GPP Release 17 is characterized by high communication service availability requirements?
+  question: Which industrial scenario in 3GPP Release 17 is characterized by high
+    communication service availability requirements?
   expected_specs:
   - spec_id: '23.501'
     sections: []
@@ -3296,10 +3772,12 @@ items:
   notes: 'Scenario based on 3GPP Release 17 service requirements
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.
 
 
-    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences → atomic phrases); original archived under `_original_expected_facts`.'
+    M7.7 2026-05-23 expected_facts rewritten via deepseek-v4-pro (long sentences →
+    atomic phrases); original archived under `_original_expected_facts`.'
   source: teleqna_transformed
   teleqna_origin_id: question 9894
   id: table-012
@@ -3359,7 +3837,8 @@ items:
   category: definition
   language: zh
   source: hand_crafted
-  question: '在为上行共享信道 (UL-SCH) 的传输块选择 LDPC 基础图 (LDPC base graph) 时，选择 LDPC base graph 2 的具体条件是什么？
+  question: '在为上行共享信道 (UL-SCH) 的传输块选择 LDPC 基础图 (LDPC base graph) 时，选择 LDPC base graph
+    2 的具体条件是什么？
 
     '
   expected_specs:
@@ -3550,7 +4029,8 @@ items:
   category: procedure
   language: zh
   source: hand_crafted
-  question: '如果在一个search space中监听的 DCI format 0_0 在进行截断之前的信息位数大于调度同一服务小区使用的 DCI format 1_0 的有效载荷大小，此时应该如何处理？
+  question: '如果在一个search space中监听的 DCI format 0_0 在进行截断之前的信息位数大于调度同一服务小区使用的 DCI format
+    1_0 的有效载荷大小，此时应该如何处理？
 
     '
   expected_specs:
@@ -3572,7 +4052,8 @@ items:
   category: procedure
   language: zh
   source: hand_crafted
-  question: '当存在多个 UL-SCH 传输块用于 PUSCH 传输时，上行UCI的数据和控制复用 (Data and control multiplexing) 流程是如何确定在哪个传输块上复用 UCI 信息的？
+  question: '当存在多个 UL-SCH 传输块用于 PUSCH 传输时，上行UCI的数据和控制复用 (Data and control multiplexing)
+    流程是如何确定在哪个传输块上复用 UCI 信息的？
 
     '
   expected_specs:
@@ -3644,7 +4125,8 @@ items:
   category: procedure
   language: zh
   source: hand_crafted
-  question: '如果UE被配置为接收基于代码块组 (CBG) 的PDSCH传输，当收到调度DCI中的 ''New Data Indicator'' 字段指示这是该传输块 (TB) 的初始传输时，UE应该如何处理CBGTI字段并接收该TB？
+  question: '如果UE被配置为接收基于代码块组 (CBG) 的PDSCH传输，当收到调度DCI中的 ''New Data Indicator'' 字段指示这是该传输块
+    (TB) 的初始传输时，UE应该如何处理CBGTI字段并接收该TB？
 
     '
   expected_specs:
@@ -3667,7 +4149,8 @@ items:
   category: procedure
   language: zh
   source: hand_crafted
-  question: '在Sidelink资源分配模式2中，如果UE被配置了 sl-CR-Limit 参数并在时隙n发送PSSCH，UE如何执行拥塞控制 (congestion control) 处理以满足相应的限制要求？
+  question: '在Sidelink资源分配模式2中，如果UE被配置了 sl-CR-Limit 参数并在时隙n发送PSSCH，UE如何执行拥塞控制 (congestion
+    control) 处理以满足相应的限制要求？
 
     '
   expected_specs:
@@ -3719,7 +4202,8 @@ items:
   category: multi_section
   language: zh
   source: hand_crafted
-  question: '物理侧行同步标识 (physical-layer sidelink synchronization identities) 共有多少个？并且，侧行主同步信号 (S-PSS) 序列的生成参数 m 是如何用这些标识计算的？
+  question: '物理侧行同步标识 (physical-layer sidelink synchronization identities) 共有多少个？并且，侧行主同步信号
+    (S-PSS) 序列的生成参数 m 是如何用这些标识计算的？
 
     '
   expected_specs:
@@ -3732,18 +4216,23 @@ items:
   - N_ID,1
   - N_ID,2
   - m = (n + 22 + 43 * N_ID,2) mod 127
+  - sidelink synchronization identities
+  - 672 unique
   forbidden:
   - 1008
   - N_ID^cell
   must_say_not_found: false
   notes: '要求模型结合 8.4.2.1 节的标识总数及拆分逻辑，与 8.4.2.2.1 节中关于 S-PSS 序列参数 m 的生成公式。
 
+    2026-05-30 加 2 条英文别名，因 8.4.2.2.1 公式 latex 在 chunk 中被抽空（mod 127 这一行不在文本里）。
+
     '
 - id: hand-multi-003
   category: multi_section
   language: zh
   source: hand_crafted
-  question: '对于下行共享信道 (DL-SCH)，如果传输块的payload size A 大于 3824，其附加的 CRC 校验位数 L 是多少？并且使用哪个具体的生成多项式来计算该 CRC？
+  question: '对于下行共享信道 (DL-SCH)，如果传输块的payload size A 大于 3824，其附加的 CRC 校验位数 L 是多少？并且使用哪个具体的生成多项式来计算该
+    CRC？
 
     '
   expected_specs:
@@ -3754,7 +4243,8 @@ items:
   expected_facts:
   - CRC 校验位数为 24 (L = 24)
   - g_CRC24A(D)
-  - D^24 + D^23 + D^18 + D^17 + D^14 + D^11 + D^10 + D^7 + D^6 + D^5 + D^4 + D^3 + D + 1
+  - D^24 + D^23 + D^18 + D^17 + D^14 + D^11 + D^10 + D^7 + D^6 + D^5 + D^4 + D^3 +
+    D + 1
   forbidden:
   - g_CRC16(D)
   - L = 16
@@ -3767,7 +4257,8 @@ items:
   category: multi_section
   language: zh
   source: hand_crafted
-  question: '在 PUCCH format 2 上传输的 HARQ-ACK 信息，当物理层对其进行调制时采用哪种调制方案？其加扰序列的初始化变量 c_init 的计算公式是什么？
+  question: '在 PUCCH format 2 上传输的 HARQ-ACK 信息，当物理层对其进行调制时采用哪种调制方案？其加扰序列的初始化变量 c_init
+    的计算公式是什么？
 
     '
   expected_specs:
@@ -3784,7 +4275,9 @@ items:
   - BPSK
   - PUSCH
   must_say_not_found: false
-  notes: 'PUCCH format 2 Scrambling (38.211 §6.3.2.5.1) + Modulation (38.211 §6.3.2.5.2)。原稿 误写为 38.212；38.212 是 Multiplexing & channel coding，没有 PUCCH 物理通道节，2026-05-23 修正（见 eval-results/m7.6-rerank-ablation-fixed.md）。
+  notes: 'PUCCH format 2 Scrambling (38.211 §6.3.2.5.1) + Modulation (38.211 §6.3.2.5.2)。原稿
+    误写为 38.212；38.212 是 Multiplexing & channel coding，没有 PUCCH 物理通道节，2026-05-23 修正（见
+    eval-results/m7.6-rerank-ablation-fixed.md）。
 
     '
 - id: hand-multi-005
@@ -3815,7 +4308,8 @@ items:
   category: multi_section
   language: zh
   source: hand_crafted
-  question: '在基于竞争的random access procedure中，如果UE在Msg3或MsgA中包含了BFR MAC CE，完成随机接入后，UE使用哪些参数来确定PUCCH的transmission power？
+  question: '在基于竞争的random access procedure中，如果UE在Msg3或MsgA中包含了BFR MAC CE，完成随机接入后，UE使用哪些参数来确定PUCCH的transmission
+    power？
 
     '
   expected_specs:
@@ -3839,7 +4333,9 @@ items:
   category: multi_section
   language: zh
   source: hand_crafted
-  question: '对于配置了多面板方案 (multipanelSchemeSDM) 且没有配置多面板方案SFN (multipanelSchemeSFN) 的PUSCH repetition Type B，如果DCI中的SRS Resource Set indicator指示了''10''或''11''，UE如何决定每次实际重复 (actual repetition) 的冗余版本 (RV)？
+  question: '对于配置了多面板方案 (multipanelSchemeSDM) 且没有配置多面板方案SFN (multipanelSchemeSFN)
+    的PUSCH repetition Type B，如果DCI中的SRS Resource Set indicator指示了''10''或''11''，UE如何决定每次实际重复
+    (actual repetition) 的冗余版本 (RV)？
 
     '
   expected_specs:
@@ -3887,7 +4383,8 @@ items:
   category: table_lookup
   language: zh
   source: hand_crafted
-  question: '当子载波间隔SCS配置 (numerology) mu = 4 时，对应的子载波间隔SCS是多少千赫兹？支持哪种循环前缀 (Cyclic prefix)？
+  question: '当子载波间隔SCS配置 (numerology) mu = 4 时，对应的子载波间隔SCS是多少千赫兹？支持哪种循环前缀 (Cyclic
+    prefix)？
 
     '
   expected_specs:
@@ -3910,7 +4407,8 @@ items:
   category: table_lookup
   language: zh
   source: hand_crafted
-  question: '关于SRS，如果transmission comb K_TC 配置为 4，则循环移位的最大数量 (Maximum number of cyclic shifts) 是多少？
+  question: '关于SRS，如果transmission comb K_TC 配置为 4，则循环移位的最大数量 (Maximum number of cyclic
+    shifts) 是多少？
 
     '
   expected_specs:
@@ -3924,7 +4422,8 @@ items:
   - 8
   - 6
   must_say_not_found: false
-  notes: '直接考查 Table 6.4.1.4.2-1: Maximum number of cyclic shifts as a function of K_TC 表格内容的提取。
+  notes: '直接考查 Table 6.4.1.4.2-1: Maximum number of cyclic shifts as a function of
+    K_TC 表格内容的提取。
 
     '
 - id: hand-table-003
@@ -3996,7 +4495,8 @@ items:
   category: table_lookup
   language: zh
   source: hand_crafted
-  question: '在调度PUSCH transmission的DCI format中，如果TPC command field的值为2，其对应的accumulated delta PUSCH和absolute delta PUSCH分别是多少dB？
+  question: '在调度PUSCH transmission的DCI format中，如果TPC command field的值为2，其对应的accumulated
+    delta PUSCH和absolute delta PUSCH分别是多少dB？
 
     '
   expected_specs:
@@ -4006,18 +4506,30 @@ items:
   expected_facts:
   - 1
   - Table 7.1.1-1
+  - 1 dB
+  - TPC Command Field
+  - accumulated
+  - absolute
   forbidden:
   - -1
   - 0
   must_say_not_found: false
-  notes: '查表题，基于 38.213 Table 7.1.1-1，TPC command field 2 对应 1 dB 的 accumulated/absolute value。
+  notes: '查表题，基于 38.213 Table 7.1.1-1，TPC command field 2 对应 1 dB 的 accumulated/absolute
+    value。
+
+    2026-05-30 facts 扩展英文别名（"TPC Command Field"/"accumulated"/"absolute"/"1 dB"），
+
+    因 chunk 中表格列名是英文，原 facts ["1","Table 7.1.1-1"] 过短且 "Table 7.1.1-1" 字面
+
+    在表格 chunk 里通常缺失，导致 ragas reference 拆 statement 后全判 not attributable。
 
     '
 - id: hand-table-007
   category: table_lookup
   language: zh
   source: hand_crafted
-  question: '对于使用变换预编码 (transform precoding) 且支持64QAM的PUSCH，如果DCI指示的MCS索引 (IMCS) 为16，其对应的目标码率 (Target code Rate) 和频谱效率 (Spectral efficiency) 分别是多少？
+  question: '对于使用变换预编码 (transform precoding) 且支持64QAM的PUSCH，如果DCI指示的MCS索引 (IMCS) 为16，其对应的目标码率
+    (Target code Rate) 和频谱效率 (Spectral efficiency) 分别是多少？
 
     '
   expected_specs:
@@ -4036,14 +4548,16 @@ items:
   - 256QAM
   - 1024QAM
   must_say_not_found: false
-  notes: '测试表格检索能力。需准确定位到Table 6.1.4.1-1（MCS index table for PUSCH with transform precoding and 64QAM）并查出索引16对应的值。
+  notes: '测试表格检索能力。需准确定位到Table 6.1.4.1-1（MCS index table for PUSCH with transform
+    precoding and 64QAM）并查出索引16对应的值。
 
     '
 - id: hand-table-008
   category: table_lookup
   language: zh
   source: hand_crafted
-  question: '在CSI计算延迟要求1 (CSI computation delay requirement 1) 中，当触发CSI报告的PDCCH和CSI-RS的最小子载波间隔配置系数 (µ) 为2时，要求的Z1和Z''1的符号数分别是多少？
+  question: '在CSI计算延迟要求1 (CSI computation delay requirement 1) 中，当触发CSI报告的PDCCH和CSI-RS的最小子载波间隔配置系数
+    (µ) 为2时，要求的Z1和Z''1的符号数分别是多少？
 
     '
   expected_specs:
@@ -4081,11 +4595,21 @@ items:
   - \Delta f
   - N_grid
   - N_sc^RB
+  - OFDM symbol
+  - subcarrier spacing
+  - antenna port
+  - time-continuous signal
   forbidden:
   - PRACH
   - Zadoff-Chu
   must_say_not_found: false
   notes: '考察物理层中最基础的 OFDM 基带信号生成的数学表达式，考量多参数和求和符号的表达能力。
+
+    2026-05-30 加 4 条英文别名 (OFDM symbol / subcarrier spacing / antenna port /
+
+    time-continuous signal)：原 latex facts 在 chunk 文本中被抽空，但 chunk 上下文有这些
+
+    keywords；保持 latex facts 作 canonical reference 不删。
 
     '
 - id: hand-formula-002
@@ -4138,7 +4662,8 @@ items:
   category: formula
   language: zh
   source: hand_crafted
-  question: '关于 Polar 码的 Rate matching 过程，在进行 Bit selection 时，如果速率匹配输出序列长度 E 大于或等于循环缓冲区长度 N，则输出比特 e_k 的生成公式是什么？
+  question: '关于 Polar 码的 Rate matching 过程，在进行 Bit selection 时，如果速率匹配输出序列长度 E 大于或等于循环缓冲区长度
+    N，则输出比特 e_k 的生成公式是什么？
 
     '
   expected_specs:
@@ -4149,11 +4674,21 @@ items:
   - 这是一个重复 (repetition) 过程
   - e_k = y_{k mod N} 或 y_{mod(k,N)}
   - E >= N
+  - repetition
+  - v_k = e_k
+  - circular buffer
   forbidden:
   - puncturing
   - shortening
   must_say_not_found: false
   notes: '考查 Polar 码打孔、缩短、重复判定条件中的重复 (repetition) 过程输出数学公式提取。
+
+    2026-05-30 加 3 条英文别名 (repetition / v_k = e_k / circular buffer)：
+
+    38.212 §5.4.1.2 chunk 中实际写的是 `v_k = e_k`（rate-matching output v from circular
+    buffer e），
+
+    与原 fact "e_k = y_{k mod N}" 写法对不上但语义同源；保留原 fact 作 canonical reference。
 
     '
 - id: hand-formula-005
@@ -4206,7 +4741,8 @@ items:
   category: formula
   language: zh
   source: hand_crafted
-  question: '当下行资源分配类型为1 (Type 1) 时，如果指示的连续分配的资源块长度减1 (LRBs - 1) 小于等于激活的BWP大小 (NBWP) 的一半，UE计算资源指示值 (RIV) 的公式是什么？
+  question: '当下行资源分配类型为1 (Type 1) 时，如果指示的连续分配的资源块长度减1 (LRBs - 1) 小于等于激活的BWP大小 (NBWP)
+    的一半，UE计算资源指示值 (RIV) 的公式是什么？
 
     '
   expected_specs:
@@ -4220,17 +4756,25 @@ items:
   - LRBs
   - RBstart
   - N_{BWP}^{size} (L_{RBs} - 1) + RB_{start}
+  - RIV = N^{initial}_{BWP} (L'_{RBs} - 1) + RB'_{start}
+  - Downlink resource allocation type 1
   forbidden:
   - 上行资源分配
   must_say_not_found: false
   notes: '考察对下行Type 1资源分配的RIV基本计算公式的提取。
+
+    2026-05-30 加 chunk 实际写法 `RIV = N^{initial}_{BWP} (L''_{RBs} - 1) + RB''_{start}`（带
+    prime
+
+    + "initial" 上标），原 fact `N_{BWP}^{size} (L_{RBs} - 1) + RB_{start}` 写法对不上 chunk。
 
     '
 - id: hand-formula-008
   category: formula
   language: zh
   source: hand_crafted
-  question: '在Sidelink资源分配模式2中，给定的资源预留周期 (resource reservation period) 从毫秒转换为逻辑时隙 (logical slots) 数量的公式是什么？
+  question: '在Sidelink资源分配模式2中，给定的资源预留周期 (resource reservation period) 从毫秒转换为逻辑时隙
+    (logical slots) 数量的公式是什么？
 
     '
   expected_specs:
@@ -4244,11 +4788,21 @@ items:
   - T'_{max}
   - P'_{rsvp}
   - P_{rsvp}
+  - resource reservation period
+  - logical slots
+  - milliseconds
+  - number of slots that belong to a resource pool
   forbidden:
   - PDCCH
   - RIV
   must_say_not_found: false
   notes: '考察Sidelink的预留周期单位转换公式（毫秒到逻辑时隙）。
+
+    2026-05-30 加 4 条英文别名：38.214 §8.1.7 chunk 中具体公式 P''_{rsvp} = P_{rsvp} * N / 10240
+    被
+
+    ingestion 抽空，但概念描述完整存在（resource reservation period, logical slots, milliseconds,
+    N）。
 
     '
 - id: hand-neg-001
@@ -4266,14 +4820,16 @@ items:
   - IP地址映射
   - 路由
   must_say_not_found: true
-  notes: '纯幻觉/事实性错误负样本。基站的 IP 地址属于传输网络层（OAM/传输网）概念，绝对不会通过无线物理层的同步信号（PSS/SSS）进行编码或广播。PSS/SSS 仅用于携带物理层小区标识（PCI）以供UE进行下行同步。如果 Agent 编造了 IPv6 到 PSS/SSS 序列的映射公式，即视为严重的幻觉。
+  notes: '纯幻觉/事实性错误负样本。基站的 IP 地址属于传输网络层（OAM/传输网）概念，绝对不会通过无线物理层的同步信号（PSS/SSS）进行编码或广播。PSS/SSS
+    仅用于携带物理层小区标识（PCI）以供UE进行下行同步。如果 Agent 编造了 IPv6 到 PSS/SSS 序列的映射公式，即视为严重的幻觉。
 
     '
 - id: hand-neg-002
   category: negative
   language: zh
   source: hand_crafted
-  question: 'UE在发起随机接入时，是如何将自身的GPS经纬度坐标数据直接代入公式，用来计算和调制 PRACH Preamble（前导码）的Zadoff-Chu序列的循环移位 (Cyclic Shift) 的？
+  question: 'UE在发起随机接入时，是如何将自身的GPS经纬度坐标数据直接代入公式，用来计算和调制 PRACH Preamble（前导码）的Zadoff-Chu序列的循环移位
+    (Cyclic Shift) 的？
 
     '
   expected_specs: []
@@ -4285,14 +4841,16 @@ items:
   - 坐标调制
   - 绝对位置
   must_say_not_found: true
-  notes: '伪造概念负样本。在 38.211 物理层规范中，PRACH Zadoff-Chu 序列的循环移位（Cyclic Shift, Cv）严格由高层配置的零相关区（zeroCorrelationZoneConfig）、逻辑根序列索引等无线参数通过公式计算得出。即使在 NTN（非地面网络）场景中，GPS/GNSS 信息也仅用于计算 Timing Advance (TA) 等高层补偿，绝对不存在“将GPS坐标直接代入公式调制PRACH序列循环移位”的物理层机制。
+  notes: '伪造概念负样本。在 38.211 物理层规范中，PRACH Zadoff-Chu 序列的循环移位（Cyclic Shift, Cv）严格由高层配置的零相关区（zeroCorrelationZoneConfig）、逻辑根序列索引等无线参数通过公式计算得出。即使在
+    NTN（非地面网络）场景中，GPS/GNSS 信息也仅用于计算 Timing Advance (TA) 等高层补偿，绝对不存在“将GPS坐标直接代入公式调制PRACH序列循环移位”的物理层机制。
 
     '
 - id: hand-neg-003
   category: negative
   language: zh
   source: hand_crafted
-  question: '根据 TS 38.212 规范，当下行共享信道 (DL-SCH) 的传输块非常小（例如小于 100 字节）时，物理层是如何使用 Turbo 码 (Turbo code) 替代 LDPC 码进行信道编码的？请列出使用 Turbo 码的阈值条件。
+  question: '根据 TS 38.212 规范，当下行共享信道 (DL-SCH) 的传输块非常小（例如小于 100 字节）时，物理层是如何使用 Turbo
+    码 (Turbo code) 替代 LDPC 码进行信道编码的？请列出使用 Turbo 码的阈值条件。
 
     '
   expected_specs: []
@@ -4303,7 +4861,8 @@ items:
   - 阈值
   - 切换编码
   must_say_not_found: true
-  notes: '纯幻觉/事实性错误负样本。5G NR (38 系列) 物理层彻底移除了 LTE 中的 Turbo 码，全部使用 LDPC 码（用于数据）和 Polar 码（用于控制）。如果 Agent 编造了使用 Turbo 码的条件，即视为极其严重的跨代技术幻觉。
+  notes: '纯幻觉/事实性错误负样本。5G NR (38 系列) 物理层彻底移除了 LTE 中的 Turbo 码，全部使用 LDPC 码（用于数据）和 Polar
+    码（用于控制）。如果 Agent 编造了使用 Turbo 码的条件，即视为极其严重的跨代技术幻觉。
 
     '
 - id: hand-neg-004
@@ -4322,7 +4881,8 @@ items:
   - 加密
   - 广播
   must_say_not_found: true
-  notes: '伪造概念负样本。首先，无线物理层协议 TS 38.212 根本不存在 DCI format 5_0 这个格式；其次，物理层 DCI 仅用于承载底层的调度和无线控制信息，绝不可能直接解析并广播网络应用层/传输层的 SSL 证书更新。测试模型能否果断拒绝此类明显的跨层缝合幻觉。
+  notes: '伪造概念负样本。首先，无线物理层协议 TS 38.212 根本不存在 DCI format 5_0 这个格式；其次，物理层 DCI 仅用于承载底层的调度和无线控制信息，绝不可能直接解析并广播网络应用层/传输层的
+    SSL 证书更新。测试模型能否果断拒绝此类明显的跨层缝合幻觉。
 
     '
 - id: hand-neg-005
@@ -4345,7 +4905,8 @@ items:
   category: negative
   language: zh
   source: hand_crafted
-  question: '在配置了载波聚合CA的场景下，UE如何利用 Type-4 HARQ-ACK codebook 来决定 PDCCH DMRS 的天线端口（antenna port）数量？
+  question: '在配置了载波聚合CA的场景下，UE如何利用 Type-4 HARQ-ACK codebook 来决定 PDCCH DMRS 的天线端口（antenna
+    port）数量？
 
     '
   expected_specs: []
@@ -4355,7 +4916,9 @@ items:
   - antenna port
   - Type-4
   must_say_not_found: true
-  notes: '这是一个纯粹的协议机制反事实问题。首先，物理层控制规范中仅定义了 Type-1（半静态）、Type-2（动态）和 Type-3 三种 HARQ-ACK codebook，根本不存在所谓的“Type-4 HARQ-ACK codebook”；其次，HARQ-ACK 码本是用于上行接收状态反馈的机制，绝对不会用于推导或决定下行控制信道（PDCCH）的 DMRS 天线端口数量，两者在物理层逻辑上毫无关联。
+  notes: '这是一个纯粹的协议机制反事实问题。首先，物理层控制规范中仅定义了 Type-1（半静态）、Type-2（动态）和 Type-3 三种 HARQ-ACK
+    codebook，根本不存在所谓的“Type-4 HARQ-ACK codebook”；其次，HARQ-ACK 码本是用于上行接收状态反馈的机制，绝对不会用于推导或决定下行控制信道（PDCCH）的
+    DMRS 天线端口数量，两者在物理层逻辑上毫无关联。
 
     '
 - id: hand-neg-007

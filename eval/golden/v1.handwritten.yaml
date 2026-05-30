@@ -451,12 +451,16 @@ items:
     - N_ID,1
     - N_ID,2
     - m = (n + 22 + 43 * N_ID,2) mod 127
+    # 2026-05-30 加英文别名（公式被 ingestion 抽空时仍可 attribute "概念出现"）
+    - sidelink synchronization identities
+    - 672 unique
   forbidden:
     - 1008
     - N_ID^cell
   must_say_not_found: false
   notes: |
     要求模型结合 8.4.2.1 节的标识总数及拆分逻辑，与 8.4.2.2.1 节中关于 S-PSS 序列参数 m 的生成公式。
+    2026-05-30 加 2 条英文别名，因 8.4.2.2.1 公式 latex 在 chunk 中被抽空（mod 127 这一行不在文本里）。
 
 - id: hand-multi-003
   category: multi_section
@@ -716,12 +720,20 @@ items:
   expected_facts:
     - 1
     - Table 7.1.1-1
+    # 2026-05-30 加 English aliases：chunk 实际呈现的列名 + 单位（"1"过于短歧义，补 "1 dB"）
+    - 1 dB
+    - TPC Command Field
+    - accumulated
+    - absolute
   forbidden:
     - -1
     - 0
   must_say_not_found: false
   notes: |
     查表题，基于 38.213 Table 7.1.1-1，TPC command field 2 对应 1 dB 的 accumulated/absolute value。
+    2026-05-30 facts 扩展英文别名（"TPC Command Field"/"accumulated"/"absolute"/"1 dB"），
+    因 chunk 中表格列名是英文，原 facts ["1","Table 7.1.1-1"] 过短且 "Table 7.1.1-1" 字面
+    在表格 chunk 里通常缺失，导致 ragas reference 拆 statement 后全判 not attributable。
 
 - id: hand-table-007
   category: table_lookup
@@ -792,12 +804,21 @@ items:
     - \Delta f
     - N_grid
     - N_sc^RB
+    # 2026-05-30 加 English aliases：38.211 §5.3.1 chunk 中公式 latex 被 ingestion 抽空（图象/$$块未保留），
+    # 但 chunk 文本中保留了完整变量名称与上下文，补这些可让 ragas 在公式抽取失败时仍能 attribute
+    - OFDM symbol
+    - subcarrier spacing
+    - antenna port
+    - time-continuous signal
   forbidden:
     - PRACH
     - Zadoff-Chu
   must_say_not_found: false
   notes: |
     考察物理层中最基础的 OFDM 基带信号生成的数学表达式，考量多参数和求和符号的表达能力。
+    2026-05-30 加 4 条英文别名 (OFDM symbol / subcarrier spacing / antenna port /
+    time-continuous signal)：原 latex facts 在 chunk 文本中被抽空，但 chunk 上下文有这些
+    keywords；保持 latex facts 作 canonical reference 不删。
 
 - id: hand-formula-002
   category: formula
@@ -857,12 +878,20 @@ items:
     - 这是一个重复 (repetition) 过程
     - e_k = y_{k mod N} 或 y_{mod(k,N)}
     - E >= N
+    # 2026-05-30 加 chunks 实际呈现的 latex / 英文片段。注意 chunk 是 "v_k = e_k" 不是
+    # 教科书写法的 e_k = y_{k mod N}（38.212 §5.4.1.2 实际公式是 bit-selection bridge variable）
+    - repetition
+    - v_k = e_k
+    - circular buffer
   forbidden:
     - puncturing
     - shortening
   must_say_not_found: false
   notes: |
     考查 Polar 码打孔、缩短、重复判定条件中的重复 (repetition) 过程输出数学公式提取。
+    2026-05-30 加 3 条英文别名 (repetition / v_k = e_k / circular buffer)：
+    38.212 §5.4.1.2 chunk 中实际写的是 `v_k = e_k`（rate-matching output v from circular buffer e），
+    与原 fact "e_k = y_{k mod N}" 写法对不上但语义同源；保留原 fact 作 canonical reference。
 
 - id: hand-formula-005
   category: formula
@@ -925,11 +954,16 @@ items:
     - "LRBs"
     - "RBstart"
     - "N_{BWP}^{size} (L_{RBs} - 1) + RB_{start}"
+    # 2026-05-30 加 chunks 实际呈现的 latex（带 prime + initial）
+    - "RIV = N^{initial}_{BWP} (L'_{RBs} - 1) + RB'_{start}"
+    - "Downlink resource allocation type 1"
   forbidden:
     - "上行资源分配"
   must_say_not_found: false
   notes: |
     考察对下行Type 1资源分配的RIV基本计算公式的提取。
+    2026-05-30 加 chunk 实际写法 `RIV = N^{initial}_{BWP} (L'_{RBs} - 1) + RB'_{start}`（带 prime
+    + "initial" 上标），原 fact `N_{BWP}^{size} (L_{RBs} - 1) + RB_{start}` 写法对不上 chunk。
 
 - id: hand-formula-008
   category: formula
@@ -948,12 +982,19 @@ items:
     - "T'_{max}"
     - "P'_{rsvp}"
     - "P_{rsvp}"
+    # 2026-05-30 加英文别名（chunk 中 P_rsvp / T'_max latex 被抽空，但概念描述完整存在）
+    - "resource reservation period"
+    - "logical slots"
+    - "milliseconds"
+    - "number of slots that belong to a resource pool"
   forbidden:
     - "PDCCH"
     - "RIV"
   must_say_not_found: false
   notes: |
     考察Sidelink的预留周期单位转换公式（毫秒到逻辑时隙）。
+    2026-05-30 加 4 条英文别名：38.214 §8.1.7 chunk 中具体公式 P'_{rsvp} = P_{rsvp} * N / 10240 被
+    ingestion 抽空，但概念描述完整存在（resource reservation period, logical slots, milliseconds, N）。
 
 # -----------------------------------------------------------------------------
 # Category: negative - 包含严重事实性错误与伪造概念

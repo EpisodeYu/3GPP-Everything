@@ -99,9 +99,26 @@ class TestExtractContexts:
 
 
 class TestGroundTruth:
-    def test_prefers_facts(self) -> None:
+    def test_prefers_facts_with_sentence_boundary(self) -> None:
+        """facts 之间用 '. ' 强制 sentence 边界 + 结尾句号。
+        (2026-05-29 ablate 实验后从 ' ' 改成 '. '，让 ragas judge 能逐条 attribute。)
+        """
         item = _golden(expected_facts=["fact a", "fact b"])
-        assert _ground_truth(item) == "fact a fact b"
+        assert _ground_truth(item) == "fact a. fact b."
+
+    def test_strips_whitespace_and_skips_empty(self) -> None:
+        """空白/纯空字符串 fact 应被剔除，避免拼出诸如 'a. . b.'。"""
+        item = _golden(expected_facts=["  a ", "", "   ", "b"])
+        assert _ground_truth(item) == "a. b."
+
+    def test_chinese_facts_become_independent_sentences(self) -> None:
+        """中文 fact 同样按 '. ' 拼；让 judge 看到一组独立断言。"""
+        item = _golden(expected_facts=["672", "N_ID,1", "冗余版本"])
+        assert _ground_truth(item) == "672. N_ID,1. 冗余版本."
+
+    def test_single_fact_still_has_trailing_period(self) -> None:
+        item = _golden(expected_facts=["lonely fact"])
+        assert _ground_truth(item) == "lonely fact."
 
     def test_fallback_to_specs(self) -> None:
         item = _golden(expected_specs=[("23.501", []), ("23.502", [])])
@@ -284,6 +301,131 @@ class TestRagasScorer:
         scores = scorer.score_item(item, resp)
         assert scores == _empty_metric_dict()
         assert called == []
+
+    def test_context_utilization_key_maps_to_context_precision_field(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """2026-05-30 起 metric 从 ContextPrecision 切换到 ContextUtilization；
+        ragas 返回的 key 变成 'context_utilization' 但 EvalResult 字段名保持
+        'ragas_context_precision' 向后兼容。"""
+        scorer = _scorer_with_fake_evaluate(
+            monkeypatch,
+            ev_factory=lambda ds: _FakeEvalResult(
+                {
+                    "faithfulness": 0.9,
+                    "answer_relevancy": 0.8,
+                    "context_recall": 0.7,
+                    "context_utilization": 0.85,
+                }
+            ),
+        )
+        item = _golden(expected_facts=["x"])
+        resp = AgentResponse(answer="a", chunks_rerank=[{"content": "ctx"}])
+        scores = scorer.score_item(item, resp)
+        assert scores["ragas_context_precision"] == 0.85
+
+    def test_llm_context_precision_without_reference_key_also_maps(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """ragas 返回的 underlying class name `llm_context_precision_without_reference`
+        也应映射到 ragas_context_precision 字段（兼容 ContextUtilization 直接展开的命名）。"""
+        scorer = _scorer_with_fake_evaluate(
+            monkeypatch,
+            ev_factory=lambda ds: _FakeEvalResult(
+                {
+                    "faithfulness": 0.5,
+                    "answer_relevancy": 0.5,
+                    "context_recall": 0.5,
+                    "llm_context_precision_without_reference": 0.92,
+                }
+            ),
+        )
+        item = _golden(expected_facts=["x"])
+        resp = AgentResponse(answer="a", chunks_rerank=[{"content": "ctx"}])
+        scores = scorer.score_item(item, resp)
+        assert scores["ragas_context_precision"] == 0.92
+
+    def test_first_non_none_wins_for_multi_key_field(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """同字段多 metric key 时，先匹配到非 None 的值应保留；后续 None 不应覆盖。
+        （ragas_context_precision 字段映射了 3 个 metric name；避免 None overwrite 0.6。）
+        """
+        scorer = _scorer_with_fake_evaluate(
+            monkeypatch,
+            ev_factory=lambda ds: _FakeEvalResult(
+                {
+                    "faithfulness": 0.5,
+                    "answer_relevancy": 0.5,
+                    "context_recall": 0.5,
+                    "context_precision": 0.6,  # 老版命名，应被采用
+                    # context_utilization / llm_context_precision_without_reference 缺失
+                }
+            ),
+        )
+        item = _golden(expected_facts=["x"])
+        resp = AgentResponse(answer="a", chunks_rerank=[{"content": "ctx"}])
+        scores = scorer.score_item(item, resp)
+        assert scores["ragas_context_precision"] == 0.6
+
+    def test_majority_vote_answer_relevancy_avoids_hair_trigger(self) -> None:
+        """build_default_ragas_scorer 返回的 AnswerRelevancy 子类应当用 majority vote
+        判 noncommittal，而非 ragas 默认的 np.any（任意一票即作废）。
+        3 次生成里 1 票 noncommittal 应仍正常计分；2+ 票才置 0。
+        """
+        # 直接构造 scorer 取出 AnswerRelevancy 子类实例
+        import os
+
+        os.environ.setdefault("LITELLM_API_KEY", "test-only-not-used")
+        from eval.ragas_eval import build_default_ragas_scorer
+        from eval.settings import EvalSettings
+
+        scorer = build_default_ragas_scorer(
+            EvalSettings(litellm_api_key="test-only", litellm_base_url="http://localhost:9999/v1")
+        )
+        # 找到 answer_relevancy metric
+        ar_metric = None
+        for m in scorer.metrics:
+            if getattr(m, "name", "") == "answer_relevancy":
+                ar_metric = m
+                break
+        assert ar_metric is not None, "expected an AnswerRelevancy-derived metric"
+
+        # 给个固定的 cosine_sim mock：每个问题与 user_input 余弦相似度 0.6
+        ar_metric.calculate_similarity = lambda question, gen_questions: [0.6] * len(  # type: ignore[method-assign]
+            gen_questions
+        )
+
+        # 构造 3 个 ResponseRelevanceOutput
+        from ragas.metrics._answer_relevance import ResponseRelevanceOutput
+
+        # 1 票 noncommittal → committal majority → 正常计分（cosine 不折扣）
+        answers_1of3 = [
+            ResponseRelevanceOutput(question="q1", noncommittal=1),
+            ResponseRelevanceOutput(question="q2", noncommittal=0),
+            ResponseRelevanceOutput(question="q3", noncommittal=0),
+        ]
+        score1 = ar_metric._calculate_score(answers_1of3, {"user_input": "?"})
+        assert score1 == pytest.approx(0.6, abs=1e-6), f"1/3 noncommittal should not zero: {score1}"
+
+        # 2 票 noncommittal → noncommittal majority → cosine × 0.5 折扣（不归零）
+        answers_2of3 = [
+            ResponseRelevanceOutput(question="q1", noncommittal=1),
+            ResponseRelevanceOutput(question="q2", noncommittal=1),
+            ResponseRelevanceOutput(question="q3", noncommittal=0),
+        ]
+        score2 = ar_metric._calculate_score(answers_2of3, {"user_input": "?"})
+        assert score2 == pytest.approx(
+            0.3, abs=1e-6
+        ), f"2/3 noncommittal should be cosine*0.5=0.3, not 0: {score2}"
+
+        # 0 票 noncommittal → 正常计分
+        answers_0of3 = [ResponseRelevanceOutput(question=f"q{i}", noncommittal=0) for i in range(3)]
+        score3 = ar_metric._calculate_score(answers_0of3, {"user_input": "?"})
+        assert score3 == pytest.approx(0.6, abs=1e-6)
+
+        # 3/3 noncommittal → 折扣 0.5
+        answers_3of3 = [ResponseRelevanceOutput(question=f"q{i}", noncommittal=1) for i in range(3)]
+        score4 = ar_metric._calculate_score(answers_3of3, {"user_input": "?"})
+        assert score4 == pytest.approx(0.3, abs=1e-6)
 
     def test_extract_scores_falls_back_to_pandas(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """EvaluationResult 没 .scores 但有 .to_pandas() → 也能取到。"""
