@@ -245,7 +245,7 @@ void main() {
       expect(find.byKey(const Key('admin_docs_series')), findsOneWidget);
     });
 
-    testWidgets('窄屏（安卓）：任务过滤 chips Wrap 换行，不 overflow', (tester) async {
+    testWidgets('窄屏（安卓）：任务过滤 chips 单行横滑，不 overflow', (tester) async {
       final admin = FakeAdminApi(tasks: [
         buildTask(id: 't-1', status: 'done', progress: 100),
       ]);
@@ -254,9 +254,23 @@ void main() {
       await tester.tap(find.byKey(const Key('admin_tab_tasks')));
       await tester.pumpAndSettle();
 
+      // 横滑容器消化超宽的 chip 行 → 无 RenderFlex overflow
       expect(tester.takeException(), isNull);
-      expect(find.byKey(const Key('admin_tasks_filter_done')), findsOneWidget);
+      expect(find.byKey(const Key('admin_tasks_filter_scroll')), findsOneWidget);
       expect(find.byKey(const Key('admin_tasks_refresh')), findsOneWidget);
+
+      // 右侧 chip 窄屏可能在视口外：横向滑动后可见并可点选
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('admin_tasks_filter_failed')),
+        80,
+        scrollable: find.descendant(
+          of: find.byKey(const Key('admin_tasks_filter_scroll')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('admin_tasks_filter_failed')));
+      await tester.pumpAndSettle();
+      expect(admin.lastTaskFilter, 'failed');
     });
 
     testWidgets('统计 Tab：API 错误 → 显示重试按钮', (tester) async {
