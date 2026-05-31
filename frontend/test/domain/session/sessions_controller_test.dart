@@ -240,4 +240,87 @@ void main() {
       expect(items.single.status, 'active');
     });
   });
+
+  group('SessionsController 空草稿（draft）', () {
+    test('createBlank 出来的会话标记为 draft；markUsed 后不再是 draft', () async {
+      final api = FakeSessionsApi();
+      final container = _container(api);
+      await container.read(sessionsControllerProvider.future);
+      final notifier = container.read(sessionsControllerProvider.notifier);
+
+      final created = await notifier.createBlank();
+      expect(notifier.isDraft(created.id), isTrue);
+
+      notifier.markUsed(created.id);
+      expect(notifier.isDraft(created.id), isFalse);
+    });
+
+    test('discardDraft：仍是 draft → 乐观移除列表 + 调 delete', () async {
+      final api = FakeSessionsApi(initial: [buildSession(id: 'a', title: 'A')]);
+      final container = _container(api);
+      await container.read(sessionsControllerProvider.future);
+      final notifier = container.read(sessionsControllerProvider.notifier);
+
+      final created = await notifier.createBlank();
+      expect(container.read(sessionsControllerProvider).value!.length, 2);
+
+      await notifier.discardDraft(created.id);
+
+      final items = container.read(sessionsControllerProvider).value!;
+      expect(items.map((e) => e.id), ['a']);
+      expect(api.deleteCalls, 1);
+      // 丢弃后不再是 draft（再 discard 一次也不会重复 delete）
+      expect(notifier.isDraft(created.id), isFalse);
+      await notifier.discardDraft(created.id);
+      expect(api.deleteCalls, 1);
+    });
+
+    test('discardDraft：非 draft（已 markUsed）→ no-op，不删', () async {
+      final api = FakeSessionsApi();
+      final container = _container(api);
+      await container.read(sessionsControllerProvider.future);
+      final notifier = container.read(sessionsControllerProvider.notifier);
+
+      final created = await notifier.createBlank();
+      notifier.markUsed(created.id);
+
+      await notifier.discardDraft(created.id);
+
+      expect(api.deleteCalls, 0);
+      expect(container.read(sessionsControllerProvider).value!.length, 1);
+    });
+
+    test('discardDraft 删除失败 → 回滚列表', () async {
+      final api = FakeSessionsApi(initial: [buildSession(id: 'a')]);
+      final container = _container(api);
+      await container.read(sessionsControllerProvider.future);
+      final notifier = container.read(sessionsControllerProvider.notifier);
+
+      final created = await notifier.createBlank();
+      api.failNext = true; // 下一次 delete 抛错
+
+      await notifier.discardDraft(created.id);
+
+      final items = container.read(sessionsControllerProvider).value!;
+      // 删除失败 → 草稿回到列表，保持与后端一致
+      expect(items.any((s) => s.id == created.id), isTrue);
+      expect(items.length, 2);
+    });
+
+    test('显式 delete 会清掉 draft 标记，之后 discardDraft no-op（不二次删）',
+        () async {
+      final api = FakeSessionsApi();
+      final container = _container(api);
+      await container.read(sessionsControllerProvider.future);
+      final notifier = container.read(sessionsControllerProvider.notifier);
+
+      final created = await notifier.createBlank();
+      await notifier.delete(created.id);
+      expect(api.deleteCalls, 1);
+      expect(notifier.isDraft(created.id), isFalse);
+
+      await notifier.discardDraft(created.id);
+      expect(api.deleteCalls, 1); // 没有二次删除
+    });
+  });
 }

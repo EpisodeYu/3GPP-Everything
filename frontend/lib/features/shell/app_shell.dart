@@ -9,6 +9,7 @@ import '../../domain/auth/auth_controller.dart';
 import '../../domain/auth/auth_state.dart';
 import '../../domain/prefs/prefs_controller.dart';
 import '../../domain/session/sessions_controller.dart';
+import 'new_session_button.dart';
 
 /// 响应式 AppShell：
 /// - 宽屏（>= 840）：固定左侧 Sidebar（含会话列表 + 新建按钮 + user/logout）
@@ -81,14 +82,9 @@ class _SessionsSidebar extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const _SidebarHeader(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-          child: FilledButton.icon(
-            key: const Key('sidebar_new_session'),
-            onPressed: () => _onCreate(context, ref),
-            icon: const Icon(Icons.add),
-            label: Text(t.sidebarNewSession),
-          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(12, 4, 12, 4),
+          child: NewSessionButton(buttonKey: Key('sidebar_new_session')),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -173,19 +169,6 @@ class _SessionsSidebar extends ConsumerWidget {
     if (picked == null || picked.isEmpty) return;
     if (!context.mounted) return;
     context.go('/reader/${Uri.encodeComponent(picked)}');
-  }
-
-  Future<void> _onCreate(BuildContext context, WidgetRef ref) async {
-    final t = AppLocalizations.of(context);
-    try {
-      final created =
-          await ref.read(sessionsControllerProvider.notifier).createBlank();
-      if (!context.mounted) return;
-      _closeDrawerIfOpen(context);
-      context.go('/sessions/${created.id}');
-    } on Object catch (e) {
-      _snack(context, t.snackbarCreateSessionFailed('$e'));
-    }
   }
 
   void _onTapSession(BuildContext context, SessionOut s) {

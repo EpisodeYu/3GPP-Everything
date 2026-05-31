@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:tgpp/data/api/sessions_api.dart';
 
 /// 内存版 SessionsApi，用于 controller 单测与 AppShell widget test。
@@ -13,6 +15,10 @@ class FakeSessionsApi implements SessionsApi {
 
   final List<SessionOut> items;
   bool failNext = false;
+
+  /// 设了就让 `create` 在 `createCalls++` 之后挂起，直到测试 complete 它。
+  /// 用于模拟网络延迟、验证 in-flight 期间按钮的连点防护。
+  Completer<void>? createGate;
   int createCalls = 0;
   int patchCalls = 0;
   int deleteCalls = 0;
@@ -40,6 +46,7 @@ class FakeSessionsApi implements SessionsApi {
   }) async {
     createCalls += 1;
     _maybeThrow('create');
+    if (createGate != null) await createGate!.future;
     final now = DateTime.utc(2026, 5, 24, 16, createCalls);
     final created = SessionOut(
       id: 'fake-${createCalls.toString().padLeft(3, '0')}',

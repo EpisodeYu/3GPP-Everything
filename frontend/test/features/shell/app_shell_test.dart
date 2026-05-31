@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -159,6 +161,65 @@ void main() {
 
       expect(api.createCalls, 1);
       // FakeSessionsApi 返回 id=fake-001
+      expect(find.text('session-fake-001'), findsOneWidget);
+    });
+
+    testWidgets('"新会话" 创建在途时连点只建一个会话（按钮禁用 + spinner）',
+        (tester) async {
+      final api = await _pumpShell(
+        tester,
+        size: const Size(1280, 800),
+        initialSessions: const [],
+        initialRoute: '/chat',
+      );
+      // create 卡在 gate 上，模拟高延迟网络往返。
+      final gate = Completer<void>();
+      api.createGate = gate;
+
+      await tester.tap(find.byKey(const Key('sidebar_new_session')));
+      await tester.pump(); // setState(_creating=true) 生效：按钮禁用 + spinner
+
+      // in-flight：spinner 出现、按钮 disabled
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sidebar_new_session')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+
+      // 高延迟下用户连点：应被防护吞掉，不再触发 create
+      await tester.tap(find.byKey(const Key('sidebar_new_session')));
+      await tester.tap(find.byKey(const Key('sidebar_new_session')));
+      await tester.pump();
+      expect(api.createCalls, 1);
+
+      // 放行往返：完成创建 + 跳转，按钮复位
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(api.createCalls, 1);
+      expect(find.text('session-fake-001'), findsOneWidget);
+    });
+
+    testWidgets('在空草稿会话里再点"新会话" → 复用当前会话，不再新建（Req1）',
+        (tester) async {
+      final api = await _pumpShell(
+        tester,
+        size: const Size(1280, 800),
+        initialSessions: const [],
+        initialRoute: '/chat',
+      );
+
+      // 第一次：建出空草稿 fake-001 并跳进去
+      await tester.tap(find.byKey(const Key('sidebar_new_session')));
+      await tester.pumpAndSettle();
+      expect(api.createCalls, 1);
+      expect(find.text('session-fake-001'), findsOneWidget);
+
+      // 仍在这个空草稿里再点"新会话" → 应复用，不再新建
+      await tester.tap(find.byKey(const Key('sidebar_new_session')));
+      await tester.pumpAndSettle();
+      expect(api.createCalls, 1); // 没有第二次创建
       expect(find.text('session-fake-001'), findsOneWidget);
     });
 
