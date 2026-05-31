@@ -27,6 +27,7 @@ from ingestion.hf_loader.models import SectionBlock, SpecBundle, SpecManifestEnt
 
 from . import atomic_blocks as atomic_blocks_mod
 from .figure import VisionResolver, build_figure_content, extract_figure
+from .formula_alt import build_formula_annotation
 from .garbage_filter import filter_sections
 from .merger import merge_short_siblings
 from .models import Chunk
@@ -247,13 +248,23 @@ def _spec_image_dir(entry: SpecManifestEntry) -> str:
 def _build_text_chunk_content(
     piece: SplitPiece, *, sec: SectionBlock, spec_id: str
 ) -> tuple[str, dict]:
-    """非 figure 片：头部注入 [<spec_id> § <clause> <section_title>]。"""
+    """非 figure 片：头部注入 [<spec_id> § <clause> <section_title>]。
+
+    若 piece 含 LaTeX 数学（`$...$` / `$$...$$`）或上游抽空公式模式（"defined by
+    \\n\\nwhere" 等）→ chunk 末尾追加 alt-text（Formula symbols / 抽空标注）。
+    详见 `formula_alt.py` 注释（2026-05-30 ragas uplift handoff §3.4 后续）。
+    """
     header = _section_header(spec_id, sec)
     body = piece.text.strip()
     content = f"{header}\n\n{body}" if header else body
+    annotation = build_formula_annotation(body)
+    if annotation:
+        content = f"{content}\n\n{annotation}"
     raw_extra: dict[str, Any] = {
         "source_kinds": piece.source_kinds,
     }
+    if annotation:
+        raw_extra["has_formula_annotation"] = True
     if piece.extra:
         raw_extra.update(piece.extra)
     return content, raw_extra

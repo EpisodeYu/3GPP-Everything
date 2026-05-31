@@ -186,6 +186,100 @@ def test_build_chunks_dedup_cross_section_same_parent_id() -> None:
     assert len(chunk_ids) == len(set(chunk_ids)), f"duplicate chunk_ids: {chunk_ids}"
 
 
+def test_build_chunks_appends_formula_annotation_for_inline_math() -> None:
+    """含 inline `$...$` 的 chunk 应在 content 末尾加 `Formula symbols: ...`。
+
+    背景：2026-05-30 ragas uplift handoff §3.4 — formula 类 ctx_recall 卡在 0.52，
+    根因之一是 chunk 内 LaTeX token 对 BM25 / dense embed 都不友好。
+    """
+    body = (
+        "Denoting by $M$ the rate matching output sequence length, the bit selection "
+        "output bit sequence $\\mathbf{v}$ is generated as follows: for $k=0$ to $E-1$ "
+        "use $v_k = e_k$."
+    )
+    sec = _sec(clause="5.4.1.2", title="Bit selection", body=body)
+    chunks, _ = build_chunks(_bundle([sec]))
+    assert chunks
+    text_chunks = [c for c in chunks if c.chunk_type == "text"]
+    assert text_chunks, "expected at least one text chunk"
+    target = text_chunks[0]
+    assert "Formula symbols:" in target.content
+    assert "v_k" in target.content
+    assert "e_k" in target.content
+    assert target.raw_extra.get("has_formula_annotation") is True
+
+
+def test_build_chunks_appends_stripped_note_when_formula_lost_upstream() -> None:
+    """38.211 §8.4.2.2.1 极端样本：trigger + 抽空 + 无任何 `$...$` → 仅注 stripped note。"""
+    body = (
+        "The sequence for the sidelink primary synchronization signal is defined by\n"
+        "\nwhere\n\nand\n"
+    )
+    sec = _sec(clause="8.4.2.2.1", title="Sequence generation", body=body)
+    chunks, _ = build_chunks(_bundle([sec]))
+    assert chunks
+    target = chunks[0]
+    assert "stripped formula" in target.content.lower()
+    assert target.raw_extra.get("has_formula_annotation") is True
+
+
+def test_build_chunks_no_annotation_for_plain_prose() -> None:
+    """正常 prose 不应触发 annotation，避免无关 chunk 也漂移 chunk_id。"""
+    sec = _sec(
+        clause="5.2.1",
+        title="Pseudo-random sequence generation",
+        body=(
+            "Generic pseudo-random sequences are defined by a length-31 Gold sequence "
+            "used for scrambling. " * 5
+        ),
+    )
+    chunks, _ = build_chunks(_bundle([sec]))
+    assert chunks
+    for c in chunks:
+        assert "Formula symbols:" not in c.content
+        assert "stripped formula" not in c.content.lower()
+        assert "has_formula_annotation" not in c.raw_extra
+
+
+def test_build_chunks_38211_5_3_1_real_sample_gets_both_signals() -> None:
+    """38.211 §5.3.1 真实片段：保留的 inline math + 上游抽空模式 → 两条 annotation。
+
+    这是 handoff §3.4 列出的 hand-formula-001 ctx_recall=0.52 苦主样本。
+    """
+    body = (
+        "The time-continuous signal on antenna port and subcarrier spacing configuration "
+        "for OFDM symbol  $l \\in \\{0, 1, \\dots, N_{\\text{slot}}^{\\text{subframe}, \\mu} "
+        "N_{\\text{symb}}^{\\text{slot}} - 1\\}$  in a subframe for any physical channel or "
+        "signal except PRACH is defined by\n"
+        "\n"
+        "where at the start of the subframe,\n"
+        "\n"
+        "and\n"
+        "\n"
+        "- is given by clause 4.2;\n"
+        "- is the subcarrier spacing configuration;\n"
+    )
+    sec = _sec(clause="5.3.1", title="OFDM baseband signal generation", body=body)
+    chunks, _ = build_chunks(_bundle([sec]))
+    assert chunks
+    target = chunks[0]
+    assert "Formula symbols:" in target.content
+    assert "stripped formula" in target.content.lower()
+    # 验证关键概念词被抽到 alt-text（提升 retrieval signal）
+    lowered = target.content.lower()
+    assert "subframe" in lowered
+    assert "slot" in lowered
+
+
+def test_build_chunks_chunk_id_stable_with_annotation() -> None:
+    """加 annotation 后，chunk_id 仍跨次幂等（同输入 → 同 content → 同 hash）。"""
+    body = "Bit sequence $v_k = e_k$ for $k=0$ to $E-1$. " * 5
+    sec = _sec(clause="5.4.1.2", title="Bit selection", body=body)
+    c1, _ = build_chunks(_bundle([sec]))
+    c2, _ = build_chunks(_bundle([sec]))
+    assert [c.chunk_id for c in c1] == [c.chunk_id for c in c2]
+
+
 def test_build_chunks_small_short_siblings_merged_into_one() -> None:
     """body 长度需 ≥ 30 chars 以通过 garbage_filter 的 empty-body 启发式。"""
     sections = [

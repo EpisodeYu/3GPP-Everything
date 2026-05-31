@@ -52,8 +52,8 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "indexer/runner.py" = ["B008", "E501"]
 "glossary/runner.py" = ["B008", "E501"]
 "cli.py" = ["B008", "E501"]
-# scripts/ 是评测/一次性脚本，prompt 字符串长是正常情况
-"scripts/*.py" = ["E501"]
+# scripts/ 是评测/一次性脚本，prompt 字符串长是正常情况；typer 入口允许 B008
+"scripts/*.py" = ["B008", "E501"]
 # images/prompts.py 中 PROMPT_E_UNIFIED 是长字符串模板
 "images/prompts.py" = ["E501"]
 
