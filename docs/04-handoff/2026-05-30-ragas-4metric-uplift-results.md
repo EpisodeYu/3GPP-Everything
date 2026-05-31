@@ -302,6 +302,13 @@ discount 的 `_MajorityVoteAnswerRelevancy` 重打 ans_rel，得到 v11 final：
 3. **修 ingestion chunker latex fallback**：formula 类 `$$...$$` 块没文本 fallback；
    需 ingestion 层 dev 任务（影响 11 篇 38.211/38.212/38.213/38.214 spec 公式
    抽取覆盖率）。
+   > **2026-05-31 更新**：chunker 侧 P1+P2 已落地（commit `871eb0b`：LaTeX 符号
+   > 抽取注入 + 抽空模式标注）；但 chunk_id 漂移率 dry-run 实测 11.92%（5 spec），
+   > 触发 §5.4 人审，**本期不主动 reindex**、dormant until reindex。详见
+   > [`2026-05-31-formula-alt-chunker-impl.md`](2026-05-31-formula-alt-chunker-impl.md)
+   > §三（含触发 reindex 的备忘清单与漂移率审计跑法）。chunker 没法恢复上游已丢的
+   > 公式原文，本路径止步；继续涨 ctx_recall 需要换上游 GSMA marker / OCR 重抽，
+   > 不在本任务范围。
 
 ### 4.4 旧 baseline 兼容性
 

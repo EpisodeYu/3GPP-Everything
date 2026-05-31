@@ -393,6 +393,22 @@ ingestion/chunker/
 | `-- ASN1START` / `-- ASN1STOP` 区间 | `asn1` | 不切；超长按顶层定义 (`Identifier ::=`) 切 |
 | `- N>` 嵌套 RRC procedure | `action_list` | 找本块最浅 level 切；超长递归向更深 level；最深仍超用 split_by_tokens 强切 |
 
+**公式 alt-text 注入**（`chunker/formula_alt.py`，2026-05-31 落地，**dormant until reindex**）：
+
+含 LaTeX `$...$` / `$$...$$` 或上游抽空模式（"defined by\\n\\nwhere"）的 chunk，
+在 content 末尾追加 alt-text：
+- `Formula symbols: <去重符号 token 列表>`（BM25 + dense 双友好）
+- `[Note: source markdown contains stripped formula(s); ...]`（仅当检测到抽空模式）
+
+设计要点：纯散文 chunk 完全不动、`chunk_id` 不漂移；只有含公式的 chunk 才出
+annotation。漂移率 dry-run 实测：38.211 物理层 48.83% / 38.331 RRC 1.64% /
+5 spec 合计 11.92%。
+
+**重要**：现网 ~395k 已索引 chunk **没有** annotation；本期不主动 reindex，
+等下次全量 ingest 自然刷新。详见
+[`docs/04-handoff/2026-05-31-formula-alt-chunker-impl.md`](../04-handoff/2026-05-31-formula-alt-chunker-impl.md)
+（含触发 reindex 的备忘清单 + 漂移率 dry-run 跑法）。
+
 **Tokenizer**：`voyageai.Client.tokenize(model="voyage-4-large")`。本地 HF tokenizer，
 首次跑会从 HF 拉 `voyageai/voyage-4-large` 的 `tokenizer.json` 缓存到 `~/.cache/huggingface`。
 不再用 tiktoken（Voyage 文档明确说 Voyage tokenizer 比 tiktoken 多 1.1-1.2×；用 Voyage 自己的可
