@@ -168,7 +168,8 @@ class _SessionsSidebar extends ConsumerWidget {
     );
     if (picked == null || picked.isEmpty) return;
     if (!context.mounted) return;
-    context.go('/reader/${Uri.encodeComponent(picked)}');
+    // push（而非 go）：保留来源页在栈里，reader 返回时回到这里而非重置导航。
+    context.push('/reader/${Uri.encodeComponent(picked)}');
   }
 
   void _onTapSession(BuildContext context, SessionOut s) {

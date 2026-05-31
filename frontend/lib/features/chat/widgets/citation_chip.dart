@@ -238,7 +238,9 @@ void jumpToReader(BuildContext context, CitationRef ref) {
       RegExp(r'^[A-Za-z]?[\d][\w.\-]*$').hasMatch(cleaned);
   if (cleaned.isEmpty || !looksLikeClause) {
     final messenger = ScaffoldMessenger.maybeOf(context);
-    GoRouter.of(context).go('/reader/$spec$fragment');
+    // push（而非 go）：把来源会话留在导航栈里，reader 返回 / 系统返回 / 浏览器后退
+    // 都能回到刚才的会话，而不是退出 app 或回到 /chat。
+    GoRouter.of(context).push('/reader/$spec$fragment');
     if (messenger != null) {
       final hasChunk = ref.chunkId != null && ref.chunkId!.isNotEmpty;
       final msg = hasChunk
@@ -254,7 +256,7 @@ void jumpToReader(BuildContext context, CitationRef ref) {
     return;
   }
   final sec = Uri.encodeComponent(cleaned);
-  GoRouter.of(context).go('/reader/$spec/$sec$fragment');
+  GoRouter.of(context).push('/reader/$spec/$sec$fragment');
 }
 
 /// hover tooltip 内容：标题（spec §section）+ chunk 预览正文。

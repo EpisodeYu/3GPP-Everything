@@ -40,14 +40,16 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     final spec = Uri.encodeComponent(widget.specId);
     final sec = Uri.encodeComponent(node.joinedPath);
     _closeDrawerIfOpen();
-    GoRouter.of(context).go('/reader/$spec/$sec');
+    // reader 内部切章节用 pushReplacement：替换栈顶、不堆叠，且保留进入 reader
+    // 前的来源页（会话）在栈底 —— 返回时能回到那个会话而非重置导航。
+    GoRouter.of(context).pushReplacement('/reader/$spec/$sec');
   }
 
   void _onSelectChunk(SearchHit hit) {
     final spec = Uri.encodeComponent(widget.specId);
     final sec = Uri.encodeComponent(hit.joinedPath);
     _closeDrawerIfOpen();
-    GoRouter.of(context).go('/reader/$spec/$sec#chunk-${hit.chunkId}');
+    GoRouter.of(context).pushReplacement('/reader/$spec/$sec#chunk-${hit.chunkId}');
   }
 
   void _closeDrawerIfOpen() {
@@ -132,30 +134,45 @@ class _ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
+  /// 返回：能 pop 就 pop 回来源页（进入 reader 时是 push 进来的，来源会话仍在栈里）；
+  /// 不能 pop（如直接深链进 reader、刷新页面）才兜底回会话首页。
+  void _back(BuildContext context) {
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
+    } else {
+      router.go('/chat');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final crumb = sectionPath == null || sectionPath!.isEmpty
         ? specId
         : '$specId · §$sectionPath';
     return AppBar(
-      leading: showMenu
-          ? IconButton(
-              key: const Key('reader_open_drawer'),
-              icon: const Icon(Icons.menu_book_outlined),
-              tooltip: '章节目录',
-              onPressed: onMenu,
-            )
-          : IconButton(
-              key: const Key('reader_back_chat'),
-              icon: const Icon(Icons.arrow_back),
-              tooltip: '回到会话',
-              onPressed: () => GoRouter.of(context).go('/chat'),
-            ),
+      // 返回键在宽窄屏都常驻（窄屏此前只有"章节目录"、没有返回键）。
+      leading: IconButton(
+        key: const Key('reader_back_chat'),
+        icon: const Icon(Icons.arrow_back),
+        tooltip: '返回',
+        onPressed: () => _back(context),
+      ),
       title: Text(
         crumb,
         key: const Key('reader_crumb'),
         overflow: TextOverflow.ellipsis,
       ),
+      actions: [
+        // 窄屏：章节目录按钮挪到右侧，给返回键让出 leading。宽屏 drawer 固定，不需要。
+        if (showMenu)
+          IconButton(
+            key: const Key('reader_open_drawer'),
+            icon: const Icon(Icons.menu_book_outlined),
+            tooltip: '章节目录',
+            onPressed: onMenu,
+          ),
+      ],
     );
   }
 }
@@ -209,7 +226,7 @@ class _SpecOverview extends ConsumerWidget {
                     onTap: () {
                       final spec = Uri.encodeComponent(d.specId);
                       final sec = Uri.encodeComponent(s.joinedPath);
-                      GoRouter.of(context).go('/reader/$spec/$sec');
+                      GoRouter.of(context).pushReplacement('/reader/$spec/$sec');
                     },
                   );
                 },

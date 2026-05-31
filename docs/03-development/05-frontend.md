@@ -285,6 +285,7 @@ class ChatController extends AsyncNotifier<ChatRunState> {
   - chunk content 由后端从 Qdrant payload 拉取（F-4 修复后），Qdrant 不可达时 fallback 到 `chunks_meta.raw_extra`
   - 锚点 `#chunk-{chunk_id}` 是 Qdrant point id 字符串；前端用 `Scrollable.ensureVisible` + 临时 `AnimatedContainer` 高亮 3s 淡出，不依赖原生 anchor
 - 右上：搜索框（spec 内全文搜索，调 `GET /docs/{spec_id}/search`，当前为 ILIKE 子串匹配，M7+ 视情况切 PG full-text）
+- **返回**：reader 用 `push`（非 `go`）进入，来源会话留在导航栈里 → AppBar 左上「返回」键 / 安卓系统返回 / 侧滑 / 浏览器后退都回到**刚才的会话**（深链直接进、无来源时兜底回 `/chat`）。reader 内切章节用 `pushReplacement`（替换栈顶不堆叠，保留来源）。窄屏「章节目录」按钮移到 AppBar 右侧，给返回键让出 leading。
 
 ## 7. 管理后台
 
