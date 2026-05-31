@@ -24,7 +24,12 @@ class _DocsTableState extends ConsumerState<DocsTable> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
+          // Wrap（非 Row）：窄屏（安卓手机）下 release/series/刷新/总数 自动换行，
+          // 避免固定宽输入框把一行撑爆 → RenderFlex RIGHT overflow。
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               SizedBox(
                 width: 160,
@@ -37,7 +42,6 @@ class _DocsTableState extends ConsumerState<DocsTable> {
                   onSubmitted: (v) => setState(() => _release = v.trim()),
                 ),
               ),
-              const SizedBox(width: 12),
               SizedBox(
                 width: 140,
                 child: TextField(
@@ -49,14 +53,12 @@ class _DocsTableState extends ConsumerState<DocsTable> {
                   onSubmitted: (v) => setState(() => _series = v.trim()),
                 ),
               ),
-              const SizedBox(width: 12),
               FilledButton.icon(
                 key: const Key('admin_docs_apply'),
                 onPressed: () => ref.invalidate(_docsListProvider),
                 icon: const Icon(Icons.refresh),
                 label: const Text('刷新'),
               ),
-              const Spacer(),
               if (async case AsyncData(:final value))
                 Text('共 ${value.total} 篇',
                     key: const Key('admin_docs_total'),

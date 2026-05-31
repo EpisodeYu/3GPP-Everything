@@ -47,8 +47,9 @@ Future<void> _pumpDashboard(
   FakeAdminApi? adminApi,
   FakeDocsApi? docsApi,
   AuthController Function() authCtor = _StubAuthControllerAdmin.new,
+  Size size = const Size(1280, 900),
 }) async {
-  await tester.binding.setSurfaceSize(const Size(1280, 900));
+  await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
@@ -229,6 +230,33 @@ void main() {
 
       expect(find.byKey(const Key('admin_rebuild_error')), findsOneWidget);
       expect(find.byKey(const Key('admin_rebuild_dialog')), findsOneWidget);
+    });
+
+    testWidgets('窄屏（安卓）：文档过滤区 Wrap 换行，不 overflow', (tester) async {
+      final docs = FakeDocsApi(docs: [
+        buildDocOut(
+            specId: '23.501', release: 'Rel-18', series: '23', chunkCount: 1234),
+      ]);
+      await _pumpDashboard(tester, docsApi: docs, size: const Size(360, 800));
+
+      // 无 RenderFlex overflow（溢出会被记成 pending exception）
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('admin_docs_release')), findsOneWidget);
+      expect(find.byKey(const Key('admin_docs_series')), findsOneWidget);
+    });
+
+    testWidgets('窄屏（安卓）：任务过滤 chips Wrap 换行，不 overflow', (tester) async {
+      final admin = FakeAdminApi(tasks: [
+        buildTask(id: 't-1', status: 'done', progress: 100),
+      ]);
+      await _pumpDashboard(tester, adminApi: admin, size: const Size(360, 800));
+
+      await tester.tap(find.byKey(const Key('admin_tab_tasks')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('admin_tasks_filter_done')), findsOneWidget);
+      expect(find.byKey(const Key('admin_tasks_refresh')), findsOneWidget);
     });
 
     testWidgets('统计 Tab：API 错误 → 显示重试按钮', (tester) async {

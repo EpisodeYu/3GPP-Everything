@@ -79,23 +79,24 @@ class _TasksPanelState extends ConsumerState<TasksPanel> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
+          // Wrap（非 Row）：窄屏（安卓手机）下 5 个状态 chip + 刷新自动换行，
+          // 避免一行放不下 → RenderFlex RIGHT overflow。
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               for (final s in const [null, 'queued', 'running', 'done', 'failed'])
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    key: Key('admin_tasks_filter_${s ?? 'all'}'),
-                    label: Text(s ?? '全部'),
-                    selected: _statusFilter == s,
-                    onSelected: (sel) {
-                      if (!sel) return;
-                      setState(() => _statusFilter = s);
-                      _refresh();
-                    },
-                  ),
+                ChoiceChip(
+                  key: Key('admin_tasks_filter_${s ?? 'all'}'),
+                  label: Text(s ?? '全部'),
+                  selected: _statusFilter == s,
+                  onSelected: (sel) {
+                    if (!sel) return;
+                    setState(() => _statusFilter = s);
+                    _refresh();
+                  },
                 ),
-              const Spacer(),
               IconButton(
                 key: const Key('admin_tasks_refresh'),
                 tooltip: '刷新',
