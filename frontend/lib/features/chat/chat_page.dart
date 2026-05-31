@@ -10,6 +10,7 @@ import '../../data/api/messages_api.dart';
 import '../../data/api/notes_api.dart';
 import '../../data/api/sessions_api.dart';
 import '../../domain/session/sessions_controller.dart';
+import '../shell/new_session_button.dart';
 import 'chat_controller.dart';
 import 'widgets/composer.dart';
 import 'widgets/message_bubble.dart';
@@ -36,7 +37,9 @@ class ChatPage extends ConsumerWidget {
         if (s == null) {
           return const _MissingSessionPane();
         }
-        return _ChatView(session: s);
+        // key 绑 session.id：切换会话时让旧 _ChatViewState 析构（dispose），
+        // 从而触发"离开空草稿会话即丢弃"（Req2）。
+        return _ChatView(key: ValueKey('chatview-${s.id}'), session: s);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('会话加载失败：$e')),
@@ -75,32 +78,12 @@ class _WelcomePane extends ConsumerWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 24),
-              FilledButton.icon(
-                key: const Key('welcome_new_session'),
-                onPressed: () => _onCreate(context, ref),
-                icon: const Icon(Icons.add),
-                label: Text(AppLocalizations.of(context).sidebarNewSession),
-              ),
+              const NewSessionButton(buttonKey: Key('welcome_new_session')),
             ],
           ),
         ),
       ),
     );
-  }
-
-  Future<void> _onCreate(BuildContext context, WidgetRef ref) async {
-    try {
-      final created =
-          await ref.read(sessionsControllerProvider.notifier).createBlank();
-      if (!context.mounted) return;
-      context.go('/sessions/${created.id}');
-    } on Object catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('创建会话失败：$e')),
-        );
-      }
-    }
   }
 }
 
@@ -132,7 +115,7 @@ class _MissingSessionPane extends StatelessWidget {
 }
 
 class _ChatView extends ConsumerStatefulWidget {
-  const _ChatView({required this.session});
+  const _ChatView({super.key, required this.session});
   final SessionOut session;
 
   @override
@@ -142,8 +125,21 @@ class _ChatView extends ConsumerStatefulWidget {
 class _ChatViewState extends ConsumerState<_ChatView> {
   final ScrollController _scroll = ScrollController();
 
+  /// 在 initState 捕获 long-lived notifier：dispose 里 `ref` 已失效不能再 read。
+  late final SessionsController _sessions;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessions = ref.read(sessionsControllerProvider.notifier);
+  }
+
   @override
   void dispose() {
+    // Req2：离开这个会话时，若它仍是没发过消息的空草稿，丢弃它（不留空会话）。
+    // 微任务延后执行，避免在 widget 析构途中改动被 sidebar 监听的 provider。
+    final sid = widget.session.id;
+    Future.microtask(() => _sessions.discardDraft(sid));
     _scroll.dispose();
     super.dispose();
   }
@@ -437,8 +433,11 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           _ArchivedBanner(session: session)
         else
           Composer(
-            onSend: (text) =>
-                ref.read(chatControllerProvider(sid).notifier).send(text),
+            onSend: (text) {
+              // 发出首条消息 → 该会话不再是空草稿，离开时不再被丢弃（Req2）。
+              ref.read(sessionsControllerProvider.notifier).markUsed(sid);
+              ref.read(chatControllerProvider(sid).notifier).send(text);
+            },
             onCancel: () =>
                 ref.read(chatControllerProvider(sid).notifier).cancel(),
             onPause: _onPause,

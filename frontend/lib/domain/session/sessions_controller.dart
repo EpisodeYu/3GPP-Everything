@@ -15,6 +15,17 @@ import '../auth/auth_state.dart';
 class SessionsController extends AsyncNotifier<List<SessionOut>> {
   late final SessionsApi _api = ref.read(sessionsApiProvider);
 
+  /// "空草稿会话" 的 id 集合：由 [createBlank] 新建、用户还没发过任何消息。
+  ///
+  /// 用途（"新会话即草稿，发首条消息前不落地"语义）：
+  /// - [isDraft]：sidebar "新会话" 按钮判断当前是否已在空草稿里 → 复用而非再建一个；
+  /// - [discardDraft]：用户离开空草稿（切会话 / 退出）时把它丢掉，不留一堆空会话；
+  /// - [markUsed]：首条消息发出后移出草稿集，从此不再被自动丢弃。
+  ///
+  /// 只跟踪"本端这次 createBlank 出来的"会话 → 删除前可确信它在服务端确为空，
+  /// 不会误删有内容的会话（刷新页面后草稿集清空，旧空会话不会被自动删，偏保守）。
+  final Set<String> _draftSessionIds = <String>{};
+
   @override
   Future<List<SessionOut>> build() async {
     // 必须等待鉴权状态恢复（从本地存储读取 token 并验证）。
@@ -41,9 +52,34 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
     String modeDefault = 'qa',
   }) async {
     final created = await _api.create(title: title, modeDefault: modeDefault);
+    _draftSessionIds.add(created.id);
     final prev = state.value ?? const <SessionOut>[];
     state = AsyncData([created, ...prev]);
     return created;
+  }
+
+  /// 该会话是否仍是"空草稿"（createBlank 出来、还没发过消息）。
+  bool isDraft(String sid) => _draftSessionIds.contains(sid);
+
+  /// 首条消息发出后调用：把会话移出草稿集，从此不再被 [discardDraft] 丢弃。
+  void markUsed(String sid) {
+    _draftSessionIds.remove(sid);
+  }
+
+  /// 离开空草稿会话时丢弃它：仅当 [sid] 仍在草稿集（= 确为本端新建且没发过消息）。
+  ///
+  /// 乐观从列表移除并 `DELETE`；删除失败回滚列表，保持与后端一致。非草稿一律 no-op，
+  /// 避免误删有内容的会话。
+  Future<void> discardDraft(String sid) async {
+    if (!_draftSessionIds.remove(sid)) return;
+    final prev = state.value ?? const <SessionOut>[];
+    if (!prev.any((s) => s.id == sid)) return;
+    state = AsyncData([for (final s in prev) if (s.id != sid) s]);
+    try {
+      await _api.delete(sid);
+    } on Object {
+      state = AsyncData(prev);
+    }
   }
 
   /// 重命名 / 改默认模式。失败时回滚。
@@ -73,6 +109,7 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
 
   /// 删除单个会话。失败时回滚。
   Future<void> delete(String sid) async {
+    _draftSessionIds.remove(sid);
     final prev = state.value ?? const <SessionOut>[];
     state = AsyncData([for (final s in prev) if (s.id != sid) s]);
     try {
@@ -88,6 +125,7 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
   /// 返回后端真实删除数（用于 snackbar 回显）。前端乐观清空与后端结果独立：
   /// 即使后端返回 0（无数据可删），UI 仍按"清空成功"反馈，不让用户困惑。
   Future<int> deleteAll() async {
+    _draftSessionIds.clear();
     final prev = state.value ?? const <SessionOut>[];
     state = const AsyncData(<SessionOut>[]);
     try {
