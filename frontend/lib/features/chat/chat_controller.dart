@@ -37,7 +37,8 @@ enum RunStatus {
   error,
 }
 
-/// 单个 Agent 节点的运行状态。M5.2 NodeStatusStrip 渲染的最小单元。
+/// 单个 Agent 节点的运行状态。M5.2 起由 ReasoningPanel 消费（2026-05-31 之前
+/// 是独立 NodeStatusStrip）。
 class NodeRunStatus {
   const NodeRunStatus({
     required this.node,
@@ -75,6 +76,10 @@ class ChatRunState {
     this.citations = const [],
     this.confidence,
     this.errorMessage,
+    this.reasoningByNode = const {},
+    this.activeNode,
+    this.reasoningStartedAt,
+    this.reasoningCollapsed = false,
   });
 
   const ChatRunState.idle() : this(status: RunStatus.idle);
@@ -91,6 +96,28 @@ class ChatRunState {
   final List<Citation> citations;
   final double? confidence;
   final String? errorMessage;
+
+  /// 节点级 reasoning 累积文本。当前只 `hyde` 写入（来自 [NodeProgressEvent]
+  /// 的字符级 delta），其它节点的"reasoning 内容"由 [ReasoningPanel] 在 widget
+  /// 层从 [NodeRunStatus.summary] + i18n 渲染。
+  ///
+  /// 设计：
+  /// - 后端 hyde 改用 `chat_stream()` 真流式（详见 `docs/03-development/03-agent.md §7`），
+  ///   每个 chunk 由 SSE `node_progress` 事件推到前端
+  /// - controller 把 delta 追加到 `reasoningByNode['hyde']`，UI 字符级刷新
+  /// - 流结束 → `reasoningByNode['hyde']` 是完整 hyde_doc，折叠态点开仍能复盘
+  final Map<String, String> reasoningByNode;
+
+  /// 当前 running 节点名；用于 [ReasoningPanel] 决定灰色文字区显示哪一段。
+  /// `node_start` 设、`node_end` 清空（若是当前 active）。
+  final String? activeNode;
+
+  /// reasoning 折叠框开始计时点：`run_start` 时设，用于折叠态显示「已思考 X.Xs」。
+  final DateTime? reasoningStartedAt;
+
+  /// reasoning 框是否折叠。默认 false（展开）；首个 `token` 事件到达后由
+  /// controller 切 true，UI 折叠成单行。用户手动展开/折叠由 widget 端 override。
+  final bool reasoningCollapsed;
 
   bool get isRunning => status == RunStatus.streaming || status == RunStatus.cancelling;
 
@@ -111,6 +138,10 @@ class ChatRunState {
     List<Citation>? citations,
     double? confidence,
     String? errorMessage,
+    Map<String, String>? reasoningByNode,
+    Object? activeNode = _unset,
+    Object? reasoningStartedAt = _unset,
+    bool? reasoningCollapsed,
   }) =>
       ChatRunState(
         status: status ?? this.status,
@@ -125,8 +156,20 @@ class ChatRunState {
         citations: citations ?? this.citations,
         confidence: confidence ?? this.confidence,
         errorMessage: errorMessage ?? this.errorMessage,
+        reasoningByNode: reasoningByNode ?? this.reasoningByNode,
+        activeNode: identical(activeNode, _unset)
+            ? this.activeNode
+            : activeNode as String?,
+        reasoningStartedAt: identical(reasoningStartedAt, _unset)
+            ? this.reasoningStartedAt
+            : reasoningStartedAt as DateTime?,
+        reasoningCollapsed: reasoningCollapsed ?? this.reasoningCollapsed,
       );
 }
+
+/// copyWith 的 sentinel：让 `activeNode: null` / `reasoningStartedAt: null` 能
+/// 表达"显式清空"，与"参数未传"区分（默认 named param 无法区分二者）。
+const Object _unset = Object();
 
 /// 整个会话页面的状态：历史消息列表 + 当前 run 状态。
 class SessionChatState {
@@ -229,6 +272,7 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
         run: ChatRunState(
           status: RunStatus.streaming,
           userInput: content,
+          reasoningStartedAt: DateTime.now(),
         ),
       ),
     );
@@ -326,7 +370,13 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
     _isResume = true;
 
     state = AsyncData(current.copyWith(
-      run: run.copyWith(status: RunStatus.streaming),
+      run: run.copyWith(
+        status: RunStatus.streaming,
+        // resume 续跑时也重置 reasoning 计时与折叠态：续跑过程仍可能跑到 hyde
+        // 之外的剩余节点；首个 token 到达再折叠。
+        reasoningStartedAt: DateTime.now(),
+        reasoningCollapsed: false,
+      ),
     ));
 
     final completer = Completer<void>();
@@ -388,7 +438,9 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
           ...run.nodes.where((n) => n.node != evt.node),
           NodeRunStatus(node: evt.node, running: true),
         ];
-        state = AsyncData(current.copyWith(run: run.copyWith(nodes: nodes)));
+        state = AsyncData(current.copyWith(
+          run: run.copyWith(nodes: nodes, activeNode: evt.node),
+        ));
         break;
       case NodeEndEvent():
         final nodes = [
@@ -398,7 +450,24 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
             else
               n,
         ];
-        state = AsyncData(current.copyWith(run: run.copyWith(nodes: nodes)));
+        // 节点收尾：若它正是当前 active，清掉 activeNode（下一个 node_start 会重设）
+        final clearActive = run.activeNode == evt.node;
+        state = AsyncData(current.copyWith(
+          run: run.copyWith(
+            nodes: nodes,
+            activeNode: clearActive ? null : run.activeNode,
+          ),
+        ));
+        break;
+      case NodeProgressEvent():
+        // hyde 字符级流：把 delta 累加到 reasoningByNode[node]，UI 字符级渲染。
+        // 协议只允许 node 非空；防御性 trim 一下，空 delta 不动。
+        if (evt.node.isEmpty || evt.delta.isEmpty) break;
+        final updated = Map<String, String>.from(run.reasoningByNode);
+        updated[evt.node] = (updated[evt.node] ?? '') + evt.delta;
+        state = AsyncData(current.copyWith(
+          run: run.copyWith(reasoningByNode: updated),
+        ));
         break;
       case ChunksHitEvent():
         state = AsyncData(current.copyWith(run: run.copyWith(chunksHit: evt.chunks)));
@@ -407,8 +476,14 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
         state = AsyncData(current.copyWith(run: run.copyWith(chunksRerank: evt.chunks)));
         break;
       case TokenEvent():
+        // 首个 token 到达 → reasoning 折叠成单行；user 手动展开靠 widget 层
+        // 维护本地 override（_userOverride），不回到 controller。
+        final shouldCollapse = !run.reasoningCollapsed && run.partialAnswer.isEmpty;
         state = AsyncData(current.copyWith(
-          run: run.copyWith(partialAnswer: run.partialAnswer + evt.delta),
+          run: run.copyWith(
+            partialAnswer: run.partialAnswer + evt.delta,
+            reasoningCollapsed: shouldCollapse ? true : run.reasoningCollapsed,
+          ),
         ));
         break;
       case FinalEvent():

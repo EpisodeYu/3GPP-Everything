@@ -102,6 +102,11 @@ class StreamingAssistantBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 2026-05-31：partial 为空时不再显示 typing dots —— reasoning 折叠框已经
+    // 占位（包含节点 chip 列 + 灰色文字区）。两处同时显示 typing dots 既冗余
+    // 又会让用户以为有两条独立的「正在生成」流。partial 一旦非空（首个 token
+    // 到达）才显示气泡 + markdown；reasoning 框同步折叠为单行。
+    if (partial.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     return Align(
       alignment: Alignment.centerLeft,
@@ -119,14 +124,11 @@ class StreamingAssistantBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (partial.isEmpty)
-                _typingDots(theme)
-              else
-                _MarkdownWithMath(
-                  text: partial,
-                  isUser: false,
-                  citations: const [],
-                ),
+              _MarkdownWithMath(
+                text: partial,
+                isUser: false,
+                citations: const [],
+              ),
             ],
           ),
         ),
@@ -134,26 +136,6 @@ class StreamingAssistantBubble extends StatelessWidget {
     );
   }
 
-  Widget _typingDots(ThemeData theme) {
-    return SizedBox(
-      width: 32,
-      height: 16,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          for (var i = 0; i < 3; i++)
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant,
-                shape: BoxShape.circle,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 /// 把文本按块级 `$$ ... $$` 切片，分别用 markdown / math 渲染后纵向堆叠。

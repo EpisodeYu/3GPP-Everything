@@ -133,6 +133,81 @@ class AppLocalizationsZh extends AppLocalizations {
   String get messageStatusFailed => '失败';
 
   @override
+  String get reasoningClassify => '判断查询类型';
+
+  @override
+  String get reasoningRewrite => '改写问题';
+
+  @override
+  String get reasoningHyde => '撰写假设答案';
+
+  @override
+  String get reasoningMultiQuery => '拆分子查询';
+
+  @override
+  String get reasoningRetrieve => '检索 3GPP 文档';
+
+  @override
+  String get reasoningRerank => '精排候选';
+
+  @override
+  String get reasoningGenerate => '起草回答';
+
+  @override
+  String get reasoningSelfRag => '自校验答案';
+
+  @override
+  String get reasoningToolDispatch => '调用工具';
+
+  @override
+  String reasoningCollapsedTitle(String seconds, int steps) {
+    return '已思考 ${seconds}s · $steps 步骤';
+  }
+
+  @override
+  String get reasoningExpand => '展开';
+
+  @override
+  String get reasoningCollapse => '收起';
+
+  @override
+  String get reasoningWaiting => '等待开始...';
+
+  @override
+  String reasoningClassifyDone(
+    String queryClass,
+    String complexity,
+    String query,
+  ) {
+    return '分类:$queryClass ($complexity) · 改写:$query';
+  }
+
+  @override
+  String reasoningRewriteDone(String query) {
+    return '改写为: $query';
+  }
+
+  @override
+  String reasoningMultiQueryDone(int count) {
+    return '拆出 $count 个子查询';
+  }
+
+  @override
+  String reasoningRetrieveDone(int count) {
+    return '找到 $count 个候选';
+  }
+
+  @override
+  String reasoningRerankDone(int count) {
+    return 'Top-$count 排序完成';
+  }
+
+  @override
+  String reasoningSelfRagDone(String verdict, String confidence) {
+    return '自检: $verdict · 置信度 $confidence';
+  }
+
+  @override
   String get themeLight => '浅色';
 
   @override

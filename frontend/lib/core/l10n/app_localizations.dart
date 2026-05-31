@@ -326,6 +326,124 @@ abstract class AppLocalizations {
   /// **'Failed'**
   String get messageStatusFailed;
 
+  /// No description provided for @reasoningClassify.
+  ///
+  /// In en, this message translates to:
+  /// **'Classifying query'**
+  String get reasoningClassify;
+
+  /// No description provided for @reasoningRewrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Rewriting question'**
+  String get reasoningRewrite;
+
+  /// No description provided for @reasoningHyde.
+  ///
+  /// In en, this message translates to:
+  /// **'Drafting hypothetical answer'**
+  String get reasoningHyde;
+
+  /// No description provided for @reasoningMultiQuery.
+  ///
+  /// In en, this message translates to:
+  /// **'Splitting sub-queries'**
+  String get reasoningMultiQuery;
+
+  /// No description provided for @reasoningRetrieve.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching 3GPP corpus'**
+  String get reasoningRetrieve;
+
+  /// No description provided for @reasoningRerank.
+  ///
+  /// In en, this message translates to:
+  /// **'Reranking candidates'**
+  String get reasoningRerank;
+
+  /// No description provided for @reasoningGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Drafting answer'**
+  String get reasoningGenerate;
+
+  /// No description provided for @reasoningSelfRag.
+  ///
+  /// In en, this message translates to:
+  /// **'Self-checking answer'**
+  String get reasoningSelfRag;
+
+  /// No description provided for @reasoningToolDispatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Calling tools'**
+  String get reasoningToolDispatch;
+
+  /// No description provided for @reasoningCollapsedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Thought for {seconds}s · {steps} steps'**
+  String reasoningCollapsedTitle(String seconds, int steps);
+
+  /// No description provided for @reasoningExpand.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand'**
+  String get reasoningExpand;
+
+  /// No description provided for @reasoningCollapse.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse'**
+  String get reasoningCollapse;
+
+  /// No description provided for @reasoningWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting...'**
+  String get reasoningWaiting;
+
+  /// No description provided for @reasoningClassifyDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Class: {queryClass} ({complexity}) · rewrite: {query}'**
+  String reasoningClassifyDone(
+    String queryClass,
+    String complexity,
+    String query,
+  );
+
+  /// No description provided for @reasoningRewriteDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Rewritten: {query}'**
+  String reasoningRewriteDone(String query);
+
+  /// No description provided for @reasoningMultiQueryDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Split into {count} sub-queries'**
+  String reasoningMultiQueryDone(int count);
+
+  /// No description provided for @reasoningRetrieveDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Found {count} candidates'**
+  String reasoningRetrieveDone(int count);
+
+  /// No description provided for @reasoningRerankDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Top-{count} reranked'**
+  String reasoningRerankDone(int count);
+
+  /// No description provided for @reasoningSelfRagDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Verdict: {verdict} · confidence {confidence}'**
+  String reasoningSelfRagDone(String verdict, String confidence);
+
   /// No description provided for @themeLight.
   ///
   /// In en, this message translates to:

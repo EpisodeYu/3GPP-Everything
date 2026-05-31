@@ -69,7 +69,7 @@ frontend/lib/
     │   ├── chat_page.dart
     │   ├── widgets/
     │   │   ├── message_bubble.dart
-    │   │   ├── node_status_strip.dart
+    │   │   ├── reasoning_panel.dart     # 2026-05-31 取代 node_status_strip：节点 chip 列 + hyde 字符流 + summary 人话 + 首 token 自动折叠
     │   │   ├── chunks_panel.dart        # 监听 chunks_hit + chunks_rerank，后者覆盖前者
     │   │   ├── citation_chip.dart
     │   │   ├── mode_toggle.dart
@@ -159,12 +159,11 @@ final router = GoRouter(
 graph TB
     subgraph ChatPage
         H["AppBar: 会话标题 + 工具开关 (web/glossary/...)"]
-        M["MessageList (ListView)"]
-        S["NodeStatusStrip (进行中时显示)"]
+        M["MessageList (ListView, ReasoningPanel inline before streaming bubble)"]
         P["ChunksPreviewPanel (可折叠抽屉)"]
         C["Composer (输入 + 显式工具勾选 + 发送/取消)"]
     end
-    H --> M --> S --> P --> C
+    H --> M --> P --> C
 ```
 
 > **2026-05-28 (0eea4ee)**：chat header 原先有一行 `mode=qa · status=...` 副标题，删除——`mode=qa` 是会话唯一可能值（`raw_lookup` 已下线），`status` 在 sidebar 已通过分组（active / 分叉历史）+ paused/archived banner 体现，副标题对用户无信息量。
@@ -178,17 +177,23 @@ graph TB
 > `CancelledEvent` 一到立即 flush，`EndEvent` 仍兜底（status idle 时 no-op）。
 
 ```dart
-enum RunStatus { idle, streaming, cancelling, done, error }
+enum RunStatus { idle, streaming, cancelling, paused, done, cancelled, error }
 
 class ChatRunState {
   final String? runId;
   final RunStatus status;
-  final List<NodeEvent> nodes;       // 节点状态条
+  final List<NodeRunStatus> nodes;            // 节点状态（ReasoningPanel chip 列）
   final List<ChunkPreview> chunksHit;
-  final String partialAnswer;        // 拼接 token
+  final List<ChunkPreview> chunksRerank;
+  final String partialAnswer;                 // 拼接 token
   final List<Citation> citations;
   final double? confidence;
   final String? errorMessage;
+  // —— 2026-05-31 reasoning 折叠框（详见 §5.2）—— //
+  final Map<String, String> reasoningByNode;  // hyde 字符级累积；其它节点不写
+  final String? activeNode;                   // 当前 running 节点名（node_start 设、node_end 清）
+  final DateTime? reasoningStartedAt;         // send 时设；折叠态显示「已思考 X.Xs」
+  final bool reasoningCollapsed;              // 首个 token 到达自动 true；用户可 override
 }
 
 class ChatController extends AsyncNotifier<ChatRunState> {
@@ -201,14 +206,17 @@ class ChatController extends AsyncNotifier<ChatRunState> {
 
   void _onEvent(SseEvent e) {
     switch (e.event) {
-      case 'node_start': ...
-      case 'node_end':   ...
-      case 'chunks_hit': ...
-      case 'token':      ...   // setState(partialAnswer += delta)
-      case 'final':      ...   // 2026-05-28 (4a2960d): 立即 flush streaming bubble 到 history
-      case 'cancelled':  ...   // 同上：cancelled 也立即 flush
-      case 'end':        ...   // 仍兜底（status idle 时 no-op）
-      case 'error':      ...
+      case 'node_start':     ...   // 设 activeNode + nodes 加 running chip
+      case 'node_end':       ...   // 清 activeNode（若是当前 active）+ chip 翻 done
+      case 'node_progress':  ...   // 2026-05-31：reasoningByNode[node] += delta（hyde 字符流）
+      case 'chunks_hit':     ...
+      case 'chunks_rerank':  ...
+      case 'token':          ...   // setState(partialAnswer += delta)；首次到达切 reasoningCollapsed=true
+      case 'final':          ...   // 2026-05-28 (4a2960d): 立即 flush streaming bubble 到 history
+      case 'cancelled':      ...   // 同上：cancelled 也立即 flush
+      case 'end':            ...   // 仍兜底（status idle 时 no-op）
+      case 'error':          ...
+      case 'title':          ...   // 首轮自动标题，刷 sessions sidebar
     }
   }
 
@@ -220,15 +228,26 @@ class ChatController extends AsyncNotifier<ChatRunState> {
 }
 ```
 
-### 5.2 节点状态条
+### 5.2 ReasoningPanel（2026-05-31，取代独立 NodeStatusStrip）
 
-显示 chip 序列（运行/完成/失败颜色不同），节点白名单见 [`backend/app/api/v1/chat.py::_NODE_NAMES`](../../backend/app/api/v1/chat.py)（共 9 个）：
+> 用户提问到首个 `token` 到达期间，复杂查询要跑完 `classify → rewrite → hyde → multi_query → retrieve → rerank` 这一长串才到 `generate`，hyde 单独可能要 5-10 秒。M5.2 原 `NodeStatusStrip` 只在 Composer 上方一行显示节点 chip，用户在等的几十秒里看不到任何"reasoning 文字"——体感像卡死。`ReasoningPanel` 把这段过程做成"在回答位置出现的灰色折叠框，逐字刷新当前步骤的 LLM 输出"，类似 Claude/o1 的 reasoning 框，回答出来后自动折叠成 `已思考 X.Xs · N 步骤` 单行。
 
-```
-[classify ✓] [rewrite ✓] [retrieve ⟳] [rerank …] [generate …] [self_rag …]
-```
+实现要点（[`frontend/lib/features/chat/widgets/reasoning_panel.dart`](../../frontend/lib/features/chat/widgets/reasoning_panel.dart)）：
 
-完成时收起。点击 chip 可看该节点 duration / summary。
+- **嵌进消息列表底部**（streaming bubble 上方），不再是 Composer 上方独立一行 —— 视觉上"在回答的位置"
+- **展开态**：顶部节点 chip 列（沿用 M5.2 视觉，running 转圈 / done 打勾）+ 灰色滚动文字区（maxHeight 120）：
+  - hyde active 时：[`ChatRunState.reasoningByNode`](../../frontend/lib/features/chat/chat_controller.dart)`['hyde']` 字符级累积内容，后端 SSE `node_progress` 事件喂（详见 §8 / [`03-agent.md §7`](03-agent.md)）；hyde 是 reasoning enabled 模型，输出长（200-400 token）且是自然语言段落，真流式最有 reasoning 感
+  - 其它 LLM 节点（classify / rewrite / multi_query / self_rag，全部 `thinking=disabled`）：从 `node_end.summary` 一次性渲染人话（`改写为: ...` / `拆出 N 个子查询: ...` / `自检: accept · 置信度 0.87`）—— 这些节点输出是 JSON / 一行，token 流体感差且看着像代码碎片，不值得真流式
+  - retrieve / rerank：从 summary 的 `*_count` 字段渲染 `找到 N 个候选` / `Top-N 排序完成`
+  - active 节点没显式 reasoning 文字时显示 i18n placeholder `撰写假设答案...` 等
+- **折叠态**：单行 `已思考 X.Xs · N 步骤` + 上下箭头；秒数依赖 parent 自然 rebuild（token 流持续到达）刷新，没有独立 Timer.periodic（避免 widget test pumpAndSettle 不稳）
+- **自动折叠**：首个 `token` 事件到达 → controller 切 `reasoningCollapsed=true` → AnimatedSize 收起；`final` 后保留可复盘
+- **手动 override**：`_userOverride` 标记。用户手动展开后即便 controller 仍说 collapsed=true 也保留展开
+- **节点白名单**：classify / rewrite / hyde / multi_query / retrieve / rerank / generate / self_rag / tool_dispatch 共 9 个，与 [`backend/app/api/v1/chat.py::_NODE_NAMES`](../../backend/app/api/v1/chat.py) 一致
+
+i18n keys：`reasoningClassify` / `reasoningRewrite` / `reasoningHyde` / `reasoningMultiQuery` / `reasoningRetrieve` / `reasoningRerank` / `reasoningGenerate` / `reasoningSelfRag` / `reasoningToolDispatch` / `reasoningCollapsedTitle` / `reasoningExpand` / `reasoningCollapse` / `reasoningWaiting` / 6 条 `*Done` 文案，详见 [`app_zh.arb`](../../frontend/lib/core/l10n/app_zh.arb) / [`app_en.arb`](../../frontend/lib/core/l10n/app_en.arb)。
+
+> 详见 [`../04-handoff/2026-05-31-reasoning-panel.md`](../04-handoff/2026-05-31-reasoning-panel.md) 完成报告。
 
 ### 5.3 命中 chunks 预览（合并 hit + rerank）
 

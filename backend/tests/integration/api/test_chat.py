@@ -84,6 +84,37 @@ class _CannedGraph:
         self.aupdate_state_calls.append({"config": config, "values": values})
 
 
+def _canned_hyde_progress_events() -> list[dict[str, Any]]:
+    """hyde 节点字符级流式 node_progress 事件序列（2026-05-31 reasoning 折叠框）。
+
+    用于回归：SSE 路由的 `on_custom_event name=="node_progress"` 透传分支正常工作，
+    payload 字段 `{node, delta}` 与节点端 `_emit_progress` 一致。
+    """
+    return [
+        {"event": "on_chain_start", "name": "hyde", "data": {}},
+        {
+            "event": "on_custom_event",
+            "name": "node_progress",
+            "data": {"node": "hyde", "delta": "AMF is the "},
+        },
+        {
+            "event": "on_custom_event",
+            "name": "node_progress",
+            "data": {"node": "hyde", "delta": "Access and Mobility "},
+        },
+        {
+            "event": "on_custom_event",
+            "name": "node_progress",
+            "data": {"node": "hyde", "delta": "Management Function."},
+        },
+        {
+            "event": "on_chain_end",
+            "name": "hyde",
+            "data": {"output": {"hyde_doc": "AMF is the Access and Mobility Management Function."}},
+        },
+    ]
+
+
 def _canned_full_run_events() -> list[dict[str, Any]]:
     """串成： classify start/end → retrieve start + chunks_hit + end →
     rerank start + chunks_rerank + end → generate start + token + end。"""
@@ -587,3 +618,176 @@ async def test_send_message_session_not_found(app_and_state: Any) -> None:
             headers=_auth_headers(token),
         )
         assert r.status_code == 404
+
+
+async def test_node_progress_events_are_passed_through(app_and_state: Any) -> None:
+    """hyde 节点 emit `adispatch_custom_event("node_progress", ...)` → SSE 路由透传
+    成 `node_progress` 事件，payload `{node, delta}`。reasoning 折叠框依赖此协议。"""
+    app, _, _ = app_and_state
+    app.state.agent_graph = _CannedGraph(
+        events=_canned_hyde_progress_events() + _canned_full_run_events(),
+        final_state=_canned_final_state(),
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token)
+        r = await client.post(
+            f"/api/v1/sessions/{sid}/messages",
+            json={"content": "what is AMF?"},
+            headers=_auth_headers(token),
+        )
+        assert r.status_code == 200, r.text
+        events = _parse_sse(r.text)
+
+    progress_events = [json.loads(d) for k, d in events if k == "node_progress"]
+    assert len(progress_events) == 3, [k for k, _ in events]
+    assert all(p["node"] == "hyde" for p in progress_events)
+    deltas = [p["delta"] for p in progress_events]
+    assert deltas == [
+        "AMF is the ",
+        "Access and Mobility ",
+        "Management Function.",
+    ]
+    # node_progress 必出现在 hyde 的 node_start / node_end 之间
+    kinds = [k for k, _ in events]
+    hyde_starts = [i for i, (k, d) in enumerate(events) if k == "node_start" and "hyde" in d]
+    hyde_ends = [i for i, (k, d) in enumerate(events) if k == "node_end" and "hyde" in d]
+    assert hyde_starts and hyde_ends
+    progress_idxs = [i for i, (k, _) in enumerate(events) if k == "node_progress"]
+    assert hyde_starts[0] < progress_idxs[0]
+    assert progress_idxs[-1] < hyde_ends[0]
+    # 主回归不打断：full run 的 final / end 仍要有
+    assert "final" in kinds and "end" in kinds
+
+
+async def test_node_progress_payload_with_nested_data_field(app_and_state: Any) -> None:
+    """LangGraph 不同版本对 custom event 的 data 包装方式不同：
+    有时 evt['data'] 直接是 payload，有时嵌套 evt['data']['data']。
+    防御性测试：两种形态都能透传。"""
+    app, _, _ = app_and_state
+    nested_events = [
+        {"event": "on_chain_start", "name": "hyde", "data": {}},
+        {
+            "event": "on_custom_event",
+            "name": "node_progress",
+            # 嵌套形态
+            "data": {"data": {"node": "hyde", "delta": "nested-delta"}},
+        },
+        {"event": "on_chain_end", "name": "hyde", "data": {"output": {}}},
+    ]
+    app.state.agent_graph = _CannedGraph(
+        events=nested_events,
+        final_state=_canned_final_state(),
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token)
+        r = await client.post(
+            f"/api/v1/sessions/{sid}/messages",
+            json={"content": "x"},
+            headers=_auth_headers(token),
+        )
+        assert r.status_code == 200
+        events = _parse_sse(r.text)
+
+    progress = [json.loads(d) for k, d in events if k == "node_progress"]
+    assert progress == [{"node": "hyde", "delta": "nested-delta"}]
+
+
+async def test_node_end_summary_carries_human_readable_fields(app_and_state: Any) -> None:
+    """`_summary_for_node_end` 给 reasoning 折叠框提供「人话」字段：
+    rewrite → rewritten_query 原文；multi_query → sub_queries 列表；
+    self_rag → confidence；classify → query_class/complexity/rewritten_query。
+    前端 reasoning 折叠框依赖这些字段渲染。"""
+    app, _, _ = app_and_state
+    summary_events = [
+        {"event": "on_chain_start", "name": "classify", "data": {}},
+        {
+            "event": "on_chain_end",
+            "name": "classify",
+            "data": {
+                "output": {
+                    "query_class": "definition",
+                    "complexity": "complex",
+                    "rewritten_queries": ["AMF function 5G core"],
+                }
+            },
+        },
+        {"event": "on_chain_start", "name": "rewrite", "data": {}},
+        {
+            "event": "on_chain_end",
+            "name": "rewrite",
+            "data": {"output": {"rewritten_queries": ["AMF function definition 5G"]}},
+        },
+        {"event": "on_chain_start", "name": "multi_query", "data": {}},
+        {
+            "event": "on_chain_end",
+            "name": "multi_query",
+            "data": {
+                "output": {
+                    "rewritten_queries": [
+                        "AMF function definition 5G",
+                        "Access and Mobility Management Function role",
+                        "AMF interfaces N1 N2",
+                    ]
+                }
+            },
+        },
+        {"event": "on_chain_start", "name": "self_rag", "data": {}},
+        {
+            "event": "on_chain_end",
+            "name": "self_rag",
+            "data": {
+                "output": {
+                    "self_rag_verdict": "accept",
+                    "retry_count": 0,
+                    "confidence": 0.87,
+                }
+            },
+        },
+    ]
+    app.state.agent_graph = _CannedGraph(
+        events=summary_events,
+        final_state=_canned_final_state(),
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token)
+        r = await client.post(
+            f"/api/v1/sessions/{sid}/messages",
+            json={"content": "what is AMF?"},
+            headers=_auth_headers(token),
+        )
+        assert r.status_code == 200, r.text
+        events = _parse_sse(r.text)
+
+    node_ends = {}
+    for kind, data in events:
+        if kind != "node_end":
+            continue
+        payload = json.loads(data)
+        node_ends[payload["node"]] = payload["summary"]
+
+    assert node_ends["classify"] == {
+        "query_class": "definition",
+        "complexity": "complex",
+        "rewritten_query": "AMF function 5G core",
+    }
+    assert node_ends["rewrite"] == {"rewritten_query": "AMF function definition 5G"}
+    assert node_ends["multi_query"] == {
+        "sub_queries": [
+            "Access and Mobility Management Function role",
+            "AMF interfaces N1 N2",
+        ]
+    }
+    assert node_ends["self_rag"] == {
+        "self_rag_verdict": "accept",
+        "retry_count": 0,
+        "confidence": 0.87,
+    }

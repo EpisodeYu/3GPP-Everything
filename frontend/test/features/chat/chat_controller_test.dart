@@ -409,4 +409,187 @@ void main() {
     final s2 = c.read(chatControllerProvider(sid)).value!;
     expect(s2.history.length, 2);
   });
+
+  // -------------------- reasoning 折叠框（2026-05-31）--------------------
+
+  test('send() → reasoningStartedAt 设置；首个 token 折叠 reasoning 框', () async {
+    final api = FakeMessagesApi();
+    final controller = StreamController<ChatEvent>();
+    api.useLiveStream(controller);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    final t0 = DateTime.now();
+    unawaited(c.read(chatControllerProvider(sid).notifier).send('hi'));
+
+    // send 立即设 reasoningStartedAt（不等 SSE）
+    final initial =
+        await _waitUntil(c, sid, (s) => s.run.status == RunStatus.streaming);
+    expect(initial.run.reasoningStartedAt, isNotNull);
+    expect(initial.run.reasoningStartedAt!.isAfter(t0.subtract(const Duration(seconds: 1))),
+        isTrue);
+    expect(initial.run.reasoningCollapsed, isFalse);
+
+    controller.add(const RunStartEvent(runId: 'r', sessionId: sid, messageId: 'm'));
+    controller.add(const NodeStartEvent(node: 'classify'));
+    controller.add(
+      const NodeEndEvent(node: 'classify', durationMs: 5, summary: {}),
+    );
+    // 此时 reasoning 仍展开
+    final mid = await _waitUntil(c, sid,
+        (s) => s.run.nodes.any((n) => n.node == 'classify' && !n.running));
+    expect(mid.run.reasoningCollapsed, isFalse);
+
+    // 首个 token → 折叠
+    controller.add(const TokenEvent(delta: 'Hel'));
+    final afterToken =
+        await _waitUntil(c, sid, (s) => s.run.partialAnswer == 'Hel');
+    expect(afterToken.run.reasoningCollapsed, isTrue);
+
+    // 再来一个 token 不会再次"折叠"（已 true，保持）
+    controller.add(const TokenEvent(delta: 'lo'));
+    final afterToken2 =
+        await _waitUntil(c, sid, (s) => s.run.partialAnswer == 'Hello');
+    expect(afterToken2.run.reasoningCollapsed, isTrue);
+
+    controller.add(const FinalEvent(
+        messageId: 'm', answer: 'Hello', citations: [], confidence: 0.5));
+    controller.add(const EndEvent());
+    await controller.close();
+  });
+
+  test('NodeProgressEvent 累积 hyde 字符流到 reasoningByNode', () async {
+    final api = FakeMessagesApi();
+    final controller = StreamController<ChatEvent>();
+    api.useLiveStream(controller);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    unawaited(c.read(chatControllerProvider(sid).notifier).send('hi'));
+    controller.add(const RunStartEvent(runId: 'r', sessionId: sid, messageId: 'm'));
+    controller.add(const NodeStartEvent(node: 'hyde'));
+
+    final activated = await _waitUntil(c, sid, (s) => s.run.activeNode == 'hyde');
+    expect(activated.run.reasoningByNode['hyde'], isNull); // 还没 delta
+
+    controller.add(const NodeProgressEvent(node: 'hyde', delta: 'AMF '));
+    controller.add(const NodeProgressEvent(node: 'hyde', delta: 'is '));
+    controller.add(const NodeProgressEvent(node: 'hyde', delta: 'the AMF.'));
+
+    final accumulated = await _waitUntil(
+      c,
+      sid,
+      (s) => (s.run.reasoningByNode['hyde'] ?? '').endsWith('AMF.'),
+    );
+    expect(accumulated.run.reasoningByNode['hyde'], 'AMF is the AMF.');
+    expect(accumulated.run.activeNode, 'hyde');
+    expect(accumulated.run.reasoningCollapsed, isFalse);
+
+    // node_end 清掉 activeNode（如果它正是当前 active）
+    controller.add(NodeEndEvent(
+      node: 'hyde',
+      durationMs: 1234,
+      summary: {'hyde_doc': 'AMF is the AMF.'},
+    ));
+    final afterEnd =
+        await _waitUntil(c, sid, (s) => s.run.activeNode == null);
+    expect(afterEnd.run.activeNode, isNull);
+    // reasoningByNode 仍保留累积内容（折叠态点开仍能复盘）
+    expect(afterEnd.run.reasoningByNode['hyde'], 'AMF is the AMF.');
+
+    controller.add(const FinalEvent(
+        messageId: 'm', answer: 'x', citations: [], confidence: 0));
+    controller.add(const EndEvent());
+    await controller.close();
+  });
+
+  test('NodeProgressEvent: 空 node / 空 delta 防御性忽略', () async {
+    final api = FakeMessagesApi();
+    final controller = StreamController<ChatEvent>();
+    api.useLiveStream(controller);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    unawaited(c.read(chatControllerProvider(sid).notifier).send('hi'));
+    controller.add(const RunStartEvent(runId: 'r', sessionId: sid, messageId: 'm'));
+    controller.add(const NodeProgressEvent(node: '', delta: 'orphan'));
+    controller.add(const NodeProgressEvent(node: 'hyde', delta: ''));
+    controller.add(const NodeProgressEvent(node: 'hyde', delta: 'real'));
+    final s =
+        await _waitUntil(c, sid, (s) => s.run.reasoningByNode['hyde'] != null);
+    expect(s.run.reasoningByNode, {'hyde': 'real'});
+
+    controller.add(const FinalEvent(
+        messageId: 'm', answer: 'x', citations: [], confidence: 0));
+    controller.add(const EndEvent());
+    await controller.close();
+  });
+
+  test('NodeStartEvent / NodeEndEvent 维护 activeNode', () async {
+    final api = FakeMessagesApi();
+    final controller = StreamController<ChatEvent>();
+    api.useLiveStream(controller);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    unawaited(c.read(chatControllerProvider(sid).notifier).send('hi'));
+    controller.add(const RunStartEvent(runId: 'r', sessionId: sid, messageId: 'm'));
+    controller.add(const NodeStartEvent(node: 'classify'));
+    final atClassify =
+        await _waitUntil(c, sid, (s) => s.run.activeNode == 'classify');
+    expect(atClassify.run.activeNode, 'classify');
+
+    // 切到 retrieve（即便 classify 没显式 end，新 active 覆盖）
+    controller.add(const NodeStartEvent(node: 'retrieve'));
+    final atRetrieve =
+        await _waitUntil(c, sid, (s) => s.run.activeNode == 'retrieve');
+    expect(atRetrieve.run.activeNode, 'retrieve');
+
+    controller.add(const NodeEndEvent(
+        node: 'retrieve', durationMs: 1, summary: {'candidates_count': 7}));
+    final cleared =
+        await _waitUntil(c, sid, (s) => s.run.activeNode == null);
+    expect(cleared.run.activeNode, isNull);
+
+    controller.add(const FinalEvent(
+        messageId: 'm', answer: 'x', citations: [], confidence: 0));
+    controller.add(const EndEvent());
+    await controller.close();
+  });
+
+  test('node_end summary 字段透传到 NodeRunStatus.summary（reasoning panel 消费）',
+      () async {
+    final api = FakeMessagesApi();
+    final controller = StreamController<ChatEvent>();
+    api.useLiveStream(controller);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    unawaited(c.read(chatControllerProvider(sid).notifier).send('hi'));
+    controller.add(const RunStartEvent(runId: 'r', sessionId: sid, messageId: 'm'));
+    controller.add(const NodeStartEvent(node: 'multi_query'));
+    controller.add(const NodeEndEvent(
+      node: 'multi_query',
+      durationMs: 99,
+      summary: {
+        'sub_queries': ['Q1', 'Q2'],
+      },
+    ));
+    final s = await _waitUntil(
+      c,
+      sid,
+      (s) => s.run.nodes.any(
+        (n) => n.node == 'multi_query' && (n.summary['sub_queries'] != null),
+      ),
+    );
+    final node = s.run.nodes.firstWhere((n) => n.node == 'multi_query');
+    expect(node.running, isFalse);
+    expect(node.durationMs, 99);
+    expect(node.summary['sub_queries'], ['Q1', 'Q2']);
+
+    controller.add(const FinalEvent(
+        messageId: 'm', answer: 'x', citations: [], confidence: 0));
+    controller.add(const EndEvent());
+    await controller.close();
+  });
 }

@@ -362,6 +362,8 @@ data: {}
 
 > **2026-05-28 起 `token` 事件改走 LangGraph custom event**：`generate.py` 用 `LiteLLMClient.chat_stream()` 拼 chunk，并通过 `adispatch_custom_event("token", {"delta": ...})` + writer 双通道 emit；SSE 路由的 `on_custom_event name=="token"` 透传给前端。原因：LangGraph `astream_events("v2")` 的 `on_chat_model_stream` 只识别 LangChain `BaseChatModel.astream`，自定义 httpx LiteLLMClient 走不到该路径，prod 表现为"等 final 一次性吐全文"。流式失败兜底回退到非流式 `chat()`（仍保 canned-graph 集成测）。
 
+> **2026-05-31 reasoning 折叠框 + `node_progress` 事件**：`hyde.py` 同款改用 `LiteLLMClient.chat_stream()`，每个 chunk 通过 `adispatch_custom_event("node_progress", {"node":"hyde","delta":...})` + writer 双通道 emit；SSE 路由 `on_custom_event name=="node_progress"` 透传。前端 `ReasoningPanel` 在用户提问到首个 `token` 到达期间显示一个灰色折叠框，hyde 节点的 LLM 输出字符级流式刷新（其它 LLM 节点 thinking=disabled / 输出短，从 `node_end.summary` 一次性渲染人话）；首个 `token` 到达自动折叠成"已思考 X.Xs"。流式失败兜底走非流式 `chat()` 后一次性补一条 `node_progress`，UI 不至于空白。同次改动把 `_summary_for_node_end` 的 `rewrite` / `multi_query` summary 从 count 展开为 `rewritten_query` / `sub_queries` 原文，让前端 reasoning 文本能直接显示「改写为：…」「拆出 N 个子查询：…」。详见 `03-agent.md §7` SSE 表 `node_progress` 行。
+
 错误：
 
 ```

@@ -77,6 +77,13 @@ sealed class ChatEvent {
         return frame.event == 'chunks_hit'
             ? ChunksHitEvent(chunks: chunks)
             : ChunksRerankEvent(chunks: chunks);
+      case 'node_progress':
+        // 节点内字符级流式 reasoning 信号（hyde 用），前端 reasoning 折叠框消费。
+        // 协议锚点：`docs/03-development/03-agent.md §7` SSE 表 `node_progress` 行。
+        return NodeProgressEvent(
+          node: (data['node'] as String?) ?? '',
+          delta: (data['delta'] as String?) ?? '',
+        );
       case 'token':
         return TokenEvent(delta: (data['delta'] as String?) ?? '');
       case 'final':
@@ -180,6 +187,18 @@ class ChunksRerankEvent extends ChatEvent {
 
 class TokenEvent extends ChatEvent {
   const TokenEvent({required this.delta});
+  final String delta;
+}
+
+/// hyde 节点字符级 reasoning 信号（2026-05-31 reasoning 折叠框）。
+///
+/// 后端 [`backend/app/agent/nodes/hyde.py`] 用 `LiteLLMClient.chat_stream()` 拼
+/// chunk，通过 `adispatch_custom_event("node_progress", {"node":"hyde","delta":...})`
+/// 推；SSE 路由透传成 `node_progress` 事件。前端把 delta 累加到
+/// `ChatRunState.reasoningByNode[node]`，在 reasoning 折叠框灰色文字区里逐字渲染。
+class NodeProgressEvent extends ChatEvent {
+  const NodeProgressEvent({required this.node, required this.delta});
+  final String node;
   final String delta;
 }
 

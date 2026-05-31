@@ -135,6 +135,81 @@ class AppLocalizationsEn extends AppLocalizations {
   String get messageStatusFailed => 'Failed';
 
   @override
+  String get reasoningClassify => 'Classifying query';
+
+  @override
+  String get reasoningRewrite => 'Rewriting question';
+
+  @override
+  String get reasoningHyde => 'Drafting hypothetical answer';
+
+  @override
+  String get reasoningMultiQuery => 'Splitting sub-queries';
+
+  @override
+  String get reasoningRetrieve => 'Searching 3GPP corpus';
+
+  @override
+  String get reasoningRerank => 'Reranking candidates';
+
+  @override
+  String get reasoningGenerate => 'Drafting answer';
+
+  @override
+  String get reasoningSelfRag => 'Self-checking answer';
+
+  @override
+  String get reasoningToolDispatch => 'Calling tools';
+
+  @override
+  String reasoningCollapsedTitle(String seconds, int steps) {
+    return 'Thought for ${seconds}s · $steps steps';
+  }
+
+  @override
+  String get reasoningExpand => 'Expand';
+
+  @override
+  String get reasoningCollapse => 'Collapse';
+
+  @override
+  String get reasoningWaiting => 'Starting...';
+
+  @override
+  String reasoningClassifyDone(
+    String queryClass,
+    String complexity,
+    String query,
+  ) {
+    return 'Class: $queryClass ($complexity) · rewrite: $query';
+  }
+
+  @override
+  String reasoningRewriteDone(String query) {
+    return 'Rewritten: $query';
+  }
+
+  @override
+  String reasoningMultiQueryDone(int count) {
+    return 'Split into $count sub-queries';
+  }
+
+  @override
+  String reasoningRetrieveDone(int count) {
+    return 'Found $count candidates';
+  }
+
+  @override
+  String reasoningRerankDone(int count) {
+    return 'Top-$count reranked';
+  }
+
+  @override
+  String reasoningSelfRagDone(String verdict, String confidence) {
+    return 'Verdict: $verdict · confidence $confidence';
+  }
+
+  @override
   String get themeLight => 'Light';
 
   @override

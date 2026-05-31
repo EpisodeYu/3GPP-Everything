@@ -62,6 +62,57 @@
   "messageStatusCancelled": "Cancelled",
   "messageStatusFailed": "Failed",
 
+  "reasoningClassify": "Classifying query",
+  "reasoningRewrite": "Rewriting question",
+  "reasoningHyde": "Drafting hypothetical answer",
+  "reasoningMultiQuery": "Splitting sub-queries",
+  "reasoningRetrieve": "Searching 3GPP corpus",
+  "reasoningRerank": "Reranking candidates",
+  "reasoningGenerate": "Drafting answer",
+  "reasoningSelfRag": "Self-checking answer",
+  "reasoningToolDispatch": "Calling tools",
+  "reasoningCollapsedTitle": "Thought for {seconds}s · {steps} steps",
+  "@reasoningCollapsedTitle": {
+    "placeholders": {
+      "seconds": { "type": "String" },
+      "steps": { "type": "int" }
+    }
+  },
+  "reasoningExpand": "Expand",
+  "reasoningCollapse": "Collapse",
+  "reasoningWaiting": "Starting...",
+  "reasoningClassifyDone": "Class: {queryClass} ({complexity}) · rewrite: {query}",
+  "@reasoningClassifyDone": {
+    "placeholders": {
+      "queryClass": { "type": "String" },
+      "complexity": { "type": "String" },
+      "query": { "type": "String" }
+    }
+  },
+  "reasoningRewriteDone": "Rewritten: {query}",
+  "@reasoningRewriteDone": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+  "reasoningMultiQueryDone": "Split into {count} sub-queries",
+  "@reasoningMultiQueryDone": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "reasoningRetrieveDone": "Found {count} candidates",
+  "@reasoningRetrieveDone": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "reasoningRerankDone": "Top-{count} reranked",
+  "@reasoningRerankDone": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "reasoningSelfRagDone": "Verdict: {verdict} · confidence {confidence}",
+  "@reasoningSelfRagDone": {
+    "placeholders": {
+      "verdict": { "type": "String" },
+      "confidence": { "type": "String" }
+    }
+  },
+
   "themeLight": "Light",
   "themeDark": "Dark",
   "themeSystem": "Follow system",

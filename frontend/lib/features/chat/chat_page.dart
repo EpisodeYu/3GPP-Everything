@@ -14,7 +14,7 @@ import '../shell/new_session_button.dart';
 import 'chat_controller.dart';
 import 'widgets/composer.dart';
 import 'widgets/message_bubble.dart';
-import 'widgets/node_status_strip.dart';
+import 'widgets/reasoning_panel.dart';
 
 /// M5.2 起接通 SSE 流式问答；M5.4 加上 pause/resume/fork/rollback + 长按菜单。
 ///
@@ -420,10 +420,9 @@ class _ChatViewState extends ConsumerState<_ChatView> {
             ),
           ),
         ),
-        stateAsync.maybeWhen(
-          data: (s) => NodeStatusStrip(nodes: s.run.nodes),
-          orElse: () => const SizedBox.shrink(),
-        ),
+        // 2026-05-31：原本独立一行的 NodeStatusStrip 已被消息列表里的
+        // ReasoningPanel 取代（信息更丰富 + 嵌在「回答位置」更符合用户预期），
+        // 不再在 Composer 上方单独渲染节点 chip。
         if (showPaused)
           _PausedBanner(onResume: isArchived ? null : _onResume),
         if (state?.run.status == RunStatus.error)
@@ -548,7 +547,11 @@ class _MessagesList extends StatelessWidget {
     final showStreaming = run.status == RunStatus.streaming ||
         run.status == RunStatus.cancelling ||
         run.status == RunStatus.paused;
-    if (showStreaming) {
+    // 即便 run.status 已切到 done / cancelled / error，只要本轮 reasoning 还在
+    // run 状态里（_flushDoneToHistory 还没把它推进 history），也展示 reasoning
+    // panel —— 让用户回看本轮是怎么思考的。
+    final hasRunBubble = showStreaming;
+    if (hasRunBubble) {
       if (run.userInput.isNotEmpty) {
         items.add(MessageBubble(
           key: const Key('msg-streaming-user'),
@@ -556,6 +559,16 @@ class _MessagesList extends StatelessWidget {
           content: run.userInput,
         ));
       }
+      // ReasoningPanel 放在 streaming bubble 上方（在「回答的位置」）。任何时候
+      // 只要有 nodes 或 hyde reasoning 累积都显示；空 → 自动 SizedBox.shrink。
+      items.add(ReasoningPanel(
+        key: const Key('reasoning_panel_inline'),
+        nodes: run.nodes,
+        reasoningByNode: run.reasoningByNode,
+        activeNode: run.activeNode,
+        startedAt: run.reasoningStartedAt,
+        collapsedFromController: run.reasoningCollapsed,
+      ));
       items.add(StreamingAssistantBubble(
         key: const Key('msg-streaming-assistant'),
         partial: run.partialAnswer,

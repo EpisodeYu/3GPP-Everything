@@ -3,9 +3,15 @@
 文档锚点：`docs/03-development/04-backend-api.md §4` + `03-agent.md §7 / §11` +
 `2026-05-17-m4.6-m4.9-decisions.md §一 Q6-Q10`。
 
-SSE event 列表（10 类）：
+SSE event 列表（11 类）：
     run_start / node_start / node_end / chunks_hit / chunks_rerank /
-    token / final / end / cancelled / error
+    node_progress / token / final / end / cancelled / error
+
+`node_progress`（2026-05-31）：节点内部 LLM 字符级流式 reasoning 信号。当前只
+hyde 节点使用，通过 `adispatch_custom_event("node_progress", {"node":"hyde",
+"delta":...})` 推送；前端 reasoning 折叠框消费这条流，在 hyde 跑的几秒里逐字
+显示「假设答案章节文本」。其它 LLM 节点输出多为 JSON / 一行，前端从
+`node_end.summary` 一次性渲染，故不必走 streaming。
 
 Q9 落盘策略：assistant message 在路由入口先插入一行（content=""，status="ok"），
 final event 之后一次性 `UPDATE messages SET content=...`；中断 → status='cancelled'
@@ -145,28 +151,73 @@ def _sse(event: str, data: Any) -> dict[str, str]:
 
 
 def _summary_for_node_end(node: str, output: Any) -> dict[str, Any]:
-    """node_end summary：把每个节点对前端有用的几个字段挑出来，控制 payload 体积。"""
+    """node_end summary：把每个节点对前端有用的几个字段挑出来，控制 payload 体积。
+
+    2026-05-31 reasoning panel 改造：把 `rewrite` / `multi_query` 的
+    `rewritten_queries` 从「count」展开成原文（或前几条），让前端能在 reasoning
+    框里显示「改写为：...」「拆出 N 个子查询：...」这类人话。`classify` 也带上
+    `rewritten_query`（state 里是 `rewritten_queries[0]`）。`self_rag` 加 confidence。
+    候选 / 重排集合（retrieve / rerank）仍只回 count，避免 payload 过大；前端
+    chunks_hit / chunks_rerank 已经覆盖详细内容。
+    """
     if not isinstance(output, dict):
         return {}
-    keep_keys = {
-        "classify": ("query_class", "complexity"),
-        "rewrite": ("rewritten_queries",),
-        "hyde": ("hyde_doc",),
-        "multi_query": ("rewritten_queries",),
-        "retrieve": ("candidates",),
-        "rerank": ("reranked",),
-        "self_rag": ("self_rag_verdict", "retry_count"),
-    }.get(node, ())
     out: dict[str, Any] = {}
-    for k in keep_keys:
-        v = output.get(k)
-        if v is None:
-            continue
-        # list of pydantic models → count；其他 scalar 透传
+
+    if node == "classify":
+        for k in ("query_class", "complexity"):
+            v = output.get(k)
+            if v is not None:
+                out[k] = v
+        # state.rewritten_queries[0] 是 classify 的 fast-path 改写
+        rq = output.get("rewritten_queries")
+        if isinstance(rq, list) and rq:
+            first = rq[0]
+            if isinstance(first, str) and first.strip():
+                out["rewritten_query"] = first.strip()
+        return out
+
+    if node == "rewrite":
+        rq = output.get("rewritten_queries")
+        if isinstance(rq, list) and rq:
+            first = rq[0]
+            if isinstance(first, str) and first.strip():
+                out["rewritten_query"] = first.strip()
+        return out
+
+    if node == "hyde":
+        v = output.get("hyde_doc")
+        if isinstance(v, str):
+            out["hyde_doc"] = v
+        return out
+
+    if node == "multi_query":
+        # state.rewritten_queries = [primary, sub1, sub2, ...]；primary 已在 rewrite 里展示
+        rq = output.get("rewritten_queries")
+        if isinstance(rq, list) and rq:
+            sub = [str(q).strip() for q in rq[1:6] if isinstance(q, str) and q.strip()]
+            if sub:
+                out["sub_queries"] = sub
+        return out
+
+    if node in ("retrieve", "rerank"):
+        # 只回 count，明细走 chunks_hit / chunks_rerank
+        key = "candidates" if node == "retrieve" else "reranked"
+        v = output.get(key)
         if isinstance(v, list):
-            out[f"{k}_count"] = len(v)
-        else:
-            out[k] = v
+            out[f"{key}_count"] = len(v)
+        return out
+
+    if node == "self_rag":
+        for k in ("self_rag_verdict", "retry_count"):
+            v = output.get(k)
+            if v is not None:
+                out[k] = v
+        conf = output.get("confidence")
+        if isinstance(conf, (int, float)):
+            out["confidence"] = float(conf)
+        return out
+
     return out
 
 
@@ -447,6 +498,22 @@ def _build_sse_stream(
                         yield _sse("token", {"delta": delta})
                 elif kind == "on_custom_event" and name in ("chunks_hit", "chunks_rerank"):
                     yield _sse(name, data)
+                elif kind == "on_custom_event" and name == "node_progress":
+                    # hyde 等节点 adispatch_custom_event("node_progress", {...})
+                    # 推字符级流；与 token 同形 payload，前端 reasoning 折叠框消费。
+                    # data 兼容嵌套 {"data": {...}} 与扁平 {...} 两种 LangGraph 版本。
+                    if isinstance(data, dict) and "data" in data:
+                        payload: Any = data["data"]
+                    else:
+                        payload = data
+                    if isinstance(payload, dict):
+                        delta = str(payload.get("delta") or "")
+                        node = str(payload.get("node") or "")
+                        if delta and node:
+                            yield _sse(
+                                "node_progress",
+                                {"node": node, "delta": delta},
+                            )
 
                 # 每次 LangGraph 事件后 poll 一次 title task；done 就立刻 emit。
                 # 即便上面 if/elif 都没 yield（如非节点的 on_chain_start），也保持低

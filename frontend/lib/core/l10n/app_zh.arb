@@ -45,6 +45,57 @@
   "messageStatusCancelled": "已取消",
   "messageStatusFailed": "失败",
 
+  "reasoningClassify": "判断查询类型",
+  "reasoningRewrite": "改写问题",
+  "reasoningHyde": "撰写假设答案",
+  "reasoningMultiQuery": "拆分子查询",
+  "reasoningRetrieve": "检索 3GPP 文档",
+  "reasoningRerank": "精排候选",
+  "reasoningGenerate": "起草回答",
+  "reasoningSelfRag": "自校验答案",
+  "reasoningToolDispatch": "调用工具",
+  "reasoningCollapsedTitle": "已思考 {seconds}s · {steps} 步骤",
+  "@reasoningCollapsedTitle": {
+    "placeholders": {
+      "seconds": { "type": "String" },
+      "steps": { "type": "int" }
+    }
+  },
+  "reasoningExpand": "展开",
+  "reasoningCollapse": "收起",
+  "reasoningWaiting": "等待开始...",
+  "reasoningClassifyDone": "分类:{queryClass} ({complexity}) · 改写:{query}",
+  "@reasoningClassifyDone": {
+    "placeholders": {
+      "queryClass": { "type": "String" },
+      "complexity": { "type": "String" },
+      "query": { "type": "String" }
+    }
+  },
+  "reasoningRewriteDone": "改写为: {query}",
+  "@reasoningRewriteDone": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+  "reasoningMultiQueryDone": "拆出 {count} 个子查询",
+  "@reasoningMultiQueryDone": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "reasoningRetrieveDone": "找到 {count} 个候选",
+  "@reasoningRetrieveDone": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "reasoningRerankDone": "Top-{count} 排序完成",
+  "@reasoningRerankDone": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "reasoningSelfRagDone": "自检: {verdict} · 置信度 {confidence}",
+  "@reasoningSelfRagDone": {
+    "placeholders": {
+      "verdict": { "type": "String" },
+      "confidence": { "type": "String" }
+    }
+  },
+
   "themeLight": "浅色",
   "themeDark": "深色",
   "themeSystem": "跟随系统",
