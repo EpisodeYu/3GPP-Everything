@@ -31,6 +31,9 @@ class FakeMessagesApi implements MessagesApi {
   String? lastCancelledSid;
   String? lastCancelledRunId;
 
+  /// `list`（GET messages）被调用次数，用于验证草稿会话跳过历史拉取。
+  int listCalls = 0;
+
   /// 给 widget / integration 测试用的 controller：测试自己 push 事件，控制时序。
   StreamController<ChatEvent>? _liveController;
 
@@ -45,8 +48,10 @@ class FakeMessagesApi implements MessagesApi {
     String sid, {
     int page = 1,
     int pageSize = 200,
-  }) async =>
-      MessageListResponse(items: history, total: history.length);
+  }) async {
+    listCalls += 1;
+    return MessageListResponse(items: history, total: history.length);
+  }
 
   @override
   Stream<ChatEvent> sendMessage(

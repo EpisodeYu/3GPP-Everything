@@ -176,6 +176,12 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
       return const SessionChatState.empty();
     }
 
+    // 刚 createBlank 出来、还没发过消息的空草稿会话：历史必为空，直接用空状态，
+    // 跳过 GET /sessions/{sid}/messages 这次网络往返 —— 点"新会话"→进可输入态省一个 RTT。
+    if (ref.read(sessionsControllerProvider.notifier).isDraft(sid)) {
+      return const SessionChatState.empty();
+    }
+
     return _loadHistoryFromPg();
   }
 

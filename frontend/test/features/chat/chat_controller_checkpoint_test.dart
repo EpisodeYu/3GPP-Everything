@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tgpp/data/api/checkpoint_api.dart';
 import 'package:tgpp/data/api/messages_api.dart';
+import 'package:tgpp/data/api/sessions_api.dart';
 import 'package:tgpp/features/chat/chat_controller.dart';
 
 import '../../support/fake_auth_controller.dart';
 import '../../support/fake_checkpoint_api.dart';
 import '../../support/fake_messages_api.dart';
+import '../../support/fake_sessions_api.dart';
 
 ProviderContainer _container({
   required FakeMessagesApi messages,
@@ -18,6 +20,8 @@ ProviderContainer _container({
     fakeAuthControllerOverride,
     messagesApiProvider.overrideWithValue(messages),
     checkpointApiProvider.overrideWithValue(checkpoint),
+    // build() 会读 sessionsControllerProvider.isDraft；注入 fake 避免真 dio。
+    sessionsApiProvider.overrideWithValue(FakeSessionsApi()),
   ]);
   addTearDown(c.dispose);
   return c;

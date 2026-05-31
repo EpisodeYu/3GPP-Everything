@@ -3,15 +3,20 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tgpp/data/api/messages_api.dart';
+import 'package:tgpp/data/api/sessions_api.dart';
+import 'package:tgpp/domain/session/sessions_controller.dart';
 import 'package:tgpp/features/chat/chat_controller.dart';
 
 import '../../support/fake_auth_controller.dart';
 import '../../support/fake_messages_api.dart';
+import '../../support/fake_sessions_api.dart';
 
 ProviderContainer _container(FakeMessagesApi api) {
   final c = ProviderContainer(overrides: [
     fakeAuthControllerOverride,
     messagesApiProvider.overrideWithValue(api),
+    // build() 会读 sessionsControllerProvider.isDraft；注入 fake 避免真 dio。
+    sessionsApiProvider.overrideWithValue(FakeSessionsApi()),
   ]);
   addTearDown(c.dispose);
   return c;
@@ -54,6 +59,32 @@ void main() {
     final s = await c.read(chatControllerProvider(sid).future);
     expect(s.history, isEmpty);
     expect(s.run.status, RunStatus.idle);
+  });
+
+  test('空草稿会话 build：跳过 GET messages（不调 list，省一次往返）', () async {
+    final api = FakeMessagesApi();
+    final c = _container(api);
+    // 建一个草稿会话（createBlank → isDraft=true）
+    await c.read(sessionsControllerProvider.future);
+    final created =
+        await c.read(sessionsControllerProvider.notifier).createBlank();
+    _keepAlive(c, created.id);
+
+    final s = await c.read(chatControllerProvider(created.id).future);
+
+    expect(s.history, isEmpty);
+    expect(s.run.status, RunStatus.idle);
+    expect(api.listCalls, 0); // 草稿不查 PG
+  });
+
+  test('已有（非草稿）会话 build：仍 GET messages 拉历史', () async {
+    final api = FakeMessagesApi();
+    final c = _container(api);
+    _keepAlive(c, 'existing-1');
+
+    await c.read(chatControllerProvider('existing-1').future);
+
+    expect(api.listCalls, 1);
   });
 
   test('完整 happy path：run_start → node_start/end → chunks_hit → chunks_rerank → token*2 → final → end', () async {
