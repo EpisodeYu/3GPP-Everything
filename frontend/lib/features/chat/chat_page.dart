@@ -128,6 +128,11 @@ class _ChatViewState extends ConsumerState<_ChatView> {
   /// 在 initState 捕获 long-lived notifier：dispose 里 `ref` 已失效不能再 read。
   late final SessionsController _sessions;
 
+  /// 修改最后一次提问（2026-06-01）：非 null → composer 进入编辑模式，
+  /// 输入框预填这条 user message 原文，顶部显示 banner + 取消按钮。
+  /// 发送或取消后回到 null。
+  String? _editingInitialText;
+
   @override
   void initState() {
     super.initState();
@@ -203,6 +208,30 @@ class _ChatViewState extends ConsumerState<_ChatView> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('回滚失败：$e')),
+      );
+    }
+  }
+
+  /// 进入「修改最后一次提问」编辑模式：把这条 user message 内容预填到 composer，
+  /// 顶部显示 banner + 取消按钮。发送时走 [_onSendEdited]。
+  void _onEditLastUserMessage(MessageOut userMsg) {
+    setState(() => _editingInitialText = userMsg.content);
+  }
+
+  void _onCancelEdit() {
+    setState(() => _editingInitialText = null);
+  }
+
+  /// 编辑模式下点发送：rollback 最后 1 轮 + 用新内容 send。
+  Future<void> _onSendEdited(String text) async {
+    final controller = ref.read(chatControllerProvider(_sid).notifier);
+    setState(() => _editingInitialText = null);
+    try {
+      await controller.editLastTurn(text);
+    } on Object catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('修改失败：$e')),
       );
     }
   }
@@ -403,6 +432,13 @@ class _ChatViewState extends ConsumerState<_ChatView> {
     final isRunning = state?.run.status == RunStatus.streaming ||
         state?.run.status == RunStatus.cancelling;
     final showPaused = _shouldShowPausedBanner(state);
+    // 编辑入口可见性：非 archived + 非 run 中 + history 末尾形如 user+assistant。
+    // 使用 chat_controller 的 isLastTurnEditable 同款逻辑保持一致。
+    final lastEditableUserId =
+        (!isArchived && state != null && !isRunning && !showPaused)
+            ? _lastEditableUserMessageId(state)
+            : null;
+    final isEditing = _editingInitialText != null;
 
     return Column(
       children: [
@@ -419,8 +455,11 @@ class _ChatViewState extends ConsumerState<_ChatView> {
               scroll: _scroll,
               state: s,
               archived: isArchived,
+              editableLastUserMessageId: lastEditableUserId,
               onAssistantLongPress: _onAssistantLongPress,
               onUserLongPress: _onUserLongPress,
+              onEditLastUserMessage: _onEditLastUserMessage,
+              onForkFromUserMessage: _onForkFromUserMessage,
             ),
           ),
         ),
@@ -431,16 +470,22 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           _PausedBanner(onResume: isArchived ? null : _onResume),
         if (state?.run.status == RunStatus.error)
           _ErrorBanner(message: state!.run.errorMessage ?? 'unknown'),
+        if (isEditing) _EditingBanner(onCancel: _onCancelEdit),
         const Divider(height: 1),
         if (isArchived)
           _ArchivedBanner(session: session)
         else
           Composer(
-            onSend: (text) {
-              // 发出首条消息 → 该会话不再是空草稿，离开时不再被丢弃（Req2）。
-              ref.read(sessionsControllerProvider.notifier).markUsed(sid);
-              ref.read(chatControllerProvider(sid).notifier).send(text);
-            },
+            // key 绑 isEditing：进出编辑模式时重建 Composer，让 initialText 生效
+            key: ValueKey('composer-${isEditing ? 'edit' : 'send'}'),
+            initialText: _editingInitialText,
+            onSend: isEditing
+                ? _onSendEdited
+                : (text) {
+                    // 发出首条消息 → 该会话不再是空草稿，离开时不再被丢弃（Req2）。
+                    ref.read(sessionsControllerProvider.notifier).markUsed(sid);
+                    ref.read(chatControllerProvider(sid).notifier).send(text);
+                  },
             onCancel: () =>
                 ref.read(chatControllerProvider(sid).notifier).cancel(),
             onPause: _onPause,
@@ -450,6 +495,17 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           ),
       ],
     );
+  }
+
+  /// 末尾形如 `[..., user, assistant]` 时返回该 user message id；否则 null。
+  /// 与 ChatController.isLastTurnEditable 等价（前端两侧都需要同一判断）。
+  static String? _lastEditableUserMessageId(SessionChatState s) {
+    final h = s.history;
+    if (h.length < 2) return null;
+    if (h[h.length - 2].role != 'user' || h[h.length - 1].role != 'assistant') {
+      return null;
+    }
+    return h[h.length - 2].id;
   }
 }
 
@@ -509,15 +565,25 @@ class _MessagesList extends StatelessWidget {
     required this.scroll,
     required this.state,
     required this.archived,
+    required this.editableLastUserMessageId,
     required this.onAssistantLongPress,
     required this.onUserLongPress,
+    required this.onEditLastUserMessage,
+    required this.onForkFromUserMessage,
   });
 
   final ScrollController scroll;
   final SessionChatState state;
   final bool archived;
+
+  /// 当前可被「修改最后一次提问」按钮覆盖的 user message id（null = 不显示按钮）。
+  final String? editableLastUserMessageId;
   final Future<void> Function(MessageOut m) onAssistantLongPress;
   final Future<void> Function(MessageOut m) onUserLongPress;
+  final void Function(MessageOut m) onEditLastUserMessage;
+
+  /// 点 user 气泡上的 fork 图标（与长按菜单"从这里重问"等价）。
+  final void Function(MessageOut m) onForkFromUserMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -552,7 +618,7 @@ class _MessagesList extends StatelessWidget {
         items.add(bubble);
         continue;
       }
-      items.add(GestureDetector(
+      Widget child = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onLongPress: () {
           if (m.role == 'assistant') {
@@ -562,7 +628,51 @@ class _MessagesList extends StatelessWidget {
           }
         },
         child: bubble,
-      ));
+      );
+      // user message：气泡下方右对齐渲染操作按钮行
+      // - 「分叉」按钮：所有 user message 都有（与长按菜单"从这里重问"等价）
+      // - 「修改并重新提问」按钮：仅最后一条 user 且 last turn 可编辑时显示
+      if (m.role == 'user') {
+        final isLastEditable = m.id == editableLastUserMessageId;
+        child = Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            child,
+            Padding(
+              padding: const EdgeInsets.only(right: 16, bottom: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isLastEditable)
+                    TextButton.icon(
+                      key: ValueKey('msg-edit-${m.id}'),
+                      onPressed: () => onEditLastUserMessage(m),
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      label: const Text('修改并重新提问'),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                    ),
+                  if (isLastEditable) const SizedBox(width: 4),
+                  TextButton.icon(
+                    key: ValueKey('msg-fork-${m.id}'),
+                    onPressed: () => onForkFromUserMessage(m),
+                    icon: const Icon(Icons.fork_right, size: 16),
+                    label: const Text('分叉'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      }
+      items.add(child);
     }
     final run = state.run;
     final showStreaming = run.status == RunStatus.streaming ||
@@ -682,6 +792,43 @@ class _ArchivedBanner extends ConsumerWidget {
               icon: const Icon(Icons.subdirectory_arrow_left),
               label: const Text('回到主线'),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 修改最后一次提问 · 编辑模式提示条（2026-06-01）。
+///
+/// composer 上方显示「正在修改最后一次提问」+ 取消按钮；点取消调
+/// [_ChatViewState._onCancelEdit]。
+class _EditingBanner extends StatelessWidget {
+  const _EditingBanner({required this.onCancel});
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.secondaryContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.edit, color: theme.colorScheme.onSecondaryContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '正在修改最后一次提问 · 发送会丢弃原回答并重新生成',
+              key: const Key('chat_editing_banner'),
+              style: TextStyle(color: theme.colorScheme.onSecondaryContainer),
+            ),
+          ),
+          TextButton(
+            key: const Key('chat_editing_cancel'),
+            onPressed: onCancel,
+            child: const Text('取消'),
+          ),
         ],
       ),
     );

@@ -254,6 +254,165 @@ void main() {
     });
   });
 
+  group('ChatController editLastTurn', () {
+    /// 构造一对完整 user+assistant 的初始 history（"上一轮"已结束）。
+    List<MessageOut> initialPair() => [
+          MessageOut(
+            id: 'u-old',
+            sessionId: sid,
+            role: 'user',
+            content: 'wrong question',
+            status: 'ok',
+            createdAt: DateTime.utc(2026, 6, 1, 10),
+          ),
+          MessageOut(
+            id: 'a-old',
+            sessionId: sid,
+            role: 'assistant',
+            content: 'irrelevant answer',
+            status: 'ok',
+            createdAt: DateTime.utc(2026, 6, 1, 10, 0, 0, 1),
+          ),
+        ];
+
+    test('editLastTurn 串行调 rollback(1) + send(新内容)，history 重新生成',
+        () async {
+      final messages = FakeMessagesApi(history: initialPair());
+      final streamCtrl = StreamController<ChatEvent>();
+      messages.useLiveStream(streamCtrl);
+      final ckpt = FakeCheckpointApi(
+        rollbackResponse: const RollbackResponse(
+            deletedMessages: 2, headCheckpointId: 'h'),
+      );
+      final c = _container(messages: messages, checkpoint: ckpt);
+      _keepAlive(c, sid);
+      await c.read(chatControllerProvider(sid).future);
+
+      expect(c.read(chatControllerProvider(sid).notifier).isLastTurnEditable(),
+          isTrue);
+
+      // rollback 之后 PG 已没有那一轮
+      messages.history = [];
+
+      final fut = c
+          .read(chatControllerProvider(sid).notifier)
+          .editLastTurn('better question');
+
+      // editLastTurn 内部会先 rollback 再 send；等到 send 触发 streaming
+      await _waitUntil(c, sid, (s) => s.run.status == RunStatus.streaming);
+
+      // rollback 已被调过、且 lastN=1（一轮）
+      expect(ckpt.rollbackCalls, 1);
+      expect(ckpt.lastRollbackLastN, 1);
+      // send 把新内容当 user 输入塞到 run.userInput
+      expect(c.read(chatControllerProvider(sid)).value!.run.userInput,
+          'better question');
+
+      // 把流走完
+      streamCtrl.add(
+        const RunStartEvent(runId: 'r-edit', sessionId: sid, messageId: 'm-edit'),
+      );
+      streamCtrl.add(const TokenEvent(delta: 'new answer'));
+      streamCtrl.add(const FinalEvent(
+        messageId: 'm-edit',
+        answer: 'new answer',
+        citations: [],
+        confidence: 0.9,
+      ));
+      streamCtrl.add(const EndEvent());
+      await streamCtrl.close();
+      await fut;
+
+      final after =
+          await _waitUntil(c, sid, (s) => s.run.status == RunStatus.idle);
+      // history 末尾是新一轮 user/assistant
+      expect(after.history.length, 2);
+      expect(after.history[0].role, 'user');
+      expect(after.history[0].content, 'better question');
+      expect(after.history[1].role, 'assistant');
+      expect(after.history[1].content, 'new answer');
+    });
+
+    test('editLastTurn 在跑中 run 时抛 StateError；rollback / send 都不调',
+        () async {
+      final messages = FakeMessagesApi(history: initialPair());
+      final streamCtrl = StreamController<ChatEvent>();
+      messages.useLiveStream(streamCtrl);
+      final ckpt = FakeCheckpointApi();
+      final c = _container(messages: messages, checkpoint: ckpt);
+      _keepAlive(c, sid);
+      await c.read(chatControllerProvider(sid).future);
+      unawaited(c.read(chatControllerProvider(sid).notifier).send('q'));
+      streamCtrl
+          .add(const RunStartEvent(runId: 'r', sessionId: sid, messageId: 'm'));
+      await _waitUntil(c, sid, (s) => s.run.status == RunStatus.streaming);
+
+      await expectLater(
+        c
+            .read(chatControllerProvider(sid).notifier)
+            .editLastTurn('whatever'),
+        throwsA(isA<StateError>()),
+      );
+      expect(ckpt.rollbackCalls, 0);
+
+      streamCtrl.add(const FinalEvent(
+        messageId: 'm', answer: 'a', citations: [], confidence: 0,
+      ));
+      streamCtrl.add(const EndEvent());
+      await streamCtrl.close();
+      await _waitUntil(c, sid, (s) => s.run.status == RunStatus.idle);
+    });
+
+    test('history 末尾不是 user+assistant 时 isLastTurnEditable=false 且抛 StateError',
+        () async {
+      // 末尾是 user，没有 assistant 回复（"上一轮中途中断"）
+      final messages = FakeMessagesApi(history: [
+        MessageOut(
+          id: 'u-only',
+          sessionId: sid,
+          role: 'user',
+          content: 'q',
+          status: 'ok',
+          createdAt: DateTime.utc(2026, 6, 1),
+        ),
+      ]);
+      final ckpt = FakeCheckpointApi();
+      final c = _container(messages: messages, checkpoint: ckpt);
+      _keepAlive(c, sid);
+      await c.read(chatControllerProvider(sid).future);
+
+      expect(c.read(chatControllerProvider(sid).notifier).isLastTurnEditable(),
+          isFalse);
+
+      await expectLater(
+        c.read(chatControllerProvider(sid).notifier).editLastTurn('x'),
+        throwsA(isA<StateError>()),
+      );
+      expect(ckpt.rollbackCalls, 0);
+    });
+
+    test('rollback 失败 → editLastTurn 抛错；send 不被调用，history 保留',
+        () async {
+      final messages = FakeMessagesApi(history: initialPair());
+      final ckpt = FakeCheckpointApi()..failNextOp = 'rollback';
+      final c = _container(messages: messages, checkpoint: ckpt);
+      _keepAlive(c, sid);
+      await c.read(chatControllerProvider(sid).future);
+
+      await expectLater(
+        c
+            .read(chatControllerProvider(sid).notifier)
+            .editLastTurn('better question'),
+        throwsA(isA<CheckpointFakeError>()),
+      );
+      expect(ckpt.rollbackCalls, 1);
+      // history 没动
+      final s = c.read(chatControllerProvider(sid)).value!;
+      expect(s.history.length, 2);
+      expect(s.run.status, RunStatus.idle);
+    });
+  });
+
   group('build(): 过滤 paused session 的空 stub assistant', () {
     test('history 中 role=assistant, status=ok, content="" 的 stub 被过滤掉',
         () async {

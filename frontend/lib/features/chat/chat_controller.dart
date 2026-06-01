@@ -430,7 +430,11 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
     await completer.future;
   }
 
-  /// 删除会话最后 N 轮 messages + LangGraph checkpoint（M5.4）。
+  /// 删除会话最后 N **轮** messages + LangGraph checkpoint（M5.4 / 2026-06-01 fix）。
+  ///
+  /// "一轮" = 一条 user message + 它之后该会话的所有 message（典型情形：user +
+  /// assistant 一对）。后端 `last_n` 与本参数同步为 "轮数" 语义；详见
+  /// `backend/app/api/v1/checkpoint.py rollback_session` docstring。
   ///
   /// 调用方式：会话设置菜单"删除最后 N 轮"→ slider → 二次确认 → 此函数。
   /// 当前 run 仍在跑 → 抛 [StateError]，UX 上应先 pause / cancel 再 rollback。
@@ -447,6 +451,51 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
     // 后端已 cascade 删了 message_citations；前端从 PG 刷一次保证一致
     state = AsyncData(await _loadHistoryFromPg());
     return resp;
+  }
+
+  /// 修改最后一次提问 + 重新生成回答（2026-06-01）。
+  ///
+  /// 流程：rollback 最后 1 轮（user + assistant）→ 再调 [send] 用新内容。
+  /// 之前的历史 context（更早的 user/assistant 对）不动，会作为本轮 history
+  /// 透传给 agent。
+  ///
+  /// 前置条件：
+  /// - 当前 run 不在跑（idle / done / cancelled / error 都行）
+  /// - history 末尾形如 `[..., user, assistant]`（必须存在一对完整对话才能编辑）
+  ///
+  /// 失败处理：
+  /// - rollback 阶段失败 → 抛异常，state 不动；UI 应 SnackBar 提示用户重试
+  /// - rollback 成功但 send 失败（SSE 异常）→ 历史已被截断，错误走原 [_markError]
+  ///   流程；用户能在 composer 里看到自己输入的内容并直接重新点发送，体验等同
+  ///   普通 "失败重发"。
+  Future<void> editLastTurn(String content) async {
+    final current = state.value;
+    if (current == null) {
+      throw StateError('chat_not_loaded');
+    }
+    if (current.run.isRunning) {
+      throw StateError('edit_with_inflight_run');
+    }
+    if (!_isLastTurnEditable(current)) {
+      throw StateError('no_editable_last_turn');
+    }
+    await rollback(1);
+    await send(content);
+  }
+
+  /// 末尾是否是「可编辑的最后一轮」：history 末尾两条形如 `[..., user, assistant]`。
+  /// UI 用它决定最后一条 user 气泡上是否显示「编辑」按钮。
+  bool isLastTurnEditable() {
+    final s = state.value;
+    if (s == null) return false;
+    if (s.run.isRunning) return false;
+    return _isLastTurnEditable(s);
+  }
+
+  static bool _isLastTurnEditable(SessionChatState s) {
+    final h = s.history;
+    if (h.length < 2) return false;
+    return h[h.length - 2].role == 'user' && h[h.length - 1].role == 'assistant';
   }
 
   /// 拉取 checkpoint 列表（fork 之前需要拿一个 checkpoint_id）。M5.4。

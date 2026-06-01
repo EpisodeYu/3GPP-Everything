@@ -175,9 +175,14 @@ async def test_list_checkpoints_maps_summary_payload(
         assert items[1]["last_node"] == "retrieve"
 
 
-async def test_fork_creates_new_session_and_archives_original(
+async def test_fork_creates_new_session_keeps_original_active(
     app_and_state: Any, db_session: Any
 ) -> None:
+    """fork 后原会话保持 active（2026-06-01 行为变更）。
+
+    旧实现会把原会话标 `archived_branch` 强制转为只读；新行为里原会话不动，
+    用户可以继续在原会话发问，新会话作为分叉独立存在。
+    """
     app, _, _ = app_and_state
 
     class _G:
@@ -221,10 +226,10 @@ async def test_fork_creates_new_session_and_archives_original(
         assert body["new_session"]["forked_from_session_id"] == sid
         assert body["new_session"]["forked_from_checkpoint_id"] == "ck-mid"
 
-    # 原会话 archived
+    # 原会话 仍 active（不再 archive）
     res = await db_session.execute(select(DBSession).where(DBSession.id == uuid.UUID(sid)))
     s = res.scalar_one()
-    assert s.status == "archived_branch"
+    assert s.status == "active"
 
     # 新会话存在 + active
     res = await db_session.execute(select(DBSession).where(DBSession.id == uuid.UUID(new_sid)))

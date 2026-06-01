@@ -4,7 +4,8 @@
 - POST   /sessions/{sid}/runs/{rid}/pause   → pause_run
 - POST   /sessions/{sid}/resume             → resume_run + 续跑 SSE
 - GET    /sessions/{sid}/checkpoints        → list_checkpoints
-- POST   /sessions/{sid}/fork               → fork_from + 新 DB session + 原会话标 archived_branch
+- POST   /sessions/{sid}/fork               → fork_from + 新 DB session
+  （2026-06-01：原会话保持 active，不再 archive）
 - POST   /sessions/{sid}/rollback           → rollback + 删 PG 最后 N 条 message
 
 文档锚 04-backend-api.md §M4.8 + 03-agent.md §11 / §12。
@@ -221,8 +222,20 @@ async def fork_session(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ForkResponse:
+    """从指定 checkpoint 起新建一个分支会话。
+
+    **2026-06-01 行为变更**：fork 不再把原会话标记为 `archived_branch`。
+    原会话保持原状态（通常仍是 `active`），用户可以在原会话继续对话；
+    新会话独立创建且跳转过去，`forked_from_session_id` / `forked_from_checkpoint_id`
+    保留追溯关系。
+
+    `archived_branch` 这个 status 仍保留作向后兼容（M5 之前 fork 出的老会话已
+    带此状态），相关只读 banner / 入口禁用逻辑维持不变；但本路由不会再产生新的
+    `archived_branch` 会话。
+    """
     session = await _load_owned_session(db, sid, user.id)
     if session.status == "archived_branch":
+        # 老 archived 会话仍拒绝 fork（避免 fork-on-fork 长链） —— 仅向后兼容
         raise ConflictError("session_archived", code="session_archived")
 
     new_session = DBSession(
@@ -251,7 +264,7 @@ async def fork_session(
     except RuntimeError as exc:
         raise ConflictError(str(exc), code="fork_unsupported") from exc
 
-    session.status = "archived_branch"
+    # 原会话不再 archive：保持原状态让用户可继续对话
     await db.commit()
     await db.refresh(new_session)
     return ForkResponse(new_session=SessionOut.model_validate(new_session, from_attributes=True))

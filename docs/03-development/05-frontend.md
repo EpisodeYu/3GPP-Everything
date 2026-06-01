@@ -289,10 +289,14 @@ i18n keys：`reasoningCollapsedTitle` / `reasoningExpand` / `reasoningCollapse` 
 
 ### 5.6 历史、分叉、回滚
 
-- **用户消息长按**：复制 / "从这里重问"（fork）
-  - "从这里重问"调 `POST /sessions/{sid}/fork` body `{checkpoint_id, new_user_message}`，后端返回新 `session_id'`，前端跳转到新会话；原会话标记 `archived_branch`，从会话列表的 "主线" 分组移到 "分叉历史" 分组（折叠默认收起）
+- **用户消息分叉**：两种触发方式等价
+  - 长按 user 气泡 → 菜单"从这里重问"
+  - 点击 user 气泡下方 `Key('msg-fork-{user_msg_id}')` 的"分叉"图标按钮（2026-06-01 加入，所有 user message 都有）
+  - 点击后弹 fork dialog 输入新问题 → `POST /sessions/{sid}/fork` body `{checkpoint_id, new_user_message}` → 后端返回新 `session_id'`，前端跳转到新会话
+  - **2026-06-01 行为变更**：原会话不再被标记 `archived_branch`，保持 active 可继续对话；新会话作为独立分叉存在，通过 `forked_from_session_id` 追溯。"分叉历史" 分组现在只装 M5 之前已 archived 的老会话（向后兼容）
 - **assistant 消息长按**：复制全文 / 复制 markdown / thumb up/down / 添加到收藏
 - **会话回滚**：会话设置菜单里 "删除最后 N 轮"（slider 选 1-10），调 `POST /sessions/{sid}/rollback`；UI 提示 "不可撤销"二次确认。"一轮" = 一条 user message + 它之后的所有消息（典型一对：user+assistant）；2026-06-01 修复 PG `now()` 同事务排序不稳定导致 "只删用户提问留下答案" 的 bug，详见 backend `rollback_session` docstring
+- **修改最后一次提问**（2026-06-01）：history 末尾形如 `[..., user, assistant]` 且当前 run idle 时，最后一条 user 气泡下方显示 "修改并重新提问" 按钮（`Key('msg-edit-{user_msg_id}')`）。点击进入编辑模式：composer 顶部出现 `chat_editing_banner`、输入框预填该 user message 原文、获取焦点；点发送调 `ChatController.editLastTurn(content)`，内部串行 `rollback(lastN=1)` + `send(content)`，等价 "丢弃最后一对 + 用新内容重发"，之前的历史 context 不动。点 banner 上的 "取消" 退出编辑模式恢复原 composer
 - **archived_branch 会话**：仅可读，不显示 composer，顶部 banner "这是从主线 fork 出的历史分支" + "回到主线" 按钮
 
 ## 6. 章节阅读器

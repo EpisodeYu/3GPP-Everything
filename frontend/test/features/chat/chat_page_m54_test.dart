@@ -273,6 +273,253 @@ void main() {
     });
   });
 
+  group('ChatPage / fork 图标入口（2026-06-01）', () {
+    testWidgets('任意 user 气泡都有 fork 图标按钮（msg-fork-{id}）', (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'u1', role: 'user', content: '问题1'),
+        _msg(id: 'a1', role: 'assistant', content: '答1'),
+        _msg(id: 'u2', role: 'user', content: '问题2'),
+        _msg(id: 'a2', role: 'assistant', content: '答2'),
+      ]);
+      await _pump(
+        tester,
+        sessionId: 'sid-fk-icons',
+        initial: [buildSession(id: 'sid-fk-icons')],
+        messagesApi: messages,
+      );
+      expect(find.byKey(const ValueKey('msg-fork-u1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('msg-fork-u2')), findsOneWidget);
+      // assistant 气泡上不应该有
+      expect(find.byKey(const ValueKey('msg-fork-a1')), findsNothing);
+    });
+
+    testWidgets('archived_branch：fork 图标不显示（只读）', (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'u1', role: 'user', content: '问'),
+      ]);
+      await _pump(
+        tester,
+        sessionId: 'sid-arch-fk',
+        initial: [
+          buildSession(id: 'sid-arch-fk', status: 'archived_branch'),
+        ],
+        messagesApi: messages,
+      );
+      expect(find.byKey(const ValueKey('msg-fork-u1')), findsNothing);
+    });
+
+    testWidgets('点 fork 图标 → 弹 fork dialog → 调 fork API（与长按菜单等价）',
+        (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'u1', role: 'user', content: '老问题'),
+      ]);
+      final checkpoint = FakeCheckpointApi(
+        checkpoints: [buildCheckpoint(checkpointId: 'cp-x')],
+      );
+      final h = await _pump(
+        tester,
+        sessionId: 'sid-fk-icon-tap',
+        initial: [buildSession(id: 'sid-fk-icon-tap', title: 'fk')],
+        messagesApi: messages,
+        checkpointApi: checkpoint,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('msg-fork-u1')));
+      await tester.pumpAndSettle();
+      // fork dialog 出现，预填了原问题
+      expect(find.byKey(const Key('fork_input')), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('fork_input')), '换个问法');
+      await tester.tap(find.byKey(const Key('fork_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(h.checkpoint.forkCalls, 1);
+      expect(h.checkpoint.lastForkCheckpointId, 'cp-x');
+      expect(h.checkpoint.lastForkNewUserMessage, '换个问法');
+    });
+  });
+
+  group('ChatPage / 修改最后一次提问（2026-06-01）', () {
+    testWidgets('history 末尾是 user+assistant：最后一条 user 气泡显示编辑按钮',
+        (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'u', role: 'user', content: '老问题'),
+        _msg(id: 'a', role: 'assistant', content: '老答案'),
+      ]);
+      await _pump(
+        tester,
+        sessionId: 'sid-edit',
+        initial: [buildSession(id: 'sid-edit', title: 'edit')],
+        messagesApi: messages,
+      );
+      expect(find.byKey(const ValueKey('msg-edit-u')), findsOneWidget);
+    });
+
+    testWidgets('history 末尾不是 user+assistant pair：不显示编辑按钮',
+        (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'u-only', role: 'user', content: '问完没等到回复'),
+      ]);
+      await _pump(
+        tester,
+        sessionId: 'sid-noedit',
+        initial: [buildSession(id: 'sid-noedit')],
+        messagesApi: messages,
+      );
+      expect(find.byKey(const ValueKey('msg-edit-u-only')), findsNothing);
+    });
+
+    testWidgets('archived_branch：不显示编辑按钮（只读）', (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'u', role: 'user', content: 'q'),
+        _msg(id: 'a', role: 'assistant', content: 'a'),
+      ]);
+      await _pump(
+        tester,
+        sessionId: 'sid-arch-edit',
+        initial: [
+          buildSession(id: 'sid-arch-edit', status: 'archived_branch'),
+        ],
+        messagesApi: messages,
+      );
+      expect(find.byKey(const ValueKey('msg-edit-u')), findsNothing);
+    });
+
+    testWidgets('点编辑按钮 → composer 预填 + 编辑 banner 出现 + 取消恢复',
+        (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'u', role: 'user', content: '老问题'),
+        _msg(id: 'a', role: 'assistant', content: '老答案'),
+      ]);
+      await _pump(
+        tester,
+        sessionId: 'sid-edit2',
+        initial: [buildSession(id: 'sid-edit2')],
+        messagesApi: messages,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('msg-edit-u')));
+      await tester.pumpAndSettle();
+
+      // editing banner 出现
+      expect(find.byKey(const Key('chat_editing_banner')), findsOneWidget);
+      // composer 预填了原内容
+      final field = tester.widget<TextField>(find.byKey(const Key('composer_input')));
+      expect(field.controller!.text, '老问题');
+
+      // 点取消 → banner 消失
+      await tester.tap(find.byKey(const Key('chat_editing_cancel')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('chat_editing_banner')), findsNothing);
+    });
+
+    testWidgets('编辑模式下点发送 → 串行调 rollback(lastN=1) + sendMessage(新内容)',
+        (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'u', role: 'user', content: '老问题'),
+        _msg(id: 'a', role: 'assistant', content: '老答案'),
+      ]);
+      final streamCtrl = StreamController<ChatEvent>();
+      messages.useLiveStream(streamCtrl);
+      final checkpoint = FakeCheckpointApi(
+        rollbackResponse:
+            const RollbackResponse(deletedMessages: 2, headCheckpointId: 'h'),
+      );
+      final h = await _pump(
+        tester,
+        sessionId: 'sid-edit3',
+        initial: [buildSession(id: 'sid-edit3')],
+        messagesApi: messages,
+        checkpointApi: checkpoint,
+      );
+
+      // 进编辑模式
+      await tester.tap(find.byKey(const ValueKey('msg-edit-u')));
+      await tester.pumpAndSettle();
+
+      // 改内容
+      await tester.enterText(
+        find.byKey(const Key('composer_input')),
+        '修改后的问题',
+      );
+      // rollback 之后 PG 拉到的 history 已不含老一对
+      messages.history = [];
+      await tester.tap(find.byKey(const Key('composer_send')));
+      // editLastTurn 内部 await rollback；让 microtask 队列推进
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 10));
+
+      // rollback 已调
+      expect(h.checkpoint.rollbackCalls, 1);
+      expect(h.checkpoint.lastRollbackLastN, 1);
+
+      // 现在应该已进入 streaming：editing banner 已撤、模式按钮换成 暂停/取消
+      expect(find.byKey(const Key('chat_editing_banner')), findsNothing);
+
+      // 把 SSE 流走完，避免 tester 退出时悬挂
+      streamCtrl.add(const RunStartEvent(
+        runId: 'run-edit',
+        sessionId: 'sid-edit3',
+        messageId: 'm-edit',
+      ));
+      streamCtrl.add(const FinalEvent(
+        messageId: 'm-edit',
+        answer: '新答案',
+        citations: [],
+        confidence: 0.8,
+      ));
+      streamCtrl.add(const EndEvent());
+      await streamCtrl.close();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('streaming 中：最后一条 user 气泡不显示编辑按钮（防止打断当前 run）',
+        (tester) async {
+      final controller = StreamController<ChatEvent>();
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'u-prev', role: 'user', content: '上轮'),
+        _msg(id: 'a-prev', role: 'assistant', content: '上轮答'),
+      ])
+        ..useLiveStream(controller);
+      await _pump(
+        tester,
+        sessionId: 'sid-stream-noedit',
+        initial: [buildSession(id: 'sid-stream-noedit')],
+        messagesApi: messages,
+      );
+      // 编辑按钮先有
+      expect(find.byKey(const ValueKey('msg-edit-u-prev')), findsOneWidget);
+
+      // 发起新一轮 → streaming 中
+      await tester.enterText(
+        find.byKey(const Key('composer_input')),
+        '新问题',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('composer_send')));
+      await tester.pump();
+      controller.add(const RunStartEvent(
+        runId: 'r',
+        sessionId: 'sid-stream-noedit',
+        messageId: 'm',
+      ));
+      await tester.pumpAndSettle();
+
+      // streaming 中，编辑按钮不应显示（防止打断当前 run）
+      expect(find.byKey(const ValueKey('msg-edit-u-prev')), findsNothing);
+
+      // 收尾
+      controller.add(const FinalEvent(
+        messageId: 'm',
+        answer: 'a',
+        citations: [],
+        confidence: 0,
+      ));
+      controller.add(const EndEvent());
+      await controller.close();
+      await tester.pumpAndSettle();
+    });
+  });
+
   group('ChatPage M5.4 / 长按菜单', () {
     testWidgets('长按 user 消息 → 弹菜单 → 点 "从这里重问" → 弹 fork dialog → 调 fork',
         (tester) async {
