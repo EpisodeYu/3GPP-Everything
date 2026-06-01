@@ -169,3 +169,22 @@ deleted：
 - `docs/03-development/04-backend-api.md`（§4.2 +reasoning 段）
 - `docs/03-development/05-frontend.md`（§5.2 重写 + 文件树注释 + ChatRunState 字段表 + _onEvent switch）
 - 本文件
+
+---
+
+## 附：2026-06-01 两点优化（用户反馈）
+
+用户对该折叠框提了两点，均为前端改动（不动后端 / SSE 协议）：
+
+1. **步骤名用英文技术名**：chip 标题与文字区前缀从中文释义（`改写问题` / `撰写假设答案` …）改回英文节点 key（`rewrite` / `hyde` / `multi_query` / `classify` …）。`nodeLabel(node) => node`，不再走 i18n；原 9 条 `reasoning<Node>` key（`reasoningClassify` … `reasoningToolDispatch`）已从 arb + codegen 产物删除。节点下方 summary「人话」仍保持中文。
+2. **答案完成后过程框不消失，只收起可展开**：原先 `final` 后 run 复位 idle、折叠框随之消失。新增 `ReasoningSnapshot`（nodes + reasoningByNode + 冻结的 elapsed），`_flushDoneToHistory` 按 assistant message id 存进 `SessionChatState.reasoningByMessageId`，在该消息上方渲染默认折叠、可点开复盘的折叠框；`ReasoningPanel` 加 `frozenElapsed` 入参显示固定耗时（不随 rebuild 往上跳）。仅本会话视图内刚跑完的轮次有快照，从 PG 重载历史不带（后端不持久化节点 summary）。
+
+改动文件：
+- `frontend/lib/features/chat/widgets/reasoning_panel.dart`（nodeLabel 英文化 + frozenElapsed）
+- `frontend/lib/features/chat/chat_controller.dart`（ReasoningSnapshot + reasoningByMessageId + _flushDoneToHistory 快照）
+- `frontend/lib/features/chat/chat_page.dart`（历史 assistant 消息上方渲染快照折叠框）
+- `frontend/lib/core/l10n/app_zh.arb` + `app_en.arb` + codegen 产物（删 9 条节点名 key）
+- `frontend/test/.../chat_controller_test.dart`（+2 快照用例）+ `reasoning_panel_test.dart`（+1 frozenElapsed widget + 1 nodeLabel 用例）
+- `docs/03-development/05-frontend.md` §5.1/§5.2 同步
+
+自测：`flutter analyze` 0 issue；`flutter test` 全绿（chat 套件 27→31，全量 220 passed）。

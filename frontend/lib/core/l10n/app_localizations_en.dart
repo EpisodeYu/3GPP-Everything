@@ -135,33 +135,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get messageStatusFailed => 'Failed';
 
   @override
-  String get reasoningClassify => 'Classifying query';
-
-  @override
-  String get reasoningRewrite => 'Rewriting question';
-
-  @override
-  String get reasoningHyde => 'Drafting hypothetical answer';
-
-  @override
-  String get reasoningMultiQuery => 'Splitting sub-queries';
-
-  @override
-  String get reasoningRetrieve => 'Searching 3GPP corpus';
-
-  @override
-  String get reasoningRerank => 'Reranking candidates';
-
-  @override
-  String get reasoningGenerate => 'Drafting answer';
-
-  @override
-  String get reasoningSelfRag => 'Self-checking answer';
-
-  @override
-  String get reasoningToolDispatch => 'Calling tools';
-
-  @override
   String reasoningCollapsedTitle(String seconds, int steps) {
     return 'Thought for ${seconds}s · $steps steps';
   }

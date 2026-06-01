@@ -61,6 +61,31 @@ class NodeRunStatus {
       );
 }
 
+/// 一轮对话完成后冻结下来的 reasoning 快照（2026-06-01）。
+///
+/// final/cancelled 把本轮推进 history 后 run 会复位到 idle，原本嵌在 streaming
+/// bubble 上方的 reasoning 折叠框会随之消失。用户要求「答案出来后过程框不要完全
+/// 隐藏，只收起、还能展开」，故 [ChatController._flushDoneToHistory] 把本轮
+/// reasoning 冻结成快照、按 assistant message id 存进
+/// [SessionChatState.reasoningByMessageId]，由 [ReasoningPanel]（默认折叠 +
+/// frozenElapsed）渲染成可点开复盘的历史折叠框。
+///
+/// 仅覆盖「本会话视图内刚跑完」的轮次；切会话 / 刷新从 PG 重新加载历史时不带
+/// reasoning（后端不持久化节点 summary），这些旧消息不显示折叠框。
+class ReasoningSnapshot {
+  const ReasoningSnapshot({
+    required this.nodes,
+    required this.reasoningByNode,
+    required this.elapsed,
+  });
+
+  final List<NodeRunStatus> nodes;
+  final Map<String, String> reasoningByNode;
+
+  /// run_start 到收尾的总耗时；折叠态「已思考 X.Xs」展示这个固定值。
+  final Duration elapsed;
+}
+
 /// 一次 send → final/cancel/error 的全部状态。
 class ChatRunState {
   const ChatRunState({
@@ -176,11 +201,13 @@ class SessionChatState {
   const SessionChatState({
     required this.history,
     required this.run,
+    this.reasoningByMessageId = const {},
   });
 
   const SessionChatState.empty()
       : history = const [],
-        run = const ChatRunState.idle();
+        run = const ChatRunState.idle(),
+        reasoningByMessageId = const {};
 
   /// 已落 PG 的消息（user / assistant）按 created_at 升序。
   final List<MessageOut> history;
@@ -188,13 +215,20 @@ class SessionChatState {
   /// 当前正在跑的 / 最近完成的 run；done/cancelled/error 时仍保留供 UI 展示。
   final ChatRunState run;
 
+  /// assistant message id → 本轮 reasoning 快照。让答案完成后过程框仍能展开
+  /// 复盘（见 [ReasoningSnapshot]）。从 PG 重新加载历史时为空。
+  final Map<String, ReasoningSnapshot> reasoningByMessageId;
+
   SessionChatState copyWith({
     List<MessageOut>? history,
     ChatRunState? run,
+    Map<String, ReasoningSnapshot>? reasoningByMessageId,
   }) =>
       SessionChatState(
         history: history ?? this.history,
         run: run ?? this.run,
+        reasoningByMessageId:
+            reasoningByMessageId ?? this.reasoningByMessageId,
       );
 }
 
@@ -570,9 +604,19 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
     }
     if (_isResume) {
       _isResume = false;
+      final snapshot = _snapshotFromRun(run);
+      final msgId = run.messageId;
       unawaited(() async {
         try {
-          state = AsyncData(await _loadHistoryFromPg());
+          final reloaded = await _loadHistoryFromPg();
+          state = AsyncData(
+            (snapshot != null && msgId != null)
+                ? reloaded.copyWith(reasoningByMessageId: {
+                    ...current.reasoningByMessageId,
+                    msgId: snapshot,
+                  })
+                : reloaded,
+          );
         } on Object {
           state = AsyncData(current.copyWith(run: const ChatRunState.idle()));
         }
@@ -621,10 +665,27 @@ class ChatController extends AutoDisposeFamilyAsyncNotifier<SessionChatState, St
           ),
       ],
     );
+    final snapshot = _snapshotFromRun(run);
     state = AsyncData(SessionChatState(
       history: [...current.history, userMsg, assistant],
       run: const ChatRunState.idle(),
+      reasoningByMessageId: snapshot == null
+          ? current.reasoningByMessageId
+          : {...current.reasoningByMessageId, assistant.id: snapshot},
     ));
+  }
+
+  /// 把本轮 run 的 reasoning 冻结成快照供答案完成后展开复盘（见 [ReasoningSnapshot]）。
+  /// 没有任何节点 / hyde 流 → null（不显示历史折叠框）。
+  ReasoningSnapshot? _snapshotFromRun(ChatRunState run) {
+    if (run.nodes.isEmpty && run.reasoningByNode.isEmpty) return null;
+    final started = run.reasoningStartedAt;
+    return ReasoningSnapshot(
+      nodes: run.nodes,
+      reasoningByNode: run.reasoningByNode,
+      elapsed:
+          started != null ? DateTime.now().difference(started) : Duration.zero,
+    );
   }
 }
 

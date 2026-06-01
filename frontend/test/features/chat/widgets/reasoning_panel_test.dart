@@ -127,6 +127,42 @@ void main() {
     expect(find.byKey(const Key('reasoning_chip_hyde')), findsOneWidget);
   });
 
+  testWidgets('frozenElapsed：折叠态显示固定耗时，不随 rebuild 往上跳，仍可展开复盘',
+      (tester) async {
+    Widget build() => _wrap(ReasoningPanel(
+          nodes: const [
+            NodeRunStatus(node: 'classify', running: false, durationMs: 1),
+            NodeRunStatus(node: 'hyde', running: false, durationMs: 2),
+          ],
+          reasoningByNode: const {'hyde': 'AMF is the AMF.'},
+          activeNode: null,
+          startedAt: null,
+          collapsedFromController: true,
+          frozenElapsed: const Duration(milliseconds: 4200),
+        ));
+    await tester.pumpWidget(build());
+    // 默认折叠 + 显示冻结的 4.2s
+    expect(find.byKey(const Key('reasoning_panel_collapsed')), findsOneWidget);
+    expect(find.textContaining('4.2'), findsOneWidget);
+    // 多 pump 几帧，秒数保持不变（不像实时计时那样一直累加）
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('4.2'), findsOneWidget);
+    // 用户点开 → 仍能展开复盘（chip 列 + 灰色文字区回来）
+    await tester.tap(find.byKey(const Key('reasoning_panel_collapsed')));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byKey(const Key('reasoning_chip_hyde')), findsOneWidget);
+    expect(find.textContaining('AMF is the AMF.'), findsOneWidget);
+  });
+
+  test('nodeLabel 返回英文技术名（步骤名不再用中文释义）', () {
+    expect(nodeLabel('classify'), 'classify');
+    expect(nodeLabel('rewrite'), 'rewrite');
+    expect(nodeLabel('hyde'), 'hyde');
+    expect(nodeLabel('multi_query'), 'multi_query');
+    expect(nodeLabel('self_rag'), 'self_rag');
+  });
+
   testWidgets('formatNodeSummary：覆盖 6 个节点的 summary 渲染', (tester) async {
     late AppLocalizations l;
     await tester.pumpWidget(_wrap(Builder(builder: (ctx) {

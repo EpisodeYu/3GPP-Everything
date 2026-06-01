@@ -62,15 +62,6 @@
   "messageStatusCancelled": "Cancelled",
   "messageStatusFailed": "Failed",
 
-  "reasoningClassify": "Classifying query",
-  "reasoningRewrite": "Rewriting question",
-  "reasoningHyde": "Drafting hypothetical answer",
-  "reasoningMultiQuery": "Splitting sub-queries",
-  "reasoningRetrieve": "Searching 3GPP corpus",
-  "reasoningRerank": "Reranking candidates",
-  "reasoningGenerate": "Drafting answer",
-  "reasoningSelfRag": "Self-checking answer",
-  "reasoningToolDispatch": "Calling tools",
   "reasoningCollapsedTitle": "Thought for {seconds}s · {steps} steps",
   "@reasoningCollapsedTitle": {
     "placeholders": {

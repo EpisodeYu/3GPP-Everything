@@ -45,15 +45,6 @@
   "messageStatusCancelled": "已取消",
   "messageStatusFailed": "失败",
 
-  "reasoningClassify": "判断查询类型",
-  "reasoningRewrite": "改写问题",
-  "reasoningHyde": "撰写假设答案",
-  "reasoningMultiQuery": "拆分子查询",
-  "reasoningRetrieve": "检索 3GPP 文档",
-  "reasoningRerank": "精排候选",
-  "reasoningGenerate": "起草回答",
-  "reasoningSelfRag": "自校验答案",
-  "reasoningToolDispatch": "调用工具",
   "reasoningCollapsedTitle": "已思考 {seconds}s · {steps} 步骤",
   "@reasoningCollapsedTitle": {
     "placeholders": {

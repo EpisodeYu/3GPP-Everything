@@ -196,6 +196,9 @@ class ChatRunState {
   final bool reasoningCollapsed;              // 首个 token 到达自动 true；用户可 override
 }
 
+// SessionChatState（history + run）2026-06-01 加：
+//   Map<String, ReasoningSnapshot> reasoningByMessageId;  // 答案完成后保留过程框（按 assistant id），详见 §5.2
+
 class ChatController extends AsyncNotifier<ChatRunState> {
   late StreamSubscription _sub;
 
@@ -239,13 +242,15 @@ class ChatController extends AsyncNotifier<ChatRunState> {
   - hyde active 时：[`ChatRunState.reasoningByNode`](../../frontend/lib/features/chat/chat_controller.dart)`['hyde']` 字符级累积内容，后端 SSE `node_progress` 事件喂（详见 §8 / [`03-agent.md §7`](03-agent.md)）；hyde 是 reasoning enabled 模型，输出长（200-400 token）且是自然语言段落，真流式最有 reasoning 感
   - 其它 LLM 节点（classify / rewrite / multi_query / self_rag，全部 `thinking=disabled`）：从 `node_end.summary` 一次性渲染人话（`改写为: ...` / `拆出 N 个子查询: ...` / `自检: accept · 置信度 0.87`）—— 这些节点输出是 JSON / 一行，token 流体感差且看着像代码碎片，不值得真流式
   - retrieve / rerank：从 summary 的 `*_count` 字段渲染 `找到 N 个候选` / `Top-N 排序完成`
-  - active 节点没显式 reasoning 文字时显示 i18n placeholder `撰写假设答案...` 等
-- **折叠态**：单行 `已思考 X.Xs · N 步骤` + 上下箭头；秒数依赖 parent 自然 rebuild（token 流持续到达）刷新，没有独立 Timer.periodic（避免 widget test pumpAndSettle 不稳）
-- **自动折叠**：首个 `token` 事件到达 → controller 切 `reasoningCollapsed=true` → AnimatedSize 收起；`final` 后保留可复盘
+  - active 节点没显式 reasoning 文字时显示节点名 + `...`（如 `hyde...`）
+- **步骤名用英文技术名**（2026-06-01）：chip 标题与文字区前缀直接显示节点 key（`classify` / `rewrite` / `hyde` / `multi_query` / `self_rag` …），不再走 i18n 翻成中文释义（`nodeLabel(node) => node`）。节点下方 summary「人话」仍是中文。
+- **折叠态**：单行 `已思考 X.Xs · N 步骤` + 上下箭头；streaming 期间秒数依赖 parent 自然 rebuild（token 流持续到达）刷新，没有独立 Timer.periodic（避免 widget test pumpAndSettle 不稳）；历史快照用 `frozenElapsed` 显示固定耗时
+- **自动折叠**：首个 `token` 事件到达 → controller 切 `reasoningCollapsed=true` → 直接切单行（无动画，AnimatedSize 在 widget test 下 pumpAndSettle 偶发不稳）
+- **答案完成后过程框不消失，只收起可展开**（2026-06-01）：`final` / `cancelled` 把本轮推进 history 时，[`_flushDoneToHistory`](../../frontend/lib/features/chat/chat_controller.dart) 把本轮 reasoning 冻结成 `ReasoningSnapshot`、按 assistant message id 存进 `SessionChatState.reasoningByMessageId`，在该 assistant 消息上方渲染默认折叠（`collapsedFromController=true` + `frozenElapsed`）、可点开复盘的折叠框。仅本会话视图内刚跑完的轮次有快照；切会话 / 从 PG 重载历史不带（后端不持久化节点 summary）
 - **手动 override**：`_userOverride` 标记。用户手动展开后即便 controller 仍说 collapsed=true 也保留展开
 - **节点白名单**：classify / rewrite / hyde / multi_query / retrieve / rerank / generate / self_rag / tool_dispatch 共 9 个，与 [`backend/app/api/v1/chat.py::_NODE_NAMES`](../../backend/app/api/v1/chat.py) 一致
 
-i18n keys：`reasoningClassify` / `reasoningRewrite` / `reasoningHyde` / `reasoningMultiQuery` / `reasoningRetrieve` / `reasoningRerank` / `reasoningGenerate` / `reasoningSelfRag` / `reasoningToolDispatch` / `reasoningCollapsedTitle` / `reasoningExpand` / `reasoningCollapse` / `reasoningWaiting` / 6 条 `*Done` 文案，详见 [`app_zh.arb`](../../frontend/lib/core/l10n/app_zh.arb) / [`app_en.arb`](../../frontend/lib/core/l10n/app_en.arb)。
+i18n keys：`reasoningCollapsedTitle` / `reasoningExpand` / `reasoningCollapse` / `reasoningWaiting` / 6 条 `*Done` 文案，详见 [`app_zh.arb`](../../frontend/lib/core/l10n/app_zh.arb) / [`app_en.arb`](../../frontend/lib/core/l10n/app_en.arb)。节点名不再走 i18n（步骤名固定英文），原 9 条 `reasoning<Node>` key 已随 2026-06-01 改动删除。
 
 > 详见 [`../04-handoff/2026-05-31-reasoning-panel.md`](../04-handoff/2026-05-31-reasoning-panel.md) 完成报告。
 

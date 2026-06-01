@@ -592,4 +592,49 @@ void main() {
     controller.add(const EndEvent());
     await controller.close();
   });
+
+  test('final 后把本轮 reasoning 冻结成快照，按 assistant id 存入 reasoningByMessageId',
+      () async {
+    final api = FakeMessagesApi(events: [
+      const RunStartEvent(runId: 'run-1', sessionId: sid, messageId: 'asst-1'),
+      const NodeStartEvent(node: 'hyde'),
+      const NodeProgressEvent(node: 'hyde', delta: 'AMF is the AMF.'),
+      const NodeEndEvent(node: 'hyde', durationMs: 7, summary: {}),
+      const TokenEvent(delta: 'ans'),
+      const FinalEvent(
+          messageId: 'asst-1', answer: 'ans', citations: [], confidence: 0.5),
+      const EndEvent(),
+    ]);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    await c.read(chatControllerProvider(sid).notifier).send('hi');
+
+    final s = c.read(chatControllerProvider(sid)).value!;
+    expect(s.run.status, RunStatus.idle);
+    // 答案完成后过程框不消失：快照按 assistant message id 保留下来
+    final snap = s.reasoningByMessageId['asst-1'];
+    expect(snap, isNotNull);
+    expect(snap!.nodes.any((n) => n.node == 'hyde'), isTrue);
+    expect(snap.reasoningByNode['hyde'], 'AMF is the AMF.');
+    // elapsed 是冻结的非负时长（不随之后 rebuild 变化）
+    expect(snap.elapsed, greaterThanOrEqualTo(Duration.zero));
+  });
+
+  test('没有任何节点 / hyde 流的一轮 → 不生成 reasoning 快照', () async {
+    final api = FakeMessagesApi(events: [
+      const RunStartEvent(runId: 'run-1', sessionId: sid, messageId: 'asst-1'),
+      const TokenEvent(delta: 'hi'),
+      const FinalEvent(
+          messageId: 'asst-1', answer: 'hi', citations: [], confidence: 0),
+      const EndEvent(),
+    ]);
+    final c = _container(api);
+    _keepAlive(c, sid);
+    await c.read(chatControllerProvider(sid).future);
+    await c.read(chatControllerProvider(sid).notifier).send('hi');
+
+    final s = c.read(chatControllerProvider(sid)).value!;
+    expect(s.reasoningByMessageId, isEmpty);
+  });
 }

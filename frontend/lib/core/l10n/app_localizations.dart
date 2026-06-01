@@ -326,60 +326,6 @@ abstract class AppLocalizations {
   /// **'Failed'**
   String get messageStatusFailed;
 
-  /// No description provided for @reasoningClassify.
-  ///
-  /// In en, this message translates to:
-  /// **'Classifying query'**
-  String get reasoningClassify;
-
-  /// No description provided for @reasoningRewrite.
-  ///
-  /// In en, this message translates to:
-  /// **'Rewriting question'**
-  String get reasoningRewrite;
-
-  /// No description provided for @reasoningHyde.
-  ///
-  /// In en, this message translates to:
-  /// **'Drafting hypothetical answer'**
-  String get reasoningHyde;
-
-  /// No description provided for @reasoningMultiQuery.
-  ///
-  /// In en, this message translates to:
-  /// **'Splitting sub-queries'**
-  String get reasoningMultiQuery;
-
-  /// No description provided for @reasoningRetrieve.
-  ///
-  /// In en, this message translates to:
-  /// **'Searching 3GPP corpus'**
-  String get reasoningRetrieve;
-
-  /// No description provided for @reasoningRerank.
-  ///
-  /// In en, this message translates to:
-  /// **'Reranking candidates'**
-  String get reasoningRerank;
-
-  /// No description provided for @reasoningGenerate.
-  ///
-  /// In en, this message translates to:
-  /// **'Drafting answer'**
-  String get reasoningGenerate;
-
-  /// No description provided for @reasoningSelfRag.
-  ///
-  /// In en, this message translates to:
-  /// **'Self-checking answer'**
-  String get reasoningSelfRag;
-
-  /// No description provided for @reasoningToolDispatch.
-  ///
-  /// In en, this message translates to:
-  /// **'Calling tools'**
-  String get reasoningToolDispatch;
-
   /// No description provided for @reasoningCollapsedTitle.
   ///
   /// In en, this message translates to:

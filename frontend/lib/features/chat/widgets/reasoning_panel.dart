@@ -28,6 +28,7 @@ class ReasoningPanel extends StatefulWidget {
     required this.activeNode,
     required this.startedAt,
     required this.collapsedFromController,
+    this.frozenElapsed,
   });
 
   final List<NodeRunStatus> nodes;
@@ -35,6 +36,11 @@ class ReasoningPanel extends StatefulWidget {
   final String? activeNode;
   final DateTime? startedAt;
   final bool collapsedFromController;
+
+  /// 答案完成后的历史快照用：折叠态「已思考 X.Xs」显示这个固定值，而不是用
+  /// [startedAt] 跟 `DateTime.now()` 实时算（否则每次 rebuild 秒数会一直往上跳）。
+  /// streaming 中为 null → 走实时计时。
+  final Duration? frozenElapsed;
 
   @override
   State<ReasoningPanel> createState() => _ReasoningPanelState();
@@ -176,6 +182,10 @@ class _ReasoningPanelState extends State<ReasoningPanel> {
   }
 
   String _elapsedSeconds() {
+    final frozen = widget.frozenElapsed;
+    if (frozen != null) {
+      return (frozen.inMilliseconds / 1000.0).toStringAsFixed(1);
+    }
     final start = widget.startedAt;
     if (start == null) return '0.0';
     final diff = DateTime.now().difference(start);
@@ -226,7 +236,7 @@ class _ChipRow extends StatelessWidget {
                               ),
                       ),
                       label: Text(
-                        _nodeLabel(context, n.node),
+                        nodeLabel(n.node),
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
@@ -305,7 +315,7 @@ class _ReasoningText extends StatelessWidget {
 
   String? _lineForNode(BuildContext context, NodeRunStatus n) {
     final l = AppLocalizations.of(context);
-    final prefix = nodeLabel(context, n.node);
+    final prefix = nodeLabel(n.node);
     // active 且为 hyde 时，优先显示字符流累积；其它 active 节点显示 placeholder
     if (n.running) {
       if (n.node == 'hyde') {
@@ -328,36 +338,15 @@ class _ReasoningText extends StatelessWidget {
   }
 }
 
-/// 节点 → i18n label。新节点加在这里。
-String _nodeLabel(BuildContext context, String node) =>
-    nodeLabel(context, node);
-
+/// 节点显示名 = 英文技术名（classify / rewrite / hyde / multi_query /
+/// retrieve / rerank / generate / self_rag / tool_dispatch）。
+///
+/// 2026-06-01：用户要求步骤名用英文原名，而不是「改写问题 / 撰写假设答案」这类
+/// 中文释义。后端只下发 `chat.py _NODE_NAMES` 白名单里的 9 个节点 key，直接原样
+/// 展示即可——故不再走 i18n。节点下方的 summary「人话」仍是中文（见
+/// [formatNodeSummary]），只是步骤名保持英文。
 @visibleForTesting
-String nodeLabel(BuildContext context, String node) {
-  final l = AppLocalizations.of(context);
-  switch (node) {
-    case 'classify':
-      return l.reasoningClassify;
-    case 'rewrite':
-      return l.reasoningRewrite;
-    case 'hyde':
-      return l.reasoningHyde;
-    case 'multi_query':
-      return l.reasoningMultiQuery;
-    case 'retrieve':
-      return l.reasoningRetrieve;
-    case 'rerank':
-      return l.reasoningRerank;
-    case 'generate':
-      return l.reasoningGenerate;
-    case 'self_rag':
-      return l.reasoningSelfRag;
-    case 'tool_dispatch':
-      return l.reasoningToolDispatch;
-    default:
-      return node;
-  }
-}
+String nodeLabel(String node) => node;
 
 /// 把后端 `node_end.summary` 字段转成 reasoning 框里的「人话」一行。
 ///

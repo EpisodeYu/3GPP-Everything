@@ -133,33 +133,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get messageStatusFailed => '失败';
 
   @override
-  String get reasoningClassify => '判断查询类型';
-
-  @override
-  String get reasoningRewrite => '改写问题';
-
-  @override
-  String get reasoningHyde => '撰写假设答案';
-
-  @override
-  String get reasoningMultiQuery => '拆分子查询';
-
-  @override
-  String get reasoningRetrieve => '检索 3GPP 文档';
-
-  @override
-  String get reasoningRerank => '精排候选';
-
-  @override
-  String get reasoningGenerate => '起草回答';
-
-  @override
-  String get reasoningSelfRag => '自校验答案';
-
-  @override
-  String get reasoningToolDispatch => '调用工具';
-
-  @override
   String reasoningCollapsedTitle(String seconds, int steps) {
     return '已思考 ${seconds}s · $steps 步骤';
   }

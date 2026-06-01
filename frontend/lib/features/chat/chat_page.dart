@@ -519,6 +519,23 @@ class _MessagesList extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = <Widget>[];
     for (final m in state.history) {
+      // 答案完成后保留下来的 reasoning 折叠框（默认收起、可点开复盘）：渲染在
+      // 对应 assistant 消息上方，与 streaming 期间的位置一致。仅本会话视图内刚跑
+      // 完的轮次有快照；从 PG 重载的历史消息没有 → 不显示。
+      if (m.role == 'assistant') {
+        final snap = state.reasoningByMessageId[m.id];
+        if (snap != null) {
+          items.add(ReasoningPanel(
+            key: ValueKey('reasoning-${m.id}'),
+            nodes: snap.nodes,
+            reasoningByNode: snap.reasoningByNode,
+            activeNode: null,
+            startedAt: null,
+            collapsedFromController: true,
+            frozenElapsed: snap.elapsed,
+          ));
+        }
+      }
       final bubble = MessageBubble(
         key: ValueKey('msg-${m.id}'),
         role: m.role,
