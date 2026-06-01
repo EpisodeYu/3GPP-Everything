@@ -136,8 +136,10 @@ class TestAlertThresholds:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         sm, uid = sm_with_user
-        today = datetime.now(UTC).date()
-        # 把月累计撑过 50
+        # 用固定 today（非月初），避免在 datetime.now() 落到 day=1 时
+        # `range(1, today.day + 1)` 退化成只插一条 → monthly 累计只有 5，
+        # 永远撑不过阈值。固定 day=15 让月累计稳定为 75，远超 10。
+        today = date(2026, 6, 15)
         async with sm() as db:
             for d in range(1, today.day + 1):
                 day = today.replace(day=d)

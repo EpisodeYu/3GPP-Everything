@@ -342,13 +342,16 @@ class TestAggregation:
     async def test_today_and_month_sum_match_seeded_rows(
         self, sm: async_sessionmaker[AsyncSession], user_id: uuid.UUID
     ) -> None:
-        today = datetime.now(UTC).date()
+        # 用固定 today（非月初），避免 day=1 时 `today` 与 `today.replace(day=1)`
+        # 落到同一天 → INSERT 触发 (user_id, day) UNIQUE 冲突。固定 day=15
+        # 让 today 与 month_start 是两个不同的 day，能各占一行。
+        today = date(2026, 6, 15)
         async with sm() as db:
             db.add(ApiUsage(user_id=user_id, day=today, total_cost_usd=1.5))
             db.add(
                 ApiUsage(
                     user_id=user_id,
-                    day=today.replace(day=1) if today.day != 1 else today,
+                    day=today.replace(day=1),
                     total_cost_usd=2.0,
                 )
             )
@@ -357,7 +360,7 @@ class TestAggregation:
         async with sm() as db:
             today_cost = await usage_mod.aggregate_today_cost_usd(db, day=today)
             month_cost = await usage_mod.aggregate_month_cost_usd(db, today=today)
-        assert pytest.approx(today_cost) == (3.5 if today.day == 1 else 1.5)
+        assert pytest.approx(today_cost) == 1.5
         assert pytest.approx(month_cost) == 3.5
 
 
