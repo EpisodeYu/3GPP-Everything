@@ -61,7 +61,7 @@
 |  | POST | `/api/v1/sessions/{sid}/resume` | 从最后一个 checkpoint 续跑剩余节点；返回 SSE 事件流 |
 |  | GET | `/api/v1/sessions/{sid}/checkpoints` | 列出该会话所有 checkpoint（按时间倒序，含 last_node / message_id） |
 |  | POST | `/api/v1/sessions/{sid}/fork` | body: `{checkpoint_id, new_user_message}`，从指定 checkpoint 起新会话；原会话标记 `archived_branch` |
-|  | POST | `/api/v1/sessions/{sid}/rollback` | body: `{last_n: int}`，删除最后 N 轮 messages + checkpoints |
+|  | POST | `/api/v1/sessions/{sid}/rollback` | body: `{last_n: int}`，删除最后 **N 轮** messages + checkpoints。"一轮" = 一条 user message + 它之后该会话的所有 message（典型一对：user+assistant）。**2026-06-01 修复**：旧实现按 "条数" 删，且 PG `now()` 同事务下 user/assistant 同 `created_at` → 排序不稳定，常常只删 user 留 assistant；新实现按最近 N 个 user 锚点 + cutoff 时间戳一并删除该轮所有消息 |
 | **Messages** | GET | `/api/v1/sessions/{sid}/messages` | 列出会话消息（分页 page/page_size，F-6 2026-05-19 补） |
 |  | GET | `/api/v1/sessions/{sid}/messages/{mid}` | 单条消息详情（含 citations，F-5 2026-05-19 补） |
 | **Reader（章节阅读器）** | GET | `/api/v1/docs` | 已索引文档列表（带筛选 release/series） |

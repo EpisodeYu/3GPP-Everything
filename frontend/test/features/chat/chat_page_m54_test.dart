@@ -269,7 +269,7 @@ void main() {
 
       expect(h.checkpoint.rollbackCalls, 1);
       expect(h.checkpoint.lastRollbackLastN, 1);
-      expect(find.text('已删除 2 条消息'), findsOneWidget);
+      expect(find.text('已删除最后 1 轮（共 2 条消息）'), findsOneWidget);
     });
   });
 

@@ -236,9 +236,14 @@ async def test_fork_creates_new_session_and_archives_original(
     assert any(c["values"].get("user_input") == "alt query" for c in graph.fork_calls)
 
 
-async def test_rollback_deletes_last_n_messages_and_calls_graph(
+async def test_rollback_deletes_last_n_rounds_and_calls_graph(
     app_and_state: Any, db_session: Any
 ) -> None:
+    """rollback last_n=1 = 删最近 1 轮（user-2 + assistant-2，留下 user-1+assistant-1）。
+
+    "一轮" = 一个 user message + 它之后该会话的所有 message。本测两轮共 4 条
+    （u1, a1, u2, a2，每轮 user 比 assistant 早 10 微秒，跨轮间隔 5 秒）。
+    """
     app, _, _ = app_and_state
 
     class _G:
@@ -277,26 +282,33 @@ async def test_rollback_deletes_last_n_messages_and_calls_graph(
         token = await _new_user_token(client)
         sid = await _create_session(client, token)
 
-        # 灌 3 条已完成的 message：手填 created_at 避免 SQLite 同秒并列
+        # 灌 2 轮（共 4 条）已完成 message：每轮 user 比 assistant 早 10us，
+        # 第二轮整体比第一轮晚 5 秒
         import datetime as _dt
 
         sid_uuid = uuid.UUID(sid)
         base = _dt.datetime(2026, 5, 18, 12, 0, 0, tzinfo=_dt.UTC)
-        for i, role in enumerate(["user", "assistant", "user"]):
+        rounds = [
+            ("user", "u-1", base),
+            ("assistant", "a-1", base + _dt.timedelta(microseconds=10)),
+            ("user", "u-2", base + _dt.timedelta(seconds=5)),
+            ("assistant", "a-2", base + _dt.timedelta(seconds=5, microseconds=10)),
+        ]
+        for role, content, ts in rounds:
             db_session.add(
                 Message(
                     session_id=sid_uuid,
                     role=role,
-                    content=f"m-{i}",
+                    content=content,
                     status="ok",
-                    created_at=base + _dt.timedelta(seconds=i),
+                    created_at=ts,
                 )
             )
         await db_session.commit()
 
         r = await client.post(
             f"/api/v1/sessions/{sid}/rollback",
-            json={"last_n": 2},
+            json={"last_n": 1},
             headers=_auth_headers(token),
         )
         assert r.status_code == 200, r.text
@@ -304,9 +316,78 @@ async def test_rollback_deletes_last_n_messages_and_calls_graph(
         assert body["deleted_messages"] == 2
 
     res = await db_session.execute(select(Message).where(Message.session_id == uuid.UUID(sid)))
-    remaining = res.scalars().all()
-    assert len(remaining) == 1
-    assert remaining[0].content == "m-0"
+    remaining = sorted(res.scalars().all(), key=lambda m: m.created_at)
+    assert [m.content for m in remaining] == ["u-1", "a-1"]
+
+
+async def test_rollback_drops_assistant_when_user_and_assistant_share_created_at(
+    app_and_state: Any, db_session: Any
+) -> None:
+    """**关键回归**：user_msg 与 assistant_msg 的 created_at 完全相同时，
+    rollback 仍能正确把这一轮（含 assistant）整体删掉。
+
+    旧实现按 `order_by(created_at desc).limit(1)` + last_n=1 时常常只删
+    user、留下 assistant。新实现按 user 锚点 + cutoff，应一并删除。
+    """
+    app, _, _ = app_and_state
+
+    class _G:
+        def __init__(self) -> None:
+            self.checkpointer = _Saver()
+
+        async def aget_state_history(self, cfg: Any) -> AsyncIterator[Any]:
+            return
+            yield  # pragma: no cover
+
+        async def aupdate_state(self, cfg: Any, values: dict[str, Any]) -> None:
+            return None
+
+    class _Saver:
+        async def adelete_thread(self, sid: str) -> None:
+            return None
+
+    app.state.agent_graph = _G()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token)
+
+        import datetime as _dt
+
+        sid_uuid = uuid.UUID(sid)
+        same_ts = _dt.datetime(2026, 6, 1, 12, 0, 0, tzinfo=_dt.UTC)
+        # 故意完全同 created_at，模拟 PG `now()` 在同事务返回相同时间戳的情况
+        db_session.add(
+            Message(
+                session_id=sid_uuid,
+                role="user",
+                content="q",
+                status="ok",
+                created_at=same_ts,
+            )
+        )
+        db_session.add(
+            Message(
+                session_id=sid_uuid,
+                role="assistant",
+                content="a",
+                status="ok",
+                created_at=same_ts,
+            )
+        )
+        await db_session.commit()
+
+        r = await client.post(
+            f"/api/v1/sessions/{sid}/rollback",
+            json={"last_n": 1},
+            headers=_auth_headers(token),
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["deleted_messages"] == 2
+
+    res = await db_session.execute(select(Message).where(Message.session_id == uuid.UUID(sid)))
+    assert res.scalars().all() == []
 
 
 async def test_rollback_with_inflight_run_returns_409(app_and_state: Any, db_session: Any) -> None:

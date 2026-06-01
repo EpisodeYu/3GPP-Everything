@@ -32,6 +32,14 @@ class ForkResponse(BaseModel):
 
 
 class RollbackBody(BaseModel):
+    """`POST /sessions/{sid}/rollback` body。
+
+    `last_n` = **轮数**（"一轮" = 一个 user message + 它之后该会话的所有
+    message）。语义在 2026-06-01 与 UI 文案对齐；旧实现按 "条数" 删，且 PG
+    同事务下 user/assistant 同 created_at 时排序不稳定，导致只删 user 留 assistant。
+    详见 `app.api.v1.checkpoint.rollback_session` docstring。
+    """
+
     last_n: int = Field(ge=1, le=500)
 
 

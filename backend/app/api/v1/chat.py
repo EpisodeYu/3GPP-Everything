@@ -29,6 +29,7 @@ import json
 import logging
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, status
@@ -268,6 +269,15 @@ async def send_message(
     mode_eff = "qa"
 
     # 2. 落 user message + assistant stub
+    #
+    # **显式 created_at**（2026-06-01 修复 rollback bug）：
+    # PostgreSQL `now()` / `transaction_timestamp()` 在同一事务内多次调用返回
+    # **同一个时间戳**（事务开始时间），导致同事务里 INSERT 的 user_msg 与
+    # assistant_msg 的 `created_at` 完全相同 → `order_by(created_at desc)` 在
+    # rollback 时排序不稳定（PG 内部回退到 ctid，UUID v4 主键也无法兜底）。
+    # 用户表现：删最后 1 条时偶尔删掉 user 留下 assistant。
+    # 这里 user 比 assistant 早 10 微秒，让所有 `order_by(created_at)` 都稳定。
+    now = datetime.now(UTC)
     user_msg = Message(
         session_id=sid,
         role="user",
@@ -275,6 +285,7 @@ async def send_message(
         mode=mode_eff,
         explicit_tools=body.explicit_tools,
         status="ok",
+        created_at=now,
     )
     db.add(user_msg)
     assistant_msg = Message(
@@ -285,6 +296,7 @@ async def send_message(
         explicit_tools=body.explicit_tools,
         status="ok",
         langgraph_run_id=run_id,
+        created_at=now + timedelta(microseconds=10),
     )
     db.add(assistant_msg)
     await db.flush()

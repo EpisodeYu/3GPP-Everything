@@ -193,7 +193,11 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           .rollback(n);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已删除 ${resp.deletedMessages} 条消息')),
+        SnackBar(
+          content: Text(
+            '已删除最后 $n 轮（共 ${resp.deletedMessages} 条消息）',
+          ),
+        ),
       );
     } on Object catch (e) {
       if (!mounted) return;
@@ -805,13 +809,15 @@ class _RollbackDialogState extends State<_RollbackDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final n = _n.round();
     return AlertDialog(
       title: const Text('删除最后 N 轮消息'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('此操作不可撤销，会同时删除对应的 LangGraph checkpoint。'),
+          const Text('一轮 = 一条提问 + 对应的回答。此操作不可撤销，'
+              '会同时删除对应的 LangGraph checkpoint。'),
           const SizedBox(height: 16),
           Slider(
             key: const Key('rollback_slider'),
@@ -819,11 +825,11 @@ class _RollbackDialogState extends State<_RollbackDialog> {
             max: 10,
             divisions: 9,
             value: _n,
-            label: '${_n.round()}',
+            label: '$n',
             onChanged: (v) => setState(() => _n = v),
           ),
           Text(
-            '将删除 ${_n.round()} 条消息',
+            '将删除最后 $n 轮（约 ${n * 2} 条消息）',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -839,7 +845,7 @@ class _RollbackDialogState extends State<_RollbackDialog> {
           style: FilledButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
-          onPressed: () => Navigator.pop(context, _n.round()),
+          onPressed: () => Navigator.pop(context, n),
           child: const Text('删除'),
         ),
       ],

@@ -292,7 +292,7 @@ i18n keys：`reasoningCollapsedTitle` / `reasoningExpand` / `reasoningCollapse` 
 - **用户消息长按**：复制 / "从这里重问"（fork）
   - "从这里重问"调 `POST /sessions/{sid}/fork` body `{checkpoint_id, new_user_message}`，后端返回新 `session_id'`，前端跳转到新会话；原会话标记 `archived_branch`，从会话列表的 "主线" 分组移到 "分叉历史" 分组（折叠默认收起）
 - **assistant 消息长按**：复制全文 / 复制 markdown / thumb up/down / 添加到收藏
-- **会话回滚**：会话设置菜单里 "删除最后 N 轮"（slider 选 1-10），调 `POST /sessions/{sid}/rollback`；UI 提示 "不可撤销"二次确认
+- **会话回滚**：会话设置菜单里 "删除最后 N 轮"（slider 选 1-10），调 `POST /sessions/{sid}/rollback`；UI 提示 "不可撤销"二次确认。"一轮" = 一条 user message + 它之后的所有消息（典型一对：user+assistant）；2026-06-01 修复 PG `now()` 同事务排序不稳定导致 "只删用户提问留下答案" 的 bug，详见 backend `rollback_session` docstring
 - **archived_branch 会话**：仅可读，不显示 composer，顶部 banner "这是从主线 fork 出的历史分支" + "回到主线" 按钮
 
 ## 6. 章节阅读器

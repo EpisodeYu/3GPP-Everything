@@ -268,6 +268,25 @@ async def rollback_session(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> RollbackResponse:
+    """删除最后 N **轮**对话（message + checkpoint）。
+
+    "一轮" = 1 条 user message + 它之后该会话内插入的所有 message（典型情形是
+    user + assistant 一对，但中间也可能有节点级 stub / paused 残留 assistant）。
+
+    实现（2026-06-01 fix#bug rollback）：
+    1. 按 `(created_at desc, id desc)` 取最近 N 个 role='user' 消息；
+    2. 第 N 个 user 的 `created_at` 作为 cutoff；
+    3. 删除该 session 所有 `created_at >= cutoff` 的 message
+       （cascade 到 message_citations）。
+
+    旧实现按 "条数" 删（`order_by(created_at desc).limit(n)`），但 PG 同事务下
+    user/assistant 的 `created_at = now()` 完全相同 → 排序不稳定，导致 last_n=1
+    经常只删 user 把 assistant 留下。chat.py 入口侧已显式给 user 比 assistant
+    早 10 微秒，再加上这里改成 "user 锚点 + cutoff" 双重保险。
+
+    LangGraph 侧 `last_n` 仍为 checkpoint 数（一轮可能产生多个 checkpoint，但前
+    端 UX 只关心 PG 视图，LangGraph rollback best-effort 即可）。
+    """
     session = await _load_owned_session(db, sid, user.id)
     if session.status == "archived_branch":
         raise ConflictError("session_archived", code="session_archived")
@@ -277,25 +296,37 @@ async def rollback_session(
             code="rollback_conflicts_with_active_run",
         )
 
-    # PG 侧：删最后 N 条 message（message_citations 通过 FK ondelete cascade
-    # 自动清；这里显式 delete 以保兼容性）
+    # 1. 取最近 N 个 user message 的 (id, created_at)
     res = await db.execute(
-        select(Message.id)
-        .where(Message.session_id == sid)
-        .order_by(desc(Message.created_at))
+        select(Message.id, Message.created_at)
+        .where(and_(Message.session_id == sid, Message.role == "user"))
+        .order_by(desc(Message.created_at), desc(Message.id))
         .limit(body.last_n)
     )
-    ids_to_delete = [row[0] for row in res.all()]
-    deleted = 0
-    if ids_to_delete:
-        await db.execute(
-            delete(MessageCitation).where(MessageCitation.message_id.in_(ids_to_delete))
-        )
-        d = await db.execute(delete(Message).where(Message.id.in_(ids_to_delete)))
-        # AsyncResult 没有 type stub 暴露 rowcount；fallback 到 ids 长度
-        deleted = getattr(d, "rowcount", None) or len(ids_to_delete)
+    user_rows = res.all()
 
-    # LangGraph 侧：rollback last_n 个 checkpoint
+    deleted = 0
+    if user_rows:
+        cutoff_ts = user_rows[-1][1]
+        # 2. 列出 cutoff 之后（含）的所有 message id
+        ids_res = await db.execute(
+            select(Message.id).where(
+                and_(
+                    Message.session_id == sid,
+                    Message.created_at >= cutoff_ts,
+                )
+            )
+        )
+        ids_to_delete = [row[0] for row in ids_res.all()]
+        if ids_to_delete:
+            await db.execute(
+                delete(MessageCitation).where(MessageCitation.message_id.in_(ids_to_delete))
+            )
+            d = await db.execute(delete(Message).where(Message.id.in_(ids_to_delete)))
+            # AsyncResult 没有 type stub 暴露 rowcount；fallback 到 ids 长度
+            deleted = getattr(d, "rowcount", None) or len(ids_to_delete)
+
+    # LangGraph 侧：rollback last_n 个 checkpoint（best-effort）
     graph = _get_agent_graph(request)
     head = None
     try:
