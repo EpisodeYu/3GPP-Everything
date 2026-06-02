@@ -493,3 +493,61 @@ async def test_feedback_requires_admin(app_and_state: Any) -> None:
         user_token = await _make_user(client, admin_token, "u1")
         r = await client.get("/api/v1/admin/feedback", headers=_h(user_token))
         assert r.status_code == 403
+
+
+# === /admin/sessions/{sid} ===
+
+
+async def test_admin_can_read_any_users_session(app_and_state: Any, db_session: Any) -> None:
+    """admin 读普通用户 u1 的整个会话：返回 title/owner + 全部消息（含引用）。"""
+    app, _, _ = app_and_state
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        admin_token = await _admin_token(client)
+        user_token = await _make_user(client, admin_token, "u1")
+
+        r = await client.post(
+            "/api/v1/sessions", json={"title": "u1 的会话"}, headers=_h(user_token)
+        )
+        sid = r.json()["id"]
+        db_session.add_all(
+            [
+                Message(
+                    session_id=uuid.UUID(sid), role="user", content="什么是 PDCP", status="ok"
+                ),
+                Message(
+                    session_id=uuid.UUID(sid), role="assistant", content="PDCP 是…", status="ok"
+                ),
+            ]
+        )
+        await db_session.commit()
+
+        r = await client.get(f"/api/v1/admin/sessions/{sid}", headers=_h(admin_token))
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["title"] == "u1 的会话"
+        assert body["username"] == "u1"
+        assert len(body["messages"]) == 2
+        roles = {m["role"] for m in body["messages"]}
+        assert roles == {"user", "assistant"}
+        user_msg = next(m for m in body["messages"] if m["role"] == "user")
+        assert user_msg["content"] == "什么是 PDCP"
+
+
+async def test_admin_session_detail_404_when_missing(app_and_state: Any) -> None:
+    app, _, _ = app_and_state
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _admin_token(client)
+        r = await client.get(f"/api/v1/admin/sessions/{uuid.uuid4()}", headers=_h(token))
+        assert r.status_code == 404
+
+
+async def test_admin_session_detail_requires_admin(app_and_state: Any) -> None:
+    app, _, _ = app_and_state
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        admin_token = await _admin_token(client)
+        user_token = await _make_user(client, admin_token, "u1")
+        r = await client.get(f"/api/v1/admin/sessions/{uuid.uuid4()}", headers=_h(user_token))
+        assert r.status_code == 403

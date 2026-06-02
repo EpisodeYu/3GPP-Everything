@@ -25,7 +25,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, status
-from sqlalchemy import desc, func, select
+from sqlalchemy import asc, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import write_audit
@@ -46,6 +46,7 @@ from app.db.models import Session as DBSession
 from app.schemas.admin import (
     AdminFeedbackItem,
     AdminFeedbackListResponse,
+    AdminSessionDetailOut,
     ApiUsage7dOut,
     FeedbackStatsOut,
     IndexRebuildBody,
@@ -54,6 +55,7 @@ from app.schemas.admin import (
     TaskOut,
 )
 from app.services.message_preview import make_preview
+from app.services.message_serialize import citations_for, message_to_out
 from app.services.task_runner import TaskRunner, default_task_runner, schedule_task
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -177,6 +179,48 @@ async def list_feedback(
         for fb, content, session_id, username in rows
     ]
     return AdminFeedbackListResponse(stats=stats, items=items, total=total)
+
+
+@router.get(
+    "/sessions/{sid}",
+    response_model=AdminSessionDetailOut,
+    summary="Admin: 任意用户会话的完整消息（含引用）— 反馈溯源用",
+)
+async def get_session_detail(
+    sid: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+) -> AdminSessionDetailOut:
+    """不校验 ownership（admin 可看任意用户会话）；按时间正序返回全部消息 + 引用。"""
+    row = (
+        await db.execute(
+            select(DBSession, User.username)
+            .join(User, User.id == DBSession.user_id)
+            .where(DBSession.id == sid)
+        )
+    ).first()
+    if row is None:
+        raise NotFoundError("session_not_found", code="session_not_found")
+    sess, username = row
+
+    msgs = list(
+        (
+            await db.execute(
+                select(Message).where(Message.session_id == sid).order_by(asc(Message.created_at))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    cits = await citations_for(db, [m.id for m in msgs])
+    items = [message_to_out(m, cits.get(m.id, [])) for m in msgs]
+    return AdminSessionDetailOut(
+        id=sess.id,
+        title=sess.title,
+        username=username,
+        created_at=sess.created_at,
+        messages=items,
+    )
 
 
 # === tasks ===

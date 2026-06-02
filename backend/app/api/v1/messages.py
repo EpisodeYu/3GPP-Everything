@@ -17,9 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user
 from app.core.errors import NotFoundError
 from app.db.base import get_db
-from app.db.models import Message, MessageCitation, User
+from app.db.models import Message, User
 from app.db.models import Session as DBSession
-from app.schemas.messages import MessageCitationOut, MessageListResponse, MessageOut
+from app.schemas.messages import MessageListResponse, MessageOut
+from app.services.message_serialize import citations_for, message_to_out
 
 router = APIRouter(prefix="/sessions", tags=["messages"])
 
@@ -30,49 +31,6 @@ async def _assert_owned(db: AsyncSession, sid: uuid.UUID, user_id: uuid.UUID) ->
     )
     if res.scalar_one_or_none() is None:
         raise NotFoundError("session_not_found", code="session_not_found")
-
-
-async def _citations_for(
-    db: AsyncSession, message_ids: list[uuid.UUID]
-) -> dict[uuid.UUID, list[MessageCitationOut]]:
-    if not message_ids:
-        return {}
-    res = await db.execute(
-        select(MessageCitation)
-        .where(MessageCitation.message_id.in_(message_ids))
-        .order_by(MessageCitation.message_id, asc(MessageCitation.rank))
-    )
-    out: dict[uuid.UUID, list[MessageCitationOut]] = {}
-    for c in res.scalars().all():
-        out.setdefault(c.message_id, []).append(
-            MessageCitationOut(
-                chunk_id=c.chunk_id,
-                rank=c.rank,
-                spec_id=c.spec_id,
-                section_path=c.section_path,
-                rerank_score=c.rerank_score,
-                char_offset_start=c.char_offset_start,
-                char_offset_end=c.char_offset_end,
-            )
-        )
-    return out
-
-
-def _message_to_out(m: Message, citations: list[MessageCitationOut]) -> MessageOut:
-    return MessageOut(
-        id=m.id,
-        session_id=m.session_id,
-        role=m.role,  # type: ignore[arg-type]
-        content=m.content,
-        status=m.status,  # type: ignore[arg-type]
-        mode=m.mode,
-        explicit_tools=list(m.explicit_tools or []),
-        confidence=m.confidence,
-        self_rag_verdict=m.self_rag_verdict,
-        langgraph_run_id=m.langgraph_run_id,
-        created_at=m.created_at,
-        citations=citations,
-    )
 
 
 @router.get("/{sid}/messages", response_model=MessageListResponse)
@@ -97,8 +55,8 @@ async def list_messages(
         .offset(offset)
     )
     rows = list(res.scalars().all())
-    cits = await _citations_for(db, [m.id for m in rows])
-    items = [_message_to_out(m, cits.get(m.id, [])) for m in rows]
+    cits = await citations_for(db, [m.id for m in rows])
+    items = [message_to_out(m, cits.get(m.id, [])) for m in rows]
     return MessageListResponse(items=items, total=int(total))
 
 
@@ -114,5 +72,5 @@ async def get_message(
     m = res.scalar_one_or_none()
     if m is None:
         raise NotFoundError("message_not_found", code="message_not_found")
-    cits = await _citations_for(db, [m.id])
-    return _message_to_out(m, cits.get(m.id, []))
+    cits = await citations_for(db, [m.id])
+    return message_to_out(m, cits.get(m.id, []))

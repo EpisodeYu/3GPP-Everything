@@ -16,6 +16,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.messages import MessageOut
+
 TaskKind = Literal["crawl", "index_rebuild"]
 TaskStatus = Literal["queued", "running", "done", "failed"]
 
@@ -83,6 +85,16 @@ class AdminFeedbackListResponse(BaseModel):
     stats: FeedbackStatsOut
     items: list[AdminFeedbackItem]
     total: int
+
+
+class AdminSessionDetailOut(BaseModel):
+    """admin 查看任意用户会话的完整消息（含引用）— 用于反馈溯源/针对性优化。"""
+
+    id: uuid.UUID
+    title: str
+    username: str | None  # 会话归属者
+    created_at: datetime
+    messages: list[MessageOut]
 
 
 class StatsOut(BaseModel):
