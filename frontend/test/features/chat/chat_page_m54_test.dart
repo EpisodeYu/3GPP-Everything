@@ -384,7 +384,7 @@ void main() {
       expect(find.byKey(const ValueKey('msg-edit-u')), findsNothing);
     });
 
-    testWidgets('点编辑按钮 → composer 预填 + 编辑 banner 出现 + 取消恢复',
+    testWidgets('点编辑按钮 → 气泡 inline 变 TextField 预填原文 + 取消恢复',
         (tester) async {
       final messages = FakeMessagesApi(history: [
         _msg(id: 'u', role: 'user', content: '老问题'),
@@ -400,19 +400,30 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('msg-edit-u')));
       await tester.pumpAndSettle();
 
-      // editing banner 出现
-      expect(find.byKey(const Key('chat_editing_banner')), findsOneWidget);
-      // composer 预填了原内容
-      final field = tester.widget<TextField>(find.byKey(const Key('composer_input')));
+      // inline 编辑气泡出现 + TextField 预填了原文
+      expect(find.byKey(const ValueKey('editable-user-bubble-u')),
+          findsOneWidget);
+      final field = tester
+          .widget<TextField>(find.byKey(const Key('editable-input-u')));
       expect(field.controller!.text, '老问题');
 
-      // 点取消 → banner 消失
-      await tester.tap(find.byKey(const Key('chat_editing_cancel')));
+      // 普通 user 气泡（msg-u）此时被编辑态接管 → 不再渲染
+      expect(find.byKey(const ValueKey('msg-u')), findsNothing);
+
+      // 底部 composer 仍是空白单一职责态（不再被编辑预填）
+      final composerField = tester
+          .widget<TextField>(find.byKey(const Key('composer_input')));
+      expect(composerField.controller!.text, isEmpty);
+
+      // 点气泡内取消图标 → 回到普通气泡
+      await tester.tap(find.byKey(const Key('editable-cancel-u')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('chat_editing_banner')), findsNothing);
+      expect(find.byKey(const ValueKey('editable-user-bubble-u')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('msg-u')), findsOneWidget);
     });
 
-    testWidgets('编辑模式下点发送 → 串行调 rollback(lastN=1) + sendMessage(新内容)',
+    testWidgets('点气泡内发送图标 → 串行调 rollback(lastN=1) + sendMessage(新内容)',
         (tester) async {
       final messages = FakeMessagesApi(history: [
         _msg(id: 'u', role: 'user', content: '老问题'),
@@ -432,18 +443,18 @@ void main() {
         checkpointApi: checkpoint,
       );
 
-      // 进编辑模式
+      // 进 inline 编辑态
       await tester.tap(find.byKey(const ValueKey('msg-edit-u')));
       await tester.pumpAndSettle();
 
-      // 改内容
+      // 在气泡 TextField 内改内容
       await tester.enterText(
-        find.byKey(const Key('composer_input')),
+        find.byKey(const Key('editable-input-u')),
         '修改后的问题',
       );
       // rollback 之后 PG 拉到的 history 已不含老一对
       messages.history = [];
-      await tester.tap(find.byKey(const Key('composer_send')));
+      await tester.tap(find.byKey(const Key('editable-send-u')));
       // editLastTurn 内部 await rollback；让 microtask 队列推进
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 10));
@@ -452,8 +463,9 @@ void main() {
       expect(h.checkpoint.rollbackCalls, 1);
       expect(h.checkpoint.lastRollbackLastN, 1);
 
-      // 现在应该已进入 streaming：editing banner 已撤、模式按钮换成 暂停/取消
-      expect(find.byKey(const Key('chat_editing_banner')), findsNothing);
+      // 现在应该已退出编辑态：气泡换回普通态（streaming 中由 streaming bubble 接力）
+      expect(find.byKey(const ValueKey('editable-user-bubble-u')),
+          findsNothing);
 
       // 把 SSE 流走完，避免 tester 退出时悬挂
       streamCtrl.add(const RunStartEvent(

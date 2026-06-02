@@ -122,10 +122,10 @@ class _ChatViewState extends ConsumerState<_ChatView> {
   /// 在 initState 捕获 long-lived notifier：dispose 里 `ref` 已失效不能再 read。
   late final SessionsController _sessions;
 
-  /// 修改最后一次提问（2026-06-01）：非 null → composer 进入编辑模式，
-  /// 输入框预填这条 user message 原文，顶部显示 banner + 取消按钮。
-  /// 发送或取消后回到 null。
-  String? _editingInitialText;
+  /// 修改最后一次提问（2026-06-02 改 inline 编辑）：非 null → 这条 user 气泡
+  /// 进入 inline 编辑态（气泡变 TextField + 右下角发送/取消图标）。底部 composer
+  /// 不再切到编辑模式，保持单一职责。发送或取消后回到 null。
+  String? _editingMessageId;
 
   @override
   void initState() {
@@ -206,20 +206,21 @@ class _ChatViewState extends ConsumerState<_ChatView> {
     }
   }
 
-  /// 进入「修改最后一次提问」编辑模式：把这条 user message 内容预填到 composer，
-  /// 顶部显示 banner + 取消按钮。发送时走 [_onSendEdited]。
+  /// 进入「修改最后一次提问」编辑态：标记 _editingMessageId，让 _MessagesList
+  /// 把这条 user 气泡渲染成 [_EditableUserBubble]（inline TextField + 右下角发送/
+  /// 取消图标）。底部 composer 不受影响。
   void _onEditLastUserMessage(MessageOut userMsg) {
-    setState(() => _editingInitialText = userMsg.content);
+    setState(() => _editingMessageId = userMsg.id);
   }
 
   void _onCancelEdit() {
-    setState(() => _editingInitialText = null);
+    setState(() => _editingMessageId = null);
   }
 
-  /// 编辑模式下点发送：rollback 最后 1 轮 + 用新内容 send。
+  /// 编辑态气泡内点发送：rollback 最后 1 轮 + 用新内容 send。
   Future<void> _onSendEdited(String text) async {
     final controller = ref.read(chatControllerProvider(_sid).notifier);
-    setState(() => _editingInitialText = null);
+    setState(() => _editingMessageId = null);
     try {
       await controller.editLastTurn(text);
     } on Object catch (e) {
@@ -432,7 +433,12 @@ class _ChatViewState extends ConsumerState<_ChatView> {
         (!isArchived && state != null && !isRunning && !showPaused)
             ? _lastEditableUserMessageId(state)
             : null;
-    final isEditing = _editingInitialText != null;
+    // 编辑态气泡只能命中"当前可编辑的最后一条"——streaming/archived/paused 进来
+    // 时 editableLastUserId 为 null，下面 ?: 自动失效。
+    final editingMessageId = (_editingMessageId != null &&
+            _editingMessageId == lastEditableUserId)
+        ? _editingMessageId
+        : null;
 
     return Column(
       children: [
@@ -450,10 +456,13 @@ class _ChatViewState extends ConsumerState<_ChatView> {
               state: s,
               archived: isArchived,
               editableLastUserMessageId: lastEditableUserId,
+              editingMessageId: editingMessageId,
               onAssistantLongPress: _onAssistantLongPress,
               onUserLongPress: _onUserLongPress,
               onEditLastUserMessage: _onEditLastUserMessage,
               onForkFromUserMessage: _onForkFromUserMessage,
+              onSendEdited: _onSendEdited,
+              onCancelEdit: _onCancelEdit,
             ),
           ),
         ),
@@ -464,22 +473,16 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           _PausedBanner(onResume: isArchived ? null : _onResume),
         if (state?.run.status == RunStatus.error)
           _ErrorBanner(message: state!.run.errorMessage ?? 'unknown'),
-        if (isEditing) _EditingBanner(onCancel: _onCancelEdit),
         const Divider(height: 1),
         if (isArchived)
           _ArchivedBanner(session: session)
         else
           Composer(
-            // key 绑 isEditing：进出编辑模式时重建 Composer，让 initialText 生效
-            key: ValueKey('composer-${isEditing ? 'edit' : 'send'}'),
-            initialText: _editingInitialText,
-            onSend: isEditing
-                ? _onSendEdited
-                : (text) {
-                    // 发出首条消息 → 该会话不再是空草稿，离开时不再被丢弃（Req2）。
-                    ref.read(sessionsControllerProvider.notifier).markUsed(sid);
-                    ref.read(chatControllerProvider(sid).notifier).send(text);
-                  },
+            onSend: (text) {
+              // 发出首条消息 → 该会话不再是空草稿，离开时不再被丢弃（Req2）。
+              ref.read(sessionsControllerProvider.notifier).markUsed(sid);
+              ref.read(chatControllerProvider(sid).notifier).send(text);
+            },
             onCancel: () =>
                 ref.read(chatControllerProvider(sid).notifier).cancel(),
             onPause: _onPause,
@@ -560,10 +563,13 @@ class _MessagesList extends StatelessWidget {
     required this.state,
     required this.archived,
     required this.editableLastUserMessageId,
+    required this.editingMessageId,
     required this.onAssistantLongPress,
     required this.onUserLongPress,
     required this.onEditLastUserMessage,
     required this.onForkFromUserMessage,
+    required this.onSendEdited,
+    required this.onCancelEdit,
   });
 
   final ScrollController scroll;
@@ -572,12 +578,22 @@ class _MessagesList extends StatelessWidget {
 
   /// 当前可被「修改最后一次提问」按钮覆盖的 user message id（null = 不显示按钮）。
   final String? editableLastUserMessageId;
+
+  /// 当前处于 inline 编辑态的 user message id（非 null → 该气泡用
+  /// [_EditableUserBubble] 渲染，并跳过长按 / 操作按钮叠加）。
+  final String? editingMessageId;
   final Future<void> Function(MessageOut m) onAssistantLongPress;
   final Future<void> Function(MessageOut m) onUserLongPress;
   final void Function(MessageOut m) onEditLastUserMessage;
 
   /// 点 user 气泡上的 fork 图标（与长按菜单"从这里重问"等价）。
   final void Function(MessageOut m) onForkFromUserMessage;
+
+  /// inline 编辑气泡内点发送（新文本，已 trim）。
+  final void Function(String text) onSendEdited;
+
+  /// inline 编辑气泡内点取消。
+  final VoidCallback onCancelEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -599,6 +615,18 @@ class _MessagesList extends StatelessWidget {
             frozenElapsed: snap.elapsed,
           ));
         }
+      }
+      // inline 编辑态：命中这条 user 消息 → 用 _EditableUserBubble 直接接管。
+      // 跳过长按 / 操作按钮叠加，让编辑专心进行。
+      if (m.role == 'user' && m.id == editingMessageId) {
+        items.add(_EditableUserBubble(
+          key: ValueKey('editable-user-bubble-${m.id}'),
+          messageId: m.id,
+          originalText: m.content,
+          onSend: onSendEdited,
+          onCancel: onCancelEdit,
+        ));
+        continue;
       }
       final bubble = MessageBubble(
         key: ValueKey('msg-${m.id}'),
@@ -794,38 +822,148 @@ class _ArchivedBanner extends ConsumerWidget {
   }
 }
 
-/// 修改最后一次提问 · 编辑模式提示条（2026-06-01）。
+/// 修改最后一次提问的 inline 编辑气泡（2026-06-02）。
 ///
-/// composer 上方显示「正在修改最后一次提问」+ 取消按钮；点取消调
-/// [_ChatViewState._onCancelEdit]。
-class _EditingBanner extends StatelessWidget {
-  const _EditingBanner({required this.onCancel});
+/// 视觉沿用 [MessageBubble] user 分支：右对齐 + primaryContainer.withValues(0.4)
+/// 背景 + outline border + borderRadius 14 + maxWidth 720。把原本的纯文本换成
+/// 可编辑 [TextField]，气泡右下角内嵌「取消」「发送」两个图标按钮。
+///
+/// 键盘：Enter 发送；Shift+Enter 换行；Esc 取消。打开时 autofocus + 光标移到末尾。
+/// 发送时回调 [onSend]，气泡侧不自己 clear / pop（父级 [_ChatViewState] 通过
+/// setState `_editingMessageId = null` 切回普通气泡完成关闭）。
+class _EditableUserBubble extends StatefulWidget {
+  const _EditableUserBubble({
+    super.key,
+    required this.messageId,
+    required this.originalText,
+    required this.onSend,
+    required this.onCancel,
+  });
+
+  final String messageId;
+  final String originalText;
+  final void Function(String text) onSend;
   final VoidCallback onCancel;
+
+  @override
+  State<_EditableUserBubble> createState() => _EditableUserBubbleState();
+}
+
+class _EditableUserBubbleState extends State<_EditableUserBubble> {
+  late final TextEditingController _ctrl;
+  late final FocusNode _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.originalText);
+    _focus = FocusNode(onKeyEvent: _onKey);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focus.requestFocus();
+      _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _trySend() {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    widget.onSend(text);
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      widget.onCancel();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        return KeyEventResult.ignored;
+      }
+      _trySend();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      color: theme.colorScheme.secondaryContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Icon(Icons.edit, color: theme.colorScheme.onSecondaryContainer),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '正在修改最后一次提问 · 发送会丢弃原回答并重新生成',
-              key: const Key('chat_editing_banner'),
-              style: TextStyle(color: theme.colorScheme.onSecondaryContainer),
-            ),
+    final canSend = _ctrl.text.trim().isNotEmpty;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+          padding: const EdgeInsets.fromLTRB(14, 10, 8, 6),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+            border: Border.all(color: theme.colorScheme.primary),
+            borderRadius: BorderRadius.circular(14),
           ),
-          TextButton(
-            key: const Key('chat_editing_cancel'),
-            onPressed: onCancel,
-            child: const Text('取消'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                key: Key('editable-input-${widget.messageId}'),
+                controller: _ctrl,
+                focusNode: _focus,
+                minLines: 1,
+                maxLines: 8,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                style: theme.textTheme.bodyMedium,
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    key: Key('editable-cancel-${widget.messageId}'),
+                    onPressed: widget.onCancel,
+                    icon: const Icon(Icons.close, size: 18),
+                    tooltip: '取消',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
+                  IconButton(
+                    key: Key('editable-send-${widget.messageId}'),
+                    onPressed: canSend ? _trySend : null,
+                    icon: const Icon(Icons.send, size: 18),
+                    tooltip: '发送',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    color: theme.colorScheme.primary,
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

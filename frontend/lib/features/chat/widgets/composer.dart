@@ -17,7 +17,6 @@ class Composer extends StatefulWidget {
     this.isPaused = false,
     this.onPause,
     this.onResume,
-    this.initialText,
   });
 
   /// 用户按 Enter / 点 Send 时回调，文本已 trim。
@@ -38,11 +37,6 @@ class Composer extends StatefulWidget {
   /// 点恢复按钮（paused 中）。null → paused 状态下不显示恢复按钮。
   final VoidCallback? onResume;
 
-  /// 预填到输入框的初始文本（编辑最后一次提问时用）。null = 空。
-  /// 仅在首次 mount 时生效；切换到/退出编辑模式应通过外层重建 Composer
-  /// （父级用 ValueKey 切换）。
-  final String? initialText;
-
   @override
   State<Composer> createState() => _ComposerState();
 }
@@ -54,20 +48,12 @@ class _ComposerState extends State<Composer> {
   @override
   void initState() {
     super.initState();
-    _ctrl = TextEditingController(text: widget.initialText ?? '');
+    _ctrl = TextEditingController();
     // onKeyEvent 直接挂在 FocusNode 上，避免外层再包一层 `Focus` widget。
     // 嵌套 Focus + 内层 TextField 的 focusNode 在 Flutter Web 偶发 hidden
     // <textarea> attach/detach 竞态（现象：焦点被抢后再点输入框，光标闪烁但
     // 按键无效）；把按键拦截下沉到本节点，焦点链路单一。
     _focus = FocusNode(onKeyEvent: _onKey);
-    if ((widget.initialText ?? '').isNotEmpty) {
-      // 编辑模式：mount 后聚焦输入框 + 光标到末尾
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _focus.requestFocus();
-        _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
-      });
-    }
   }
 
   @override
