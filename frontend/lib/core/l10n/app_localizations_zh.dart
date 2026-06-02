@@ -152,12 +152,12 @@ class AppLocalizationsZh extends AppLocalizations {
     String complexity,
     String query,
   ) {
-    return '分类:$queryClass ($complexity) · 改写:$query';
+    return 'classify: $queryClass ($complexity) · rewrite: $query';
   }
 
   @override
   String reasoningRewriteDone(String query) {
-    return '改写为: $query';
+    return 'rewrite as: $query';
   }
 
   @override

@@ -55,7 +55,7 @@
   "reasoningExpand": "展开",
   "reasoningCollapse": "收起",
   "reasoningWaiting": "等待开始...",
-  "reasoningClassifyDone": "分类:{queryClass} ({complexity}) · 改写:{query}",
+  "reasoningClassifyDone": "classify: {queryClass} ({complexity}) · rewrite: {query}",
   "@reasoningClassifyDone": {
     "placeholders": {
       "queryClass": { "type": "String" },
@@ -63,7 +63,7 @@
       "query": { "type": "String" }
     }
   },
-  "reasoningRewriteDone": "改写为: {query}",
+  "reasoningRewriteDone": "rewrite as: {query}",
   "@reasoningRewriteDone": {
     "placeholders": { "query": { "type": "String" } }
   },

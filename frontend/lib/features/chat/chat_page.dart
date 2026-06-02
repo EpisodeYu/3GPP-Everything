@@ -71,12 +71,6 @@ class _WelcomePane extends ConsumerWidget {
                 AppLocalizations.of(context).chatEmptyTitle,
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 8),
-              Text(
-                '从左侧选会话，或点下方按钮创建一个空会话。\n创建后可直接发问，agent 会流式回答 + 给引用。',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
               const SizedBox(height: 24),
               const NewSessionButton(buttonKey: Key('welcome_new_session')),
             ],
@@ -629,41 +623,43 @@ class _MessagesList extends StatelessWidget {
         },
         child: bubble,
       );
-      // user message：气泡下方右对齐渲染操作按钮行
+      // user message：气泡右下角内嵌两个图标按钮（无文字、靠右下，紧贴气泡）。
       // - 「分叉」按钮：所有 user message 都有（与长按菜单"从这里重问"等价）
       // - 「修改并重新提问」按钮：仅最后一条 user 且 last turn 可编辑时显示
       if (m.role == 'user') {
         final isLastEditable = m.id == editableLastUserMessageId;
-        child = Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
+        child = Stack(
           children: [
             child,
-            Padding(
-              padding: const EdgeInsets.only(right: 16, bottom: 4),
+            Positioned(
+              right: 18,
+              bottom: 6,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isLastEditable)
-                    TextButton.icon(
+                    IconButton(
                       key: ValueKey('msg-edit-${m.id}'),
                       onPressed: () => onEditLastUserMessage(m),
                       icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: const Text('修改并重新提问'),
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      tooltip: '修改并重新提问',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
                       ),
                     ),
-                  if (isLastEditable) const SizedBox(width: 4),
-                  TextButton.icon(
+                  IconButton(
                     key: ValueKey('msg-fork-${m.id}'),
                     onPressed: () => onForkFromUserMessage(m),
                     icon: const Icon(Icons.fork_right, size: 16),
-                    label: const Text('分叉'),
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tooltip: '分叉',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 28,
+                      minHeight: 28,
                     ),
                   ),
                 ],
