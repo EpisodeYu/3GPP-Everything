@@ -48,6 +48,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sidebarOpenAdmin => '管理后台';
 
   @override
+  String get sidebarOpenFavorites => '我的收藏';
+
+  @override
+  String get sidebarOpenNotes => '我的笔记';
+
+  @override
   String get sidebarLogout => '退出登录';
 
   @override

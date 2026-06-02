@@ -12,21 +12,27 @@ class FakeAdminApi implements AdminApi {
     StatsOut? stats,
     List<TaskOut> tasks = const [],
     TaskOut? rebuildResult,
+    AdminFeedbackListResponse? feedback,
   })  : _stats = stats ?? _emptyStats(),
         _tasks = List.of(tasks),
-        _rebuildResult = rebuildResult ?? _emptyTask();
+        _rebuildResult = rebuildResult ?? _emptyTask(),
+        _feedback = feedback ?? _emptyFeedback();
 
   StatsOut _stats;
   final List<TaskOut> _tasks;
   TaskOut _rebuildResult;
+  AdminFeedbackListResponse _feedback;
 
   Object? statsErr;
   Object? tasksErr;
   Object? rebuildErr;
+  Object? feedbackErr;
 
   String? lastTaskFilter;
+  int? lastFeedbackThumb;
   int listTasksCalls = 0;
   int getStatsCalls = 0;
+  int getFeedbackCalls = 0;
 
   String? lastRebuildSpec;
   bool? lastRebuildForce;
@@ -39,6 +45,7 @@ class FakeAdminApi implements AdminApi {
   }
 
   void setRebuildResult(TaskOut t) => _rebuildResult = t;
+  void setFeedback(AdminFeedbackListResponse f) => _feedback = f;
 
   @override
   Future<StatsOut> getStats() async {
@@ -81,7 +88,60 @@ class FakeAdminApi implements AdminApi {
     if (rebuildErr != null) throw rebuildErr!;
     return _rebuildResult;
   }
+
+  @override
+  Future<AdminFeedbackListResponse> getFeedback({
+    int? thumb,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    getFeedbackCalls += 1;
+    lastFeedbackThumb = thumb;
+    if (feedbackErr != null) throw feedbackErr!;
+    return _feedback;
+  }
 }
+
+AdminFeedbackListResponse _emptyFeedback() => const AdminFeedbackListResponse(
+      stats: FeedbackStatsOut(up: 0, down: 0, total: 0),
+      items: [],
+      total: 0,
+    );
+
+AdminFeedbackItem buildFeedbackItem({
+  required String id,
+  int thumb = 1,
+  String? reason,
+  String? username = 'alice',
+  String? messagePreview = '示例消息预览',
+  String? sessionId = 's-1',
+  String messageId = 'm-1',
+}) =>
+    AdminFeedbackItem(
+      id: id,
+      messageId: messageId,
+      thumb: thumb,
+      createdAt: '2026-05-25T10:00:00Z',
+      reason: reason,
+      username: username,
+      messagePreview: messagePreview,
+      sessionId: sessionId,
+    );
+
+AdminFeedbackListResponse buildFeedback({
+  int up = 3,
+  int down = 1,
+  List<AdminFeedbackItem>? items,
+}) =>
+    AdminFeedbackListResponse(
+      stats: FeedbackStatsOut(up: up, down: down, total: up + down),
+      items: items ??
+          [
+            buildFeedbackItem(id: 'fb-1', thumb: 1),
+            buildFeedbackItem(id: 'fb-2', thumb: -1, reason: '答非所问'),
+          ],
+      total: (items ?? const []).length,
+    );
 
 StatsOut _emptyStats() => const StatsOut(
       documents: 0,

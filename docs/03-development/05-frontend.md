@@ -326,10 +326,19 @@ i18n keys：`reasoningCollapsedTitle` / `reasoningExpand` / `reasoningCollapse` 
   - 已索引 / 总数
   - 总 chunk 数（按 provider 分）
   - 今日 / 本月 API 用量（PG `api_usage` 聚合）
+- **反馈**（后补，第 5 个 tab）：`GET /admin/feedback` —— 顶部点赞/点踩/合计计数 + thumb 过滤（全部/👍/👎）+ 明细列表（消息预览 + reason + 反馈者 + 时间）。管理员只读，不跳转他人会话
 - **操作**：
   - "拉取新文档"（弹框选 release/series）
   - "重建索引"（弹框选 spec_id）
   - "跳 Langfuse 查看 trace"（外链 deep link）
+
+## 7bis. 我的收藏 / 我的笔记（后补）
+
+侧栏「我的收藏」「我的笔记」入口（全体登录用户可见），与 reader 平级的独立页（`/favorites`、`/notes`，`push` 进入、返回回到来源页）：
+
+- **收藏页**：列出收藏，message 类型显示后端 enrich 的内容预览；点条目 → `/sessions/{sid}?msg={mid}` 跳回原消息；右侧删除
+- **笔记页**：列出笔记内容 + 关联消息预览；点跳回原消息；编辑（弹框 PATCH）/ 删除
+- **跳回原消息**：`/sessions/:sid?msg=<id>` → `ChatPage.highlightMessageId` → 历史加载后 `Scrollable.ensureVisible` 滚到该气泡 + 复用 reader 的 `HighlightOverlay` 高亮淡出；期间抑制自动滚到底
 
 ## 8. SSE 客户端
 

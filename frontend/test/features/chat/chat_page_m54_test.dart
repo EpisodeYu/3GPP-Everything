@@ -12,6 +12,7 @@ import 'package:tgpp/data/api/messages_api.dart';
 import 'package:tgpp/data/api/notes_api.dart';
 import 'package:tgpp/data/api/sessions_api.dart';
 import 'package:tgpp/features/chat/chat_page.dart';
+import 'package:tgpp/features/reader/widgets/highlight_overlay.dart';
 
 import '../../support/fake_auth_controller.dart';
 import '../../support/fake_checkpoint_api.dart';
@@ -44,6 +45,7 @@ Future<_Pumped> _pump(
   required List<SessionOut> initial,
   FakeMessagesApi? messagesApi,
   FakeCheckpointApi? checkpointApi,
+  String? highlightMessageId,
 }) async {
   // 默认 600 太矮：6 个长按菜单 ListTile + bottomSheet drag handle 占 ~620px。
   // 升到 1000 让 menu 全列内一屏显示。
@@ -70,7 +72,12 @@ Future<_Pumped> _pump(
         feedbackApiProvider.overrideWithValue(feedback),
       ],
       child: localizedMaterialApp(
-        home: Scaffold(body: ChatPage(sessionId: sessionId)),
+        home: Scaffold(
+          body: ChatPage(
+            sessionId: sessionId,
+            highlightMessageId: highlightMessageId,
+          ),
+        ),
       ),
     ),
   );
@@ -701,6 +708,46 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('assistant_menu_copy')), findsNothing);
+    });
+  });
+
+  group('ChatPage highlightMessageId（跳回原消息）', () {
+    testWidgets('目标消息被 HighlightOverlay 包裹', (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'm-1', role: 'user', content: '问题'),
+        _msg(id: 'm-2', role: 'assistant', content: '这是被收藏的答案'),
+      ]);
+      await _pump(
+        tester,
+        sessionId: 'sid-active',
+        initial: [buildSession(id: 'sid-active', title: 'a')],
+        messagesApi: messages,
+        highlightMessageId: 'm-2',
+      );
+
+      expect(find.byType(HighlightOverlay), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(HighlightOverlay),
+          matching: find.byKey(const ValueKey('msg-m-2')),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('无 highlightMessageId → 不包裹高亮', (tester) async {
+      final messages = FakeMessagesApi(history: [
+        _msg(id: 'm-1', role: 'user', content: '问题'),
+        _msg(id: 'm-2', role: 'assistant', content: '答案'),
+      ]);
+      await _pump(
+        tester,
+        sessionId: 'sid-active',
+        initial: [buildSession(id: 'sid-active', title: 'a')],
+        messagesApi: messages,
+      );
+
+      expect(find.byType(HighlightOverlay), findsNothing);
     });
   });
 }

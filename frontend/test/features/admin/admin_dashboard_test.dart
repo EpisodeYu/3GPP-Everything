@@ -66,14 +66,56 @@ Future<void> _pumpDashboard(
 
 void main() {
   group('AdminDashboard', () {
-    testWidgets('admin 看到 4 个 Tab', (tester) async {
+    testWidgets('admin 看到 5 个 Tab', (tester) async {
       await _pumpDashboard(tester);
 
       expect(find.byKey(const Key('admin_tab_bar')), findsOneWidget);
       expect(find.byKey(const Key('admin_tab_docs')), findsOneWidget);
       expect(find.byKey(const Key('admin_tab_tasks')), findsOneWidget);
       expect(find.byKey(const Key('admin_tab_usage')), findsOneWidget);
+      expect(find.byKey(const Key('admin_tab_feedback')), findsOneWidget);
       expect(find.byKey(const Key('admin_tab_tools')), findsOneWidget);
+    });
+
+    testWidgets('反馈 Tab：渲染计数 + 列表 + thumb 过滤', (tester) async {
+      final admin = FakeAdminApi(
+        feedback: buildFeedback(up: 3, down: 1, items: [
+          buildFeedbackItem(id: 'fb-1', thumb: 1, messagePreview: '好答案'),
+          buildFeedbackItem(
+            id: 'fb-2',
+            thumb: -1,
+            reason: '答非所问',
+            messagePreview: '坏答案',
+          ),
+        ]),
+      );
+      await _pumpDashboard(tester, adminApi: admin);
+
+      await tester.tap(find.byKey(const Key('admin_tab_feedback')));
+      await tester.pumpAndSettle();
+
+      expect(admin.getFeedbackCalls, greaterThanOrEqualTo(1));
+      expect(find.byKey(const Key('admin_feedback_up')), findsOneWidget);
+      expect(find.byKey(const Key('admin_feedback_down')), findsOneWidget);
+      expect(find.byKey(const Key('admin_feedback_item_fb-1')), findsOneWidget);
+      expect(find.byKey(const Key('admin_feedback_item_fb-2')), findsOneWidget);
+      expect(find.textContaining('答非所问'), findsOneWidget);
+
+      // 点"点踩"过滤 → 以 thumb=-1 重新拉取
+      await tester.tap(find.byKey(const Key('admin_feedback_filter_down')));
+      await tester.pumpAndSettle();
+      expect(admin.lastFeedbackThumb, -1);
+    });
+
+    testWidgets('反馈 Tab：API 错误 → 显示重试', (tester) async {
+      final admin = FakeAdminApi()..feedbackErr = StateError('fb down');
+      await _pumpDashboard(tester, adminApi: admin);
+
+      await tester.tap(find.byKey(const Key('admin_tab_feedback')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('admin_feedback_error')), findsOneWidget);
+      expect(find.byKey(const Key('admin_feedback_retry')), findsOneWidget);
     });
 
     testWidgets('非 admin 用户兜底显示 admin_forbidden', (tester) async {

@@ -10,6 +10,7 @@ import '../../data/api/messages_api.dart';
 import '../../data/api/notes_api.dart';
 import '../../data/api/sessions_api.dart';
 import '../../domain/session/sessions_controller.dart';
+import '../reader/widgets/highlight_overlay.dart';
 import '../shell/new_session_button.dart';
 import 'chat_controller.dart';
 import 'widgets/composer.dart';
@@ -21,9 +22,12 @@ import 'widgets/reasoning_panel.dart';
 /// - 无 sessionId（`/chat`）：欢迎/引导页
 /// - 有 sessionId（`/sessions/:sid`）：找到会话 → ChatView；找不到 → 提示返回
 class ChatPage extends ConsumerWidget {
-  const ChatPage({super.key, this.sessionId});
+  const ChatPage({super.key, this.sessionId, this.highlightMessageId});
 
   final String? sessionId;
+
+  /// 来自路由 `?msg=<id>`（收藏/笔记"跳回原消息"）：加载后滚到该消息并高亮淡出。
+  final String? highlightMessageId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,7 +43,11 @@ class ChatPage extends ConsumerWidget {
         }
         // key 绑 session.id：切换会话时让旧 _ChatViewState 析构（dispose），
         // 从而触发"离开空草稿会话即丢弃"（Req2）。
-        return _ChatView(key: ValueKey('chatview-${s.id}'), session: s);
+        return _ChatView(
+          key: ValueKey('chatview-${s.id}'),
+          session: s,
+          highlightMessageId: highlightMessageId,
+        );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('会话加载失败：$e')),
@@ -109,8 +117,11 @@ class _MissingSessionPane extends StatelessWidget {
 }
 
 class _ChatView extends ConsumerStatefulWidget {
-  const _ChatView({super.key, required this.session});
+  const _ChatView({super.key, required this.session, this.highlightMessageId});
   final SessionOut session;
+
+  /// "跳回原消息"目标 message id（null = 普通进入，滚到底）。
+  final String? highlightMessageId;
 
   @override
   ConsumerState<_ChatView> createState() => _ChatViewState();
@@ -118,6 +129,14 @@ class _ChatView extends ConsumerStatefulWidget {
 
 class _ChatViewState extends ConsumerState<_ChatView> {
   final ScrollController _scroll = ScrollController();
+
+  /// "跳回原消息"锚点：挂在目标气泡上，加载后用 ensureVisible 滚到可见 + 高亮。
+  final GlobalKey _highlightAnchorKey = GlobalKey();
+  bool _highlightTriggered = false;
+
+  /// 还想滚到高亮消息（有目标且尚未触发）→ 期间抑制自动滚到底，避免互相打架。
+  bool get _wantsHighlight =>
+      widget.highlightMessageId != null && !_highlightTriggered;
 
   /// 在 initState 捕获 long-lived notifier：dispose 里 `ref` 已失效不能再 read。
   late final SessionsController _sessions;
@@ -144,6 +163,8 @@ class _ChatViewState extends ConsumerState<_ChatView> {
   }
 
   void _scrollToBottom() {
+    // 有待处理的"跳回原消息"高亮时不要滚到底，否则会盖掉锚点滚动。
+    if (_wantsHighlight) return;
     if (!_scroll.hasClients) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
@@ -153,6 +174,22 @@ class _ChatViewState extends ConsumerState<_ChatView> {
         curve: Curves.easeOut,
       );
     });
+  }
+
+  /// 历史加载且目标气泡已 mount → 滚到可见并触发一次高亮。锚点 ctx 为 null
+  /// （仍在加载 / 消息已不存在）时静默跳过，下次 build 的 post-frame 再试。
+  void _maybeScrollToHighlight() {
+    if (!_wantsHighlight) return;
+    final ctx = _highlightAnchorKey.currentContext;
+    if (ctx == null) return;
+    _highlightTriggered = true;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+      alignment: 0.1,
+    );
+    if (mounted) setState(() {});
   }
 
   String get _sid => widget.session.id;
@@ -426,6 +463,12 @@ class _ChatViewState extends ConsumerState<_ChatView> {
       (_, _) => _scrollToBottom(),
     );
 
+    // 每帧后尝试一次"跳回原消息"滚动（直到锚点 mount 命中为止，触发后自动停）。
+    if (_wantsHighlight) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _maybeScrollToHighlight());
+    }
+
     final state = stateAsync.value;
     final isRunning = state?.run.status == RunStatus.streaming ||
         state?.run.status == RunStatus.cancelling;
@@ -460,6 +503,9 @@ class _ChatViewState extends ConsumerState<_ChatView> {
               archived: isArchived,
               editableLastUserMessageId: lastEditableUserId,
               editingMessageId: editingMessageId,
+              highlightMessageId: widget.highlightMessageId,
+              highlightAnchorKey: _highlightAnchorKey,
+              highlightActive: _highlightTriggered,
               onAssistantLongPress: _onAssistantLongPress,
               onUserLongPress: _onUserLongPress,
               onEditLastUserMessage: _onEditLastUserMessage,
@@ -567,6 +613,9 @@ class _MessagesList extends StatelessWidget {
     required this.archived,
     required this.editableLastUserMessageId,
     required this.editingMessageId,
+    required this.highlightMessageId,
+    required this.highlightAnchorKey,
+    required this.highlightActive,
     required this.onAssistantLongPress,
     required this.onUserLongPress,
     required this.onEditLastUserMessage,
@@ -578,6 +627,12 @@ class _MessagesList extends StatelessWidget {
   final ScrollController scroll;
   final SessionChatState state;
   final bool archived;
+
+  /// "跳回原消息"目标 id（null = 无）；命中的气泡挂 [highlightAnchorKey] 供
+  /// ensureVisible 定位，并在 [highlightActive] 为 true 时跑一次高亮淡出。
+  final String? highlightMessageId;
+  final GlobalKey highlightAnchorKey;
+  final bool highlightActive;
 
   /// 当前可被「修改最后一次提问」按钮覆盖的 user message id（null = 不显示按钮）。
   final String? editableLastUserMessageId;
@@ -601,6 +656,19 @@ class _MessagesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = <Widget>[];
+    // 命中"跳回原消息"目标的气泡：挂锚点 key + 包一层一次性高亮淡出。
+    void addEntry(MessageOut m, Widget w) {
+      if (highlightMessageId != null && m.id == highlightMessageId) {
+        items.add(HighlightOverlay(
+          key: highlightAnchorKey,
+          active: highlightActive,
+          child: w,
+        ));
+      } else {
+        items.add(w);
+      }
+    }
+
     for (final m in state.history) {
       // 答案完成后保留下来的 reasoning 折叠框（默认收起、可点开复盘）：渲染在
       // 对应 assistant 消息上方，与 streaming 期间的位置一致。仅本会话视图内刚跑
@@ -640,7 +708,7 @@ class _MessagesList extends StatelessWidget {
       );
       // archived_branch 只读：长按菜单不响应（avoid fork-on-fork chains in MVP）
       if (archived) {
-        items.add(bubble);
+        addEntry(m, bubble);
         continue;
       }
       Widget child = GestureDetector(
@@ -700,7 +768,7 @@ class _MessagesList extends StatelessWidget {
           ],
         );
       }
-      items.add(child);
+      addEntry(m, child);
     }
     final run = state.run;
     final showStreaming = run.status == RunStatus.streaming ||

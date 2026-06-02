@@ -49,6 +49,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sidebarOpenAdmin => 'Admin';
 
   @override
+  String get sidebarOpenFavorites => 'Favorites';
+
+  @override
+  String get sidebarOpenNotes => 'Notes';
+
+  @override
   String get sidebarLogout => 'Sign out';
 
   @override

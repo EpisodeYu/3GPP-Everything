@@ -5,10 +5,16 @@ import 'package:tgpp/data/api/notes_api.dart';
 /// 收藏 / 笔记 / 反馈 API 的最小内存版 fake，给 chat_page 的长按菜单测试用。
 
 class FakeFavoritesApi implements FavoritesApi {
+  FakeFavoritesApi({this.items = const []});
+
+  /// list() 回放的种子数据（收藏页测试用）。
+  List<FavoriteOut> items;
+
   int createCalls = 0;
   String? lastTargetType;
   String? lastTargetId;
   bool failNext = false;
+  final List<String> deletedIds = [];
 
   @override
   Future<FavoriteOut> create({
@@ -32,18 +38,28 @@ class FakeFavoritesApi implements FavoritesApi {
 
   @override
   Future<FavoriteListResponse> list({String? targetType}) async =>
-      const FavoriteListResponse(items: []);
+      FavoriteListResponse(items: items);
 
   @override
-  Future<void> delete(String fid) async {}
+  Future<void> delete(String fid) async {
+    deletedIds.add(fid);
+    items = items.where((f) => f.id != fid).toList();
+  }
 }
 
 class FakeNotesApi implements NotesApi {
+  FakeNotesApi({this.items = const []});
+
+  /// list() 回放的种子数据（笔记页测试用）。
+  List<NoteOut> items;
+
   int createCalls = 0;
   String? lastTargetType;
   String? lastTargetId;
   String? lastBody;
   bool failNext = false;
+  final List<String> deletedIds = [];
+  final Map<String, String> patched = {};
 
   @override
   Future<NoteOut> create({
@@ -72,11 +88,28 @@ class FakeNotesApi implements NotesApi {
 
   @override
   Future<NoteListResponse> list({String? targetType, String? targetId}) async =>
-      const NoteListResponse(items: []);
+      NoteListResponse(items: items);
 
   @override
   Future<NoteOut> patch(String nid, {required String body}) async {
+    patched[nid] = body;
     final now = DateTime.utc(2026, 5, 24, 22);
+    items = [
+      for (final n in items)
+        if (n.id == nid)
+          NoteOut(
+            id: n.id,
+            targetType: n.targetType,
+            targetId: n.targetId,
+            body: body,
+            createdAt: n.createdAt,
+            updatedAt: now,
+            sessionId: n.sessionId,
+            preview: n.preview,
+          )
+        else
+          n,
+    ];
     return NoteOut(
       id: nid,
       targetType: 'message',
@@ -88,7 +121,10 @@ class FakeNotesApi implements NotesApi {
   }
 
   @override
-  Future<void> delete(String nid) async {}
+  Future<void> delete(String nid) async {
+    deletedIds.add(nid);
+    items = items.where((n) => n.id != nid).toList();
+  }
 }
 
 class FakeFeedbackApi implements FeedbackApi {

@@ -10,6 +10,8 @@ class FavoriteOut {
     required this.targetType,
     required this.targetId,
     required this.createdAt,
+    this.sessionId,
+    this.preview,
   });
 
   factory FavoriteOut.fromJson(Map<String, dynamic> j) => FavoriteOut(
@@ -17,6 +19,8 @@ class FavoriteOut {
         targetType: j['target_type'] as String,
         targetId: j['target_id'] as String,
         createdAt: DateTime.parse(j['created_at'] as String),
+        sessionId: j['session_id'] as String?,
+        preview: j['preview'] as String?,
       );
 
   final String id;
@@ -25,6 +29,11 @@ class FavoriteOut {
   final String targetType;
   final String targetId;
   final DateTime createdAt;
+
+  /// list 时后端 enrich：message target 所属会话 + 内容预览，用于跳回原消息。
+  /// create 返回 / chunk 类型 / target 已删 → null。
+  final String? sessionId;
+  final String? preview;
 }
 
 class FavoriteListResponse {

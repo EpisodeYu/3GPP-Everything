@@ -85,6 +85,37 @@ void main() {
       expect(adapter.calls.single.queryParameters, {'target_type': 'chunk'});
     });
 
+    test('list 解析 enrich 的 session_id/preview', () async {
+      final adapter = _ScriptedAdapter([
+        (_) => _json(200, {
+              'items': [
+                {
+                  'id': 'fav-1',
+                  'target_type': 'message',
+                  'target_id': 'msg-9',
+                  'created_at': '2026-05-24T21:00:00Z',
+                  'session_id': 'sess-1',
+                  'preview': 'NR PDCP 详解',
+                },
+                {
+                  'id': 'fav-2',
+                  'target_type': 'chunk',
+                  'target_id': 'c-1',
+                  'created_at': '2026-05-24T21:00:00Z',
+                  'session_id': null,
+                  'preview': null,
+                },
+              ],
+            }),
+      ]);
+      final api = FavoritesApi(_makeDio(adapter));
+      final resp = await api.list();
+      expect(resp.items.first.sessionId, 'sess-1');
+      expect(resp.items.first.preview, 'NR PDCP 详解');
+      expect(resp.items.last.sessionId, isNull);
+      expect(resp.items.last.preview, isNull);
+    });
+
     test('delete DELETE /favorites/{fid}', () async {
       final adapter = _ScriptedAdapter([(_) => _empty(204)]);
       final api = FavoritesApi(_makeDio(adapter));

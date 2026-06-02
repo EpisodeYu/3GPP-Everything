@@ -6,13 +6,14 @@ import '../../core/langfuse_url.dart';
 import '../../domain/auth/auth_controller.dart';
 import '../../domain/auth/auth_state.dart';
 import 'widgets/docs_table.dart';
+import 'widgets/feedback_panel.dart';
 import 'widgets/rebuild_dialog.dart';
 import 'widgets/tasks_panel.dart';
 import 'widgets/usage_panel.dart';
 
 /// `/admin` 入口。
 ///
-/// 4 个 Tab：文档 / 任务 / 统计 / 工具（含重建索引按钮 + Langfuse 外链）。
+/// 5 个 Tab：文档 / 任务 / 统计 / 反馈 / 工具（含重建索引按钮 + Langfuse 外链）。
 ///
 /// 锚：`docs/03-development/05-frontend.md §0 M5.5` / §7。RBAC 入口
 /// 在 `core/router.dart` redirect 与 `features/shell/app_shell.dart` sidebar
@@ -31,7 +32,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 4, vsync: this);
+    _tab = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -74,6 +75,11 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
             Tab(key: Key('admin_tab_docs'), text: '文档', icon: Icon(Icons.menu_book)),
             Tab(key: Key('admin_tab_tasks'), text: '任务', icon: Icon(Icons.task_alt)),
             Tab(key: Key('admin_tab_usage'), text: '统计', icon: Icon(Icons.insights)),
+            Tab(
+              key: Key('admin_tab_feedback'),
+              text: '反馈',
+              icon: Icon(Icons.reviews_outlined),
+            ),
             Tab(key: Key('admin_tab_tools'), text: '工具', icon: Icon(Icons.build)),
           ],
         ),
@@ -84,6 +90,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
           DocsTable(),
           TasksPanel(),
           UsagePanel(),
+          FeedbackPanel(),
           _ToolsTab(),
         ],
       ),

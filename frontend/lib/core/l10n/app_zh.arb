@@ -15,6 +15,8 @@
   "sidebarNewSession": "新会话",
   "sidebarOpenReader": "阅读器",
   "sidebarOpenAdmin": "管理后台",
+  "sidebarOpenFavorites": "我的收藏",
+  "sidebarOpenNotes": "我的笔记",
   "sidebarLogout": "退出登录",
   "sidebarSessionsEmpty": "还没有会话，点上方\"新会话\"开始。",
   "sidebarSessionsLoadError": "加载会话失败",

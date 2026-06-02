@@ -12,6 +12,8 @@ class NoteOut {
     required this.body,
     required this.createdAt,
     required this.updatedAt,
+    this.sessionId,
+    this.preview,
   });
 
   factory NoteOut.fromJson(Map<String, dynamic> j) => NoteOut(
@@ -21,6 +23,8 @@ class NoteOut {
         body: (j['body'] as String?) ?? '',
         createdAt: DateTime.parse(j['created_at'] as String),
         updatedAt: DateTime.parse(j['updated_at'] as String),
+        sessionId: j['session_id'] as String?,
+        preview: j['preview'] as String?,
       );
 
   final String id;
@@ -29,6 +33,11 @@ class NoteOut {
   final String body;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// list 时后端 enrich：message target 所属会话 + 内容预览，用于跳回原消息。
+  /// create/patch 返回 / chunk 类型 / target 已删 → null。
+  final String? sessionId;
+  final String? preview;
 }
 
 class NoteListResponse {

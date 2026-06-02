@@ -166,6 +166,52 @@ void main() {
       expect(body['force'], isFalse);
     });
 
+    test('getFeedback 解析 stats/items，thumb 走 query', () async {
+      final adapter = _ScriptedAdapter([
+        (_) => _json(200, {
+              'stats': {'up': 5, 'down': 2, 'total': 7},
+              'items': [
+                {
+                  'id': 'fb-1',
+                  'message_id': 'm-1',
+                  'session_id': 's-1',
+                  'thumb': -1,
+                  'reason': '答非所问',
+                  'username': 'alice',
+                  'message_preview': 'NR PDCP 流程',
+                  'created_at': '2026-05-25T10:00:00Z',
+                },
+              ],
+              'total': 1,
+            }),
+      ]);
+      final api = AdminApi(_makeDio(adapter));
+      final r = await api.getFeedback(thumb: -1, page: 2, pageSize: 20);
+      expect(r.stats.up, 5);
+      expect(r.stats.total, 7);
+      expect(r.items.single.reason, '答非所问');
+      expect(r.items.single.username, 'alice');
+      expect(r.items.single.sessionId, 's-1');
+      final call = adapter.calls.single;
+      expect(call.path, '/admin/feedback');
+      expect(call.queryParameters['thumb'], -1);
+      expect(call.queryParameters['page'], 2);
+      expect(call.queryParameters['page_size'], 20);
+    });
+
+    test('getFeedback 无 thumb 时不带 thumb query', () async {
+      final adapter = _ScriptedAdapter([
+        (_) => _json(200, {
+              'stats': {'up': 0, 'down': 0, 'total': 0},
+              'items': const [],
+              'total': 0,
+            }),
+      ]);
+      final api = AdminApi(_makeDio(adapter));
+      await api.getFeedback();
+      expect(adapter.calls.single.queryParameters.containsKey('thumb'), isFalse);
+    });
+
     test('403 冒泡 DioException（非 admin 调用兜底）', () async {
       final adapter = _ScriptedAdapter([
         (_) => _json(403, {'code': 'forbidden'}),

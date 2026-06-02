@@ -7,6 +7,8 @@ import '../domain/auth/auth_state.dart';
 import '../features/admin/admin_dashboard.dart';
 import '../features/auth/login_page.dart';
 import '../features/chat/chat_page.dart';
+import '../features/favorites/favorites_page.dart';
+import '../features/notes/notes_page.dart';
 import '../features/reader/reader_page.dart';
 import '../features/shell/app_shell.dart';
 
@@ -62,13 +64,26 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/sessions/:sid',
-            builder: (_, s) => ChatPage(sessionId: s.pathParameters['sid']),
+            builder: (_, s) => ChatPage(
+              sessionId: s.pathParameters['sid'],
+              // ?msg=<id>：收藏/笔记"跳回原消息"时滚到该消息并高亮。
+              highlightMessageId: s.uri.queryParameters['msg'],
+            ),
           ),
           GoRoute(
             path: '/admin',
             builder: (_, _) => const AdminDashboard(),
           ),
         ],
+      ),
+      // 收藏 / 笔记与 AppShell 平级：自带 AppBar（含 back），push 进入、返回回到来源页。
+      GoRoute(
+        path: '/favorites',
+        builder: (_, _) => const FavoritesPage(),
+      ),
+      GoRoute(
+        path: '/notes',
+        builder: (_, _) => const NotesPage(),
       ),
       // Reader 与 AppShell 平级：自带 AppBar + 左侧 TocDrawer，避免双 Drawer 嵌套。
       // 顶部 AppBar back 按钮回 /chat。

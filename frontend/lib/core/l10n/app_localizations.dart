@@ -176,6 +176,18 @@ abstract class AppLocalizations {
   /// **'Admin'**
   String get sidebarOpenAdmin;
 
+  /// No description provided for @sidebarOpenFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get sidebarOpenFavorites;
+
+  /// No description provided for @sidebarOpenNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get sidebarOpenNotes;
+
   /// No description provided for @sidebarLogout.
   ///
   /// In en, this message translates to:

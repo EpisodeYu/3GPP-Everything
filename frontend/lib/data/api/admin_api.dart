@@ -124,7 +124,85 @@ class TaskListResponse {
   final int total;
 }
 
-/// `/admin/*` 4 路由的薄包装（M5.5）。
+/// 与后端 `FeedbackStatsOut` 对齐 —— 点赞/点踩全量计数。
+class FeedbackStatsOut {
+  const FeedbackStatsOut({
+    required this.up,
+    required this.down,
+    required this.total,
+  });
+
+  factory FeedbackStatsOut.fromJson(Map<String, dynamic> j) => FeedbackStatsOut(
+        up: (j['up'] as num?)?.toInt() ?? 0,
+        down: (j['down'] as num?)?.toInt() ?? 0,
+        total: (j['total'] as num?)?.toInt() ?? 0,
+      );
+
+  final int up;
+  final int down;
+  final int total;
+}
+
+/// 与后端 `AdminFeedbackItem` 对齐 —— 单条反馈 + 关联消息/反馈者/会话。
+class AdminFeedbackItem {
+  const AdminFeedbackItem({
+    required this.id,
+    required this.messageId,
+    required this.thumb,
+    required this.createdAt,
+    this.sessionId,
+    this.reason,
+    this.username,
+    this.messagePreview,
+  });
+
+  factory AdminFeedbackItem.fromJson(Map<String, dynamic> j) => AdminFeedbackItem(
+        id: j['id'] as String,
+        messageId: j['message_id'] as String,
+        thumb: (j['thumb'] as num?)?.toInt() ?? 0,
+        createdAt: (j['created_at'] as String?) ?? '',
+        sessionId: j['session_id'] as String?,
+        reason: j['reason'] as String?,
+        username: j['username'] as String?,
+        messagePreview: j['message_preview'] as String?,
+      );
+
+  final String id;
+  final String messageId;
+  final int thumb;
+  final String createdAt;
+  final String? sessionId;
+  final String? reason;
+  final String? username;
+  final String? messagePreview;
+}
+
+/// 与后端 `AdminFeedbackListResponse` 对齐。
+class AdminFeedbackListResponse {
+  const AdminFeedbackListResponse({
+    required this.stats,
+    required this.items,
+    required this.total,
+  });
+
+  factory AdminFeedbackListResponse.fromJson(Map<String, dynamic> j) =>
+      AdminFeedbackListResponse(
+        stats: FeedbackStatsOut.fromJson(
+          ((j['stats'] as Map?) ?? const {}).cast<String, dynamic>(),
+        ),
+        items: ((j['items'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(AdminFeedbackItem.fromJson)
+            .toList(),
+        total: (j['total'] as num?)?.toInt() ?? 0,
+      );
+
+  final FeedbackStatsOut stats;
+  final List<AdminFeedbackItem> items;
+  final int total;
+}
+
+/// `/admin/*` 路由的薄包装（M5.5）。
 ///
 /// 协议锚：
 /// [`backend/app/api/v1/admin.py`](../../../../../backend/app/api/v1/admin.py)
@@ -169,6 +247,28 @@ class AdminApi {
       '/admin/tasks/$taskId',
     );
     return TaskOut.fromJson(resp.data!);
+  }
+
+  /// GET `/admin/feedback?thumb=&page=&page_size=` — 用户点赞/点踩反馈。
+  ///
+  /// `thumb=1` 只看赞 / `thumb=-1` 只看踩 / null 全部；聚合计数恒为全量。
+  Future<AdminFeedbackListResponse> getFeedback({
+    int? thumb,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    final qp = <String, dynamic>{
+      'page': page,
+      'page_size': pageSize,
+    };
+    if (thumb != null) {
+      qp['thumb'] = thumb;
+    }
+    final resp = await _dio.get<Map<String, dynamic>>(
+      '/admin/feedback',
+      queryParameters: qp,
+    );
+    return AdminFeedbackListResponse.fromJson(resp.data!);
   }
 
   /// POST `/admin/index/rebuild` — 触发索引重建。

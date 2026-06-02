@@ -95,6 +95,30 @@ class _SessionsSidebar extends ConsumerWidget {
             label: Text(t.sidebarOpenReader),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: OutlinedButton.icon(
+            key: const Key('sidebar_open_favorites'),
+            onPressed: () {
+              _closeDrawerIfOpen(context);
+              context.push('/favorites');
+            },
+            icon: const Icon(Icons.bookmark_border),
+            label: Text(t.sidebarOpenFavorites),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: OutlinedButton.icon(
+            key: const Key('sidebar_open_notes'),
+            onPressed: () {
+              _closeDrawerIfOpen(context);
+              context.push('/notes');
+            },
+            icon: const Icon(Icons.sticky_note_2_outlined),
+            label: Text(t.sidebarOpenNotes),
+          ),
+        ),
         // 仅 admin 可见的管理后台入口（M5.5）。后端 `/admin/*` 403 是兜底防线。
         if (me?.role == 'admin')
           Padding(
