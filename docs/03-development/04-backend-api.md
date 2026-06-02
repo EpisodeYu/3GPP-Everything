@@ -164,7 +164,7 @@ class Message(Base):
     self_rag_verdict: str | None
     # 关联 langgraph thread / run 用于 cancel / pause / fork
     langgraph_run_id: str | None
-    langgraph_checkpoint_id: str | None        # 该消息生成完成时的 checkpoint，fork 用
+    langgraph_checkpoint_id: str | None        # DEPRECATED 2026-06-02：不维护 message↔checkpoint 映射，恒 NULL（详见 §M4.7 落盘说明）
     # 关联 langfuse trace
     langfuse_trace_id: str | None
     # token 用量
@@ -565,7 +565,7 @@ async def app_error_handler(req, exc): ...
 - [x] `[auto]` `pytest -m integration backend/tests/integration/api/test_sessions.py` 全绿（CRUD）
 - [x] `[auto]` SSE 集成测覆盖 **10** 类 event（run_start / node_start / node_end / **chunks_hit / chunks_rerank** / token / final / end / cancelled / error），fake LangGraph fixture 灌入断言事件顺序与字段；`chunks_hit` 不带 rerank_score、`chunks_rerank` 必带 rerank_score（Q6/Q7）
 - [x] `[auto]` EventSourceResponse `ping=15`：路由参数已设；30s 静默断言挪到 M4.10 端到端回归（fake graph 跑完通常 < 1s，不会触发 ping 边界）
-- [x] `[auto]` DB 落盘：assistant message 完成后 `messages.langgraph_run_id` / `langfuse_trace_id` / `langgraph_checkpoint_id` 非空，`message_citations` 行数与 `citations` 列表一致；仅 `final` event 后落盘（Q9：partial token 不写库，中断时 `messages.content` 为空 + `status=failed`/`cancelled`）
+- [x] `[auto]` DB 落盘：assistant message 完成后 `messages.langgraph_run_id` / `langfuse_trace_id` 非空，`message_citations` 行数与 `citations` 列表一致；仅 `final` event 后落盘（Q9：partial token 不写库，中断时 `messages.content` 为空 + `status=failed`/`cancelled`）。**2026-06-02**：`langgraph_checkpoint_id` 不再写（DEPRECATED，恒 NULL）——系统不维护 message↔checkpoint 映射，旧实现误把 trace_id 写进此列已停
 - [x] `[auto]` 历史压缩：`history_compactor` Redis cache miss / hit / LLM fail 三条路径单元测覆盖（`tests/unit/agent/test_history_compactor.py`）
 - [x] `[auto]` 取消：`DELETE /sessions/{sid}/runs/{rid}` → 调用 graph `aupdate_state(cancelled=True, run_id)`；fake graph 通过 `final_state.cancelled=True` 触发 SSE `cancelled` 事件 + DB `status='cancelled'`
 

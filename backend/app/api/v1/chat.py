@@ -607,7 +607,9 @@ def _build_sse_stream(
                     content=answer,
                     confidence=float(confidence),
                     self_rag_verdict=final_state.get("self_rag_verdict"),
-                    langgraph_checkpoint_id=str(final_state.get("trace_id") or "") or None,
+                    # 注意：不写 langgraph_checkpoint_id —— 系统不维护 message↔checkpoint
+                    # 映射（真相源是 PG，每轮历史从 PG 重建；fork/rollback 精度落在 PG 行
+                    # 级别）。旧实现把 trace_id 误写进这列，已停。详见 models.Message 注释。
                     langfuse_trace_id=str(final_state.get("trace_id") or "") or None,
                 )
             )

@@ -253,6 +253,10 @@ async def test_full_sse_stream_emits_all_event_types_and_persists(
     assert assistant.content == "Hello world."
     assert assistant.status == "ok"
     assert abs((assistant.confidence or 0.0) - 0.77) < 1e-6
+    # langfuse_trace_id 仍落库；langgraph_checkpoint_id 自 2026-06-02 起不再写
+    # （系统不维护 message↔checkpoint 映射，旧实现误写 trace_id，已停）。
+    assert assistant.langfuse_trace_id == "trace-xyz"
+    assert assistant.langgraph_checkpoint_id is None
 
     res = await db_session.execute(
         select(MessageCitation).where(MessageCitation.message_id == assistant.id)

@@ -594,6 +594,13 @@ if state.cancelled: interrupt({"reason": "cancelled by user"})
 
 LangGraph `PostgresSaver` 在每个节点输出后自动落 checkpoint，`thread_id = session_id`。Agent 层向 `04-backend-api.md` 暴露以下 5 个操作（封装为 `backend/app/agent/checkpoint.py` 的纯函数，后端 API 直接包装）：
 
+> **分层取舍（2026-06-02）**：checkpoint 存的是「graph 执行快照」（供 pause/resume 续跑），
+> **不是对话真相源**。对话记录的真相源是 PG `messages` / `message_citations`：前端历史、每轮
+> agent 上下文（`raw_history` 从 PG 重建）、fork/rollback 的用户可见精度都落在 PG 行级别。
+> **系统不维护 message↔checkpoint 映射**——`messages.langgraph_checkpoint_id` 已 DEPRECATED
+> 恒 NULL（旧实现误写 trace_id，已停）。所以这里的 fork/rollback 在 checkpoint 层是 best-effort，
+> 精确语义（截到哪轮 / 删哪几轮）由 PG 保证；精准分叉用 `up_to_message_id` 截断 PG，不需要 checkpoint 精度。
+
 | 操作 | LangGraph 调用 | 行为 |
 |------|---------------|------|
 | `list_checkpoints(session_id)` | `tgpp_agent.aget_state_history(config={thread_id})` | 返回该会话所有 checkpoint 的 (checkpoint_id, parent_checkpoint_id, created_at, last_node, message_id) 列表，按时间倒序 |

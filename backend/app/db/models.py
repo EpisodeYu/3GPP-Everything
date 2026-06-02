@@ -148,6 +148,10 @@ class Message(Base):
     confidence: Mapped[float | None] = mapped_column(Float)
     self_rag_verdict: Mapped[str | None] = mapped_column(String(32))
     langgraph_run_id: Mapped[str | None] = mapped_column(String(64))
+    # DEPRECATED（2026-06-02）：系统不维护 message↔checkpoint 映射。真相源是 PG，
+    # 每轮 agent 历史从 PG 重建；fork/rollback 的用户可见精度落在 messages 行级别，
+    # 不依赖 LangGraph checkpoint id。旧实现误把 trace_id 写进此列（= langfuse_trace_id），
+    # 已停写。列暂保留（删列属不向后兼容 schema 改动，需单独 migration + 人审）；新写入恒 NULL。
     langgraph_checkpoint_id: Mapped[str | None] = mapped_column(String(128))
     langfuse_trace_id: Mapped[str | None] = mapped_column(String(64))
     prompt_tokens: Mapped[int | None] = mapped_column(Integer)
