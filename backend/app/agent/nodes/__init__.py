@@ -10,6 +10,8 @@
 """
 
 from .classify import classify_node
+from .compact_history import compact_history_node
+from .contextualize import contextualize_node
 from .generate import generate_node, parse_citations
 from .hyde import hyde_node
 from .multi_query import multi_query_node
@@ -21,6 +23,8 @@ from .tool_dispatch import tool_dispatch_node
 
 __all__ = [
     "classify_node",
+    "compact_history_node",
+    "contextualize_node",
     "generate_node",
     "hyde_node",
     "multi_query_node",

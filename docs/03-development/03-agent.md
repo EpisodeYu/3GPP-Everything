@@ -57,8 +57,12 @@ class AgentState(BaseModel):
     mode: Literal["qa"] = "qa"                        # raw_lookup 已下线；保留字段，恒为 qa
     explicit_tools: list[str] = []                   # 用户显式触发的工具，如 ["web_search"]
 
-    # 多轮上下文
-    messages: Annotated[Sequence[BaseMessage], add_messages] = []
+    # 多轮上下文（2026-06-02 接通真多轮，见 §6.1）
+    raw_history: list[dict[str, str]] = []           # 路由从 PG 加载的未压缩 prior 历史（带 id，排除当前问）；仅 compact_history 节点消费
+    history: list[dict[str, str]] = []               # compact_history 节点产出的已压缩历史；contextualize / generate 消费；普通字段=覆盖语义
+    session_id: str | None = None                    # 供 compact_history 节点拼 summary 缓存 key（= thread_id）
+    contextualized_input: str = ""                   # contextualize 节点把追问消解成的自包含问题；effective_query 优先读它
+    messages: Annotated[Sequence[BaseMessage], add_messages] = []  # legacy（reducer 跨轮累积）；保留兼容老 checkpoint，不再写/读
 
     # 路由结果
     query_class: Literal["definition","procedure","tool","unknown"] | None = None
@@ -409,6 +413,39 @@ graph = builder.compile(checkpointer=checkpointer)
 - 支持"中途取消"：后端在另一个连接里 `graph.aupdate_state(config, {"cancelled": True})` + thread 内每个节点开头检查 `state.cancelled`
 
 ### 6.1 多轮历史压缩（M4.7 Q10 决策）
+
+> ✅ **2026-06-02 已接通真多轮**（A 层查询上下文化 + B 层生成带历史）。下方"约定"
+> 里"压缩进 `state.messages` + 节点直接消费"那条**已被以下实现取代**（仍保留本节
+> 描述压缩策略的部分，因为 `compact_history` 逻辑不变，只换了承载字段）：
+>
+> - **承载字段换成普通字段（覆盖语义）`state.raw_history`（路由加载的未压缩 prior
+>   历史，带 id）+ `state.history`（图内压缩产物）**，不再用带 `add_messages` reducer
+>   的 `state.messages`。原因：生产挂 `AsyncPostgresSaver`（thread_id=session_id）时，
+>   每轮从 PG 重载的全量历史经 reducer 会**跨 checkpoint 累积**（fresh message id 无法
+>   去重）→ 重复膨胀。普通字段 LastValue channel 每轮被 input/节点覆盖，干净可预测。
+>   `messages` 字段保留（兼容老 checkpoint）但不再写/读。
+> - **A 层·查询上下文化**：新增 `nodes/contextualize.py`，由 `build_graph` 的条件入边
+>   `_entry_router` 在 `state.raw_history` 非空（多轮追问）时经 `compact_history` →
+>   `contextualize` 链触发，用 `LLM_LIGHT_MODEL` 把指代/省略补全成自包含问题写
+>   `state.contextualized_input`；classify / rewrite / hyde / self_rag 经
+>   `AgentState.effective_query` 优先消费它（首轮无 `raw_history` → 直连 classify，
+>   零额外节点/LLM 调用）。
+> - **B 层·生成带历史**：`generate_qa.md` v7 增可选「Conversation history」只读段 +
+>   rule 7「历史仅供理解指代，绝不可引用、绝不可作为事实来源」；`generate.py` 把
+>   `state.history` 传入 render。generate 仍回答用户**原始**问题。grounding 口径不变：
+>   所有事实只能来自 chunks 并 `[N]` 引用，历史不进 citation / 不进 faithfulness。
+> - **compaction 已对齐本节约定「由 build_graph 的 deps 注入」**：新增 `nodes/
+>   compact_history.py`，由 `_entry_router` 在 `state.raw_history` 非空时先于
+>   contextualize 触发，经 `deps.llm`（summary LLM）+ `deps.redis`（summary 缓存）跑
+>   `compact_history()`，产出 `state.history`。`chat.py` 路由只从 PG 加载未压缩 prior
+>   历史塞 `state.raw_history`，**不再调 `compact_history`**。附带修掉一个生产隐性
+>   bug：旧实现 compaction 依赖 `app.state.litellm_client`，而 lifespan 从未接线该
+>   属性（恒 None）→ summary 路径在生产实际从未触发；改用 `deps.llm`（真实 client）
+>   后长会话（> 8 prior）的 summary 才真正生效。
+> - **决策依据**：见 [`../04-handoff/2026-06-02-multiturn-history-not-wired-findings.md`](../04-handoff/2026-06-02-multiturn-history-not-wired-findings.md)
+>   §4 四个人审问题（接通真多轮 / 历史不可引用 / generate 答原始问题 / 范围）。
+> - **遗留**：多轮 eval 子集（指代消解正确性 + faithfulness 不退化的回归门禁）留待
+>   下一个 PR（本次范围为 A+B + 单元/集成测）。
 
 长会话累计后，原始 message 列表直塞 system prompt 会撑爆 mimo-v2.5-pro 的 context。M4.7 实装一步到位的混合策略：
 

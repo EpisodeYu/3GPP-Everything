@@ -74,6 +74,25 @@ def _to_lc_message(m: HistoryMessage) -> BaseMessage:
     return SystemMessage(content=m.content)
 
 
+# langchain message.type → 我们 history dict 的 role。
+_ROLE_FROM_LC: dict[str, str] = {"human": "user", "ai": "assistant", "system": "system"}
+
+
+def messages_to_role_dicts(messages: Sequence[BaseMessage]) -> list[dict[str, str]]:
+    """compact_history 产出的 BaseMessage 列表 → `{role, content}` dict 列表。
+
+    供 `compact_history` 节点把结果写进 `AgentState.history`（普通字段，dict 形态最稳，
+    jinja 迭代渲染也最简单）。空内容条目丢弃。
+    """
+    out: list[dict[str, str]] = []
+    for m in messages:
+        role = _ROLE_FROM_LC.get(getattr(m, "type", ""), "user")
+        content = m.content if isinstance(m.content, str) else str(m.content)
+        if content.strip():
+            out.append({"role": role, "content": content})
+    return out
+
+
 def _summary_key(session_id: uuid.UUID | str, last_message_id: uuid.UUID | str) -> str:
     return f"{KEY_PREFIX}:{session_id}:{last_message_id}"
 

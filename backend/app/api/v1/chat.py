@@ -33,13 +33,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, status
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from sqlalchemy import asc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.agent.state import AgentState
-from app.agent.utils.history_compactor import RECENT_N, HistoryMessage, compact_history
+from app.agent.utils.history_compactor import HistoryMessage
 from app.core.auth import get_current_user
 from app.core.config import Settings, get_settings
 from app.core.errors import ConflictError, NotFoundError
@@ -57,6 +56,8 @@ router = APIRouter(prefix="/sessions", tags=["chat"])
 # Agent 节点白名单：astream_events 的 on_chain_start/end 也会触发非节点（如
 # graph root、reducer、并发分支等），我们只把节点事件透传给前端。
 _NODE_NAMES: set[str] = {
+    "compact_history",
+    "contextualize",
     "classify",
     "rewrite",
     "hyde",
@@ -132,16 +133,22 @@ def _build_initial_state(
     *,
     body: SendMessageBody,
     user_language: str,
-    history: list[Any],
+    raw_history: list[dict[str, str]],
+    session_id: str,
     session_default_mode: str,
     run_id: str,
 ) -> AgentState:
+    # `raw_history`（未压缩 prior 历史）走普通字段（覆盖语义），不走带 add_messages
+    # reducer 的 `messages`：生产挂 AsyncPostgresSaver 时 reducer 会把每轮重载的全量
+    # 历史跨 checkpoint 累积 → 重复膨胀。compaction 由图内 compact_history 节点经
+    # deps 完成（§6.1），路由只负责从 PG 加载。详见 AgentState docstring。
     return AgentState(
         user_input=body.content,
         user_language="zh" if user_language == "zh" else "en",
         mode=body.mode or session_default_mode,  # type: ignore[arg-type]
         explicit_tools=body.explicit_tools,
-        messages=history,
+        raw_history=raw_history,
+        session_id=session_id,
         run_id=run_id,
     )
 
@@ -164,6 +171,19 @@ def _summary_for_node_end(node: str, output: Any) -> dict[str, Any]:
     if not isinstance(output, dict):
         return {}
     out: dict[str, Any] = {}
+
+    if node == "compact_history":
+        v = output.get("history")
+        if isinstance(v, list):
+            out["history_count"] = len(v)
+        return out
+
+    if node == "contextualize":
+        # 多轮指代消解结果：前端 reasoning 折叠框显示「理解为：<自包含问题>」
+        v = output.get("contextualized_input")
+        if isinstance(v, str) and v.strip():
+            out["contextualized_input"] = v.strip()
+        return out
 
     if node == "classify":
         for k in ("query_class", "complexity"):
@@ -220,6 +240,19 @@ def _summary_for_node_end(node: str, output: Any) -> dict[str, Any]:
         return out
 
     return out
+
+
+def _to_raw_history_dicts(prior: list[HistoryMessage]) -> list[dict[str, str]]:
+    """prior `HistoryMessage` → `AgentState.raw_history` 的 `{id, role, content}` 列表。
+
+    带 id：图内 `compact_history` 节点 reconstruct `HistoryMessage` 后用于 summary
+    缓存 key。普通 dict 形态序列化进 PostgresSaver checkpoint 最稳。
+    """
+    return [
+        {"id": str(m.id), "role": m.role, "content": m.content}
+        for m in prior
+        if (m.content or "").strip()
+    ]
 
 
 async def _load_history(
@@ -301,34 +334,22 @@ async def send_message(
     db.add(assistant_msg)
     await db.flush()
     assistant_msg_id = assistant_msg.id
+    user_msg_id = user_msg.id  # 提交前取，避免 expire_on_commit 后再触发 SELECT
     await db.commit()
 
-    # 3. 拼历史（含本轮 user message；compact_history 决定是否 summary）
-    raw_history = await _load_history(db, sid, exclude_id=assistant_msg_id)
-    redis = getattr(request.app.state, "redis", None)
-    chat_client = getattr(request.app.state, "litellm_client", None)
-
-    lc_history: list[BaseMessage]
-    if chat_client is not None:
-        lc_history = await compact_history(
-            raw_history,
-            session_id=sid,
-            chat_client=chat_client,
-            redis=redis,
-        )
-    else:
-        # 没有 LLM client（早期 / 测试场景）：仅拿最近 N 条 user/assistant 原文
-        lc_history = []
-        for m in raw_history[-RECENT_N:]:
-            if m.role == "user":
-                lc_history.append(HumanMessage(content=m.content))
-            elif m.role == "assistant":
-                lc_history.append(AIMessage(content=m.content))
+    # 3. 加载**未压缩 prior 历史**（= 本轮之前的对话，已排除刚插入的当前问题与
+    #    assistant stub）喂进 AgentState.raw_history。compaction（是否 summary）由图内
+    #    `compact_history` 节点经 deps 完成（§6.1「由 build_graph 的 deps 注入」），
+    #    路由不再调 compact_history；其产物 state.history 供 contextualize / generate 消费。
+    full_history = await _load_history(db, sid, exclude_id=assistant_msg_id)
+    prior_history = [m for m in full_history if m.id != user_msg_id]
+    raw_history_dicts = _to_raw_history_dicts(prior_history)
 
     initial_state = _build_initial_state(
         body=body,
         user_language="en",
-        history=lc_history,
+        raw_history=raw_history_dicts,
+        session_id=str(sid),
         session_default_mode=session.mode_default,
         run_id=run_id,
     )

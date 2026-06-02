@@ -33,6 +33,8 @@ from langgraph.graph.state import CompiledStateGraph
 from .deps import AgentDeps
 from .nodes import (
     classify_node,
+    compact_history_node,
+    contextualize_node,
     generate_node,
     hyde_node,
     multi_query_node,
@@ -86,11 +88,17 @@ def build_graph(
 ) -> CompiledStateGraph:
     """M4.3 完整链路：simple / complex 两路 + self-RAG retry（raw_lookup 已下线）。
 
+    2026-06-02 接通真多轮：START 经条件入边 `_entry_router`，`state.raw_history` 非空
+    （多轮追问）时先走 `compact_history`（图内压缩历史，§6.1 deps 注入）→ `contextualize`
+    （指代消解）→ classify；首轮直连 classify。
+
     M4.5：`checkpointer` 可选；生产传入 `AsyncPostgresSaver`（thread_id=session_id），
     测试传 `InMemorySaver` 即可。不传 → 无持久化，单次 invoke 跑完不留 checkpoint。
     """
     builder: StateGraph[AgentState, Any, AgentState, AgentState] = StateGraph(AgentState)
 
+    builder.add_node("compact_history", partial(compact_history_node, deps=deps))
+    builder.add_node("contextualize", partial(contextualize_node, deps=deps))
     builder.add_node("classify", partial(classify_node, deps=deps))
     builder.add_node("rewrite", partial(rewrite_node, deps=deps))
     builder.add_node("hyde", partial(hyde_node, deps=deps))
@@ -101,8 +109,20 @@ def build_graph(
     builder.add_node("generate", partial(generate_node, deps=deps))
     builder.add_node("self_rag", partial(self_rag_node, deps=deps, allow_retry=True))
 
-    # START → classify（raw_lookup 已下线，不再按 mode 分流）
-    builder.add_edge(START, "classify")
+    # START → 仅多轮（有 raw_history）才先走 compact_history（压缩历史，§6.1 deps 注入）
+    # → contextualize（指代消解）→ classify；首轮（无 raw_history）直连 classify。
+    # 条件入边而非无条件接入：首轮零额外节点/LLM 调用，也让既有单/集成测的精确节点
+    # 序列断言不被首轮场景破坏。
+    builder.add_conditional_edges(
+        START,
+        _entry_router,
+        {
+            "compact_history": "compact_history",
+            "classify": "classify",
+        },
+    )
+    builder.add_edge("compact_history", "contextualize")
+    builder.add_edge("contextualize", "classify")
 
     # classify → 按 query_class / complexity 分流
     #   query_class=tool → tool_dispatch → generate（不走 retrieve；§3 状态图）
@@ -145,6 +165,12 @@ def build_graph(
 
 
 # ---------- 路由判定（纯函数，便于单测） ----------
+
+
+def _entry_router(state: AgentState) -> Literal["compact_history", "classify"]:
+    # 有 prior 历史（多轮追问）→ 先压缩历史（图内 compact）+ 指代消解；首轮无历史
+    # 直连 classify（省 compact/contextualize 两个节点 + 其 LLM 调用）。
+    return "compact_history" if state.raw_history else "classify"
 
 
 def _after_classify(state: AgentState) -> Literal["tool", "complex", "simple"]:

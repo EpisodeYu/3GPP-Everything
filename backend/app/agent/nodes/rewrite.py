@@ -25,7 +25,8 @@ async def rewrite_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
     if state.paused:
         interrupt({"reason": "paused by user"})
 
-    user_input = (state.user_input or "").strip()
+    # 多轮：用 contextualize 消解后的自包含问题（effective_query）改写；首轮回退原文。
+    user_input = (state.effective_query or "").strip()
     if not user_input:
         return {"rewritten_queries": []}
 

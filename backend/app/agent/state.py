@@ -8,8 +8,21 @@
 pydantic 序列化进 PostgresSaver checkpoint，所以这里用 `pydantic.BaseModel` 重声明。
 两边字段名一一对应，转换在 `state.RetrievedChunk.from_retrieval()` 完成。
 
-`messages` 用 `Annotated[list[BaseMessage], add_messages]` reducer，多轮自然累积；
-M4.2 simple 单轮也工作（list 单条），M4.5 加 PostgresSaver 后无缝多轮。
+多轮上下文承载（2026-06-02 接通真多轮后修订）：
+- `raw_history`：**chat 路由从 PG 重载的未压缩 prior 历史**（已排除本轮当前问题与
+  assistant stub），每条 `{"id", "role", "content"}`。路由只负责持久化加载；compaction
+  本身改由图内 `compact_history` 节点经 `deps.llm` + `deps.redis` 完成（§6.1 约定：
+  「由 build_graph 的 deps 注入」），不再在路由里调 `compact_history`。
+- `history`：`compact_history` 节点产出的**已压缩**历史（`[summary?, 最近 N 条]`），
+  普通字段、覆盖语义（无 reducer），contextualize / generate 节点消费它。之所以不用
+  `messages`：生产挂 `AsyncPostgresSaver`（thread_id=session_id）时，`add_messages`
+  reducer 会把每轮重载的全量历史**跨 checkpoint 累积**（fresh message id 无法去重）→
+  重复膨胀。普通字段 LastValue channel 每轮被 input/节点覆盖，干净可预测。
+- `messages`：保留 `add_messages` reducer 字段以兼容老 checkpoint 反序列化与 §2 文档，
+  **不再被 chat 路由写入、也不再被任何节点消费**（接通历史改走 `raw_history`/`history`）。
+- `contextualized_input`：contextualize 节点把追问的指代/省略补全成自包含问题后写这里；
+  classify / rewrite / hyde / self_rag 经 `effective_query` 优先读它。
+- `session_id`：仅供 `compact_history` 节点拼 summary 缓存 key（thread_id 同值）。
 """
 
 from __future__ import annotations
@@ -81,6 +94,18 @@ class AgentState(BaseModel):
     explicit_tools: list[str] = Field(default_factory=list)
 
     # === 多轮上下文 ===
+    # raw_history：路由从 PG 重载的未压缩 prior 历史（已排除本轮当前问），每条带 id；
+    # 仅 compact_history 节点消费它（reconstruct → compact_history()）。
+    # 每条 = {"id": <uuid str>, "role": "user"|"assistant"|"system", "content": ...}。
+    raw_history: list[dict[str, str]] = Field(default_factory=list)
+    # history：compact_history 节点产出的已压缩历史（节点消费的就是它），普通字段=覆盖语义。
+    # 每条 = {"role": "user"|"assistant"|"system", "content": ...}。
+    history: list[dict[str, str]] = Field(default_factory=list)
+    # session_id：仅供 compact_history 节点拼 summary 缓存 key（= thread_id）。
+    session_id: str | None = None
+    # contextualized_input：追问指代消解后的自包含问题；空则下游回退到 user_input。
+    contextualized_input: str = ""
+    # messages：legacy（add_messages reducer）。保留兼容老 checkpoint，不再写/读。见类 docstring。
     messages: Annotated[list[BaseMessage], add_messages] = Field(default_factory=list)
 
     # === 路由 ===
@@ -119,3 +144,13 @@ class AgentState(BaseModel):
     def _coerce_legacy_mode(cls, v: object) -> str:
         # 老 session/checkpoint 残留的 'raw_lookup' 等非 qa 值归一为 'qa'。
         return "qa"
+
+    @property
+    def effective_query(self) -> str:
+        """检索 / 分类 / 改写用的问题文本。
+
+        多轮追问被 contextualize 节点消解成自包含问题后写 `contextualized_input`，
+        优先用它；首轮（或 contextualize 未触发）回退到原始 `user_input`。
+        generate 仍回答原始 `user_input`（口径见 03-agent.md §6.1）。
+        """
+        return self.contextualized_input or self.user_input

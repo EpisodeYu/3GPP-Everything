@@ -51,7 +51,9 @@ async def classify_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
     if state.paused:
         interrupt({"reason": "paused by user"})
 
-    user_input = (state.user_input or "").strip()
+    # 多轮：contextualize 已把追问消解成自包含问题（effective_query），用它做分类/改写
+    # /语言判定，让指代类追问也能被正确路由 + 检索；首轮 effective_query == user_input。
+    user_input = (state.effective_query or "").strip()
     if not user_input:
         # 没有问题就别浪费 LLM 调用；后续 retrieve/generate 会被 graph 路由跳过
         return {

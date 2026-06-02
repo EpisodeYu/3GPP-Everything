@@ -29,6 +29,44 @@ def test_messages_accept_basemessage() -> None:
     assert s.messages[0].content == "hi"
 
 
+def test_history_default_empty_and_accepts_dicts() -> None:
+    assert AgentState().history == []
+    s = AgentState(
+        history=[
+            {"role": "user", "content": "What is PUCCH-Config?"},
+            {"role": "assistant", "content": "It is an IE in 38.331 ..."},
+        ]
+    )
+    assert len(s.history) == 2
+    assert s.history[0]["role"] == "user"
+
+
+def test_raw_history_and_session_id_defaults_and_accept() -> None:
+    assert AgentState().raw_history == []
+    assert AgentState().session_id is None
+    s = AgentState(
+        raw_history=[{"id": "abc", "role": "user", "content": "What is PUCCH-Config?"}],
+        session_id="sess-1",
+    )
+    assert s.raw_history[0]["id"] == "abc"
+    assert s.session_id == "sess-1"
+
+
+def test_contextualized_input_default_empty() -> None:
+    assert AgentState().contextualized_input == ""
+
+
+def test_effective_query_prefers_contextualized_then_falls_back() -> None:
+    # 首轮 / 未消解：回退原始 user_input
+    assert AgentState(user_input="它的默认值?").effective_query == "它的默认值?"
+    # 多轮已消解：优先用 contextualized_input
+    s = AgentState(
+        user_input="它的默认值?",
+        contextualized_input="PUCCH-Config 的 maxNrofPUCCH-Resources 默认值是多少?",
+    )
+    assert s.effective_query == "PUCCH-Config 的 maxNrofPUCCH-Resources 默认值是多少?"
+
+
 def test_extra_fields_forbidden() -> None:
     with pytest.raises(ValidationError):
         AgentState(unknown_field=42)  # type: ignore[call-arg]

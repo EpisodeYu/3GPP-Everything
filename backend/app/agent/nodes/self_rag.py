@@ -80,7 +80,9 @@ async def self_rag_node(
             for c in state.reranked
         ],
         answer=state.final_answer,
-        user_input=state.user_input,
+        # 多轮：用消解后的自包含问题判 coverage（裸 "它的默认值?" 会被误判覆盖不足）；
+        # 首轮 effective_query == user_input。faithful 判定仍只看 answer vs chunks。
+        user_input=state.effective_query,
     )
 
     try:

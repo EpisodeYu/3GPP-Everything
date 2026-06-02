@@ -37,7 +37,8 @@ async def hyde_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
     if state.paused:
         interrupt({"reason": "paused by user"})
 
-    user_input = (state.user_input or "").strip()
+    # 多轮：用 contextualize 消解后的自包含问题（effective_query）写假设答案；首轮回退原文。
+    user_input = (state.effective_query or "").strip()
     if not user_input:
         return {"hyde_doc": None}
 

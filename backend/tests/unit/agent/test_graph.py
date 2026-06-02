@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import uuid
 
-from app.agent.graph import _after_classify, build_simple_graph
+from app.agent.graph import _after_classify, _entry_router, build_graph, build_simple_graph
 from app.agent.state import AgentState
 
 from .conftest import StubDense, StubLLM, StubReranker, StubSparse, make_chunk, make_deps
@@ -34,6 +35,130 @@ class TestAfterClassifyRouting:
         # query_class=tool 优先级最高，不被 definition 抢走。
         st = AgentState(user_input="q", query_class="tool", complexity="complex")
         assert _after_classify(st) == "tool"
+
+
+class TestEntryRouter:
+    """_entry_router：有 prior 历史（多轮）先走 compact_history；首轮直连 classify。"""
+
+    def test_no_history_routes_to_classify(self) -> None:
+        assert _entry_router(AgentState(user_input="q")) == "classify"
+
+    def test_with_raw_history_routes_to_compact_history(self) -> None:
+        st = AgentState(
+            user_input="它的默认值?",
+            raw_history=[
+                {"id": str(uuid.uuid4()), "role": "user", "content": "What is PUCCH-Config?"}
+            ],
+        )
+        assert _entry_router(st) == "compact_history"
+
+
+async def test_multiturn_compacts_then_resolves_and_uses_query() -> None:
+    """端到端（mock）：有 raw_history → compact_history → contextualize → 消解 query 进检索。"""
+    resolved = "What is the default value of PUCCH-Config?"
+    classify_resp = json.dumps(
+        {
+            "query_class": "procedure",
+            "complexity": "simple",
+            "detected_language": "en",
+            "rewritten_query": "PUCCH-Config default value",
+            "needs_explicit_tools": [],
+            "reason": "follow-up",
+        }
+    )
+    generate_resp = "The default value is 4 [1]."
+    self_rag_resp = json.dumps(
+        {
+            "faithful": True,
+            "coverage": 0.9,
+            "confidence": 0.8,
+            "verdict": "accept",
+            "missing_aspects": [],
+        }
+    )
+    # 短历史（<= 8）→ compact_history 不调 LLM；调用顺序：
+    # contextualize(chat) → classify(chat) → generate(chat_stream) → self_rag(chat)
+    llm = StubLLM(responses=[resolved, classify_resp, generate_resp, self_rag_resp])
+
+    chunk = make_chunk("c1", spec_id="38.331", section=("5", "3", "5"), title="PUCCH-Config")
+    deps = make_deps(
+        llm=llm,
+        dense=StubDense(chunks=[chunk]),
+        sparse=StubSparse(chunks=[chunk]),
+        reranker=StubReranker(scores=[0.95]),
+    )
+
+    graph = build_graph(deps)
+    out = await graph.ainvoke(
+        {
+            "user_input": "它的默认值是多少?",
+            "user_language": "en",
+            "session_id": "sess-1",
+            "raw_history": [
+                {"id": str(uuid.uuid4()), "role": "user", "content": "What is PUCCH-Config?"},
+                {
+                    "id": str(uuid.uuid4()),
+                    "role": "assistant",
+                    "content": "PUCCH-Config is an IE in 38.331 [1].",
+                },
+            ],
+        }
+    )
+    state = AgentState.model_validate(out)
+
+    # compact_history 把 raw_history 压成 history（短历史 → 原文最近 N 条，只剩 role/content）
+    assert len(state.history) == 2
+    assert all(set(h.keys()) == {"role", "content"} for h in state.history)
+    # contextualize 写入了消解后的自包含问题
+    assert state.contextualized_input == resolved
+    # classify 看到的是消解后的 query（第二次 chat 调用 = classify）
+    chat_calls = [c for c in llm.calls if c["kind"] == "chat"]
+    classify_prompt = chat_calls[1]["messages"][0]["content"]
+    assert resolved in classify_prompt
+    # 端到端拿到答案 + 引用
+    assert "default value" in state.final_answer
+    assert state.citations and state.citations[0]["spec_id"] == "38.331"
+
+
+async def test_first_turn_no_history_skips_contextualize() -> None:
+    """首轮无历史：不跑 compact_history / contextualize（无对应 LLM 调用），与单轮一致。"""
+    classify_resp = json.dumps(
+        {
+            "query_class": "procedure",
+            "complexity": "simple",
+            "detected_language": "en",
+            "rewritten_query": "AMF function",
+            "needs_explicit_tools": [],
+            "reason": "x",
+        }
+    )
+    self_rag_resp = json.dumps(
+        {
+            "faithful": True,
+            "coverage": 0.9,
+            "confidence": 0.8,
+            "verdict": "accept",
+            "missing_aspects": [],
+        }
+    )
+    llm = StubLLM(responses=[classify_resp, "AMF is ... [1].", self_rag_resp])
+    chunk = make_chunk("c1", spec_id="23.501", section=("6", "3", "1"), title="AMF")
+    deps = make_deps(
+        llm=llm,
+        dense=StubDense(chunks=[chunk]),
+        sparse=StubSparse(chunks=[chunk]),
+        reranker=StubReranker(scores=[0.9]),
+    )
+
+    graph = build_graph(deps)
+    out = await graph.ainvoke({"user_input": "What is AMF?", "user_language": "en"})
+    state = AgentState.model_validate(out)
+
+    assert state.contextualized_input == ""  # contextualize 未触发
+    # 3 次 chat-like 调用：classify / generate / self_rag（无 contextualize 那次）
+    chat_like = [c for c in llm.calls if c["kind"] in ("chat", "chat_stream")]
+    assert len(chat_like) == 3
+    assert state.final_answer
 
 
 async def test_simple_path_runs_all_nodes_in_order() -> None:

@@ -9,6 +9,13 @@ from app.agent.prompts import PROMPT_DIR, list_prompts, load_prompt, render
 
 _MIN_VARS = {
     "classify": {"user_input": "What is AMF?"},
+    "contextualize": {
+        "history": [
+            {"role": "user", "content": "What is PUCCH-Config?"},
+            {"role": "assistant", "content": "It is an IE in 38.331."},
+        ],
+        "user_input": "它的默认值是多少?",
+    },
     "rewrite": {"user_input": "AMF 是什么"},
     "hyde": {"user_input": "Describe 5G registration procedure"},
     "multi_query": {"rewritten_query": "5G registration procedure"},
@@ -23,6 +30,7 @@ _MIN_VARS = {
         ],
         "user_input": "What is AMF?",
         "user_language": "en",
+        "history": [],
     },
     "self_rag": {
         "chunks": [
@@ -128,3 +136,62 @@ def test_generate_qa_v6_rule2_uses_index_citation_format() -> None:
 def test_generate_qa_v6_version_bumped() -> None:
     meta, _ = load_prompt("generate_qa")
     assert meta.get("version", 0) >= 6, "generate_qa prompt 应该至少在 v6（索引引用）"
+
+
+# ===== v7 多轮：只读历史段（接通真多轮 B 层） =====
+
+_GEN_CHUNKS = [
+    {
+        "spec_id": "23.501",
+        "section_path": ["6", "3", "1"],
+        "section_title": "AMF",
+        "content": "AMF stands for ...",
+    }
+]
+
+
+def test_generate_qa_v7_renders_history_section_when_provided() -> None:
+    text = render(
+        "generate_qa",
+        chunks=_GEN_CHUNKS,
+        user_input="它的默认值?",
+        user_language="zh",
+        history=[
+            {"role": "user", "content": "What is PUCCH-Config?"},
+            {"role": "assistant", "content": "PUCCH-Config is an IE in 38.331 [1]."},
+        ],
+    )
+    # 用 section header 独有标记区分（rule 7 正文也含 "Conversation history" 字样）
+    assert "context ONLY — NOT a source" in text
+    assert "user: What is PUCCH-Config?" in text
+    assert "assistant: PUCCH-Config is an IE in 38.331 [1]." in text
+
+
+def test_generate_qa_v7_omits_history_section_when_empty() -> None:
+    text = render(
+        "generate_qa",
+        chunks=_GEN_CHUNKS,
+        user_input="What is AMF?",
+        user_language="en",
+        history=[],
+    )
+    assert "context ONLY — NOT a source" not in text
+
+
+def test_generate_qa_v7_has_history_not_a_source_guardrail() -> None:
+    """rule 7：历史仅供理解指代，不可引用、不可作为事实来源（人审：历史不可引用）。"""
+    text = render(
+        "generate_qa",
+        chunks=_GEN_CHUNKS,
+        user_input="X",
+        user_language="en",
+        history=[],
+    )
+    assert "NEVER cite it" in text
+    # 仍强调所有事实来自 chunks
+    assert "MUST still come from" in text
+
+
+def test_generate_qa_v7_version_bumped() -> None:
+    meta, _ = load_prompt("generate_qa")
+    assert meta.get("version", 0) >= 7, "generate_qa prompt 应该在 v7（多轮只读历史段）"

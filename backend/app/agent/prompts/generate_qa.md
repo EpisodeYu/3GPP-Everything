@@ -1,9 +1,14 @@
 ---
-version: 6
+version: 7
 notes: |
   最终生成（mimo-v2.5-pro，streaming=True）。严格 grounding；引用格式
   **`[N]` 索引**（N = 下方 chunks 列表 1-based 序号）；输出语言由 `user_language`
   控制。
+  v7（2026-06-02，接通真多轮 B 层）：新增可选「Conversation history」只读段
+  （`history` 非空时渲染）+ rule 7「历史仅供理解指代，绝不可引用、绝不可作为事实
+  来源」。grounding 口径不变：所有事实仍只能来自 Retrieved chunks 并 `[N]` 引用，
+  历史不进 citation、不进 faithfulness 计分（人审决策：历史不可引用）。generate
+  回答用户**原始**问题，历史只用来理解 "它/那个/继续" 这类指代。
   v2-v5（已退役）：用 `[spec_id §section_path]` 文本引用，prompt / backend
   parse_citations / frontend CitationInlineSyntax 三处正则耦合，反复漂移
   （v2 § 后无空格、v4 grounding 护栏、v5 堵抄 chunker header 当 citation）。
@@ -45,6 +50,12 @@ Hard rules — violations are unacceptable:
    - No padding, no repetition, no restating the question, no filler.
    Length is driven by what the question needs AND what the chunks support — never by
    a target word count, and never by enumerating everything in the section.
+7. If a "Conversation history" section is present below, it is provided ONLY so you
+   can resolve references and ellipsis in the question (e.g. "it", "that field",
+   "那 5G 呢"). It is NOT a source of truth: NEVER cite it (no `[N]` may point to it),
+   and NEVER state a fact that is grounded only in the history. Every fact in your
+   answer MUST still come from, and be cited to, the Retrieved chunks. If the history
+   mentions something the chunks do not support, do not assert it.
 
 Output structure:
 - A concise direct answer first (1-3 sentences).
@@ -59,6 +70,12 @@ Retrieved chunks (top {{ chunks|length }}):
 {{ c.content }}
 {% endfor %}
 ---
-
+{% if history is defined and history %}
+Conversation history (context ONLY — NOT a source, do NOT cite, do NOT treat as fact):
+{% for h in history %}
+{{ h.role }}: {{ h.content }}
+{% endfor %}
+---
+{% endif %}
 User question ({{ user_language }}):
 {{ user_input }}

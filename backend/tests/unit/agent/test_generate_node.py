@@ -91,6 +91,50 @@ async def test_generate_falls_back_to_nonstream_when_stream_fails() -> None:
     assert [c["kind"] for c in llm.calls] == ["chat_stream", "chat"]
 
 
+async def test_generate_injects_history_but_answers_original_question() -> None:
+    """多轮 B 层：history 作为只读上下文进 prompt；generate 仍回答原始 user_input。"""
+    answer = "The default value is 4 [1]."
+    llm = StubLLM(responses=[answer])
+    deps = make_deps(llm=llm)
+    state = AgentState(
+        user_input="它的默认值是多少?",
+        user_language="zh",
+        contextualized_input="What is the default value of PUCCH-Config?",
+        history=[
+            {"role": "user", "content": "What is PUCCH-Config?"},
+            {"role": "assistant", "content": "PUCCH-Config is an IE in 38.331 [1]."},
+        ],
+        rewritten_queries=["PUCCH-Config default value"],
+        reranked=[_chunk("c1", spec="38.331", section=("5", "3", "5"))],
+    )
+
+    out = await generate_node(state, deps=deps)
+    assert out["final_answer"] == answer
+
+    stream_call = next(c for c in llm.calls if c["kind"] == "chat_stream")
+    prompt = stream_call["messages"][0]["content"]
+    # 历史段进了 prompt（用 section header 独有标记区分 rule 7 正文）
+    assert "context ONLY — NOT a source" in prompt
+    assert "What is PUCCH-Config?" in prompt
+    # generate 回答的是**原始**问题，不是 contextualize 的机器改写
+    assert "它的默认值是多少?" in prompt
+    assert "What is the default value of PUCCH-Config?" not in prompt
+
+
+async def test_generate_without_history_has_no_history_section() -> None:
+    llm = StubLLM(responses=["AMF is ... [1]."])
+    deps = make_deps(llm=llm)
+    state = AgentState(
+        user_input="What is AMF?",
+        user_language="en",
+        reranked=[_chunk("c1", spec="23.501", section=("6", "3", "1"))],
+    )
+    out = await generate_node(state, deps=deps)
+    assert out["final_answer"]
+    prompt = next(c for c in llm.calls if c["kind"] == "chat_stream")["messages"][0]["content"]
+    assert "context ONLY — NOT a source" not in prompt
+
+
 async def test_no_chunks_returns_fallback_message() -> None:
     deps = make_deps(llm=StubLLM(responses=["should not be called"]))
     state_en = AgentState(user_input="X", user_language="en", reranked=[])

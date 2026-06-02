@@ -76,11 +76,15 @@ async def generate_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
             "confidence": 0.0,
         }
 
+    # 多轮：注入只读对话历史（仅供理解指代/省略，不可引用、不可作为事实来源；口径
+    # 见 generate_qa.md 护栏 + 03-agent.md §6.1）。generate 仍回答**原始** user_input，
+    # 不答 contextualize 的机器改写，避免意图被扭曲。首轮 history=[] → 模板不渲染历史段。
     prompt = render(
         "generate_qa",
         chunks=[_chunk_view(c) for c in chunks],
         user_input=state.user_input,
         user_language=state.user_language,
+        history=state.history,
     )
     messages = [{"role": "user", "content": prompt}]
 

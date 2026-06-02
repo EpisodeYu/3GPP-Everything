@@ -11,11 +11,13 @@ config 字段会比较密；显式 `AgentDeps` 让节点签名清楚（`async de
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.agent.utils.history_compactor import RedisLike
 from app.core.config import Settings, get_settings
 from app.db.base import get_sessionmaker
 from app.llm.litellm_client import LiteLLMClient
@@ -51,6 +53,9 @@ class AgentDeps:
     sparse: _SparseRetrieverProto | None = None
     reranker: _RerankerProto | None = None
     cache: RetrievalCache | None = None
+    # redis：compact_history 节点的 summary 缓存（key tgpp:cache:history_summary:...）。
+    # 仅 get/setex 两个接口（RedisLike）；None → 不缓存（每个长会话回合重算 summary）。
+    redis: RedisLike | None = None
     db_sessionmaker: async_sessionmaker[AsyncSession] | None = None
     settings: Settings = field(default_factory=get_settings)
 
@@ -63,12 +68,16 @@ class AgentDeps:
         sparse = SparseRetriever.from_env(settings=s)
         reranker = Reranker.from_env(litellm_client=litellm, settings=s)
         cache = RetrievalCache(settings=s)
+        # summary 缓存用独立 redis 句柄（decode_responses=True，与 history_compactor
+        # 期望的 str 值一致）；连不上不阻塞——compact_history 对 get/setex 异常已降级。
+        redis = _build_redis(s)
         return cls(
             llm=litellm,
             dense=dense,
             sparse=sparse,
             reranker=reranker,
             cache=cache,
+            redis=redis,
             db_sessionmaker=get_sessionmaker(),
             settings=s,
         )
@@ -79,4 +88,18 @@ class AgentDeps:
             await self.dense.close()
         if self.cache is not None:
             await self.cache.close()
+        aclose = getattr(self.redis, "aclose", None)
+        if aclose is not None:
+            with contextlib.suppress(Exception):
+                await aclose()
         await self.llm.close()
+
+
+def _build_redis(settings: Settings) -> Any | None:
+    """构造 summary 缓存用的 aioredis 句柄；任何失败返回 None（不阻塞 agent 启动）。"""
+    try:
+        import redis.asyncio as aioredis
+
+        return aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    except Exception:
+        return None
