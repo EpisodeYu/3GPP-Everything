@@ -1,0 +1,3 @@
+{"item_id": "smoke-23501-pdu", "question": "What is a PDU Session in the 5G System?", "spec": "23.501", "series": "23"}
+{"item_id": "smoke-38331-rrcreconfig", "question": "What is the purpose of the RRCReconfiguration procedure in 5G NR?", "spec": "38.331", "series": "38"}
+{"item_id": "smoke-24501-registration", "question": "What information does the Registration Request message carry in the 5G NAS protocol?", "spec": "24.501", "series": "24"}

@@ -90,6 +90,13 @@ class EvalSettings(BaseSettings):
     langfuse_secret_key: str = Field(default="")
     langfuse_host: str = Field(default="https://cloud.langfuse.com")
 
+    # 对比基线 B = 华为开源 Telco-RAG（netop-team）：本地起服务后 connector POST
+    # /process_query/ 取答案 + 检索上下文。其检索向量 + 默认 LLM 走 OpenAI →
+    # 需 openai_api_key（对外密钥，由人提供）。详见 eval/huawei_compare/README.md。
+    telcorag_base_url: str = Field(default="http://localhost:8000")
+    telcorag_model: str = Field(default="gpt-4o-mini")
+    openai_api_key: str = Field(default="")
+
     @property
     def resolved_litellm_base_url(self) -> str:
         return _resolve_docker_internal_host(self.litellm_base_url)
@@ -101,6 +108,10 @@ class EvalSettings(BaseSettings):
     @property
     def langfuse_enabled(self) -> bool:
         return bool(self.langfuse_public_key.strip() and self.langfuse_secret_key.strip())
+
+    @property
+    def resolved_telcorag_base_url(self) -> str:
+        return _resolve_docker_internal_host(self.telcorag_base_url)
 
 
 @lru_cache(maxsize=1)
