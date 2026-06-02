@@ -158,7 +158,7 @@ void main() {
       expect(items.single.title, '');
     });
 
-    test('fork 成功后：旧 session 状态 → archived_branch，新 session 插到列表头',
+    test('fork 成功后：新 session 插到列表头，旧 session 保持 active（不再 archive）',
         () async {
       final api = FakeSessionsApi(initial: [
         buildSession(id: 'src', title: '主线'),
@@ -182,9 +182,10 @@ void main() {
 
       final items = container.read(sessionsControllerProvider).value!;
       expect(items.first.id, 'fork-of-src');
-      // src 仍在列表里，但 status 已经被改为 archived_branch
+      // 2026-06-02 行为变更：fork 后 src 仍在列表里，且 status 保持原状态（active），
+      // 与后端 fork_session 对齐 —— 用户可继续在原会话提问。
       final src = items.firstWhere((s) => s.id == 'src');
-      expect(src.status, 'archived_branch');
+      expect(src.status, 'active');
       expect(items.length, 3);
     });
 

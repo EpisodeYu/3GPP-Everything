@@ -21,7 +21,7 @@ import contextlib
 import uuid
 
 from fastapi import APIRouter, Depends, Request, status
-from sqlalchemy import and_, delete, desc, select
+from sqlalchemy import and_, asc, delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
@@ -229,6 +229,15 @@ async def fork_session(
     新会话独立创建且跳转过去，`forked_from_session_id` / `forked_from_checkpoint_id`
     保留追溯关系。
 
+    **2026-06-02 行为变更**：fork 时把原会话的已完成历史消息（含 citations）复制
+    到新会话的 PG `messages` 表 —— 否则分叉会话在前端（历史来自
+    `GET /sessions/{sid}/messages`）看不到任何 fork 前的对话。LangGraph 侧
+    `fork_from` 只拷 checkpoint state（供后续提问带上下文），不写 PG，故这里补齐。
+    复制范围 = 原会话全部已完成消息（与 MVP「fork 一律用最近 checkpoint」一致），
+    跳过 inflight / 空 assistant stub（`role=assistant && content=''`）。运行标识
+    字段（run_id / checkpoint_id / trace_id / tokens）不复制 —— 历史消息是只读快照，
+    新的 run 从用户在分叉会话里重新提问开始。
+
     `archived_branch` 这个 status 仍保留作向后兼容（M5 之前 fork 出的老会话已
     带此状态），相关只读 banner / 入口禁用逻辑维持不变；但本路由不会再产生新的
     `archived_branch` 会话。
@@ -264,10 +273,75 @@ async def fork_session(
     except RuntimeError as exc:
         raise ConflictError(str(exc), code="fork_unsupported") from exc
 
+    await _copy_history_to_fork(db, sid, new_sid)
+
     # 原会话不再 archive：保持原状态让用户可继续对话
     await db.commit()
     await db.refresh(new_session)
     return ForkResponse(new_session=SessionOut.model_validate(new_session, from_attributes=True))
+
+
+async def _copy_history_to_fork(db: AsyncSession, src_sid: uuid.UUID, new_sid: uuid.UUID) -> None:
+    """把原会话 `src_sid` 的已完成历史消息（含 citations）复制到分叉会话 `new_sid`。
+
+    保留原 `created_at` 维持时间顺序（messages list 按 `created_at asc` 返回）；
+    跳过空 assistant stub（与前端 `_loadHistoryFromPg` 过滤一致）。citations 先按
+    message 批量取出再分组复制，避免 async lazy-load relationship 触发 greenlet 错误。
+    """
+    src_msgs = list(
+        (
+            await db.execute(
+                select(Message)
+                .where(Message.session_id == src_sid)
+                .order_by(asc(Message.created_at))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    src_msgs = [m for m in src_msgs if not (m.role == "assistant" and not m.content)]
+    if not src_msgs:
+        return
+
+    src_ids = [m.id for m in src_msgs]
+    cites_by_msg: dict[uuid.UUID, list[MessageCitation]] = {}
+    cite_rows = (
+        (await db.execute(select(MessageCitation).where(MessageCitation.message_id.in_(src_ids))))
+        .scalars()
+        .all()
+    )
+    for c in cite_rows:
+        cites_by_msg.setdefault(c.message_id, []).append(c)
+
+    for m in src_msgs:
+        copied = Message(
+            session_id=new_sid,
+            role=m.role,
+            content=m.content,
+            status=m.status,
+            user_language=m.user_language,
+            mode=m.mode,
+            explicit_tools=list(m.explicit_tools or []),
+            confidence=m.confidence,
+            self_rag_verdict=m.self_rag_verdict,
+            created_at=m.created_at,
+        )
+        db.add(copied)
+        await db.flush()
+        for c in cites_by_msg.get(m.id, []):
+            db.add(
+                MessageCitation(
+                    message_id=copied.id,
+                    chunk_meta_id=c.chunk_meta_id,
+                    chunk_id=c.chunk_id,
+                    rank=c.rank,
+                    rerank_score=c.rerank_score,
+                    spec_id=c.spec_id,
+                    section_path=c.section_path,
+                    char_offset_start=c.char_offset_start,
+                    char_offset_end=c.char_offset_end,
+                )
+            )
 
 
 # --- 5. rollback ----------------------------------------------------------

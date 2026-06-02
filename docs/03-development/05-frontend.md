@@ -290,9 +290,9 @@ i18n keys：`reasoningCollapsedTitle` / `reasoningExpand` / `reasoningCollapse` 
 ### 5.6 历史、分叉、回滚
 
 - **用户消息分叉**：两种触发方式等价
-  - 长按 user 气泡 → 菜单"从这里重问"
+  - 长按 user 气泡 → 菜单"从这里分叉"
   - 点击 user 气泡下方 `Key('msg-fork-{user_msg_id}')` 的"分叉"图标按钮（2026-06-01 加入，所有 user message 都有）
-  - 点击后弹 fork dialog 输入新问题 → `POST /sessions/{sid}/fork` body `{checkpoint_id, new_user_message}` → 后端返回新 `session_id'`，前端跳转到新会话
+  - **2026-06-02 行为变更**：点击后**不再弹输入框**，直接基于最近 checkpoint 调 `POST /sessions/{sid}/fork` body `{checkpoint_id}`（不带 `new_user_message`）→ 后端返回新 `session_id'`，前端跳转到新会话。fork 语义从"用新问题重问"改为"复制当前对话到新分支继续聊"：分叉会话带着 fork 前的完整历史（后端把原会话已完成消息 + citations 复制到新会话 PG `messages`），用户进去后在 composer 直接继续提问
   - **2026-06-01 行为变更**：原会话不再被标记 `archived_branch`，保持 active 可继续对话；新会话作为独立分叉存在，通过 `forked_from_session_id` 追溯。"分叉历史" 分组现在只装 M5 之前已 archived 的老会话（向后兼容）
 - **assistant 消息长按**：复制全文 / 复制 markdown / thumb up/down / 添加到收藏
 - **会话回滚**：会话设置菜单里 "删除最后 N 轮"（slider 选 1-10），调 `POST /sessions/{sid}/rollback`；UI 提示 "不可撤销"二次确认。"一轮" = 一条 user message + 它之后的所有消息（典型一对：user+assistant）；2026-06-01 修复 PG `now()` 同事务排序不稳定导致 "只删用户提问留下答案" 的 bug，详见 backend `rollback_session` docstring
@@ -429,7 +429,7 @@ app_zh.arb        # 中文
 - [x] `[auto]` `flutter test integration_test/` 跑通 mock API 下的完整 send → token → final 流程（M5.2 落，M5.4/M5.5/M5.6 回归仍绿）
 - [x] `[auto]` 手写 Dart client 字段与后端 `/openapi.json` 字段一一对齐（`scripts/check_openapi_diff.py` + `.github/workflows/frontend-ci.yml`；alias 表见脚本顶部 `DART_TO_BACKEND_ALIAS`）
 - [ ] `[human]` Chrome / Edge 实测：登录 → 创建会话 → 流式问答 → 看引用 → 跳阅读器 → 高亮 → 取消正在进行的问答 → 收藏 / 笔记 / 反馈
-- [ ] `[human]` Checkpoint 闭环实测：跑中暂停 → 关浏览器 → 重进会话点恢复 → SSE 续跑后续节点；从历史 user 消息 fork → 跳转新会话 → 老会话进入 "分叉历史" 分组只读；删除最后 N 轮后剩余消息状态正确
+- [ ] `[human]` Checkpoint 闭环实测：跑中暂停 → 关浏览器 → 重进会话点恢复 → SSE 续跑后续节点；从历史 user 消息 fork → 跳转新会话 → **老会话保持 active 可继续提问（2026-06-01 行为变更，老 archived_branch 会话仍只读）**；删除最后 N 轮后剩余消息状态正确
 - [ ] `[human]` Windows Android 真机实测：人在 Windows 上 `flutter build apk --release --dart-define=API_BASE_URL=http://<dev-ip>:8002/api/v1`，安装到真机，跑同 Web 完整流程（交互可简陋，能用即可）
 - [ ] `[human]` 切换中/英、light/dark 后再走一次完整流程
 - [ ] `[human]` 管理后台：拉取任务 + 进度 + 跳 Langfuse

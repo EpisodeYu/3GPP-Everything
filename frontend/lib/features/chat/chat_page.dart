@@ -231,16 +231,15 @@ class _ChatViewState extends ConsumerState<_ChatView> {
     }
   }
 
+  /// 点 fork（图标或长按菜单）：直接基于最近 checkpoint 分叉出新会话并跳转过去。
+  ///
+  /// 2026-06-02：去掉原先「输入新问题」对话框 —— fork 现在纯粹是「复制当前对话到
+  /// 一个新分支继续聊」。新会话带着 fork 前的历史（后端复制到 PG messages），用户
+  /// 进去后直接在 composer 里继续提问即可。
   Future<void> _onForkFromUserMessage(MessageOut userMsg) async {
-    final newQ = await showDialog<String>(
-      context: context,
-      builder: (_) => _ForkDialog(originalText: userMsg.content),
-    );
-    if (newQ == null || newQ.trim().isEmpty) return;
-    if (!mounted) return;
     final controller = ref.read(chatControllerProvider(_sid).notifier);
     try {
-      // M5.4 MVP：fork 一律用最近 checkpoint（messages 表未暴露 checkpoint_id）
+      // MVP：fork 一律用最近 checkpoint（messages 表未暴露 checkpoint_id）
       final list = await controller.listCheckpoints();
       final cp = list.items.isNotEmpty ? list.items.first : null;
       if (cp == null) {
@@ -255,7 +254,6 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           .fork(
             sid: _sid,
             checkpointId: cp.checkpointId,
-            newUserMessage: newQ.trim(),
           );
       if (!mounted) return;
       context.go('/sessions/${created.id}');
@@ -1069,8 +1067,8 @@ class _UserMenuSheet extends StatelessWidget {
           ListTile(
             key: const Key('user_menu_fork'),
             leading: const Icon(Icons.fork_right),
-            title: const Text('从这里重问'),
-            subtitle: const Text('用新问题分叉出一个新会话'),
+            title: const Text('从这里分叉'),
+            subtitle: const Text('复制当前对话到一个新会话继续'),
             onTap: () => Navigator.pop(context, _UserAction.forkFromHere),
           ),
         ],
@@ -1129,71 +1127,6 @@ class _RollbackDialogState extends State<_RollbackDialog> {
           ),
           onPressed: () => Navigator.pop(context, n),
           child: const Text('删除'),
-        ),
-      ],
-    );
-  }
-}
-
-class _ForkDialog extends StatefulWidget {
-  const _ForkDialog({required this.originalText});
-  final String originalText;
-
-  @override
-  State<_ForkDialog> createState() => _ForkDialogState();
-}
-
-class _ForkDialogState extends State<_ForkDialog> {
-  late final TextEditingController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(text: widget.originalText);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('从这里重问'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '将基于最近 checkpoint 分叉出新会话；原会话变成只读分叉历史。',
-            style: TextStyle(fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            key: const Key('fork_input'),
-            controller: _ctrl,
-            autofocus: true,
-            minLines: 2,
-            maxLines: 6,
-            decoration: const InputDecoration(
-              labelText: '新问题',
-              border: OutlineInputBorder(),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          key: const Key('fork_cancel'),
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          key: const Key('fork_confirm'),
-          onPressed: () => Navigator.pop(context, _ctrl.text),
-          child: const Text('分叉'),
         ),
       ],
     );

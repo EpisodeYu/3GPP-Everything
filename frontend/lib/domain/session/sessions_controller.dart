@@ -137,8 +137,9 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
   }
 
   /// 从指定 checkpoint 分叉出新会话（M5.4）。成功后：
-  /// - 旧 sid 在列表里 status 改成 `archived_branch`（视觉灰度 / "分叉历史" 分组）
   /// - 新会话插到列表头
+  /// - 旧 sid 保持原状态（2026-06-01 行为变更：fork 不再 archive 原会话，
+  ///   用户可以继续在原会话提问；与后端 `fork_session` 行为对齐）
   ///
   /// 失败时不修改列表，[CheckpointApi.fork] 的异常向上抛由调用方提示。
   Future<SessionOut> fork({
@@ -155,27 +156,9 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
       title: title,
     );
     final prev = state.value ?? const <SessionOut>[];
-    state = AsyncData([
-      resp.newSession,
-      for (final s in prev)
-        if (s.id == sid) _withStatus(s, 'archived_branch') else s,
-    ]);
+    state = AsyncData([resp.newSession, ...prev]);
     return resp.newSession;
   }
-
-  /// 局部 SessionOut copy（仅改 status 字段，避免给 SessionOut 加 copyWith 触发面更广的改动）。
-  SessionOut _withStatus(SessionOut s, String status) => SessionOut(
-        id: s.id,
-        userId: s.userId,
-        title: s.title,
-        modeDefault: s.modeDefault,
-        status: status,
-        forkedFromSessionId: s.forkedFromSessionId,
-        forkedFromCheckpointId: s.forkedFromCheckpointId,
-        lastMessageAt: s.lastMessageAt,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
-      );
 
   /// 局部 SessionOut copy（仅改 title 字段）。
   SessionOut _withTitle(SessionOut s, String title) => SessionOut(

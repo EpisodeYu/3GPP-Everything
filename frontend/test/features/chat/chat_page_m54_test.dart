@@ -308,7 +308,7 @@ void main() {
       expect(find.byKey(const ValueKey('msg-fork-u1')), findsNothing);
     });
 
-    testWidgets('点 fork 图标 → 弹 fork dialog → 调 fork API（与长按菜单等价）',
+    testWidgets('点 fork 图标 → 直接基于最近 checkpoint 调 fork（不再弹输入框）',
         (tester) async {
       final messages = FakeMessagesApi(history: [
         _msg(id: 'u1', role: 'user', content: '老问题'),
@@ -326,15 +326,12 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('msg-fork-u1')));
       await tester.pumpAndSettle();
-      // fork dialog 出现，预填了原问题
-      expect(find.byKey(const Key('fork_input')), findsOneWidget);
-      await tester.enterText(find.byKey(const Key('fork_input')), '换个问法');
-      await tester.tap(find.byKey(const Key('fork_confirm')));
-      await tester.pumpAndSettle();
-
+      // 2026-06-02：不再弹「输入新问题」对话框
+      expect(find.byKey(const Key('fork_input')), findsNothing);
+      // 直接 fork：用最近 checkpoint，且不带 newUserMessage
       expect(h.checkpoint.forkCalls, 1);
       expect(h.checkpoint.lastForkCheckpointId, 'cp-x');
-      expect(h.checkpoint.lastForkNewUserMessage, '换个问法');
+      expect(h.checkpoint.lastForkNewUserMessage, isNull);
     });
   });
 
@@ -533,7 +530,7 @@ void main() {
   });
 
   group('ChatPage M5.4 / 长按菜单', () {
-    testWidgets('长按 user 消息 → 弹菜单 → 点 "从这里重问" → 弹 fork dialog → 调 fork',
+    testWidgets('长按 user 消息 → 弹菜单 → 点 "从这里分叉" → 直接调 fork（不弹输入框）',
         (tester) async {
       final messages = FakeMessagesApi(history: [
         _msg(id: 'u1', role: 'user', content: '老问题'),
@@ -555,15 +552,11 @@ void main() {
       expect(find.byKey(const Key('user_menu_fork')), findsOneWidget);
       await tester.tap(find.byKey(const Key('user_menu_fork')));
       await tester.pumpAndSettle();
-      // fork dialog 出现，输入框预填了原问题
-      expect(find.byKey(const Key('fork_input')), findsOneWidget);
-      await tester.enterText(find.byKey(const Key('fork_input')), '换个问法');
-      await tester.tap(find.byKey(const Key('fork_confirm')));
-      await tester.pumpAndSettle();
-
+      // 2026-06-02：不再弹「输入新问题」对话框，直接 fork
+      expect(find.byKey(const Key('fork_input')), findsNothing);
       expect(h.checkpoint.forkCalls, 1);
       expect(h.checkpoint.lastForkCheckpointId, 'cp-1');
-      expect(h.checkpoint.lastForkNewUserMessage, '换个问法');
+      expect(h.checkpoint.lastForkNewUserMessage, isNull);
     });
 
     testWidgets('长按 assistant 消息 → 复制：触发 SnackBar', (tester) async {

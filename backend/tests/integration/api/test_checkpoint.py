@@ -13,10 +13,10 @@ from collections.abc import AsyncIterator
 from typing import Any, ClassVar
 
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
+from sqlalchemy import asc, select
 
 from app.agent.checkpoint import CheckpointSummary
-from app.db.models import Message
+from app.db.models import Message, MessageCitation
 from app.db.models import Session as DBSession
 
 from .test_auth import _bootstrap_admin, _login
@@ -239,6 +239,99 @@ async def test_fork_creates_new_session_keeps_original_active(
 
     # graph.fork_from 调用：写新 thread state，user_input 被覆盖
     assert any(c["values"].get("user_input") == "alt query" for c in graph.fork_calls)
+
+
+async def test_fork_copies_history_messages_to_new_session(
+    app_and_state: Any, db_session: Any
+) -> None:
+    """2026-06-02：fork 把原会话已完成历史消息（含 citations）复制到分叉会话。
+
+    分叉会话前端历史来自 PG messages；不复制就看不到 fork 前对话。本测验证：
+    - user / assistant 历史按 created_at 升序复制到新会话，confidence 等字段保留
+    - citations 一并复制
+    - 空 assistant stub（content=''）被跳过
+    """
+    app, _, _ = app_and_state
+
+    class _G:
+        def __init__(self) -> None:
+            self.checkpointer = object()
+
+        async def aget_state(self, cfg: Any) -> Any:
+            class _Snap:
+                values: ClassVar[dict[str, Any]] = {"user_input": "main"}
+
+            return _Snap()
+
+        async def aupdate_state(self, cfg: Any, values: dict[str, Any]) -> None:
+            return None
+
+    app.state.agent_graph = _G()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token)
+
+        import datetime as _dt
+
+        sid_uuid = uuid.UUID(sid)
+        base = _dt.datetime(2026, 6, 2, 9, 0, 0, tzinfo=_dt.UTC)
+        u = Message(
+            session_id=sid_uuid, role="user", content="原问题", status="ok", created_at=base
+        )
+        a = Message(
+            session_id=sid_uuid,
+            role="assistant",
+            content="原答案",
+            status="ok",
+            confidence=0.9,
+            created_at=base + _dt.timedelta(microseconds=10),
+        )
+        stub = Message(
+            session_id=sid_uuid,
+            role="assistant",
+            content="",
+            status="ok",
+            created_at=base + _dt.timedelta(seconds=1),
+        )
+        db_session.add_all([u, a, stub])
+        await db_session.flush()
+        db_session.add(
+            MessageCitation(
+                message_id=a.id,
+                chunk_id="c1",
+                rank=1,
+                spec_id="23.501",
+                section_path="5.7",
+            )
+        )
+        await db_session.commit()
+
+        r = await client.post(
+            f"/api/v1/sessions/{sid}/fork",
+            json={"checkpoint_id": "ck-latest"},
+            headers=_auth_headers(token),
+        )
+        assert r.status_code == 201, r.text
+        new_sid = uuid.UUID(r.json()["new_session"]["id"])
+
+    # 新会话历史：复制了 user+assistant（跳过空 stub），按 created_at 升序
+    res = await db_session.execute(
+        select(Message).where(Message.session_id == new_sid).order_by(asc(Message.created_at))
+    )
+    copied = list(res.scalars().all())
+    assert [(m.role, m.content) for m in copied] == [("user", "原问题"), ("assistant", "原答案")]
+    assert copied[1].confidence == 0.9
+
+    # citation 也复制到新 assistant
+    cres = await db_session.execute(
+        select(MessageCitation).where(MessageCitation.message_id == copied[1].id)
+    )
+    cites = list(cres.scalars().all())
+    assert len(cites) == 1
+    assert cites[0].chunk_id == "c1"
+    assert cites[0].spec_id == "23.501"
 
 
 async def test_rollback_deletes_last_n_rounds_and_calls_graph(
