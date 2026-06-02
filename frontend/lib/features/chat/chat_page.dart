@@ -651,17 +651,18 @@ class _MessagesList extends StatelessWidget {
         },
         child: bubble,
       );
-      // user message：气泡右下角内嵌两个图标按钮（无文字、靠右下，紧贴气泡）。
+      // user message：气泡下方右对齐渲染两个纯图标按钮（在气泡外部，不与文字重叠）。
       // - 「分叉」按钮：所有 user message 都有（与长按菜单"从这里重问"等价）
       // - 「修改并重新提问」按钮：仅最后一条 user 且 last turn 可编辑时显示
       if (m.role == 'user') {
         final isLastEditable = m.id == editableLastUserMessageId;
-        child = Stack(
+        child = Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
           children: [
             child,
-            Positioned(
-              right: 18,
-              bottom: 6,
+            Padding(
+              padding: const EdgeInsets.only(right: 16, top: 2, bottom: 4),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
