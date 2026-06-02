@@ -212,6 +212,34 @@ void main() {
       expect(adapter.calls.single.queryParameters.containsKey('thumb'), isFalse);
     });
 
+    test('getSessionDetail 解析会话元信息 + 消息', () async {
+      final adapter = _ScriptedAdapter([
+        (_) => _json(200, {
+              'id': 's-1',
+              'title': 'u1 的会话',
+              'username': 'u1',
+              'created_at': '2026-05-25T10:00:00Z',
+              'messages': [
+                {
+                  'id': 'm-1',
+                  'session_id': 's-1',
+                  'role': 'user',
+                  'content': '什么是 PDCP',
+                  'status': 'ok',
+                  'created_at': '2026-05-25T10:00:00Z',
+                  'citations': const [],
+                },
+              ],
+            }),
+      ]);
+      final api = AdminApi(_makeDio(adapter));
+      final d = await api.getSessionDetail('s-1');
+      expect(d.title, 'u1 的会话');
+      expect(d.username, 'u1');
+      expect(d.messages.single.content, '什么是 PDCP');
+      expect(adapter.calls.single.path, '/admin/sessions/s-1');
+    });
+
     test('403 冒泡 DioException（非 admin 调用兜底）', () async {
       final adapter = _ScriptedAdapter([
         (_) => _json(403, {'code': 'forbidden'}),

@@ -22,14 +22,17 @@ class FakeAdminApi implements AdminApi {
   final List<TaskOut> _tasks;
   TaskOut _rebuildResult;
   AdminFeedbackListResponse _feedback;
+  AdminSessionDetailOut? _sessionDetail;
 
   Object? statsErr;
   Object? tasksErr;
   Object? rebuildErr;
   Object? feedbackErr;
+  Object? sessionDetailErr;
 
   String? lastTaskFilter;
   int? lastFeedbackThumb;
+  String? lastSessionDetailSid;
   int listTasksCalls = 0;
   int getStatsCalls = 0;
   int getFeedbackCalls = 0;
@@ -46,6 +49,7 @@ class FakeAdminApi implements AdminApi {
 
   void setRebuildResult(TaskOut t) => _rebuildResult = t;
   void setFeedback(AdminFeedbackListResponse f) => _feedback = f;
+  void setSessionDetail(AdminSessionDetailOut d) => _sessionDetail = d;
 
   @override
   Future<StatsOut> getStats() async {
@@ -99,6 +103,18 @@ class FakeAdminApi implements AdminApi {
     lastFeedbackThumb = thumb;
     if (feedbackErr != null) throw feedbackErr!;
     return _feedback;
+  }
+
+  @override
+  Future<AdminSessionDetailOut> getSessionDetail(String sid) async {
+    lastSessionDetailSid = sid;
+    if (sessionDetailErr != null) throw sessionDetailErr!;
+    return _sessionDetail ??
+        AdminSessionDetailOut(
+          id: sid,
+          title: '(stub)',
+          createdAt: '2026-05-25T10:00:00Z',
+        );
   }
 }
 

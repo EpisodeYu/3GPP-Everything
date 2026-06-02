@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../domain/auth/auth_controller.dart';
 import '../domain/auth/auth_state.dart';
 import '../features/admin/admin_dashboard.dart';
+import '../features/admin/admin_session_view.dart';
 import '../features/auth/login_page.dart';
 import '../features/chat/chat_page.dart';
 import '../features/favorites/favorites_page.dart';
@@ -13,7 +14,6 @@ import '../features/reader/reader_page.dart';
 import '../features/shell/app_shell.dart';
 
 const _publicRoutes = <String>{'/login'};
-const _adminRoutes = <String>{'/admin'};
 
 /// 监听 Riverpod 的 authState，触发 GoRouter 重新评估 redirect。
 class _AuthRefreshNotifier extends ChangeNotifier {
@@ -45,9 +45,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (!loggedIn && !goingPublic) return '/login';
       if (loggedIn && goingPublic) return '/chat';
-      // RBAC：非 admin 访问 /admin → 弹回 /chat。后端 403 是第二道防线。
+      // RBAC：非 admin 访问 /admin* → 弹回 /chat。后端 403 是第二道防线。
       if (value is AuthAuthenticated &&
-          _adminRoutes.contains(state.matchedLocation) &&
+          state.matchedLocation.startsWith('/admin') &&
           value.me.role != 'admin') {
         return '/chat';
       }
@@ -84,6 +84,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/notes',
         builder: (_, _) => const NotesPage(),
+      ),
+      // admin 会话查看（反馈溯源）：平级独立页，自带 AppBar back。RBAC 由
+      // 上面 `/admin` 前缀守卫覆盖。`?msg=<id>` 滚到并高亮被反馈的那条。
+      GoRoute(
+        path: '/admin/sessions/:sid',
+        builder: (_, s) => AdminSessionView(
+          sessionId: s.pathParameters['sid']!,
+          highlightMessageId: s.uri.queryParameters['msg'],
+        ),
       ),
       // Reader 与 AppShell 平级：自带 AppBar + 左侧 TocDrawer，避免双 Drawer 嵌套。
       // 顶部 AppBar back 按钮回 /chat。

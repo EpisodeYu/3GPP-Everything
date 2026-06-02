@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../data/api/admin_api.dart';
 
@@ -193,6 +194,7 @@ class _FeedbackTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final up = item.thumb > 0;
     final reason = item.reason;
+    final canOpen = item.sessionId != null;
     return Card(
       key: Key('admin_feedback_item_${item.id}'),
       child: ListTile(
@@ -210,10 +212,17 @@ class _FeedbackTile extends StatelessWidget {
             if (reason != null && reason.isNotEmpty) '理由：$reason',
             '${item.username ?? '?'} · ${item.createdAt}',
           ].join('\n'),
-          maxLines: 3,
+          maxLines: 4,
           overflow: TextOverflow.ellipsis,
         ),
         isThreeLine: reason != null && reason.isNotEmpty,
+        // 点条目 → 打开整段会话（含引用），滚到并高亮被反馈的这条。
+        trailing: canOpen ? const Icon(Icons.chevron_right) : null,
+        onTap: canOpen
+            ? () => context.push(
+                  '/admin/sessions/${item.sessionId}?msg=${item.messageId}',
+                )
+            : null,
       ),
     );
   }

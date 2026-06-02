@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dio_provider.dart';
+import 'messages_api.dart';
 
 /// 与后端 `ApiUsage7dOut`（`backend/app/schemas/admin.py`）对齐。
 class ApiUsage7dOut {
@@ -202,6 +203,35 @@ class AdminFeedbackListResponse {
   final int total;
 }
 
+/// 与后端 `AdminSessionDetailOut` 对齐 —— admin 看任意用户会话的完整消息（含引用）。
+class AdminSessionDetailOut {
+  const AdminSessionDetailOut({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    this.username,
+    this.messages = const [],
+  });
+
+  factory AdminSessionDetailOut.fromJson(Map<String, dynamic> j) =>
+      AdminSessionDetailOut(
+        id: j['id'] as String,
+        title: (j['title'] as String?) ?? '',
+        username: j['username'] as String?,
+        createdAt: (j['created_at'] as String?) ?? '',
+        messages: ((j['messages'] as List?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map(MessageOut.fromJson)
+            .toList(),
+      );
+
+  final String id;
+  final String title;
+  final String? username;
+  final String createdAt;
+  final List<MessageOut> messages;
+}
+
 /// `/admin/*` 路由的薄包装（M5.5）。
 ///
 /// 协议锚：
@@ -269,6 +299,12 @@ class AdminApi {
       queryParameters: qp,
     );
     return AdminFeedbackListResponse.fromJson(resp.data!);
+  }
+
+  /// GET `/admin/sessions/{sid}` — 任意用户会话的完整消息（含引用），反馈溯源用。
+  Future<AdminSessionDetailOut> getSessionDetail(String sid) async {
+    final resp = await _dio.get<Map<String, dynamic>>('/admin/sessions/$sid');
+    return AdminSessionDetailOut.fromJson(resp.data!);
   }
 
   /// POST `/admin/index/rebuild` — 触发索引重建。

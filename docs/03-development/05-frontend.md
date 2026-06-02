@@ -326,7 +326,7 @@ i18n keys：`reasoningCollapsedTitle` / `reasoningExpand` / `reasoningCollapse` 
   - 已索引 / 总数
   - 总 chunk 数（按 provider 分）
   - 今日 / 本月 API 用量（PG `api_usage` 聚合）
-- **反馈**（后补，第 5 个 tab）：`GET /admin/feedback` —— 顶部点赞/点踩/合计计数 + thumb 过滤（全部/👍/👎）+ 明细列表（消息预览 + reason + 反馈者 + 时间）。管理员只读，不跳转他人会话
+- **反馈**（后补，第 5 个 tab）：`GET /admin/feedback` —— 顶部点赞/点踩/合计计数 + thumb 过滤（全部/👍/👎）+ 明细列表（消息预览 + reason + 反馈者 + 时间）。**点一条 → 打开会话详情页**（`/admin/sessions/:sid?msg=<id>`，`GET /admin/sessions/{sid}`）：admin 只读看该用户**整段对话**，复用聊天气泡 + 引用 chip，滚到并高亮被反馈的那条，便于判断是检索还是生成的问题
 - **操作**：
   - "拉取新文档"（弹框选 release/series）
   - "重建索引"（弹框选 spec_id）
