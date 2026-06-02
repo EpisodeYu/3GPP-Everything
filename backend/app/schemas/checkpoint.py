@@ -25,6 +25,9 @@ class ForkBody(BaseModel):
     checkpoint_id: str = Field(min_length=1)
     new_user_message: str | None = Field(default=None, max_length=4000)
     title: str | None = Field(default=None, max_length=255)
+    # 精准分叉（2026-06-02）：被点 user 消息 id。复制历史只截到该消息所在回合末尾
+    # （含其答案）。None → 复制全部历史（向后兼容 / 等价从最后一轮分叉）。
+    up_to_message_id: uuid.UUID | None = Field(default=None)
 
 
 class ForkResponse(BaseModel):

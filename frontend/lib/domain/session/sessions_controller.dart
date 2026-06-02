@@ -147,6 +147,7 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
     required String checkpointId,
     String? newUserMessage,
     String? title,
+    String? upToMessageId,
   }) async {
     final api = ref.read(checkpointApiProvider);
     final resp = await api.fork(
@@ -154,6 +155,7 @@ class SessionsController extends AsyncNotifier<List<SessionOut>> {
       checkpointId: checkpointId,
       newUserMessage: newUserMessage,
       title: title,
+      upToMessageId: upToMessageId,
     );
     final prev = state.value ?? const <SessionOut>[];
     state = AsyncData([resp.newSession, ...prev]);

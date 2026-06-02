@@ -328,10 +328,11 @@ void main() {
       await tester.pumpAndSettle();
       // 2026-06-02：不再弹「输入新问题」对话框
       expect(find.byKey(const Key('fork_input')), findsNothing);
-      // 直接 fork：用最近 checkpoint，且不带 newUserMessage
+      // 直接 fork：用最近 checkpoint，不带 newUserMessage，且带被点消息 id 做精准截断
       expect(h.checkpoint.forkCalls, 1);
       expect(h.checkpoint.lastForkCheckpointId, 'cp-x');
       expect(h.checkpoint.lastForkNewUserMessage, isNull);
+      expect(h.checkpoint.lastForkUpToMessageId, 'u1');
     });
   });
 
@@ -557,6 +558,7 @@ void main() {
       expect(h.checkpoint.forkCalls, 1);
       expect(h.checkpoint.lastForkCheckpointId, 'cp-1');
       expect(h.checkpoint.lastForkNewUserMessage, isNull);
+      expect(h.checkpoint.lastForkUpToMessageId, 'u1');
     });
 
     testWidgets('长按 assistant 消息 → 复制：触发 SnackBar', (tester) async {

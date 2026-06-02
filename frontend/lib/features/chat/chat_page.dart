@@ -231,15 +231,19 @@ class _ChatViewState extends ConsumerState<_ChatView> {
     }
   }
 
-  /// 点 fork（图标或长按菜单）：直接基于最近 checkpoint 分叉出新会话并跳转过去。
+  /// 点 fork（图标或长按菜单）：基于最近 checkpoint 分叉出新会话并跳转过去。
   ///
   /// 2026-06-02：去掉原先「输入新问题」对话框 —— fork 现在纯粹是「复制当前对话到
   /// 一个新分支继续聊」。新会话带着 fork 前的历史（后端复制到 PG messages），用户
   /// 进去后直接在 composer 里继续提问即可。
+  ///
+  /// 精准分叉：把被点的 [userMsg] id 透传给后端 `up_to_message_id`，历史只复制到
+  /// 这条提问所在回合末尾（含其答案）—— 点中间那条 = 截到那条，点最后一条 = 全量。
   Future<void> _onForkFromUserMessage(MessageOut userMsg) async {
     final controller = ref.read(chatControllerProvider(_sid).notifier);
     try {
-      // MVP：fork 一律用最近 checkpoint（messages 表未暴露 checkpoint_id）
+      // fork 的 LangGraph 侧一律用最近 checkpoint（下轮 send 会按 PG 历史重建，
+      // checkpoint 精度不影响行为）；历史截断由 up_to_message_id 在 PG 层完成。
       final list = await controller.listCheckpoints();
       final cp = list.items.isNotEmpty ? list.items.first : null;
       if (cp == null) {
@@ -254,6 +258,7 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           .fork(
             sid: _sid,
             checkpointId: cp.checkpointId,
+            upToMessageId: userMsg.id,
           );
       if (!mounted) return;
       context.go('/sessions/${created.id}');

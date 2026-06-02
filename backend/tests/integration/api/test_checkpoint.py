@@ -334,6 +334,72 @@ async def test_fork_copies_history_messages_to_new_session(
     assert cites[0].spec_id == "23.501"
 
 
+async def test_fork_up_to_message_id_truncates_history(app_and_state: Any, db_session: Any) -> None:
+    """精准分叉（2026-06-02）：fork 传 up_to_message_id 时，历史只复制到被点 user
+    消息所在回合末尾（含其答案），即下一条 user 消息之前。
+
+    构造 3 轮（u1/a1, u2/a2, u3/a3）。点中间那条 u2 分叉 → 新会话应含
+    u1/a1/u2/a2 共 4 条，u3/a3 不复制。
+    """
+    app, _, _ = app_and_state
+
+    class _G:
+        def __init__(self) -> None:
+            self.checkpointer = object()
+
+        async def aget_state(self, cfg: Any) -> Any:
+            class _Snap:
+                values: ClassVar[dict[str, Any]] = {"user_input": "main"}
+
+            return _Snap()
+
+        async def aupdate_state(self, cfg: Any, values: dict[str, Any]) -> None:
+            return None
+
+    app.state.agent_graph = _G()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client)
+        sid = await _create_session(client, token)
+
+        import datetime as _dt
+
+        sid_uuid = uuid.UUID(sid)
+        base = _dt.datetime(2026, 6, 2, 9, 0, 0, tzinfo=_dt.UTC)
+        rounds = [
+            ("user", "u1", base),
+            ("assistant", "a1", base + _dt.timedelta(microseconds=10)),
+            ("user", "u2", base + _dt.timedelta(seconds=5)),
+            ("assistant", "a2", base + _dt.timedelta(seconds=5, microseconds=10)),
+            ("user", "u3", base + _dt.timedelta(seconds=10)),
+            ("assistant", "a3", base + _dt.timedelta(seconds=10, microseconds=10)),
+        ]
+        msgs = [
+            Message(session_id=sid_uuid, role=role, content=content, status="ok", created_at=ts)
+            for role, content, ts in rounds
+        ]
+        db_session.add_all(msgs)
+        await db_session.flush()
+        u2_id = str(msgs[2].id)
+        await db_session.commit()
+
+        r = await client.post(
+            f"/api/v1/sessions/{sid}/fork",
+            json={"checkpoint_id": "ck-latest", "up_to_message_id": u2_id},
+            headers=_auth_headers(token),
+        )
+        assert r.status_code == 201, r.text
+        new_sid = uuid.UUID(r.json()["new_session"]["id"])
+
+    res = await db_session.execute(
+        select(Message).where(Message.session_id == new_sid).order_by(asc(Message.created_at))
+    )
+    copied = list(res.scalars().all())
+    # 截到 u2 这一轮末尾：u1/a1/u2/a2，不含 u3/a3
+    assert [m.content for m in copied] == ["u1", "a1", "u2", "a2"]
+
+
 async def test_rollback_deletes_last_n_rounds_and_calls_graph(
     app_and_state: Any, db_session: Any
 ) -> None:

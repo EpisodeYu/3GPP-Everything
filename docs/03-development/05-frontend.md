@@ -292,7 +292,8 @@ i18n keys：`reasoningCollapsedTitle` / `reasoningExpand` / `reasoningCollapse` 
 - **用户消息分叉**：两种触发方式等价
   - 长按 user 气泡 → 菜单"从这里分叉"
   - 点击 user 气泡下方 `Key('msg-fork-{user_msg_id}')` 的"分叉"图标按钮（2026-06-01 加入，所有 user message 都有）
-  - **2026-06-02 行为变更**：点击后**不再弹输入框**，直接基于最近 checkpoint 调 `POST /sessions/{sid}/fork` body `{checkpoint_id}`（不带 `new_user_message`）→ 后端返回新 `session_id'`，前端跳转到新会话。fork 语义从"用新问题重问"改为"复制当前对话到新分支继续聊"：分叉会话带着 fork 前的完整历史（后端把原会话已完成消息 + citations 复制到新会话 PG `messages`），用户进去后在 composer 直接继续提问
+  - **2026-06-02 行为变更**：点击后**不再弹输入框**，直接基于最近 checkpoint 调 `POST /sessions/{sid}/fork` body `{checkpoint_id, up_to_message_id}`（不带 `new_user_message`）→ 后端返回新 `session_id'`，前端跳转到新会话。fork 语义从"用新问题重问"改为"复制当前对话到新分支继续聊"：分叉会话带着 fork 前的历史（后端把原会话已完成消息 + citations 复制到新会话 PG `messages`），用户进去后在 composer 直接继续提问
+  - **精准分叉**：fork 把被点 user 消息 id 作为 `up_to_message_id` 传给后端，历史只复制到这条提问所在回合末尾（含其答案）——点中间那条 = 截到那条，点最后一条 = 全量。多轮接通（`c561673`）后，分叉会话里的历史会真实改变 agent 看到的上下文（不再是装饰）
   - **2026-06-01 行为变更**：原会话不再被标记 `archived_branch`，保持 active 可继续对话；新会话作为独立分叉存在，通过 `forked_from_session_id` 追溯。"分叉历史" 分组现在只装 M5 之前已 archived 的老会话（向后兼容）
 - **assistant 消息长按**：复制全文 / 复制 markdown / thumb up/down / 添加到收藏
 - **会话回滚**：会话设置菜单里 "删除最后 N 轮"（slider 选 1-10），调 `POST /sessions/{sid}/rollback`；UI 提示 "不可撤销"二次确认。"一轮" = 一条 user message + 它之后的所有消息（典型一对：user+assistant）；2026-06-01 修复 PG `now()` 同事务排序不稳定导致 "只删用户提问留下答案" 的 bug，详见 backend `rollback_session` docstring

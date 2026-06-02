@@ -45,6 +45,7 @@ class FakeCheckpointApi implements CheckpointApi {
   String? lastForkCheckpointId;
   String? lastForkNewUserMessage;
   String? lastForkTitle;
+  String? lastForkUpToMessageId;
   String? lastRollbackSid;
   int? lastRollbackLastN;
 
@@ -101,12 +102,14 @@ class FakeCheckpointApi implements CheckpointApi {
     required String checkpointId,
     String? newUserMessage,
     String? title,
+    String? upToMessageId,
   }) async {
     forkCalls += 1;
     lastForkSid = sid;
     lastForkCheckpointId = checkpointId;
     lastForkNewUserMessage = newUserMessage;
     lastForkTitle = title;
+    lastForkUpToMessageId = upToMessageId;
     _maybeThrow('fork');
     final session = forkResponse ?? _autoForkedSession(sid, checkpointId);
     return ForkResponse(newSession: session);

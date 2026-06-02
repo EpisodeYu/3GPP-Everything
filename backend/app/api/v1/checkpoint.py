@@ -273,7 +273,7 @@ async def fork_session(
     except RuntimeError as exc:
         raise ConflictError(str(exc), code="fork_unsupported") from exc
 
-    await _copy_history_to_fork(db, sid, new_sid)
+    await _copy_history_to_fork(db, sid, new_sid, up_to_message_id=body.up_to_message_id)
 
     # 原会话不再 archive：保持原状态让用户可继续对话
     await db.commit()
@@ -281,12 +281,22 @@ async def fork_session(
     return ForkResponse(new_session=SessionOut.model_validate(new_session, from_attributes=True))
 
 
-async def _copy_history_to_fork(db: AsyncSession, src_sid: uuid.UUID, new_sid: uuid.UUID) -> None:
+async def _copy_history_to_fork(
+    db: AsyncSession,
+    src_sid: uuid.UUID,
+    new_sid: uuid.UUID,
+    *,
+    up_to_message_id: uuid.UUID | None = None,
+) -> None:
     """把原会话 `src_sid` 的已完成历史消息（含 citations）复制到分叉会话 `new_sid`。
 
     保留原 `created_at` 维持时间顺序（messages list 按 `created_at asc` 返回）；
     跳过空 assistant stub（与前端 `_loadHistoryFromPg` 过滤一致）。citations 先按
     message 批量取出再分组复制，避免 async lazy-load relationship 触发 greenlet 错误。
+
+    **精准分叉（2026-06-02）**：`up_to_message_id` 给出被点 user 消息时，只复制到
+    该消息所在回合末尾（含其答案），即「下一条 user 消息之前」的所有消息——
+    点中间那条 = 截到那条，点最后一条（或 id 不在历史里）= 退化为复制全部。
     """
     src_msgs = list(
         (
@@ -302,6 +312,18 @@ async def _copy_history_to_fork(db: AsyncSession, src_sid: uuid.UUID, new_sid: u
     src_msgs = [m for m in src_msgs if not (m.role == "assistant" and not m.content)]
     if not src_msgs:
         return
+
+    if up_to_message_id is not None:
+        anchor_idx = next((i for i, m in enumerate(src_msgs) if m.id == up_to_message_id), None)
+        if anchor_idx is not None:
+            # 被点 user 之后的第一条 user 消息 = cutoff 边界（含被点这一轮的答案）
+            next_user_idx = next(
+                (i for i in range(anchor_idx + 1, len(src_msgs)) if src_msgs[i].role == "user"),
+                None,
+            )
+            if next_user_idx is not None:
+                src_msgs = src_msgs[:next_user_idx]
+        # anchor 不在历史里（脏 id）→ 保守复制全部，不丢历史
 
     src_ids = [m.id for m in src_msgs]
     cites_by_msg: dict[uuid.UUID, list[MessageCitation]] = {}

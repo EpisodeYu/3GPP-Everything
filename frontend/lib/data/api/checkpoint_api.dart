@@ -162,17 +162,22 @@ class CheckpointApi {
     return CheckpointListResponse.fromJson(resp.data!);
   }
 
-  /// POST `/sessions/{sid}/fork`。body `{checkpoint_id, new_user_message?, title?}`。
+  /// POST `/sessions/{sid}/fork`。body `{checkpoint_id, new_user_message?, title?, up_to_message_id?}`。
+  ///
+  /// [upToMessageId]：精准分叉——历史只复制到该 user 消息所在回合末尾（含其答案）；
+  /// null → 复制全部历史。
   Future<ForkResponse> fork(
     String sid, {
     required String checkpointId,
     String? newUserMessage,
     String? title,
+    String? upToMessageId,
   }) async {
     final body = <String, dynamic>{
       'checkpoint_id': checkpointId,
       'new_user_message': ?newUserMessage,
       'title': ?title,
+      'up_to_message_id': ?upToMessageId,
     };
     final resp = await _dio.post<Map<String, dynamic>>(
       '/sessions/$sid/fork',
