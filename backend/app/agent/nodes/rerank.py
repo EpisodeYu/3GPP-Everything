@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import re
@@ -26,6 +27,7 @@ from app.agent.deps import AgentDeps
 from app.agent.state import AgentState
 from app.agent.state import RetrievedChunk as StateChunk
 from app.core.errors import RetrievalError
+from app.retrieval.hybrid import round_robin_merge
 from app.retrieval.models import RetrievedChunk as RetrievalChunk
 
 log = logging.getLogger(__name__)
@@ -62,6 +64,11 @@ async def rerank_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
         interrupt({"reason": "cancelled by user"})
     if state.paused:
         interrupt({"reason": "paused by user"})
+
+    # map-reduce：retrieve 写了每子查询独立候选池 → per-query 重排 + 轮转合并。
+    # （触发条件已在 retrieve_node 判定；这里只看 candidates_by_query 是否非空。）
+    if state.candidates_by_query:
+        return await _mapreduce_rerank(state, deps)
 
     if not state.candidates:
         return {"reranked": []}
@@ -101,6 +108,61 @@ async def rerank_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]:
 
 def _fused_top_k(candidates: list[StateChunk], *, top_k: int) -> list[StateChunk]:
     return sorted(candidates, key=lambda c: c.fused_score, reverse=True)[:top_k]
+
+
+def _base_queries(state: AgentState) -> list[str]:
+    """与 retrieve_node 的 base_queries 同口径：rewritten_queries（去 hyde）或 user_input。
+
+    map-reduce 下 `candidates_by_query[i]` 与本列表 `[i]` 一一对应（retrieve 同序构建），
+    用于给每个 facet 取它自己的重排 query。
+    """
+    qs = list(state.rewritten_queries) if state.rewritten_queries else []
+    if not qs and state.user_input:
+        qs = [state.user_input]
+    return [q for q in (q.strip() for q in qs) if q]
+
+
+async def _mapreduce_rerank(state: AgentState, deps: AgentDeps) -> dict[str, Any]:
+    """map-reduce reduce 阶段：每个 facet 用**自己的子查询**重排取 top-m，再轮转合并。
+
+    - 每 facet 独立 `voyage.rerank(q_i, pool_i, top_k=PER_QUERY_TOPM)`；并发受
+      `RETRIEVAL_MAPREDUCE_CONCURRENCY` 信号量限制（Voyage rerank 经 LiteLLM proxy，
+      限并发避免与其它请求争带宽）。
+    - 单个 facet rerank 失败 → 该 facet 退回 fused_score top-m，**不阻塞**其它 facet。
+    - `round_robin_merge` 保证每 facet 的 top-1 都先于任意 facet 的 top-2 入选，截到
+      `RETRIEVAL_MAPREDUCE_BUDGET`。
+    - definition 不会进这里（retrieve 层已排除 → candidates_by_query 为空）。
+    """
+    s = deps.settings
+    facets = state.candidates_by_query
+    base_queries = _base_queries(state)
+    m = s.RETRIEVAL_MAPREDUCE_PER_QUERY_TOPM
+    sem = asyncio.Semaphore(max(1, s.RETRIEVAL_MAPREDUCE_CONCURRENCY))
+
+    def _facet_query(i: int) -> str:
+        if base_queries:
+            return base_queries[i] if i < len(base_queries) else base_queries[0]
+        return (state.user_input or "").strip()
+
+    async def _rerank_facet(i: int, pool: list[StateChunk]) -> list[RetrievalChunk]:
+        cands = [_state_to_retrieval(c) for c in pool]
+        if not cands:
+            return []
+        query = _facet_query(i).strip()
+        if deps.reranker is None or not query:
+            return sorted(cands, key=lambda c: c.fused_score, reverse=True)[:m]
+        async with sem:
+            try:
+                return await deps.reranker.rerank(query, cands, top_k=m)
+            except RetrievalError as exc:
+                log.warning("mapreduce rerank facet %d failed, fallback fused: %s", i, exc)
+                return sorted(cands, key=lambda c: c.fused_score, reverse=True)[:m]
+
+    ranked_lists = await asyncio.gather(*(_rerank_facet(i, pool) for i, pool in enumerate(facets)))
+    merged = round_robin_merge(ranked_lists, budget=s.RETRIEVAL_MAPREDUCE_BUDGET)
+    out = [StateChunk.from_retrieval(c) for c in merged]
+    await _emit_chunks_rerank(out)
+    return {"reranked": out}
 
 
 def _salient_terms(query: str) -> list[str]:

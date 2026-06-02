@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 from app.agent.nodes import rerank_node
 from app.agent.nodes.rerank import _definition_boost, _salient_terms
 from app.agent.state import AgentState
 from app.agent.state import RetrievedChunk as StateChunk
+from app.core.errors import RetrievalError
+from app.retrieval.models import RetrievedChunk as RetrievalChunk
 
-from .conftest import StubReranker, make_deps
+from .conftest import StubReranker, make_deps, make_settings
 
 
 def _candidate(
@@ -126,3 +130,125 @@ def _b(cid: str, *, title: str, rr: float, spec_id: str = "38.331") -> StateChun
         content=f"content {cid}",
         score_rerank=rr,
     )
+
+
+# ---- map-reduce rerank 分支 ----
+
+
+@dataclass
+class FailingFacetReranker:
+    """对指定 query 抛 RetrievalError，其余 query 按输入序返回（带降序分）。"""
+
+    fail_on: str
+    calls: list[str] = field(default_factory=list)
+
+    async def rerank(
+        self, query: str, candidates: list[RetrievalChunk], *, top_k: int = 5
+    ) -> list[RetrievalChunk]:
+        self.calls.append(query)
+        if query == self.fail_on:
+            raise RetrievalError("boom")
+        out: list[RetrievalChunk] = []
+        for i, c in enumerate(candidates[:top_k]):
+            out.append(
+                RetrievalChunk(
+                    chunk_id=c.chunk_id,
+                    spec_id=c.spec_id,
+                    section_path=c.section_path,
+                    section_title=c.section_title,
+                    chunk_type=c.chunk_type,
+                    content=c.content,
+                    score_dense=c.score_dense,
+                    score_sparse=c.score_sparse,
+                    score_rerank=1.0 - i * 0.1,
+                    fused_score=c.fused_score,
+                    extra=dict(c.extra),
+                )
+            )
+        return out
+
+
+def _mr_settings(**kw):
+    base = dict(
+        RETRIEVAL_MAPREDUCE_PER_QUERY_TOPM=3,
+        RETRIEVAL_MAPREDUCE_BUDGET=6,
+    )
+    base.update(kw)
+    return make_settings(**base)
+
+
+async def test_mapreduce_rerank_per_facet_and_round_robin() -> None:
+    f0 = [_candidate("f0a"), _candidate("f0b")]
+    f1 = [_candidate("f1a"), _candidate("f1b")]
+    # scores 按输入序降序 → 每 facet top-1 = pool[0]
+    reranker = StubReranker(scores=[0.9, 0.5])
+    deps = make_deps(reranker=reranker, settings=_mr_settings(RETRIEVAL_MAPREDUCE_BUDGET=4))
+    state = AgentState(
+        user_input="q",
+        rewritten_queries=["q0", "q1"],
+        complexity="complex",
+        query_class="procedure",
+        candidates_by_query=[f0, f1],
+    )
+
+    out = await rerank_node(state, deps=deps)
+    ids = [c.chunk_id for c in out["reranked"]]
+    assert ids == ["f0a", "f1a", "f0b", "f1b"]  # 轮转交错
+    # 每个 facet 各重排一次，且用各自的子查询
+    assert len(reranker.calls) == 2
+    assert {c["query"] for c in reranker.calls} == {"q0", "q1"}
+
+
+async def test_mapreduce_rerank_budget_enforces_facet_fairness() -> None:
+    f0 = [_candidate(f"f0_{i}") for i in range(3)]
+    f1 = [_candidate("f1_0")]
+    f2 = [_candidate(f"f2_{i}") for i in range(2)]
+    reranker = StubReranker(scores=[0.9, 0.8, 0.7])  # 保持输入序
+    deps = make_deps(reranker=reranker, settings=_mr_settings(RETRIEVAL_MAPREDUCE_BUDGET=3))
+    state = AgentState(
+        user_input="q",
+        rewritten_queries=["q0", "q1", "q2"],
+        complexity="complex",
+        query_class="procedure",
+        candidates_by_query=[f0, f1, f2],
+    )
+
+    out = await rerank_node(state, deps=deps)
+    ids = [c.chunk_id for c in out["reranked"]]
+    assert ids == ["f0_0", "f1_0", "f2_0"]  # 每 facet top-1 先于任意 facet top-2
+
+
+async def test_mapreduce_rerank_no_reranker_falls_back_to_fused() -> None:
+    f0 = [_candidate("f0a", fused=0.1), _candidate("f0b", fused=0.9)]
+    f1 = [_candidate("f1a", fused=0.5)]
+    deps = make_deps(reranker=None, settings=_mr_settings(RETRIEVAL_MAPREDUCE_BUDGET=4))
+    state = AgentState(
+        user_input="q",
+        rewritten_queries=["q0", "q1"],
+        complexity="complex",
+        query_class="procedure",
+        candidates_by_query=[f0, f1],
+    )
+
+    out = await rerank_node(state, deps=deps)
+    ids = [c.chunk_id for c in out["reranked"]]
+    # facet0 fused 降序 f0b>f0a；facet1 f1a；轮转 → f0b, f1a, f0a
+    assert ids == ["f0b", "f1a", "f0a"]
+
+
+async def test_mapreduce_rerank_facet_failure_isolated() -> None:
+    f0 = [_candidate("f0a")]
+    f1 = [_candidate("f1a", fused=0.7)]
+    reranker = FailingFacetReranker(fail_on="q1")
+    deps = make_deps(reranker=reranker, settings=_mr_settings())  # type: ignore[arg-type]
+    state = AgentState(
+        user_input="q",
+        rewritten_queries=["q0", "q1"],
+        complexity="complex",
+        query_class="procedure",
+        candidates_by_query=[f0, f1],
+    )
+
+    out = await rerank_node(state, deps=deps)
+    ids = {c.chunk_id for c in out["reranked"]}
+    assert ids == {"f0a", "f1a"}  # q1 facet rerank 失败但退回 fused，f1a 仍在

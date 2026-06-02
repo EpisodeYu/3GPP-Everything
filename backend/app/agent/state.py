@@ -118,6 +118,10 @@ class AgentState(BaseModel):
 
     # === 检索 ===
     candidates: list[RetrievedChunk] = Field(default_factory=list)
+    # candidates_by_query：map-reduce 检索时每子查询独立 retrieve 后的候选池（rerank_node
+    # 消费做 per-query 重排 + 轮转合并）。仅 map-reduce 分支写；single-pool 路径恒为空。
+    # 口径见 docs/04-handoff/2026-06-02-mapreduce-retrieval-plan.md。
+    candidates_by_query: list[list[RetrievedChunk]] = Field(default_factory=list)
     reranked: list[RetrievedChunk] = Field(default_factory=list)
 
     # === 工具 ===

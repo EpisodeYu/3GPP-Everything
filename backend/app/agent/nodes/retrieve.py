@@ -39,16 +39,30 @@ async def retrieve_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
     if state.paused:
         interrupt({"reason": "paused by user"})
 
-    queries: list[str] = list(state.rewritten_queries) if state.rewritten_queries else []
-    if not queries and state.user_input:
-        queries = [state.user_input]
-    if state.hyde_doc:
-        queries.append(state.hyde_doc)
-    queries = [q for q in (q.strip() for q in queries) if q]
+    s = deps.settings
+    base_queries: list[str] = list(state.rewritten_queries) if state.rewritten_queries else []
+    if not base_queries and state.user_input:
+        base_queries = [state.user_input]
+    base_queries = [q for q in (q.strip() for q in base_queries) if q]
+
+    # map-reduce 触发：仅 complex 非 definition 且子查询 > 1（口径见
+    # docs/04-handoff/2026-06-02-mapreduce-retrieval-plan.md §2.4）。其余路径走下方
+    # 现行 single-pool 逻辑，向后兼容。
+    if (
+        s.RETRIEVAL_MAPREDUCE_ENABLED
+        and state.complexity == "complex"
+        and state.query_class != "definition"
+        and len(base_queries) > 1
+    ):
+        return await _mapreduce_retrieve(state, deps, base_queries)
+
+    # ---- single-pool（现行逻辑）----
+    queries = list(base_queries)
+    if state.hyde_doc and state.hyde_doc.strip():
+        queries.append(state.hyde_doc.strip())
     if not queries:
         return {"candidates": []}
 
-    s = deps.settings
     cache_payload = {"queries": queries, "spec_filter": None}
 
     if deps.cache is not None:
@@ -66,21 +80,9 @@ async def retrieve_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
     sparse_lists: list[list[RetrievedChunk]] = []
 
     for q in queries:
-        try:
-            d = await deps.dense.retrieve(q, top_k=s.RETRIEVAL_DENSE_TOP_K)
-        except RetrievalError as exc:
-            log.warning("retrieve_node dense failed for %r: %s", q, exc)
-            d = []
+        d, sp = await _fetch_dense_sparse(deps, q, s)
         dense_lists.append(d)
-
         if deps.sparse is not None:
-            try:
-                sp = await asyncio.to_thread(
-                    deps.sparse.retrieve, q, top_k=s.RETRIEVAL_SPARSE_TOP_K
-                )
-            except RetrievalError as exc:
-                log.warning("retrieve_node sparse failed for %r: %s", q, exc)
-                sp = []
             sparse_lists.append(sp)
 
     fused = rrf_merge(
@@ -104,6 +106,100 @@ async def retrieve_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
 
     await _emit_chunks_hit(state_chunks)
     return {"candidates": state_chunks}
+
+
+async def _fetch_dense_sparse(
+    deps: AgentDeps, query: str, s: Any
+) -> tuple[list[RetrievedChunk], list[RetrievedChunk]]:
+    """单条 query 的 dense + sparse 检索；任一侧失败退空列表不阻塞主路径。
+
+    sparse 是 sync（bm25s），在 `asyncio.to_thread` 里跑避免阻塞 event loop。
+    sparse 未接（deps.sparse is None）时返回空 sparse 列表。
+    """
+    try:
+        dense = await deps.dense.retrieve(query, top_k=s.RETRIEVAL_DENSE_TOP_K)
+    except RetrievalError as exc:
+        log.warning("retrieve_node dense failed for %r: %s", query, exc)
+        dense = []
+
+    sparse: list[RetrievedChunk] = []
+    if deps.sparse is not None:
+        try:
+            sparse = await asyncio.to_thread(
+                deps.sparse.retrieve, query, top_k=s.RETRIEVAL_SPARSE_TOP_K
+            )
+        except RetrievalError as exc:
+            log.warning("retrieve_node sparse failed for %r: %s", query, exc)
+            sparse = []
+    return dense, sparse
+
+
+async def _mapreduce_retrieve(
+    state: AgentState, deps: AgentDeps, base_queries: list[str]
+) -> dict[str, Any]:
+    """map-reduce 检索的 map 阶段：每个子查询独立 retrieve → 各自候选池。
+
+    - 每个 `base_queries[i]` 成一个 facet：dense+sparse → RRF → top
+      `RETRIEVAL_MAPREDUCE_PER_QUERY_POOL` → `candidates_by_query[i]`。
+    - `hyde_doc` 是"理想答案"不是"角度"，**不单独成 facet**，只作为额外召回信号汇入
+      flat 池（给 SSE chunks_hit / generate fallback / 缓存用）。
+    - flat `candidates` = 全部 dense/sparse（含 hyde）再 RRF 一次，语义同 single-pool。
+
+    rerank_node 见到非空 `candidates_by_query` → 走 per-query 重排 + 轮转合并。
+    """
+    s = deps.settings
+    cache_payload = {"queries": base_queries, "spec_filter": None, "mode": "mapreduce"}
+
+    if deps.cache is not None:
+        cached = await deps.cache.get("retrieve", cache_payload)
+        if cached and isinstance(cached, dict):
+            cached_flat = [StateChunk.model_validate(c) for c in cached.get("flat", [])]
+            cached_by_query = [
+                [StateChunk.model_validate(c) for c in lst] for lst in cached.get("by_query", [])
+            ]
+            log.debug("retrieve_node mapreduce cache hit (%d facets)", len(cached_by_query))
+            await _emit_chunks_hit(cached_flat)
+            return {"candidates": cached_flat, "candidates_by_query": cached_by_query}
+
+    all_dense: list[list[RetrievedChunk]] = []
+    all_sparse: list[list[RetrievedChunk]] = []
+    by_query: list[list[StateChunk]] = []
+
+    for q in base_queries:
+        dense, sparse = await _fetch_dense_sparse(deps, q, s)
+        all_dense.append(dense)
+        all_sparse.append(sparse)
+        pool = rrf_merge(
+            dense,
+            sparse,
+            k=s.RETRIEVAL_RRF_K,
+            top_n=s.RETRIEVAL_MAPREDUCE_PER_QUERY_POOL,
+        )
+        by_query.append([StateChunk.from_retrieval(c) for c in pool])
+
+    if state.hyde_doc and state.hyde_doc.strip():
+        dense, sparse = await _fetch_dense_sparse(deps, state.hyde_doc.strip(), s)
+        all_dense.append(dense)
+        all_sparse.append(sparse)
+
+    flat = rrf_merge(*all_dense, *all_sparse, k=s.RETRIEVAL_RRF_K, top_n=s.RETRIEVAL_FINAL_TOP_K)
+    flat_chunks = [StateChunk.from_retrieval(c) for c in flat]
+
+    if deps.cache is not None and flat_chunks:
+        try:
+            await deps.cache.set(
+                "retrieve",
+                cache_payload,
+                {
+                    "flat": [c.model_dump(mode="json") for c in flat_chunks],
+                    "by_query": [[c.model_dump(mode="json") for c in lst] for lst in by_query],
+                },
+            )
+        except Exception as exc:
+            log.warning("retrieve_node mapreduce cache.set failed: %s", exc)
+
+    await _emit_chunks_hit(flat_chunks)
+    return {"candidates": flat_chunks, "candidates_by_query": by_query}
 
 
 async def _emit_chunks_hit(chunks: list[StateChunk]) -> None:

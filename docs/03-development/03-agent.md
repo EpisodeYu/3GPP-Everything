@@ -74,6 +74,7 @@ class AgentState(BaseModel):
 
     # 检索
     candidates: list[RetrievedChunk] = []            # 取并集后排重 top-50
+    candidates_by_query: list[list[RetrievedChunk]] = []  # map-reduce：每子查询独立候选池（见 §4.5）
     reranked: list[RetrievedChunk] = []              # top-K（RERANK_TOP_K，默认 8）
 
     # 工具结果（按工具名 -> 结构化结果）
@@ -230,6 +231,16 @@ async def retrieve_node(state: AgentState) -> AgentState:
 - 过滤：根据 `query_class` 选 `spec_id` 限定
 - 缓存：`Redis tgpp:cache:retrieve:{sha256(query+filter)}` TTL 1h
 
+> **Map-reduce 检索分支（A 范式，2026-06-02）**：`RETRIEVAL_MAPREDUCE_ENABLED=True`
+> 且 `complexity=complex` 且 `query_class!=definition` 且子查询数 > 1 时，retrieve 不再
+> 把 N 条子查询压成一个池，而是**每个子查询独立 retrieve**（dense+sparse→RRF→top
+> `RETRIEVAL_MAPREDUCE_PER_QUERY_POOL`）写入 `state.candidates_by_query[i]`；`hyde_doc`
+> 不单独成 facet，只汇入 flat `candidates`（供 SSE/缓存/兜底）。rerank 见非空
+> `candidates_by_query` 即走 per-query 重排 + 轮转合并（§4.6）。**0 次额外 LLM**。
+> 默认关；其余路径（simple/definition/tool）完全走上方 single-pool 逻辑。
+> 实现见 `nodes/retrieve.py` `_mapreduce_retrieve`，完整口径
+> [`../04-handoff/2026-06-02-mapreduce-retrieval-plan.md`](../04-handoff/2026-06-02-mapreduce-retrieval-plan.md)。
+
 ### 4.6 `rerank_node`
 
 > **M4 决议（2026-05-17，Q1=A）**：M4 主干 simple fast path 一开始就接 voyage `rerank-2.5`，与本节设计一致。M6 dense-only baseline 是 retrieval-only 的对照存档，rerank 接入后跑同一份 `eval/golden/v1.yaml` 做 ablation，预期 MRR / spec R@10 显著回升。M6 baseline 的 0.580 / 0.236 不作为 M4 验收阈值（端到端阈值由 M7 nightly eval 校验，见 [`06-evaluation-and-observability.md §7`](06-evaluation-and-observability.md)）。
@@ -246,6 +257,16 @@ async def rerank_node(state: AgentState) -> AgentState:
     reranked = sorted_by_rerank(state.candidates, scores)[: s.RERANK_TOP_K]
     return state.model_copy(update={"reranked": reranked})
 ```
+
+> **Map-reduce reduce 分支（A 范式，2026-06-02）**：`state.candidates_by_query` 非空时
+> （retrieve 走了 map-reduce，§4.5），rerank 对**每个 facet 用其自己的子查询**
+> `voyage.rerank(q_i, pool_i, top_k=RETRIEVAL_MAPREDUCE_PER_QUERY_TOPM)`（并发受
+> `RETRIEVAL_MAPREDUCE_CONCURRENCY` 限），再 `round_robin_merge` 轮转配额合并到
+> `RETRIEVAL_MAPREDUCE_BUDGET`（默认 12）——保证每个 facet 的 top-1 都先于任意 facet
+> 的 top-2 入选，专治 multi_section 类"强势 facet 挤掉弱 facet"。单 facet rerank 失败
+> 退回该 facet 的 fused top-m，不阻塞其它 facet。definition 不会进此分支（retrieve 已
+> 排除 → `candidates_by_query` 空，仍走上方 single-pool + title-boost）。
+> 实现见 `nodes/rerank.py` `_mapreduce_rerank`。
 
 - 缓存：同 retrieve（`Redis tgpp:cache:rerank:{sha256(query+top_chunk_ids)}` TTL 1h）
 - **定义题 section_title 命中加权（2026-05-27）**：`query_class=definition` 时，先取**全部**候选的 rerank 结果（Voyage 按候选数计费，放宽 `top_k` 只影响返回截断，免费），再对 `section_title` 命中查询里 IE/专名 token（hyphenated / CamelCase / 全大写，如 `PDSCH-Config`、`AMF`）的 chunk 加 `_DEFINITION_TITLE_BOOST`（默认 `0.1`），最后截到 `RERANK_TOP_K`。目的：把"标题即该 IE"的定义条款顶到只是**提及**该 IE 的测试/一致性规范之上。boost 权重与 token 抽取规则是启发式，`0.1` 经 2026-05-27 daily eval 验证有效（definition section_recall 0.875→1.0），后续若调权重需复跑 eval；只作用于 definition 类，不影响 procedure/complex 路径

@@ -154,6 +154,21 @@ class Settings(BaseSettings):
     RERANK_TOP_K: int = 8
     RETRIEVAL_CACHE_TTL_S: int = 3600
 
+    # === Map-reduce 检索（A 范式）===
+    # 仅 complexity=complex 且 query_class!=definition 且子查询数 > 1 时生效；其余
+    # 路径（simple / definition / tool）走现行 single-pool 逻辑，完全向后兼容。
+    # 把 multi_query 的 N 条子查询从"压成一个池 + 只用 primary 重排"升级为"每子查询
+    # 独立 retrieve+rerank + 轮转配额合并"，保证每个 facet 至少进 top-1，专治
+    # multi_section 类"单题只召回 1/2 section"。**0 次额外 LLM**（map 阶段只有检索
+    # + Voyage rerank），不增加本机 LiteLLM proxy 压力。
+    # 默认关；eval multi_section 子集达标（ctx_recall ≥ 0.72 且 faithfulness 不降）
+    # 后开。口径见 docs/04-handoff/2026-06-02-mapreduce-retrieval-plan.md。
+    RETRIEVAL_MAPREDUCE_ENABLED: bool = False
+    RETRIEVAL_MAPREDUCE_PER_QUERY_POOL: int = 30  # 每子查询喂给 rerank 的候选数
+    RETRIEVAL_MAPREDUCE_PER_QUERY_TOPM: int = 4  # 每子查询 rerank 后保留 top-m
+    RETRIEVAL_MAPREDUCE_BUDGET: int = 12  # 轮转合并后总 chunk 数（喂 generate）
+    RETRIEVAL_MAPREDUCE_CONCURRENCY: int = 3  # per-query rerank 并发上限（限 proxy 争用）
+
     # === 检索缓存 key 前缀 ===
     CACHE_KEY_PREFIX: str = "tgpp:cache"
 

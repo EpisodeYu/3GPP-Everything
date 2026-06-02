@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.retrieval.hybrid import rrf_merge
+from app.retrieval.hybrid import round_robin_merge, rrf_merge
 from app.retrieval.models import RetrievedChunk
 
 
@@ -52,3 +52,56 @@ def test_top_n_truncates() -> None:
     out = rrf_merge(items, top_n=3)
     assert len(out) == 3
     assert [c.chunk_id for c in out] == ["x0", "x1", "x2"]
+
+
+# ---- round_robin_merge（map-reduce reduce 阶段）----
+
+
+def test_round_robin_empty() -> None:
+    assert round_robin_merge([], budget=5) == []
+    assert round_robin_merge([[], []], budget=5) == []
+
+
+def test_round_robin_single_list_preserves_order_and_budget() -> None:
+    items = [_c(f"x{i}") for i in range(5)]
+    out = round_robin_merge([items], budget=3)
+    assert [c.chunk_id for c in out] == ["x0", "x1", "x2"]
+
+
+def test_round_robin_interleaves_facets() -> None:
+    a = [_c("a0"), _c("a1")]
+    b = [_c("b0"), _c("b1")]
+    c = [_c("c0"), _c("c1")]
+    out = round_robin_merge([a, b, c], budget=6)
+    assert [x.chunk_id for x in out] == ["a0", "b0", "c0", "a1", "b1", "c1"]
+
+
+def test_round_robin_top1_of_each_facet_before_any_top2() -> None:
+    # facet 公平：budget=3、3 个 facet → 每 facet 恰好它的 top-1 入选
+    a = [_c("a0"), _c("a1"), _c("a2")]
+    b = [_c("b0")]
+    c = [_c("c0"), _c("c1")]
+    out = round_robin_merge([a, b, c], budget=3)
+    assert [x.chunk_id for x in out] == ["a0", "b0", "c0"]
+
+
+def test_round_robin_dedup_keeps_first() -> None:
+    a = [_c("shared"), _c("a1")]
+    b = [_c("shared"), _c("b1")]
+    out = round_robin_merge([a, b], budget=10)
+    ids = [x.chunk_id for x in out]
+    assert ids.count("shared") == 1
+    assert ids == ["shared", "a1", "b1"]
+
+
+def test_round_robin_uneven_lengths_skip_exhausted() -> None:
+    a = [_c("a0"), _c("a1"), _c("a2")]
+    b = [_c("b0")]
+    out = round_robin_merge([a, b], budget=10)
+    assert [x.chunk_id for x in out] == ["a0", "b0", "a1", "a2"]
+
+
+def test_round_robin_budget_zero_no_truncate() -> None:
+    a = [_c("a0"), _c("a1")]
+    out = round_robin_merge([a], budget=0)
+    assert len(out) == 2
