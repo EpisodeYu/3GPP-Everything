@@ -19,6 +19,7 @@ from app.schemas.notes import (
     NotePatchBody,
     TargetType,
 )
+from app.services.message_preview import enrich_message_targets
 
 router = APIRouter(prefix="/notes", tags=["notes"])
 
@@ -55,7 +56,23 @@ async def list_notes(
         stmt = stmt.where(Note.target_id == target_id)
     stmt = stmt.order_by(Note.updated_at.desc())
     rows = (await db.execute(stmt)).scalars().all()
-    items = [NoteOut.model_validate(r, from_attributes=True) for r in rows]
+
+    enriched = await enrich_message_targets(
+        db, [r.target_id for r in rows if r.target_type == "message"]
+    )
+    items = [
+        NoteOut(
+            id=r.id,
+            target_type=r.target_type,  # type: ignore[arg-type]
+            target_id=r.target_id,
+            body=r.body,
+            created_at=r.created_at,
+            updated_at=r.updated_at,
+            session_id=(enriched.get(r.target_id) or (None, None))[0],
+            preview=(enriched.get(r.target_id) or (None, None))[1],
+        )
+        for r in rows
+    ]
     return NoteListResponse(items=items)
 
 

@@ -75,8 +75,9 @@
 |  | GET | `/api/v1/admin/tasks/{tid}` | 异步任务状态 — **M4 实现** |
 |  | GET | `/api/v1/admin/tasks` | 当前用户可见的任务列表 — **M4 实现**（原表未列，本次补齐） |
 |  | GET | `/api/v1/admin/stats` | 索引数 / chunk 数 / API 用量统计 — **M4 实现** |
-| **Favorites / Notes / Feedback** | POST/GET/DELETE | `/api/v1/favorites` | 收藏 chunk/消息 |
-|  | POST/GET/PATCH/DELETE | `/api/v1/notes` | 笔记 CRUD |
+|  | GET | `/api/v1/admin/feedback` | 用户点赞/点踩反馈：全量计数聚合 + 明细列表（join 消息预览/反馈者/会话），`thumb` 过滤 + 分页 — **后补**，配前端 admin「反馈」tab |
+| **Favorites / Notes / Feedback** | POST/GET/DELETE | `/api/v1/favorites` | 收藏 chunk/消息。**list 对 `target_type=message` 的条目 enrich**：带回 `session_id` + 内容预览（供前端「跳回原消息」+ 列表展示；target 已删则为 null） |
+|  | POST/GET/PATCH/DELETE | `/api/v1/notes` | 笔记 CRUD。list 同样 enrich `session_id` + 预览 |
 |  | POST | `/api/v1/messages/{mid}/feedback` | thumb up/down + 原因 |
 | **Tools** | POST | `/api/v1/tools/glossary/search` | 单独术语查询（不走 Agent，给前端附加 UI 用） |
 |  | POST | `/api/v1/tools/toc` | 章节目录 |

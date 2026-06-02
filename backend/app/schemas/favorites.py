@@ -21,6 +21,10 @@ class FavoriteOut(BaseModel):
     target_type: TargetType
     target_id: str
     created_at: datetime
+    # list 时对 message target enrich，供前端"跳回原消息"+ 列表预览。
+    # create 时为 None；chunk 类型 / target 已删亦为 None。
+    session_id: str | None = None
+    preview: str | None = None
 
 
 class FavoriteListResponse(BaseModel):

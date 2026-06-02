@@ -58,6 +58,33 @@ class ApiUsage7dOut(BaseModel):
     total_cost_usd: float
 
 
+class FeedbackStatsOut(BaseModel):
+    """`/admin/feedback` 的全量计数（不受 thumb filter / 分页影响）。"""
+
+    up: int
+    down: int
+    total: int
+
+
+class AdminFeedbackItem(BaseModel):
+    """单条反馈 + 关联消息预览 / 反馈者 / 会话定位。"""
+
+    id: uuid.UUID
+    message_id: uuid.UUID
+    session_id: uuid.UUID | None
+    thumb: int
+    reason: str | None
+    username: str | None
+    message_preview: str | None
+    created_at: datetime
+
+
+class AdminFeedbackListResponse(BaseModel):
+    stats: FeedbackStatsOut
+    items: list[AdminFeedbackItem]
+    total: int
+
+
 class StatsOut(BaseModel):
     """`/admin/stats` 返回口径。
 

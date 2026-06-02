@@ -19,7 +19,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
-from app.db.models import ApiUsage, AuditLog, Task, User
+from app.db.models import ApiUsage, AuditLog, Feedback, Message, Task, User
 
 from .test_auth import _bootstrap_admin, _login
 
@@ -432,3 +432,64 @@ async def test_crawl_trigger_route_not_registered(app_and_state: Any) -> None:
             headers=_h(token),
         )
         assert r.status_code == 404
+
+
+# === /admin/feedback ===
+
+
+async def test_feedback_list_stats_and_filter(app_and_state: Any, db_session: Any) -> None:
+    """聚合计数取全量、列表带消息预览/反馈者/会话、thumb filter 只过列表不动计数。"""
+    app, _, _ = app_and_state
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _admin_token(client)
+        admin_id = (
+            await db_session.execute(select(User.id).where(User.username == "admin1"))
+        ).scalar_one()
+
+        r = await client.post("/api/v1/sessions", json={"title": "s"}, headers=_h(token))
+        sid = r.json()["id"]
+        m_up = Message(
+            session_id=uuid.UUID(sid), role="assistant", content="good answer about NR", status="ok"
+        )
+        m_down = Message(
+            session_id=uuid.UUID(sid), role="assistant", content="bad answer", status="ok"
+        )
+        db_session.add_all([m_up, m_down])
+        await db_session.flush()
+        db_session.add_all(
+            [
+                Feedback(user_id=admin_id, message_id=m_up.id, thumb=1, reason=None),
+                Feedback(user_id=admin_id, message_id=m_down.id, thumb=-1, reason="not helpful"),
+            ]
+        )
+        await db_session.commit()
+
+        r = await client.get("/api/v1/admin/feedback", headers=_h(token))
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["stats"] == {"up": 1, "down": 1, "total": 2}
+        assert body["total"] == 2
+        assert len(body["items"]) == 2
+        down = next(it for it in body["items"] if it["thumb"] == -1)
+        assert down["reason"] == "not helpful"
+        assert down["username"] == "admin1"
+        assert down["message_preview"] == "bad answer"
+        assert down["session_id"] == sid
+
+        # thumb filter 只过列表，stats 仍全量
+        r = await client.get("/api/v1/admin/feedback?thumb=-1", headers=_h(token))
+        b2 = r.json()
+        assert b2["total"] == 1
+        assert all(it["thumb"] == -1 for it in b2["items"])
+        assert b2["stats"] == {"up": 1, "down": 1, "total": 2}
+
+
+async def test_feedback_requires_admin(app_and_state: Any) -> None:
+    app, _, _ = app_and_state
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        admin_token = await _admin_token(client)
+        user_token = await _make_user(client, admin_token, "u1")
+        r = await client.get("/api/v1/admin/feedback", headers=_h(user_token))
+        assert r.status_code == 403

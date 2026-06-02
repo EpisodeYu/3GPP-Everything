@@ -37,18 +37,23 @@ from app.db.models import (
     ApiUsage,
     ChunkMeta,
     Document,
+    Feedback,
     Message,
     Task,
     User,
 )
 from app.db.models import Session as DBSession
 from app.schemas.admin import (
+    AdminFeedbackItem,
+    AdminFeedbackListResponse,
     ApiUsage7dOut,
+    FeedbackStatsOut,
     IndexRebuildBody,
     StatsOut,
     TaskListResponse,
     TaskOut,
 )
+from app.services.message_preview import make_preview
 from app.services.task_runner import TaskRunner, default_task_runner, schedule_task
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -120,6 +125,58 @@ async def get_stats(
         tasks=tasks_by_status,
         api_usage_7d=api_usage_7d,
     )
+
+
+# === feedback ===
+
+
+@router.get(
+    "/feedback",
+    response_model=AdminFeedbackListResponse,
+    summary="Admin: 用户点赞/点踩反馈（聚合计数 + 明细列表）",
+)
+async def list_feedback(
+    thumb: int | None = Query(default=None, description="过滤 1=赞 / -1=踩；缺省全部"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+) -> AdminFeedbackListResponse:
+    """聚合计数取全量（不受 thumb/分页影响）；列表 join 消息预览 + 反馈者 + 会话定位。"""
+    agg = (await db.execute(select(Feedback.thumb, func.count()).group_by(Feedback.thumb))).all()
+    counts = {int(t): int(c) for t, c in agg}
+    up, down = counts.get(1, 0), counts.get(-1, 0)
+    stats = FeedbackStatsOut(up=up, down=down, total=up + down)
+
+    base = (
+        select(Feedback, Message.content, Message.session_id, User.username)
+        .join(Message, Message.id == Feedback.message_id)
+        .join(User, User.id == Feedback.user_id)
+    )
+    count_base = select(func.count()).select_from(Feedback)
+    if thumb in (1, -1):
+        base = base.where(Feedback.thumb == thumb)
+        count_base = count_base.where(Feedback.thumb == thumb)
+
+    total = int((await db.execute(count_base)).scalar_one())
+    offset = (page - 1) * page_size
+    rows = (
+        await db.execute(base.order_by(desc(Feedback.created_at)).limit(page_size).offset(offset))
+    ).all()
+    items = [
+        AdminFeedbackItem(
+            id=fb.id,
+            message_id=fb.message_id,
+            session_id=session_id,
+            thumb=fb.thumb,
+            reason=fb.reason,
+            username=username,
+            message_preview=make_preview(content or ""),
+            created_at=fb.created_at,
+        )
+        for fb, content, session_id, username in rows
+    ]
+    return AdminFeedbackListResponse(stats=stats, items=items, total=total)
 
 
 # === tasks ===

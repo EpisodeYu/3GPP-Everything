@@ -26,6 +26,7 @@ from app.schemas.favorites import (
     FavoriteOut,
     TargetType,
 )
+from app.services.message_preview import enrich_message_targets
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
 
@@ -54,7 +55,21 @@ async def list_favorites(
         stmt = stmt.where(Favorite.target_type == target_type)
     stmt = stmt.order_by(Favorite.created_at.desc())
     rows = (await db.execute(stmt)).scalars().all()
-    items = [FavoriteOut.model_validate(r, from_attributes=True) for r in rows]
+
+    enriched = await enrich_message_targets(
+        db, [r.target_id for r in rows if r.target_type == "message"]
+    )
+    items = [
+        FavoriteOut(
+            id=r.id,
+            target_type=r.target_type,  # type: ignore[arg-type]
+            target_id=r.target_id,
+            created_at=r.created_at,
+            session_id=(enriched.get(r.target_id) or (None, None))[0],
+            preview=(enriched.get(r.target_id) or (None, None))[1],
+        )
+        for r in rows
+    ]
     return FavoriteListResponse(items=items)
 
 

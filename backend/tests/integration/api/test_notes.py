@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
+
+from app.db.models import Message
 
 from .test_auth import _bootstrap_admin, _login
 
@@ -60,3 +63,42 @@ async def test_full_note_lifecycle(client: Any) -> None:
 async def test_notes_require_auth(client: Any) -> None:
     r = await client.get("/api/v1/notes")
     assert r.status_code == 401
+
+
+async def test_message_note_enriched(client: Any, db_session: Any) -> None:
+    """message 笔记 list 时带回 session_id + 预览；chunk 笔记两者为 null。"""
+    token = await _new_user_token(client)
+    h = _auth_headers(token)
+
+    r = await client.post("/api/v1/sessions", json={"title": "x"}, headers=h)
+    sid = r.json()["id"]
+    msg = Message(
+        session_id=uuid.UUID(sid),
+        role="assistant",
+        content="answer body here",
+        status="ok",
+    )
+    db_session.add(msg)
+    await db_session.commit()
+    await db_session.refresh(msg)
+
+    await client.post(
+        "/api/v1/notes",
+        json={"target_type": "message", "target_id": str(msg.id), "body": "my note"},
+        headers=h,
+    )
+    await client.post(
+        "/api/v1/notes",
+        json={"target_type": "chunk", "target_id": "c-1", "body": "chunk note"},
+        headers=h,
+    )
+
+    r = await client.get("/api/v1/notes", headers=h)
+    items = {it["target_id"]: it for it in r.json()["items"]}
+    msg_item = items[str(msg.id)]
+    assert msg_item["session_id"] == sid
+    assert msg_item["preview"] == "answer body here"
+    assert msg_item["body"] == "my note"
+    chunk_item = items["c-1"]
+    assert chunk_item["session_id"] is None
+    assert chunk_item["preview"] is None
