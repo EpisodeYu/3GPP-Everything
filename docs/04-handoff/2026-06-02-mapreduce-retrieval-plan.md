@@ -358,3 +358,25 @@ flag 默认 **False**，线上行为零变化。开 flag 前必须跑 §7.2：
 
 > ⚠️ 当前运行的 `tgpp-api` 容器是 `/home/s1yu` 部署的**线上镜像**，不含本次代码；
 > eval 必须另起本仓库代码的实例，勿误判线上已生效。
+
+### 13.5 上线记录（2026-06-02，人决策：先上线后 eval）
+
+人改变推进顺序：**先 commit+push+部署上线（flag on），之后再跑 eval**，接受
+"有问题再回退"的风险（当前单用户）。实际执行：
+
+- commit `77c52f0` → push `origin/main`（`c561673..77c52f0`）。
+- prod `.env` 追加 `RETRIEVAL_MAPREDUCE_ENABLED=true`（code default 仍 False；`.env` 已 gitignore）。
+- 仅重建 `api` 镜像（`docker compose -f deploy/docker-compose.prod.yml build api` → `up -d api`），
+  web 未动；`tgpp-api:prod` 13:29 重建。
+- 验证：容器内 `RETRIEVAL_MAPREDUCE_ENABLED=true`、`/ready` 4 依赖全绿、docker health=healthy、
+  `https://3gpp-everything.org/ready` 200、容器内已含 map-reduce 代码。
+
+**eval 改为后置（post-hoc 验证 + 回退依据）**：线上现为 flag-on，无需再起对照实例——
+直接对 live prod backend 跑 multi_section 子集 + ragas，与已存档 **v11 baseline（multi_section
+ctx_recall 0.612 / faithfulness 0.851）** 比：
+
+- 达标（ctx_recall ≥ 0.72 且 faithfulness 不降）→ 保持上线。
+- 未达标 / faithfulness 掉 → 回退：`.env` 改回 `false`（或删行）→ `docker compose ... up -d api`
+  即刻生效（无需重建镜像，flag 是运行时读取）。代码可留（dormant）。
+
+> 回退最轻量路径：**只翻 `.env` flag + 重启 api**，秒级，不动代码/镜像。
