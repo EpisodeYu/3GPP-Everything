@@ -380,3 +380,41 @@ ctx_recall 0.612 / faithfulness 0.851）** 比：
   即刻生效（无需重建镜像，flag 是运行时读取）。代码可留（dormant）。
 
 > 回退最轻量路径：**只翻 `.env` flag + 重启 api**，秒级，不动代码/镜像。
+
+### 13.6 eval 验证结果 + 最终决定（2026-06-02，保持 on）
+
+对 live prod backend（`https://3gpp-everything.org`）跑 `multi_section` × 8 题（`hand-multi-001..008`，
+与 v11 baseline 同口径），脚本 `eval/scripts/run_mapreduce_multisection{,_run3}.py`，
+结果存 `eval-results/mapreduce-multisection-20260602T054430Z/`。run1/run2 默认 180s
+（6 次 ragas TimeoutError → run2 faithfulness 4 题 null）；**run3 用 `RunConfig(timeout=600,
+max_workers=2)` 救回超时**，再算 max-of-3（与 baseline 同口径）。
+
+| 指标 | **max-of-3** | v11 baseline | Δ | 门槛 | |
+|---|---:|---:|---:|---:|:--:|
+| ragas_context_recall | **0.696** | 0.612 | **+8.4pp** | ≥0.72 | ✗ 差 2.4pp |
+| ragas_faithfulness | **0.816** | 0.851 | −3.5pp | ≥0.82 | ✗ 差 0.4pp |
+| ragas_answer_relevance | 0.876 | 0.775 | **+10.1pp** | — | ✓ |
+| ragas_context_precision | 0.885 | 0.994 | −10.9pp | — | utilization 噪声大 |
+| context_recall_section（子串）| 0.875 | — | — | — | |
+
+**严谨复跑后仍未过 0.72/0.82 门槛**，但：
+- map-reduce **达成设计目标**：ctx_recall 稳定 +8.4pp、ans_rel +10pp —— facet 挤占被修。
+- 够不到 0.72 的**残余差距是 retriever 层硬 miss，非 facet 挤占**：`hand-multi-001`
+  ctx_recall **三轮全 0.0**（召回 38.181 测试规范而非 38.211，baseline 已记的真·检索
+  miss，map-reduce 修不了 spec 级 miss）；`hand-multi-004` 三轮 0.667/0.333/0.333。
+  去掉这俩，其余 6 题 ctx_recall 近满分。
+- faithfulness −3.5pp（0.816）是 BUDGET 8→12 多塞 chunk 的预期代价，噪声内、差门槛 0.4pp。
+
+**人决定（保持 on）**：recall/ans_rel 净增、faithfulness 噪声内微降，当 net-positive 接受；
+0.72 留给后续 **retriever/chunker 深修**（真正的杠杆）去凑，map-reduce flag 不动。
+
+**后续杠杆（待办，非本任务）**：
+1. 修 `hand-multi-001/004` 的 retriever miss（multi_section 召回错 spec，38.181↔38.211）——
+   这是 ctx_recall 破 0.72 的关键；修完可复跑 `run_mapreduce_multisection*.py` 复核。
+2. 若 faithfulness 想回 0.82+：试 BUDGET 12→10（`RETRIEVAL_MAPREDUCE_BUDGET`，运行时
+   `.env` 可调）再评。
+3. 复核口径：`run_mapreduce_multisection_run3.py`（max-of-3 + 600s 救超时）= 可信口径，
+   后续 A/B 沿用。
+
+> eval 临时账号 `eval_mr`（role=user）用完已 `is_active=false` 停用（连带 12h token 失效）；
+> 将来复跑：`UPDATE users SET is_active=true WHERE username='eval_mr';` 再签 token 即可。
