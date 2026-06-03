@@ -231,6 +231,62 @@ def test_r18_corpus_empty_facts_is_full(b_db: Path) -> None:
     assert G.B_R18_Corpus(b_db).fact_coverage([], "23.501") == 1.0
 
 
+# === A 库对称门 ===========================================================
+
+
+@pytest.fixture
+def a_dir(tmp_path: Path) -> Path:
+    d = tmp_path / "by_spec"
+    d.mkdir()
+    # 两篇 spec 都提到 "QUIC"（模拟 3GPP 引用的外部标准）；没篇提 "802.11be"
+    for sid, body in [("29.500", "uses QUIC transport"), ("23.501", "QUIC over UDP")]:
+        (d / f"{sid}.jsonl").write_text(
+            json.dumps({"spec_id": sid, "content": f"[{sid}] {body}"}) + "\n", encoding="utf-8"
+        )
+    return d
+
+
+def test_a_corpus_specs_mentioning_counts_files(a_dir: Path) -> None:
+    corpus = G.A_Corpus(a_dir, min_specs=2)
+    assert corpus.available
+    assert corpus.specs_mentioning("QUIC") == 2
+    assert corpus.specs_mentioning("802.11be") == 0
+
+
+def test_a_corpus_substantive_hit_threshold(a_dir: Path) -> None:
+    # QUIC 命中 2 >= min_specs 2 → 实质命中
+    hit, info = G.A_Corpus(a_dir, min_specs=2).substantive_hit(["802.11be", "QUIC"])
+    assert hit and "QUIC" in info
+    # 全部域外术语 → 无命中
+    hit2, _ = G.A_Corpus(a_dir, min_specs=2).substantive_hit(["802.11be", "route reflector"])
+    assert not hit2
+
+
+def test_a_corpus_short_term_ignored(a_dir: Path) -> None:
+    assert G.A_Corpus(a_dir).specs_mentioning("UE") == 0  # <4 字符不查
+
+
+def test_apply_symmetry_gate_drops_a_corpus_topics(a_dir: Path) -> None:
+    # 一道 out_of_scope 探针含 A 库有的 QUIC → 应被剔；一道纯域外 → 保留
+    r_bad = _res("negative", "out_of_scope")
+    r_bad.probe_terms = ["QUIC"]
+    r_good = _res("negative", "out_of_scope")
+    r_good.probe_terms = ["802.11be", "EHT MCS"]
+    r_fp = _res("negative", "false_premise")
+    r_fp.probe_terms = ["NonexistentFooBarIE"]
+    dropped = G.apply_symmetry_gate([r_bad, r_good, r_fp], G.A_Corpus(a_dir, min_specs=2))
+    assert dropped == 1
+    assert r_bad.item is None and r_bad.skip_reason.startswith("a-corpus-has")
+    assert r_good.item is not None and r_fp.item is not None
+
+
+def test_apply_symmetry_gate_skips_positives(a_dir: Path) -> None:
+    r_pos = _res("definition", "positive")
+    r_pos.probe_terms = ["QUIC"]  # positive 不该被对称门动
+    G.apply_symmetry_gate([r_pos], G.A_Corpus(a_dir, min_specs=2))
+    assert r_pos.item is not None
+
+
 # === 选 100 + id =========================================================
 
 
@@ -258,24 +314,24 @@ def test_select_balanced_hits_category_targets() -> None:
         results.append(_res("formula", "positive"))
     for _ in range(20):
         results.append(_res("negative", "false_premise"))
-        results.append(_res("negative", "out_of_lib"))
+        results.append(_res("negative", "out_of_scope"))
     chosen = G.select_balanced(results)
     by_cat: dict[str, int] = {}
     for it in chosen:
         by_cat[it["category"]] = by_cat.get(it["category"], 0) + 1
     assert by_cat["definition"] == G.POSITIVE_CATEGORY_TARGETS["definition"]
     assert by_cat["formula"] == G.POSITIVE_CATEGORY_TARGETS["formula"]
-    assert by_cat["negative"] == G.NEG_FALSE_PREMISE_TARGET + G.NEG_OUT_OF_LIB_TARGET
+    assert by_cat["negative"] == G.NEG_FALSE_PREMISE_TARGET + G.NEG_OUT_OF_SCOPE_TARGET
 
 
 def test_balance_negatives_splits_subtypes() -> None:
     pool = [_res("negative", "false_premise") for _ in range(20)] + [
-        _res("negative", "out_of_lib") for _ in range(20)
+        _res("negative", "out_of_scope") for _ in range(20)
     ]
     picked = G._balance_negatives(pool, target=16)
     kinds = [p.job.kind for p in picked]
     assert kinds.count("false_premise") == G.NEG_FALSE_PREMISE_TARGET
-    assert kinds.count("out_of_lib") == G.NEG_OUT_OF_LIB_TARGET
+    assert kinds.count("out_of_scope") == G.NEG_OUT_OF_SCOPE_TARGET
 
 
 def test_round_robin_by_series_spreads() -> None:

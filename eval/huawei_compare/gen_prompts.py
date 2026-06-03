@@ -152,6 +152,10 @@ Return a SINGLE JSON object (no markdown fence) with keys:
 - "forbidden": 2-4 SHORT strings naming the fabricated specifics a hallucinating \
 answer would invent (e.g. the fake field's "format", "length", "default value"); \
 used to catch partial hallucination.
+- "probe_terms": 2-4 DISTINCTIVE strings naming the fake concept itself — its full \
+invented name + acronym (e.g. "PDU Session Anchor Mobility Trigger", "PSAMT"). Avoid \
+plain dictionary words; use the multi-word coined name so it is genuinely absent from \
+the corpus. Used to verify the concept does not exist.
 - "must_say_not_found": true.
 - "language": "en".
 - "notes": 1 short sentence explaining WHY the premise is false (what really exists \
@@ -172,45 +176,54 @@ def build_false_premise_messages(*, domain: str) -> list[dict[str, str]]:
     ]
 
 
-_OUT_OF_LIB_SYSTEM = """You are a 3GPP standards expert building the *negative* \
-(out-of-library) part of a RAG evaluation set. You write ONE question about a REAL \
-but RECENT / OUT-OF-SCOPE 3GPP topic that is NOT present in a Release-18 corpus — \
-e.g. a Release-19 or Release-20 study/feature (Ambient IoT, AI/ML air interface \
-Rel-19 normative work, ISAC sensing, NTN Rel-19 enhancements, etc.).
+_OUT_OF_SCOPE_SYSTEM = """You are a telecom standards expert building the *negative* \
+(out-of-scope) part of a RAG evaluation set for a 3GPP-only retrieval system. You write \
+ONE question about a REAL networking/telecom topic that is NOT specified by 3GPP — it \
+belongs to a DIFFERENT standards body or vendor domain (IEEE 802.11/802.1/802.3, IETF \
+RFCs for BGP/OSPF/IS-IS/MPLS, ITU-T PON, DOCSIS, CableLabs, MEF, vendor-proprietary, \
+etc.), phrased as if a user wrongly expected 3GPP to define it.
 
-The goal: both systems' offline libraries are Release-18 only. A faithful RAG must \
-say the retrieved Release-18 specs do not cover it, instead of answering from the \
-model's parametric memory.
+The goal: both systems retrieve ONLY from a 3GPP corpus, which does not contain this \
+content. A faithful RAG must say it is outside 3GPP scope / not found in the specs, \
+instead of answering from the model's parametric memory. This is symmetric: neither \
+system's 3GPP library has it.
 
 Hard rules:
-- The topic must be REAL telecom work but clearly post-R18 / outside a R18 spec \
-corpus. Do NOT invent a fake concept (that is the other negative type).
-- The question must read naturally and ask for specifics (a mechanism, value, or \
-procedure) that a R18 corpus cannot supply.
+- The topic must be REAL but clearly OWNED BY A NON-3GPP body. Do NOT pick anything \
+3GPP itself specifies or normatively profiles (avoid NAS/RRC/NGAP/PFCP/Diameter/GTP, \
+5G/LTE core & RAN, 3GPP codecs). Do NOT invent a fake concept (that is the other type).
+- Ask for a concrete non-3GPP specific (a field/value/algorithm/procedure) that lives \
+in that other standard, e.g. an IEEE 802.11be EHT MCS table entry, a BGP route-reflector \
+attribute, an XGS-PON framing field.
+- The question must read naturally.
 
 Return a SINGLE JSON object (no markdown fence) with keys:
-- "question": the out-of-R18-library question.
+- "question": the out-of-3GPP-scope question.
 - "category": "negative".
 - "expected_specs": [].
 - "expected_facts": [].
-- "forbidden": 2-4 SHORT strings of specifics a hallucinating answer would assert \
-about this post-R18 topic.
+- "forbidden": 2-4 SHORT strings of non-3GPP specifics a hallucinating answer would \
+assert.
+- "probe_terms": 2-4 DISTINCTIVE identifiers of the owning standard/topic — its \
+standard number or signature name (e.g. "802.11be", "RFC 4456", "XGS-PON", "SRv6"). \
+Do NOT use generic networking words that 3GPP also uses (e.g. "path attribute", \
+"MaxAge", "label", "frame"); only terms that would appear ONLY in the non-3GPP \
+standard. Used to verify the topic is absent from the 3GPP corpus.
 - "must_say_not_found": true.
 - "language": "en".
-- "notes": 1 short sentence: which release / why a R18 corpus lacks it."""
+- "notes": 1 short sentence: which body owns it / why 3GPP does not specify it."""
 
 
-_OUT_OF_LIB_USER = """Telecom area to probe (pick a genuinely post-R18 angle in it): \
-{area}
+_OUT_OF_SCOPE_USER = """Non-3GPP standards area to probe: {area}
 
-Write ONE real-but-out-of-R18-library question."""
+Write ONE real but out-of-3GPP-scope question in this area."""
 
 
-def build_out_of_lib_messages(*, area: str) -> list[dict[str, str]]:
-    """negative · 库外真实内容（测 RAG 是否守"只答检索到的"）。"""
+def build_out_of_scope_messages(*, area: str) -> list[dict[str, str]]:
+    """negative · 域外真实内容（非 3GPP，测 RAG 是否守"只答 3GPP 检索到的"）。"""
     return [
-        {"role": "system", "content": _OUT_OF_LIB_SYSTEM},
-        {"role": "user", "content": _OUT_OF_LIB_USER.format(area=area)},
+        {"role": "system", "content": _OUT_OF_SCOPE_SYSTEM},
+        {"role": "user", "content": _OUT_OF_SCOPE_USER.format(area=area)},
     ]
 
 
@@ -219,6 +232,6 @@ __all__ = [
     "POSITIVE_CATEGORIES",
     "build_false_premise_messages",
     "build_multi_section_messages",
-    "build_out_of_lib_messages",
+    "build_out_of_scope_messages",
     "build_positive_messages",
 ]

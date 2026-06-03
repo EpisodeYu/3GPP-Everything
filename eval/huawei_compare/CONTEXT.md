@@ -114,7 +114,8 @@ cd /data/3GPP-Everything && PYTHONPATH=/data/3GPP-Everything eval/.venv/bin/pyth
 **设计**(跨会话要点在记忆 `project_huawei_100q_generation`):
 - 采样脚手架 = A 的 `by_spec/*.jsonl`(R19,带 `chunk_type`);table_lookup←table / formula←formula / 其余←text。
 - **R18 公平门**:每 positive 的 `expected_facts` 去 B 的 R18 全文(`Documents.db`)核验覆盖率,<0.5 判 R19-only → skip。本次 84 题里 74 题覆盖 1.0;主动拦掉 24.193/37.355/38.306 等 R19-only。
-- 排测试/RF/study spec(`is_excluded_spec`:多部件 -N + EMC/一致性单部件);配额 def22/proc20/table16/formula12/multi14 + neg16(8 不存在概念 + 8 库外真实)。
+- 排测试/RF/study spec(`is_excluded_spec`:多部件 -N + EMC/一致性单部件);配额 def22/proc20/table16/formula12/multi14 + neg16。
+- **negative 对称门**(`A_Corpus` grep A 全库):negative 要公平须"两库皆无"。8 不存在概念(false_premise) + 8 **域外真实内容**(out_of_scope,非 3GPP:BGP/OSPF/IS-IS/MPLS-TP/Wi-Fi/PON/SRv6)。⚠️ **不能用 Rel-19 特性当库外**——A 是 R19 库会答对,不对称。每道探针词去 A 库核验,有实质命中(>=3 篇)即剔(本次剔 4 道,如 802.1Q/DOCSIS/SyncE 这些 3GPP 引用的外部标准)。
 - 调参:`POSITIVE_{SERIES_QUOTA,CATEGORY_TARGETS}` / `R18_COVERAGE_MIN` / `NEG_*_DOMAINS|AREAS` / `EXCLUDE_SAMPLING_SPECS`。
 
 **校验注意**:`golden validate` OK(0 warn);`golden stats` 显示 FAIL 是因它拿主集 v1.yaml 的 target 比,本集命中自定义配额,**忽略**。

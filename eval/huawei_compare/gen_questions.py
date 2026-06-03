@@ -25,6 +25,7 @@ import logging
 import random
 import re
 import sqlite3
+import subprocess
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -38,7 +39,7 @@ from eval.huawei_compare.build_intersection import default_a_dir, normalize_spec
 from eval.huawei_compare.gen_prompts import (
     build_false_premise_messages,
     build_multi_section_messages,
-    build_out_of_lib_messages,
+    build_out_of_scope_messages,
     build_positive_messages,
 )
 from eval.settings import EvalSettings, get_settings
@@ -88,9 +89,9 @@ CATEGORY_CHUNK_TYPE: dict[str, str] = {
     "table_lookup": "table",
     "formula": "formula",
 }
-# negative 16 题：8 false-premise + 8 out-of-lib
+# negative 16 题：8 false-premise（不存在概念）+ 8 out-of-scope（域外真实内容，非 3GPP）
 NEG_FALSE_PREMISE_TARGET = 8
-NEG_OUT_OF_LIB_TARGET = 8
+NEG_OUT_OF_SCOPE_TARGET = 8
 
 NEG_FALSE_PREMISE_DOMAINS = [
     "5G NAS registration & mobility management (TS 24.501)",
@@ -102,15 +103,19 @@ NEG_FALSE_PREMISE_DOMAINS = [
     "Policy & charging control (TS 23.503 / 32.xxx)",
     "NR physical layer procedures (TS 38.213 / 38.214)",
 ]
-NEG_OUT_OF_LIB_AREAS = [
-    "Ambient IoT (Rel-19 normative work)",
-    "AI/ML for the NR air interface (Rel-19 normative)",
-    "Integrated Sensing and Communication / ISAC (Rel-19)",
-    "Non-Terrestrial Network enhancements (Rel-19)",
-    "Network energy savings (Rel-19)",
-    "5G-Advanced multicast/broadcast enhancements (Rel-19)",
-    "XR (Extended Reality) media enhancements (Rel-19)",
-    "Personal IoT / Ambient power networks (Rel-19)",
+# 域外（非 3GPP）真实内容——别的标准组织/厂商拥有，3GPP 库天然没有 → 两库对称都该拒答。
+# 每道再过 A 库对称门（A_Corpus）兜底:3GPP 偶尔引用的外部标准(QUIC/DOCSIS 等)会被拦。
+# 仅保留 A(R19) 库确实没有的领域(已 grep 验证专有词 ≈0;3GPP 引用的 802.1Q/DOCSIS/
+# SyncE/RTP 等不放进来,否则对称门会大量剔除)。
+NEG_OUT_OF_SCOPE_AREAS = [
+    "IEEE 802.11be (Wi-Fi 7) / 802.11ax (Wi-Fi 6) PHY/MAC: EHT/HE MCS, OFDMA, MLO",
+    "IETF BGP-4 routing (RFC 4271/4456): route reflector, path attributes, communities",
+    "IETF OSPFv2/v3 link-state routing (RFC 2328): LSA types, SPF, areas",
+    "IETF IS-IS routing (ISO 10589): LSP, overload bit, level-1/2",
+    "IETF MPLS / MPLS-TP & pseudowires (RFC 6378/6374): label stack, OAM",
+    "IETF Segment Routing / SRv6 (RFC 8402/8754): SID, SRH",
+    "ITU-T PON access (G.987 XGS-PON / G.984 GPON): XGTC/GTC framing, DBA",
+    "IEEE 802.11 security (WPA3 / 802.11i): SAE handshake, GCMP",
 ]
 
 # 采样 chunk 的质量过滤
@@ -235,7 +240,7 @@ def plan_slots(
 class GenJob:
     """一个待生成槽位。"""
 
-    kind: str  # positive | multi_section | false_premise | out_of_lib
+    kind: str  # positive | multi_section | false_premise | out_of_scope
     category: str
     series: str = ""
     spec_id: str = ""
@@ -347,7 +352,8 @@ def _multi_section_job(
 def build_negative_jobs(rng: random.Random, oversample: float) -> list[GenJob]:
     jobs: list[GenJob] = []
     n_fp = max(NEG_FALSE_PREMISE_TARGET, round(NEG_FALSE_PREMISE_TARGET * oversample))
-    n_ol = max(NEG_OUT_OF_LIB_TARGET, round(NEG_OUT_OF_LIB_TARGET * oversample))
+    # out_of_scope 多过采(目标 2 倍):对称门(A_Corpus)会剔掉残留的 3GPP 引用项
+    n_os = max(NEG_OUT_OF_SCOPE_TARGET * 2, round(NEG_OUT_OF_SCOPE_TARGET * oversample))
     for i in range(n_fp):
         jobs.append(
             GenJob(
@@ -356,12 +362,12 @@ def build_negative_jobs(rng: random.Random, oversample: float) -> list[GenJob]:
                 prompt_arg=NEG_FALSE_PREMISE_DOMAINS[i % len(NEG_FALSE_PREMISE_DOMAINS)],
             )
         )
-    for i in range(n_ol):
+    for i in range(n_os):
         jobs.append(
             GenJob(
-                kind="out_of_lib",
+                kind="out_of_scope",
                 category="negative",
-                prompt_arg=NEG_OUT_OF_LIB_AREAS[i % len(NEG_OUT_OF_LIB_AREAS)],
+                prompt_arg=NEG_OUT_OF_SCOPE_AREAS[i % len(NEG_OUT_OF_SCOPE_AREAS)],
             )
         )
     return jobs
@@ -377,7 +383,7 @@ def validate_and_normalize(
     if parsed.get("skip_reason"):
         return None, str(parsed["skip_reason"])[:200]
 
-    is_negative = kind in ("false_premise", "out_of_lib")
+    is_negative = kind in ("false_premise", "out_of_scope")
     q = str(parsed.get("question") or "").strip()
     if not q:
         return None, "empty-question"
@@ -494,6 +500,74 @@ class B_R18_Corpus:
         return covered / len(facts)
 
 
+# === A 库对称门 ===========================================================
+
+
+class A_Corpus:
+    """A 的全库（by_spec/*.jsonl,537MB,R19）按 grep 查 spec 命中数——negative 对称门。
+
+    negative 题要公平就得"两库皆无"。A 是 R19 超集,故"在 A 库查无"是更强的约束
+    （查无于 A ⟹ 也查无于 B 的 R18 子集）。用 grep -rliF 数命中 spec 篇数,
+    某探针词命中 >= min_specs 即判 A 库有实质内容 → 该 negative 不对称,剔除。
+    """
+
+    def __init__(self, by_spec_dir: Path, min_specs: int = 3) -> None:
+        self._dir = Path(by_spec_dir)
+        self.min_specs = min_specs
+        self._cache: dict[str, int] = {}
+
+    @property
+    def available(self) -> bool:
+        return self._dir.is_dir()
+
+    def specs_mentioning(self, term: str) -> int:
+        term = term.strip()
+        if len(term) < 4:
+            return 0
+        if term in self._cache:
+            return self._cache[term]
+        n = 0
+        try:
+            p = subprocess.run(
+                ["grep", "-rliF", "--", term, str(self._dir)],
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+            n = sum(1 for ln in p.stdout.splitlines() if ln.strip())
+        except Exception as exc:  # grep 缺失/超时 → 不拦（保守）
+            log.warning("A_Corpus grep failed for %r: %s", term, exc)
+        self._cache[term] = n
+        return n
+
+    def substantive_hit(self, terms: list[str]) -> tuple[bool, dict[str, int]]:
+        """任一探针词命中 >= min_specs 篇 → (True, {term: n})；否则 (False, {})。"""
+        for t in terms:
+            n = self.specs_mentioning(t)
+            if n >= self.min_specs:
+                return True, {t: n}
+        return False, {}
+
+
+def apply_symmetry_gate(results: list[GenResult], a_corpus: A_Corpus) -> int:
+    """对 negative 结果跑 A 库对称门:探针词在 A 库有实质命中 → 转 skip。返回剔除数。"""
+    if not a_corpus.available:
+        log.warning("A by_spec 目录不可用 → 跳过对称门")
+        return 0
+    dropped = 0
+    for r in results:
+        if not r.item or r.job.kind not in ("false_premise", "out_of_scope"):
+            continue
+        if not r.probe_terms:
+            continue
+        hit, info = a_corpus.substantive_hit(r.probe_terms)
+        if hit:
+            r.item = None
+            r.skip_reason = f"a-corpus-has:{info}"
+            dropped += 1
+    return dropped
+
+
 # === 异步生成 =============================================================
 
 
@@ -517,8 +591,8 @@ def _messages_for(job: GenJob) -> list[dict[str, str]]:
         )
     if job.kind == "false_premise":
         return build_false_premise_messages(domain=job.prompt_arg)
-    if job.kind == "out_of_lib":
-        return build_out_of_lib_messages(area=job.prompt_arg)
+    if job.kind == "out_of_scope":
+        return build_out_of_scope_messages(area=job.prompt_arg)
     raise ValueError(f"unknown job kind: {job.kind}")
 
 
@@ -529,6 +603,7 @@ class GenResult:
     skip_reason: str | None = None
     error: str | None = None
     r18_coverage: float | None = None
+    probe_terms: list[str] = field(default_factory=list)  # negative: 验"两库皆无"的探针词
     prompt_tokens: int = 0
     completion_tokens: int = 0
 
@@ -562,9 +637,12 @@ async def _gen_one(
             job=job, error=f"json: {exc}"[:200], prompt_tokens=pt, completion_tokens=cot
         )
 
+    probes = [str(t).strip() for t in (parsed.get("probe_terms") or []) if str(t).strip()][:4]
     item, skip = validate_and_normalize(parsed, kind=job.kind, whitelist=whitelist)
     if item is None:
-        return GenResult(job=job, skip_reason=skip, prompt_tokens=pt, completion_tokens=cot)
+        return GenResult(
+            job=job, skip_reason=skip, probe_terms=probes, prompt_tokens=pt, completion_tokens=cot
+        )
 
     cov: float | None = None
     if job.kind in ("positive", "multi_section") and corpus.available:
@@ -578,7 +656,14 @@ async def _gen_one(
                 prompt_tokens=pt,
                 completion_tokens=cot,
             )
-    return GenResult(job=job, item=item, r18_coverage=cov, prompt_tokens=pt, completion_tokens=cot)
+    return GenResult(
+        job=job,
+        item=item,
+        r18_coverage=cov,
+        probe_terms=probes,
+        prompt_tokens=pt,
+        completion_tokens=cot,
+    )
 
 
 async def generate(
@@ -629,7 +714,7 @@ def select_balanced(results: list[GenResult]) -> list[dict]:
         by_cat.setdefault(r.item["category"], []).append(r)
 
     targets = dict(POSITIVE_CATEGORY_TARGETS)
-    targets["negative"] = NEG_FALSE_PREMISE_TARGET + NEG_OUT_OF_LIB_TARGET
+    targets["negative"] = NEG_FALSE_PREMISE_TARGET + NEG_OUT_OF_SCOPE_TARGET
     chosen: list[dict] = []
     for cat, target in targets.items():
         pool = by_cat.get(cat, [])
@@ -645,8 +730,8 @@ def select_balanced(results: list[GenResult]) -> list[dict]:
 
 def _balance_negatives(pool: list[GenResult], target: int) -> list[GenResult]:
     fp = [r for r in pool if r.job.kind == "false_premise"]
-    ol = [r for r in pool if r.job.kind == "out_of_lib"]
-    return fp[:NEG_FALSE_PREMISE_TARGET] + ol[:NEG_OUT_OF_LIB_TARGET]
+    os_ = [r for r in pool if r.job.kind == "out_of_scope"]
+    return fp[:NEG_FALSE_PREMISE_TARGET] + os_[:NEG_OUT_OF_SCOPE_TARGET]
 
 
 def _round_robin_by_series(pool: list[GenResult], target: int) -> list[GenResult]:
@@ -784,6 +869,11 @@ async def _run(args: argparse.Namespace) -> int:
         results = await generate(jobs, client=client, whitelist=whitelist, corpus=corpus)
     finally:
         await client.aclose()
+
+    # negative 对称门：剔掉 A 库其实有内容的（保证两库皆无 → 公平）
+    a_corpus = A_Corpus(by_spec_dir)
+    dropped = apply_symmetry_gate(results, a_corpus)
+    log.info("对称门：剔除 %d 道 A 库其实可答的 negative", dropped)
 
     out_path = Path(args.out)
     stats = _dump_artifacts(results, out_path.parent)
