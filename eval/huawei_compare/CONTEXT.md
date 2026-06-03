@@ -19,8 +19,9 @@ spec** 自产。
 | ✅ | **采集层**:`collect_a.py`(A) + `collect_b.py`(B,in-process) + `merge_results.py` → 统一 `results.json` |
 | ✅ | 单测 22 条全绿(`eval/tests/unit/test_{telcorag_client,build_intersection,huawei_compare_schema}.py`) |
 | ✅ | **3 题端到端冒烟通过**:A、B 都出答案+检索,merge 出统一 results.json |
-| ⏸️ | **正式 100 题编写** — 重点大话题,**人要求后面单独做,勿擅自启动** |
-| ⏸️ | **评测层**(成对盲评 judge + 绝对指标 judge + 报告)— 同上,后面单独做 |
+| ✅ | **生成器** `gen_questions.py` + `gen_prompts.py` + 单测 22 条 —— A chunk 采样 + B R18 全文核验公平 + 排测试/RF spec |
+| 🟡 | **正式 100 题已生成**(2026-06-03)→ `golden_compare.yaml`(100,validate OK 0 warn);**待人做领域终审**(见 §8) |
+| ⏸️ | **评测层**(成对盲评 judge + 绝对指标 judge + 报告)— 后面单独做 |
 
 ## 2. 文件地图
 
@@ -35,8 +36,11 @@ eval/huawei_compare/
 ├── collect_a.py          ← A 采集(eval venv,走 runner.call_agent)
 ├── collect_b.py          ← B 采集(★telco venv,in-process 调 TelcoRAG)
 ├── merge_results.py      ← 合并 A/B → results.json
+├── gen_prompts.py        ← 出题 prompt 三件套(positive / false_premise / out_of_lib)
+├── gen_questions.py      ← ★100 题生成器(采样→生成→R18核验→选100);见 §8
+├── golden_compare.yaml   ← ★正式 100 题(golden schema,id 前缀 hc-);待人终审
 └── smoke_questions.jsonl ← 3 题冒烟集(占位,非正式题集)
-单测在 eval/tests/unit/test_{telcorag_client,build_intersection,huawei_compare_schema}.py
+单测在 eval/tests/unit/test_{telcorag_client,build_intersection,huawei_compare_schema,huawei_compare_gen}.py
 Telco-RAG 代码+数据在仓库外:/data/telco-rag/(venv /data/telco-rag/.venv,python3.11)
 运行产物写 eval-results/(gitignore,不入库)
 ```
@@ -90,7 +94,27 @@ cd /data/3GPP-Everything && eval/.venv/bin/python -m eval.huawei_compare.merge_r
 早期质量信号:核心架构题上 B 的 NN-router 路由偏题(召回 RF/PHY 段)、答案偏泛;A 正确引 23.501。
 **仅 3 题,非结论**,正式评测见 §1 待办。
 
-## 7. 下一步(等人发话,勿擅自做)
+## 7. 下一步
 
-1. **正式 100 题题集**:R18 交集采样(按 README §4 配额)→ LLM 生成 Q+expected_facts → 人审 → `golden_compare.yaml`。
+1. **人对 `golden_compare.yaml` 做领域终审**(见 §8 复跑/调参);确认后冻结为正式题集。
 2. **评测层**:成对盲评 judge(位置对冲)+ 绝对指标 judge(复用 `fact_coverage_judge`/`negative_judge`/Ragas)+ `compare_report.py`。
+3. 采集只读 `{item_id, question}`,把 100 题转成 collect 用的 jsonl(或让 collect 直接读 golden yaml)即可全量跑 A/B。
+
+## 8. 100 题生成器(`gen_questions.py`)
+
+**怎么复跑**(eval venv,seed 固定 → 可复现;~40 万 token,<5M 免审):
+```bash
+cd /data/3GPP-Everything && PYTHONPATH=/data/3GPP-Everything eval/.venv/bin/python \
+  -m eval.huawei_compare.gen_questions \
+  --out eval-results/huawei-compare-gen/golden_compare.yaml --oversample 1.4 --seed 42
+# 产物(gitignore):golden_compare.yaml(选100) + .candidates.yaml(过采样132) + gen_stats.json + gen_{skipped,failed}.jsonl
+# 终稿放包内:cp eval-results/huawei-compare-gen/golden_compare.yaml eval/huawei_compare/golden_compare.yaml
+```
+
+**设计**(跨会话要点在记忆 `project_huawei_100q_generation`):
+- 采样脚手架 = A 的 `by_spec/*.jsonl`(R19,带 `chunk_type`);table_lookup←table / formula←formula / 其余←text。
+- **R18 公平门**:每 positive 的 `expected_facts` 去 B 的 R18 全文(`Documents.db`)核验覆盖率,<0.5 判 R19-only → skip。本次 84 题里 74 题覆盖 1.0;主动拦掉 24.193/37.355/38.306 等 R19-only。
+- 排测试/RF/study spec(`is_excluded_spec`:多部件 -N + EMC/一致性单部件);配额 def22/proc20/table16/formula12/multi14 + neg16(8 不存在概念 + 8 库外真实)。
+- 调参:`POSITIVE_{SERIES_QUOTA,CATEGORY_TARGETS}` / `R18_COVERAGE_MIN` / `NEG_*_DOMAINS|AREAS` / `EXCLUDE_SAMPLING_SPECS`。
+
+**校验注意**:`golden validate` OK(0 warn);`golden stats` 显示 FAIL 是因它拿主集 v1.yaml 的 target 比,本集命中自定义配额,**忽略**。

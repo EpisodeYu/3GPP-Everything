@@ -112,8 +112,8 @@ async with httpx.AsyncClient() as c:
 - [x] connector `telcorag_client.py` + 单测(9);可复现交集脚本 `build_intersection.py` + 单测(3)
 - [x] Telco-RAG 本地跑通(venv + R18 库 + 6 处 Windows 路径 patch + 关 online + 中转 LLM)
 - [x] **双系统 1 题冒烟通过**(2026-06-02):A、B 均出答案 + 检索依据
-- [ ] B 批量采集脚本(in-process,telco venv → results.json)
-- [ ] 100 题中立题集生成(R18 交集采样 → LLM 生成 → 人审)— **暂缓,等人发话**
+- [x] B 批量采集脚本(in-process,telco venv → results.json)
+- [x] **100 题中立题集生成**(2026-06-03):生成器 `gen_questions.py` + `golden_compare.yaml`(validate OK)— **待人领域终审**(见 CONTEXT.md §8)
 - [ ] 成对盲评 judge `pairwise_judge.py`(位置对冲)+ 绝对指标 judge 复用/扩展
 - [ ] 全量跑 A、B → `compare_report.py` 对比报告 + Langfuse
 - [ ] 回归(lint + 单测)
