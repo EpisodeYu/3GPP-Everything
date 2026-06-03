@@ -123,3 +123,30 @@ cd /data/3GPP-Everything && PYTHONPATH=/data/3GPP-Everything eval/.venv/bin/pyth
 - 调参:`POSITIVE_{SERIES_QUOTA,CATEGORY_TARGETS}` / `R18_COVERAGE_MIN` / `NEG_*_DOMAINS|AREAS` / `EXCLUDE_SAMPLING_SPECS`。
 
 **校验注意**:`golden validate` OK(0 warn);`golden stats` 显示 FAIL 是因它拿主集 v1.yaml 的 target 比,本集命中自定义配额,**忽略**。
+
+## 9. 评测层怎么跑(已实现,设计见 README §8)
+
+3 系统 A/B/C,裁判 glm-5.1。**全量跑前提**:golden 终审定稿 + A 后端 token(见记忆 `project_live_eval_deploy_ops`)+ B telco 环境(见 §3-4)。
+
+```bash
+cd /data/3GPP-Everything
+OUT=eval-results/huawei-compare; G=eval/huawei_compare/golden_compare.yaml
+# 0) golden → 采集用问题 jsonl
+PYTHONPATH=. eval/.venv/bin/python -m eval.huawei_compare.golden_to_questions --golden $G --out $OUT/questions.jsonl
+# 1) A 采集(eval venv;容器IP+token 见 §5)
+EVAL_BACKEND_BASE_URL=http://<tgpp-net-ip>:8002 EVAL_BACKEND_TOKEN=$(cat /tmp/tgpp-eval-token.txt) \
+  PYTHONPATH=. eval/.venv/bin/python -m eval.huawei_compare.collect_a --in $OUT/questions.jsonl --out $OUT/a_answers.jsonl
+# 2) B 采集(★telco venv,in-process;OPENAI 中转 key 见 §3-4)
+cd /data/telco-rag/Telco-RAG_api && OPENAI_BASE_URL=https://api.apiyi.com/v1 OPENAI_API_KEY=<relay> \
+  /data/telco-rag/.venv/bin/python /data/3GPP-Everything/eval/huawei_compare/collect_b.py --in $OUT/questions.jsonl --out $OUT/b_raw.jsonl
+# 3) C 采集(eval venv,裸 deepseek,无外部 key)
+cd /data/3GPP-Everything && PYTHONPATH=. eval/.venv/bin/python -m eval.huawei_compare.collect_c --in $OUT/questions.jsonl --out $OUT/c_answers.jsonl
+# 4) merge → results.json(3 路)
+PYTHONPATH=. eval/.venv/bin/python -m eval.huawei_compare.merge_results --a $OUT/a_answers.jsonl --b $OUT/b_raw.jsonl --c $OUT/c_answers.jsonl --out $OUT/results.json
+# 5) 评测(绝对+检索专项+成对,glm-5.1;~600 成对调用,后台跑) → scores.json
+PYTHONPATH=. eval/.venv/bin/python -m eval.huawei_compare.compare_eval --golden $G --results $OUT/results.json --out $OUT/scores.json
+# 6) 报告 → compare_report.md
+PYTHONPATH=. eval/.venv/bin/python -m eval.huawei_compare.compare_report --scores $OUT/scores.json --out $OUT/compare_report.md
+```
+
+省成本:`compare_eval --no-pairwise`(只跑绝对+检索)或减系统对。产物全在 `eval-results/`(gitignore)。

@@ -104,21 +104,30 @@ def b_raw_to_answer(raw: dict) -> SystemAnswer:
     )
 
 
-def align(a_records: Iterable[dict], b_records: Iterable[dict]) -> dict:
-    """按 item_id 对齐两系统的 SystemAnswer-dict → 统一 results 结构（item_id 并集，保序）。
+def align_systems(records_by_system: dict[str, Iterable[dict]]) -> dict:
+    """按 item_id 对齐 N 个系统的 SystemAnswer-dict → 统一 results 结构（item_id 并集，保序）。
 
-    缺失一方记 None（便于报告标记"某系统漏题/采集失败"）。
+    每个 item 形如 {item_id, question, <sys>: dict|None, ...}；缺失某系统记 None
+    （便于报告标记"某系统漏题/采集失败"）。系统键顺序 = 入参 dict 顺序。
     """
-    a_by = {str(r.get("item_id")): r for r in a_records}
-    b_by = {str(r.get("item_id")): r for r in b_records}
-    ordered_ids = list(dict.fromkeys([*a_by.keys(), *b_by.keys()]))
+    by_sys: dict[str, dict[str, dict]] = {
+        sys: {str(r.get("item_id")): r for r in recs} for sys, recs in records_by_system.items()
+    }
+    ordered_ids = list(dict.fromkeys(iid for m in by_sys.values() for iid in m))
     items: list[dict] = []
     for iid in ordered_ids:
-        a = a_by.get(iid)
-        b = b_by.get(iid)
-        question = str((a or b or {}).get("question") or "")
-        items.append({"item_id": iid, "question": question, "A": a, "B": b})
+        present = [by_sys[s].get(iid) for s in by_sys]
+        question = str(next((p for p in present if p), {}).get("question") or "")
+        item: dict = {"item_id": iid, "question": question}
+        for s in by_sys:
+            item[s] = by_sys[s].get(iid)
+        items.append(item)
     return {"n_items": len(items), "items": items}
+
+
+def align(a_records: Iterable[dict], b_records: Iterable[dict]) -> dict:
+    """两系统对齐（向后兼容包装；新代码用 align_systems）。"""
+    return align_systems({SYSTEM_A: a_records, SYSTEM_B: b_records})
 
 
 # === JSONL IO =============================================================
@@ -161,6 +170,7 @@ __all__ = [
     "SYSTEM_B",
     "SystemAnswer",
     "align",
+    "align_systems",
     "b_raw_to_answer",
     "dump_jsonl",
     "load_jsonl",
