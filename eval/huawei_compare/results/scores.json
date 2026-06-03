@@ -1,0 +1,5554 @@
+{
+  "generated_at": "2026-06-03T10:05:48.864117+00:00",
+  "systems": [
+    "A",
+    "B",
+    "C"
+  ],
+  "judge_model": "glm-5.1",
+  "n_items": 100,
+  "items": [
+    {
+      "item_id": "hc-def-001",
+      "category": "definition",
+      "question": "Describe the function and possible values of the MCData configuration parameter that controls manual switching between on-network and off-network operation.",
+      "expected_specs": [
+        "24.483"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 123228,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 0.8333333333333334,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 119132,
+          "spec_recall": false,
+          "fact_coverage": 0.16666666666666666,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 28499,
+          "spec_recall": false,
+          "fact_coverage": 0.8333333333333334,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-002",
+      "category": "definition",
+      "question": "Describe the mechanism by which the MB-SMF ensures N2 MBS session requests are distributed to the correct NG RAN nodes when an AMF involved in shared delivery becomes unreachable or has lost its context.",
+      "expected_specs": [
+        "23.527"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 70342,
+          "spec_recall": true,
+          "fact_coverage": 0.5833333333333334,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.583
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 87146,
+          "spec_recall": false,
+          "fact_coverage": 0.08333333333333333,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 116791,
+          "spec_recall": false,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-003",
+      "category": "definition",
+      "question": "Describe the notification used to report NRM updates to subscribed MnS consumers, including the possible update types and how the MnS producer decides which notification type to send.",
+      "expected_specs": [
+        "28.532"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 63553,
+          "spec_recall": true,
+          "fact_coverage": 0.9,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.9
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 28705,
+          "spec_recall": false,
+          "fact_coverage": 0.4,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 78402,
+          "spec_recall": true,
+          "fact_coverage": 0.9,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-004",
+      "category": "definition",
+      "question": "Describe the specification and applicability of the cell reservation fields indicated in SIB1 for RedCap UEs.",
+      "expected_specs": [
+        "38.304"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 66531,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 22998,
+          "spec_recall": false,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 116787,
+          "spec_recall": true,
+          "fact_coverage": 0.4,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-005",
+      "category": "definition",
+      "question": "In the context of Lawful Interception, what are the possible target identities for an IRI-POI located in the P-CSCF and MGCF?",
+      "expected_specs": [
+        "33.928"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 66575,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 21403,
+          "spec_recall": false,
+          "fact_coverage": 0.1,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 78708,
+          "spec_recall": false,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-006",
+      "category": "definition",
+      "question": "In which network entities is Operator Determined Barring invoked for outgoing calls or mobile originated short messages?",
+      "expected_specs": [
+        "23.015"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 61538,
+          "spec_recall": true,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.5
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 19599,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 30575,
+          "spec_recall": true,
+          "fact_coverage": 0.6666666666666666,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-007",
+      "category": "definition",
+      "question": "What are the conformance testing procedures for base stations that support multiple radio access technologies in terms of port types and RAT assessment?",
+      "expected_specs": [
+        "37.113"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 68353,
+          "spec_recall": true,
+          "fact_coverage": 0.625,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.625
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 24363,
+          "spec_recall": false,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": 0.25,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 43697,
+          "spec_recall": false,
+          "fact_coverage": 0.375,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-008",
+      "category": "definition",
+      "question": "What are the constituent parts of the <UAV-application-message-info> element used in UAV communications?",
+      "expected_specs": [
+        "24.257"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 61385,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 182900,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.2,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 86213,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-009",
+      "category": "definition",
+      "question": "What are the critical factors that cellular connectivity provides for supporting Uncrewed Aerial Systems command and control functions?",
+      "expected_specs": [
+        "22.125"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 47867,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 26697,
+          "spec_recall": false,
+          "fact_coverage": 0.375,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 44601,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-010",
+      "category": "definition",
+      "question": "What are the defining properties and required field of the RecordPatch schema in the Nudsf_DataRepository API?",
+      "expected_specs": [
+        "29.598"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 52101,
+          "spec_recall": true,
+          "fact_coverage": 0.6,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.6
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 23970,
+          "spec_recall": false,
+          "fact_coverage": 0.1,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 38396,
+          "spec_recall": true,
+          "fact_coverage": 0.1,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-011",
+      "category": "definition",
+      "question": "What are the observed jitter statistics (mean, standard deviation, and range) for VR2-1 to VR2-8, and what is the statistical model for jitter as referenced in the analysis?",
+      "expected_specs": [
+        "26.926"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 56351,
+          "spec_recall": true,
+          "fact_coverage": 0.8333333333333334,
+          "fact_in_context_recall": 0.8333333333333334,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 20893,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.16666666666666666,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 82130,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-012",
+      "category": "definition",
+      "question": "What are the possible representations of a DistinguishedName in string form, and how is a RegularDN structured according to the EBNF definition?",
+      "expected_specs": [
+        "32.300"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 70253,
+          "spec_recall": true,
+          "fact_coverage": 0.7142857142857143,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.714
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 21096,
+          "spec_recall": true,
+          "fact_coverage": 0.07142857142857142,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 55317,
+          "spec_recall": false,
+          "fact_coverage": 0.07142857142857142,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-013",
+      "category": "definition",
+      "question": "What are the security requirements for authenticating users and protecting data in the VAL service, including measures for inter-domain protection?",
+      "expected_specs": [
+        "33.434"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 73316,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 42392,
+          "spec_recall": false,
+          "fact_coverage": 0.2857142857142857,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 49496,
+          "spec_recall": false,
+          "fact_coverage": 0.5714285714285714,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-014",
+      "category": "definition",
+      "question": "What are the specific transport protocols that must be robustness tested for the AAnF's Naanf interface?",
+      "expected_specs": [
+        "33.537"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 50345,
+          "spec_recall": true,
+          "fact_coverage": 0.9,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.9
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 125400,
+          "spec_recall": false,
+          "fact_coverage": 0.3,
+          "fact_in_context_recall": 0.2,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 44182,
+          "spec_recall": false,
+          "fact_coverage": 0.7,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-015",
+      "category": "definition",
+      "question": "What are the specifications for HTTP/2 usage and message compliance in the context of the Nhss_EE service?",
+      "expected_specs": [
+        "29.563"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 56742,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 26241,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.5,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 46380,
+          "spec_recall": false,
+          "fact_coverage": 0.875,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-016",
+      "category": "definition",
+      "question": "What are the two main capabilities that an intent-driven MnS producer for radio network must have to support intent-based management?",
+      "expected_specs": [
+        "28.312"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 107370,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 19145,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 15405,
+          "spec_recall": true,
+          "fact_coverage": 0.375,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-017",
+      "category": "definition",
+      "question": "What condition indicates that the MeNB has a Prepared SgNB Modification for an X2 UE-associated signalling?",
+      "expected_specs": [
+        "36.423"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 56241,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 20194,
+          "spec_recall": false,
+          "fact_coverage": 0.375,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 93180,
+          "spec_recall": true,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-018",
+      "category": "definition",
+      "question": "What error response and associated data structure does the PCF send when it determines that the MBS Service Information provided in an MBS Application Session Context Establishment request is invalid, incorrect, or insufficient?",
+      "expected_specs": [
+        "29.537"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 51343,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 80115,
+          "spec_recall": false,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": 0.5,
+          "utilization": 0.5
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 41383,
+          "spec_recall": false,
+          "fact_coverage": 0.875,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-019",
+      "category": "definition",
+      "question": "What functions are defined under the IAB support function for IAB-donor-CU and IAB-DU interactions in the IAB architecture?",
+      "expected_specs": [
+        "38.470"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 67481,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 50883,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 53455,
+          "spec_recall": false,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-020",
+      "category": "definition",
+      "question": "What is the role of the CAPIF core function in relation to service API policies, and when does the AEF need to execute a procedure to obtain such policies for access control?",
+      "expected_specs": [
+        "23.222"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 59778,
+          "spec_recall": true,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.75
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 85587,
+          "spec_recall": false,
+          "fact_coverage": 0.375,
+          "fact_in_context_recall": 0.25,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 47913,
+          "spec_recall": true,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-021",
+      "category": "definition",
+      "question": "When a UE accesses SNPN services via a PLMN using 3GPP access, what 5GMM procedures, parameters, and UE operating conditions are specified for accessing the 5GCN of the SNPN?",
+      "expected_specs": [
+        "24.501"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 70600,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 128247,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.8,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 86048,
+          "spec_recall": true,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-def-022",
+      "category": "definition",
+      "question": "Where are the positions for hand phantom browsing mode and beside the head and hand phantom talk mode defined?",
+      "expected_specs": [
+        "38.161"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 60725,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 40050,
+          "spec_recall": false,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 23813,
+          "spec_recall": false,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-001",
+      "category": "formula",
+      "question": "Describe the concept of earliness in terms of its calculation and conditions for non-zero values, based on the relationship between actual and target time.",
+      "expected_specs": [
+        "22.104"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 63132,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 24313,
+          "spec_recall": false,
+          "fact_coverage": 0.4166666666666667,
+          "fact_in_context_recall": 0.16666666666666666,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 62446,
+          "spec_recall": false,
+          "fact_coverage": 0.8333333333333334,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-002",
+      "category": "formula",
+      "question": "Describe the formula used to compute the power ramp-up adjustment for the first PUSCH transmission on the active uplink bandwidth part in UE behaviour, including its key variables and constraints.",
+      "expected_specs": [
+        "38.213"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 82754,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 0.8333333333333334,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 29547,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 69275,
+          "spec_recall": true,
+          "fact_coverage": 0.9166666666666666,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-003",
+      "category": "formula",
+      "question": "Describe the mathematical expression that determines when a configured uplink grant in the Nth periodicity occurs, including all parameters and operations involved.",
+      "expected_specs": [
+        "38.321"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 79212,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 0.6,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 27774,
+          "spec_recall": false,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": 0.2,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 67125,
+          "spec_recall": true,
+          "fact_coverage": 0.9,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-004",
+      "category": "formula",
+      "question": "Describe the process for generating the final keystream used in message-specific confidentiality protection for ProSe discovery messages, including the key derivation and input parameters to the ciphering algorithm.",
+      "expected_specs": [
+        "33.503"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 58860,
+          "spec_recall": true,
+          "fact_coverage": 0.2857142857142857,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.286
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 39101,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 84473,
+          "spec_recall": false,
+          "fact_coverage": 0.5714285714285714,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-005",
+      "category": "formula",
+      "question": "Describe the structure of the 5G-S-TMSI and the requirements for allocating its 5G-TMSI part to support paging and connection establishment procedures.",
+      "expected_specs": [
+        "23.501"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 63143,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 55249,
+          "spec_recall": false,
+          "fact_coverage": 0.08333333333333333,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 56083,
+          "spec_recall": false,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-006",
+      "category": "formula",
+      "question": "What are the constituent parts that form the Truncated 5G-S-TMSI, and how are they combined according to the specification?",
+      "expected_specs": [
+        "23.003"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 74610,
+          "spec_recall": true,
+          "fact_coverage": 0.7,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.7
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 58727,
+          "spec_recall": false,
+          "fact_coverage": 0.1,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 30625,
+          "spec_recall": true,
+          "fact_coverage": 0.4,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-007",
+      "category": "formula",
+      "question": "What is the formula and method used by the UP function to compute the usage for a URR that includes an Aggregated URRs IE?",
+      "expected_specs": [
+        "29.244"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 72589,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 33572,
+          "spec_recall": false,
+          "fact_coverage": 0.1,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 20101,
+          "spec_recall": true,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-008",
+      "category": "formula",
+      "question": "What is the formula for calculating RA-RNTI when a UE is an NB-IoT device operating in TDD mode?",
+      "expected_specs": [
+        "36.321"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 97077,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 0.5,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 26431,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.25,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 80445,
+          "spec_recall": true,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-009",
+      "category": "formula",
+      "question": "What is the formula for calculating nominal channel spacing in carrier aggregation for NR operating bands with a 15 kHz channel raster?",
+      "expected_specs": [
+        "37.104"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 82168,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 0.4,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 22339,
+          "spec_recall": false,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 58926,
+          "spec_recall": false,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-010",
+      "category": "formula",
+      "question": "What is the formula for calculating the timer value Tx in the service specific access control procedure for MMTEL-Video session establishment?",
+      "expected_specs": [
+        "24.173"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 68964,
+          "spec_recall": true,
+          "fact_coverage": 0.875,
+          "fact_in_context_recall": 0.75,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 27293,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 49677,
+          "spec_recall": false,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-011",
+      "category": "formula",
+      "question": "What is the formula used to compute the sub-cell radius for a specific number of MIMO layers in the uplink per PRB in the Available MIMO Layers Coverage Map measurement?",
+      "expected_specs": [
+        "28.552"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 83628,
+          "spec_recall": true,
+          "fact_coverage": 0.7142857142857143,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.714
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 22975,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.14285714285714285,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 94518,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-form-012",
+      "category": "formula",
+      "question": "What is the formula used to generate the token in the URL signing procedure, including the hash function and the input parameters?",
+      "expected_specs": [
+        "26.512"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 66090,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 63242,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 44813,
+          "spec_recall": false,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-001",
+      "category": "multi_section",
+      "question": "Describe how an Application Function handles a subscription modification request that includes both an immediate reporting indication and sampling criteria with partitioning, detailing the response to the PUT request and the information included in the event notification data structure.",
+      "expected_specs": [
+        "29.517"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 74478,
+          "spec_recall": true,
+          "fact_coverage": 0.8,
+          "fact_in_context_recall": 0.8,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 54926,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 59868,
+          "spec_recall": true,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-002",
+      "category": "multi_section",
+      "question": "Describe the OTA dynamic range requirement for SAN receivers, including its definition, the conditions under which it applies, and how the test procedure accounts for polarization and directionality to verify compliance.",
+      "expected_specs": [
+        "36.181"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 91753,
+          "spec_recall": true,
+          "fact_coverage": 0.6,
+          "fact_in_context_recall": 0.6,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 63230,
+          "spec_recall": false,
+          "fact_coverage": 0.3,
+          "fact_in_context_recall": 0.6,
+          "utilization": 0.5
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 114419,
+          "spec_recall": false,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-003",
+      "category": "multi_section",
+      "question": "Describe the System Information Retrieval Function (SIRF) in the context of lawful interception, including its responsibilities, the interface it uses to communicate with the Lawful Interception Platform Function (LIPF), and its limitations regarding notifications about network function changes.",
+      "expected_specs": [
+        "33.127"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 116705,
+          "spec_recall": true,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.75
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 78646,
+          "spec_recall": false,
+          "fact_coverage": 0.4166666666666667,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 55056,
+          "spec_recall": true,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-004",
+      "category": "multi_section",
+      "question": "Describe the charging procedures for a UE's registration and later deregistration in a visited network, focusing on the messages sent by the AMF to the charging functions, the actions taken by V-CHF and H-CHF, the significance of the 'roamer in' and 'roamer out' indicators, and how business charging information is integrated during registration.",
+      "expected_specs": [
+        "32.256"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 122925,
+          "spec_recall": true,
+          "fact_coverage": 0.7142857142857143,
+          "fact_in_context_recall": 0.8571428571428571,
+          "utilization": 0.833
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 36617,
+          "spec_recall": false,
+          "fact_coverage": 0.42857142857142855,
+          "fact_in_context_recall": 0.14285714285714285,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 113959,
+          "spec_recall": false,
+          "fact_coverage": 0.2857142857142857,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-005",
+      "category": "multi_section",
+      "question": "Describe the conditions under which a UE may skip a sidelink transmission for certain sidelink MAC CEs, the criteria for Tx carrier selection excluding specific resource pools, and how the P field in the Multiple Entry PHR MAC CE indicates power management backoff.",
+      "expected_specs": [
+        "38.321"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 152948,
+          "spec_recall": true,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": 0.4,
+          "utilization": 0.5
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 18759,
+          "spec_recall": false,
+          "fact_coverage": 0.1,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 84325,
+          "spec_recall": true,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-006",
+      "category": "multi_section",
+      "question": "Describe the pre-conditions and operational dependencies between the unsubscription procedure for host UAV dynamic information and the real time UAV flight path monitoring assistance procedure, focusing on the roles of the UAS Application Specific Server, UAE server, and UAE client.",
+      "expected_specs": [
+        "23.255"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 95376,
+          "spec_recall": true,
+          "fact_coverage": 0.7857142857142857,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.786
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 76545,
+          "spec_recall": false,
+          "fact_coverage": 0.07142857142857142,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 74188,
+          "spec_recall": true,
+          "fact_coverage": 0.2857142857142857,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-007",
+      "category": "multi_section",
+      "question": "Describe the procedure the PCF follows when it receives network performance analytics from the NWDAF for a Planned Data Transfer with QoS (PDTQ) policy, including the triggers for re-negotiation and the outcome if re-negotiation fails, and explain the rules for binding PCC rules with TSC Assistance Containers to QoS Flows.",
+      "expected_specs": [
+        "23.503"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 101409,
+          "spec_recall": true,
+          "fact_coverage": 0.8333333333333334,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.833
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 119824,
+          "spec_recall": false,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 101814,
+          "spec_recall": true,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-008",
+      "category": "multi_section",
+      "question": "Describe the sequence of actions an EEC takes upon receiving a failure with REGISTRATION_REQUIRED for an EAS discovery subscription, and how it subsequently manages ACR initiation with attributes like simInactTime and appGrpId, including EES behaviors for context relocation and common EAS determination.",
+      "expected_specs": [
+        "24.558"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 108054,
+          "spec_recall": true,
+          "fact_coverage": 0.2857142857142857,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.286
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 43451,
+          "spec_recall": false,
+          "fact_coverage": 0.14285714285714285,
+          "fact_in_context_recall": 0.2857142857142857,
+          "utilization": 0.5
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 63849,
+          "spec_recall": false,
+          "fact_coverage": 0.14285714285714285,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-009",
+      "category": "multi_section",
+      "question": "Explain the different control modes and communication link strategies for UAV operations, including how reliability is ensured through multiple C2 links, and detail the requirements for direct UAV-to-UAV local broadcast communication in terms of payload, range, frequency, and latency.",
+      "expected_specs": [
+        "22.125"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 133293,
+          "spec_recall": true,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": 0.7142857142857143,
+          "utilization": 0.7
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 63326,
+          "spec_recall": false,
+          "fact_coverage": 0.2857142857142857,
+          "fact_in_context_recall": 0.14285714285714285,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 102511,
+          "spec_recall": true,
+          "fact_coverage": 0.2857142857142857,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-010",
+      "category": "multi_section",
+      "question": "Explain the mechanisms the LMF uses to acquire sidelink positioning capabilities and assistance data from multiple UEs, detailing the procedures involving UE1, and describe how the LMF manages the broadcasting of assistance information through the NG-RAN node.",
+      "expected_specs": [
+        "38.305"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 178455,
+          "spec_recall": true,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.5
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 55538,
+          "spec_recall": false,
+          "fact_coverage": 0.07142857142857142,
+          "fact_in_context_recall": 0.14285714285714285,
+          "utilization": 0.5
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 77338,
+          "spec_recall": false,
+          "fact_coverage": 0.07142857142857142,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-011",
+      "category": "multi_section",
+      "question": "How can a client retrieve all blocks of a specific record using the Nudsf_DataRepository API? Detail the endpoint path, required path and query parameters, security scopes, and the format of a successful response.",
+      "expected_specs": [
+        "29.598"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 90931,
+          "spec_recall": true,
+          "fact_coverage": 0.8333333333333334,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.833
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 37828,
+          "spec_recall": false,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 42055,
+          "spec_recall": true,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-012",
+      "category": "multi_section",
+      "question": "In intent management, what are the possible values for expectationSelectivity and how does the feasibility check outcome determine the subsequent states and actions for an intent?",
+      "expected_specs": [
+        "28.312"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 60745,
+          "spec_recall": true,
+          "fact_coverage": 0.6428571428571429,
+          "fact_in_context_recall": 0.7142857142857143,
+          "utilization": 0.9
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 20073,
+          "spec_recall": false,
+          "fact_coverage": 0.14285714285714285,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 53194,
+          "spec_recall": true,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-013",
+      "category": "multi_section",
+      "question": "What are the successful HTTP response details for the CreateConfiguration and Report operations in the Ndcaf service APIs, including status codes, headers, and response body schemas?",
+      "expected_specs": [
+        "26.532"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 78939,
+          "spec_recall": true,
+          "fact_coverage": 0.9,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.9
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 56780,
+          "spec_recall": false,
+          "fact_coverage": 0.3,
+          "fact_in_context_recall": 0.2,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 51217,
+          "spec_recall": false,
+          "fact_coverage": 0.4,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-multi-014",
+      "category": "multi_section",
+      "question": "What is the definition of transmitter OFF power for an AAS base station supporting intra-band contiguous carrier aggregation, including the measurement duration, filter bandwidth, center frequency, and the minimum spectral density requirement?",
+      "expected_specs": [
+        "37.105"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 68008,
+          "spec_recall": false,
+          "fact_coverage": 0.8,
+          "fact_in_context_recall": 0.6,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 20654,
+          "spec_recall": true,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.4,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 83389,
+          "spec_recall": false,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-001",
+      "category": "negative",
+      "question": "According to 3GPP TS 38.331, what is the purpose and format of the RRC Connection Priority Scaling Factor (RCPSF) Information Element used in NR RRC connection control?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 103298,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 38500,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 100860,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-002",
+      "category": "negative",
+      "question": "In 3GPP TS 23.501, how does the PDU Session Anchor Flexibility Indicator (PSAFI) influence the dynamic reselection of the UPF during a PDU session modification in 5G systems?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 68836,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 103869,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 45649,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-003",
+      "category": "negative",
+      "question": "In 5G security architecture, what is the format and purpose of the Primary Authentication Mobility Anchor (PAMA) information element used during inter-AMF handovers?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 97519,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 54035,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 53635,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-004",
+      "category": "negative",
+      "question": "In BGP route reflection as defined in RFC 4456, what is the type code of the ORIGINATOR_ID path attribute, and what value does the route reflector set it to when reflecting a route received from a client peer?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 75298,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 44583,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 15578,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-005",
+      "category": "negative",
+      "question": "In BGP-4 route reflection as defined in RFC 4456, how is the CLUSTER_LIST path attribute used to prevent routing loops?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 55254,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 25986,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 6681,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-006",
+      "category": "negative",
+      "question": "In IS-IS routing per ISO 10589, what is the purpose of the Overload (OL) bit in the LSP header, and how does a Level-1/Level-2 router use it to signal that it should not be relied upon for transit traffic?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 62478,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 29800,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 35916,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-007",
+      "category": "negative",
+      "question": "In IS-IS, when a router sets the Overload (OL) bit in its Link-State PDU (LSP) header, how should neighboring Level-1 and Level-2 routers adjust their SPF calculation regarding transit traffic through that router?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 29425,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 24974,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 29207,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-008",
+      "category": "negative",
+      "question": "In NR physical layer procedures according to TS 38.213 and 38.214, what is the default value and permissible range for the Beam Management Cross-Carrier Scheduling Delay parameter?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 88304,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 25833,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 101247,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-009",
+      "category": "negative",
+      "question": "In OSPFv2 per RFC 2328, when a Totally Stubby Area is configured, which specific LSA types are permitted to be flooded into the area by the Area Border Router, and what mechanism does the ABR use to provide reachability to external and inter-area destinations?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 72055,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 49253,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 35609,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-010",
+      "category": "negative",
+      "question": "In TS 29.510, when an NF performs a planned restart and includes a Service Context Migration Token (SCMT) in the Nnrf_NFManagement_NFUpdate request, what is the expected behavior of the NRF in transferring the active service context state to a replacement NF instance, and what is the defined format of the SCMT?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 83231,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 74981,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 74625,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-011",
+      "category": "negative",
+      "question": "In TS 38.321, what is the default value of the DRX Inactivity Timer Extension Factor (DITEF) used for optimizing power consumption in connected mode?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 77394,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 57164,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 84756,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-012",
+      "category": "negative",
+      "question": "In policy and charging control, what is the role of the Service Data Flow Priority Reassignment Timer (SDFPRT) as defined in TS 23.503?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 102574,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 89805,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 30000,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-013",
+      "category": "negative",
+      "question": "In the 5G System architecture for PDU sessions (TS 23.501), what is the purpose and specified default value of the PDU Session Load Distribution Entity (PSLDE) for congestion management?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 68945,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 119551,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 94090,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-014",
+      "category": "negative",
+      "question": "In the IEEE 802.11be standard, what is the EHT MCS index and corresponding modulation order for a 320 MHz channel with 2 spatial streams?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 76415,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 26916,
+          "spec_recall": null,
+          "negative_verdict": "PARTIAL_REFUSAL"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 8943,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-015",
+      "category": "negative",
+      "question": "In the IPv6 Segment Routing Header (SRH) defined in RFC 8754, what is the purpose and expected behavior when the 'Segments Left' field is decremented to zero at a transit node, and how does the node determine whether to process the next SRv6 Segment Identifier (SID) versus forwarding the packet to the destination?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 90722,
+          "spec_recall": null,
+          "negative_verdict": "PARTIAL_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 84348,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 10976,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        }
+      }
+    },
+    {
+      "item_id": "hc-neg-016",
+      "category": "negative",
+      "question": "What are the G-ACh (Generic Associated Channel) channel type code-points assigned for MPLS-TP Loss Measurement Query, Loss Measurement Reply, Delay Measurement Query, and Delay Measurement Reply messages as defined in RFC 6374?",
+      "expected_specs": [],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 92709,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 50795,
+          "spec_recall": null,
+          "negative_verdict": "INVALID"
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 19325,
+          "spec_recall": null,
+          "negative_verdict": "VALID_REFUSAL"
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-001",
+      "category": "procedure",
+      "question": "Describe the actions taken by network nodes when the monitoring duration for a continuous monitoring request expires in the context of SCEF-based procedures.",
+      "expected_specs": [
+        "23.682"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 188941,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 52863,
+          "spec_recall": false,
+          "fact_coverage": 0.375,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 46118,
+          "spec_recall": true,
+          "fact_coverage": 0.625,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-002",
+      "category": "procedure",
+      "question": "Describe the authentication and authorization process that the visited edge configuration server must perform with the home edge configuration server.",
+      "expected_specs": [
+        "33.558"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 101155,
+          "spec_recall": true,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.75
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 83674,
+          "spec_recall": false,
+          "fact_coverage": 0.125,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 40545,
+          "spec_recall": true,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-003",
+      "category": "procedure",
+      "question": "Describe the complete procedure for a 3GPP working group to request a port number allocation using the 3GPP allocated port number solution, including the necessary checklist and information required in the request.",
+      "expected_specs": [
+        "29.641"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 86540,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 132889,
+          "spec_recall": false,
+          "fact_coverage": 0.07142857142857142,
+          "fact_in_context_recall": 0.14285714285714285,
+          "utilization": 0.5
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 112959,
+          "spec_recall": false,
+          "fact_coverage": 0.07142857142857142,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-004",
+      "category": "procedure",
+      "question": "Describe the expected actions of an eNB when it receives an OVERLOAD STOP message, including how it determines traffic to resume normal operation.",
+      "expected_specs": [
+        "36.413"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 26691,
+          "spec_recall": true,
+          "fact_coverage": 0.8,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.8
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 20557,
+          "spec_recall": false,
+          "fact_coverage": 0.1,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 35747,
+          "spec_recall": true,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-005",
+      "category": "procedure",
+      "question": "Describe the procedure for an E-CID position measurement initiated by the LMF, detailing the messages exchanged and how reporting differs between one-time and periodic requests.",
+      "expected_specs": [
+        "38.305"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 65938,
+          "spec_recall": true,
+          "fact_coverage": 0.7857142857142857,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.786
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 46019,
+          "spec_recall": true,
+          "fact_coverage": 0.21428571428571427,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 40642,
+          "spec_recall": false,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-006",
+      "category": "procedure",
+      "question": "Describe the procedure for how the MnS producer of Domain Centralized SON ES management makes an NR capacity booster cell enter the energySaving state.",
+      "expected_specs": [
+        "28.310"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 53860,
+          "spec_recall": true,
+          "fact_coverage": 0.9,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.9
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 21556,
+          "spec_recall": false,
+          "fact_coverage": 0.9,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 58140,
+          "spec_recall": false,
+          "fact_coverage": 0.9,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-007",
+      "category": "procedure",
+      "question": "Describe the procedure for the EEC to unsubscribe from the ECS for service provisioning information using the Eecs_ServiceProvisioning_Unsubscribe operation.",
+      "expected_specs": [
+        "24.558"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 36237,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 86674,
+          "spec_recall": false,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 27340,
+          "spec_recall": false,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-008",
+      "category": "procedure",
+      "question": "Describe the procedure for updating an existing Individual Location Confirmation Service Subscription resource, detailing the HTTP method used, the required request body format, and the possible successful responses.",
+      "expected_specs": [
+        "29.549"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 65588,
+          "spec_recall": true,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.75
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 27346,
+          "spec_recall": false,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": 0.8333333333333334,
+          "utilization": 0.9
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 40922,
+          "spec_recall": false,
+          "fact_coverage": 0.5833333333333334,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-009",
+      "category": "procedure",
+      "question": "Describe the procedure that enables users to obtain service and use chargeable services with networks with whom neither they nor their home environment have any direct commercial agreement.",
+      "expected_specs": [
+        "22.115"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 63151,
+          "spec_recall": true,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.5
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 22416,
+          "spec_recall": true,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": 0.2,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 96051,
+          "spec_recall": false,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-010",
+      "category": "procedure",
+      "question": "Describe the requirement for Charging ID uniqueness in PDU session charging and how it is implemented to ensure billing accuracy.",
+      "expected_specs": [
+        "33.515"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 181437,
+          "spec_recall": true,
+          "fact_coverage": 0.4,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.4
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 22422,
+          "spec_recall": false,
+          "fact_coverage": 0.3,
+          "fact_in_context_recall": 0.6,
+          "utilization": 0.5
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 43710,
+          "spec_recall": false,
+          "fact_coverage": 0.4,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-011",
+      "category": "procedure",
+      "question": "Describe the successful operation of the MME Configuration Update procedure, including the initiating message, the response, and the handling when information elements are omitted.",
+      "expected_specs": [
+        "36.413"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 69788,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 24704,
+          "spec_recall": false,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 57605,
+          "spec_recall": false,
+          "fact_coverage": 0.25,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-012",
+      "category": "procedure",
+      "question": "Explain how the gNB manages QoE information reporting from the UE during an overload in the RAN, including the actions taken to stop and restart reporting, and what occurs with the recorded data during the overload.",
+      "expected_specs": [
+        "28.405"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 77957,
+          "spec_recall": true,
+          "fact_coverage": 0.9166666666666666,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.917
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 28113,
+          "spec_recall": false,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 56143,
+          "spec_recall": false,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-013",
+      "category": "procedure",
+      "question": "Explain the mechanism and components involved in the Cancel Deferred Location operation for supplementary services in location management.",
+      "expected_specs": [
+        "24.571"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 68897,
+          "spec_recall": true,
+          "fact_coverage": 0.9,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.9
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 56660,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 68015,
+          "spec_recall": false,
+          "fact_coverage": 0.3,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-014",
+      "category": "procedure",
+      "question": "For which mode of operation is the requirement to prevent Base Station receiver desensitization by transmitter emissions applicable, and at which port is this requirement measured?",
+      "expected_specs": [
+        "37.104"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 70286,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 0.75,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 19810,
+          "spec_recall": false,
+          "fact_coverage": 0.375,
+          "fact_in_context_recall": 0.25,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 44405,
+          "spec_recall": false,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-015",
+      "category": "procedure",
+      "question": "How does a UE determine which S-NSSAI to indicate in the PDU Session Establishment procedure when it has an Allowed NSSAI for a Network Slice?",
+      "expected_specs": [
+        "23.501"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 125473,
+          "spec_recall": true,
+          "fact_coverage": 0.8,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.8
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 33561,
+          "spec_recall": false,
+          "fact_coverage": 0.2,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 37110,
+          "spec_recall": true,
+          "fact_coverage": 0.6,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-016",
+      "category": "procedure",
+      "question": "How does an MTSI client offer Coordination of Video Orientation (CVO) in Session Description Protocol (SDP) for video media streams?",
+      "expected_specs": [
+        "26.114"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 79878,
+          "spec_recall": true,
+          "fact_coverage": 0.8571428571428571,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.857
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 48899,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.14285714285714285,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 24225,
+          "spec_recall": true,
+          "fact_coverage": 0.35714285714285715,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-017",
+      "category": "procedure",
+      "question": "In the U2N Remote UE initial access procedure, what specific configurations does the gNB-CU establish for the U2N Relay UE to enable the relaying of the Remote UE's bearers, and how is bearer mapping involved in this process?",
+      "expected_specs": [
+        "38.401"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 442803,
+          "spec_recall": true,
+          "fact_coverage": 0.8,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.8
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 62364,
+          "spec_recall": false,
+          "fact_coverage": 0.3,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 53264,
+          "spec_recall": true,
+          "fact_coverage": 0.4,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-018",
+      "category": "procedure",
+      "question": "What are the fields and their types in the message that signifies the end of a trace recording session?",
+      "expected_specs": [
+        "32.423"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 145787,
+          "spec_recall": true,
+          "fact_coverage": 0.6666666666666666,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.667
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 21351,
+          "spec_recall": false,
+          "fact_coverage": 0.08333333333333333,
+          "fact_in_context_recall": 0.16666666666666666,
+          "utilization": 0.5
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 60810,
+          "spec_recall": true,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-019",
+      "category": "procedure",
+      "question": "What are the key actions performed by the group management server in the group regroup procedure after the IWF provides an acknowledgment?",
+      "expected_specs": [
+        "23.283"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 417299,
+          "spec_recall": true,
+          "fact_coverage": 0.6666666666666666,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.667
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 24990,
+          "spec_recall": false,
+          "fact_coverage": 0.16666666666666666,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 34513,
+          "spec_recall": true,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-proc-020",
+      "category": "procedure",
+      "question": "What is the intended purpose of the procedure that allows the LMF and the UE to exchange assistance data in positioning contexts?",
+      "expected_specs": [
+        "38.305"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 62128,
+          "spec_recall": true,
+          "fact_coverage": 0.6666666666666666,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.667
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 137926,
+          "spec_recall": false,
+          "fact_coverage": 0.8333333333333334,
+          "fact_in_context_recall": 0.6666666666666666,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 18571,
+          "spec_recall": false,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-001",
+      "category": "table_lookup",
+      "question": "Describe the Nausf_UPUProtection service operation provided by the AUSF for UE Parameters Update, focusing on its inputs, outputs, and operation semantics.",
+      "expected_specs": [
+        "33.501"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 119826,
+          "spec_recall": true,
+          "fact_coverage": 0.9166666666666666,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.917
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 73167,
+          "spec_recall": false,
+          "fact_coverage": 0.08333333333333333,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 53172,
+          "spec_recall": false,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-002",
+      "category": "table_lookup",
+      "question": "For the modifyMOIAttributes operation, list the IS operation parameter names and their corresponding SS parameter names.",
+      "expected_specs": [
+        "28.532"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 91067,
+          "spec_recall": true,
+          "fact_coverage": 0.6666666666666666,
+          "fact_in_context_recall": 0.8333333333333334,
+          "utilization": 0.8
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 45574,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 66857,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-003",
+      "category": "table_lookup",
+      "question": "Identify the key issues addressed by the solutions for user consent for UE data exposure in roaming cases involving HPLMN and VPLMN.",
+      "expected_specs": [
+        "33.896"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 78909,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 27809,
+          "spec_recall": false,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 103486,
+          "spec_recall": false,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-004",
+      "category": "table_lookup",
+      "question": "In 3GPP terminology, what are the abbreviations for 'Mission Critical Push To Talk' and 'Push To Talk'?",
+      "expected_specs": [
+        "22.179"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 22818,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": null
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 43662,
+          "spec_recall": false,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 12386,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-005",
+      "category": "table_lookup",
+      "question": "In the ACProfile type, which attribute is mandatory and what are its data type and cardinality?",
+      "expected_specs": [
+        "24.558"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 56886,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 19938,
+          "spec_recall": false,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": 0.5,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 65980,
+          "spec_recall": false,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-006",
+      "category": "table_lookup",
+      "question": "In the Category B Option 2 receiver measurement table, what test requirement is specified for the frequency offset range where the measurement filter -3dB point is between 0.15 MHz and 0.2 MHz?",
+      "expected_specs": [
+        "36.141"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 84910,
+          "spec_recall": true,
+          "fact_coverage": 0.4,
+          "fact_in_context_recall": 0.6,
+          "utilization": 0.667
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 18298,
+          "spec_recall": true,
+          "fact_coverage": 0.4,
+          "fact_in_context_recall": 0.4,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 114804,
+          "spec_recall": false,
+          "fact_coverage": 0.1,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-007",
+      "category": "table_lookup",
+      "question": "In the context of this specification, what do the abbreviations V2I, V2N, V2P, V2V, and V2X stand for?",
+      "expected_specs": [
+        "23.287"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 29087,
+          "spec_recall": false,
+          "fact_coverage": 0.6,
+          "fact_in_context_recall": null
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 48987,
+          "spec_recall": false,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 12148,
+          "spec_recall": false,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-008",
+      "category": "table_lookup",
+      "question": "In the scenario where A refers B to C using the REFER method and A initiates the initial session as the Transferor, what are the roles assigned to A in the initial and transferred sessions, and what are the session endpoints for each?",
+      "expected_specs": [
+        "24.629"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 84960,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 45530,
+          "spec_recall": false,
+          "fact_coverage": 0.6,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 35998,
+          "spec_recall": false,
+          "fact_coverage": 0.6,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-009",
+      "category": "table_lookup",
+      "question": "List the information elements and their statuses in the Discover MBS Session response.",
+      "expected_specs": [
+        "23.289"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 99301,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 0.75,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 127379,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.5,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 49040,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-010",
+      "category": "table_lookup",
+      "question": "What are the adjacent channel leakage ratio (ACLR) limits and the associated parameters for NR base station transmissions in scenarios with sub-block or inter RF bandwidth gaps?",
+      "expected_specs": [
+        "37.104"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 74775,
+          "spec_recall": true,
+          "fact_coverage": 0.08333333333333333,
+          "fact_in_context_recall": 0.6666666666666666,
+          "utilization": 0.125
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 24003,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.16666666666666666,
+          "utilization": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 69264,
+          "spec_recall": false,
+          "fact_coverage": 0.16666666666666666,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-011",
+      "category": "table_lookup",
+      "question": "What are the attributes in the ValKeyInfo type that are marked as mandatory and have a cardinality of one?",
+      "expected_specs": [
+        "29.549"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 52044,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 62636,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 25902,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-012",
+      "category": "table_lookup",
+      "question": "What are the attributes of the NsmfEventExposureNotification data type, including their data types, cardinalities, and whether they are mandatory or optional?",
+      "expected_specs": [
+        "29.508"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 64238,
+          "spec_recall": true,
+          "fact_coverage": 0.75,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.75
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 44315,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 39503,
+          "spec_recall": true,
+          "fact_coverage": 0.125,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-013",
+      "category": "table_lookup",
+      "question": "What are the configured carrier selection priorities for E-UTRAN, UTRAN, and GERAN in idle and connected mode when the Service Provider ID (SPID) is 256?",
+      "expected_specs": [
+        "36.300"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 50270,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 38969,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 77108,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-014",
+      "category": "table_lookup",
+      "question": "What are the specified power levels for DM-RS transmissions based on the number of CDM groups without data for different DM-RS configuration types?",
+      "expected_specs": [
+        "38.214"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 51275,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 81217,
+          "spec_recall": false,
+          "fact_coverage": 0.0,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 37421,
+          "spec_recall": true,
+          "fact_coverage": 0.5,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-015",
+      "category": "table_lookup",
+      "question": "What reference point is used for offline charging between an IMS Network Entity or an Application Server and the Charging Data Function, and what is its 3GPP symbol?",
+      "expected_specs": [
+        "32.260"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 46861,
+          "spec_recall": true,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": 1.0,
+          "utilization": 1.0
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 21565,
+          "spec_recall": true,
+          "fact_coverage": 0.6666666666666666,
+          "fact_in_context_recall": 0.3333333333333333,
+          "utilization": 1.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 9379,
+          "spec_recall": false,
+          "fact_coverage": 1.0,
+          "fact_in_context_recall": null
+        }
+      }
+    },
+    {
+      "item_id": "hc-table-016",
+      "category": "table_lookup",
+      "question": "What use cases are associated with the potential normative work item for a delivery protocol for 3D objects and scenes?",
+      "expected_specs": [
+        "26.928"
+      ],
+      "per_system": {
+        "A": {
+          "present": true,
+          "ok": true,
+          "system": "A",
+          "elapsed_ms": 27123,
+          "spec_recall": true,
+          "fact_coverage": 0.6666666666666666,
+          "fact_in_context_recall": 1.0,
+          "utilization": 0.667
+        },
+        "B": {
+          "present": true,
+          "ok": true,
+          "system": "B",
+          "elapsed_ms": 25933,
+          "spec_recall": false,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": 0.0
+        },
+        "C": {
+          "present": true,
+          "ok": true,
+          "system": "C",
+          "elapsed_ms": 59265,
+          "spec_recall": false,
+          "fact_coverage": 0.3333333333333333,
+          "fact_in_context_recall": null
+        }
+      }
+    }
+  ],
+  "pairwise": {
+    "A_vs_B": [
+      {
+        "item_id": "hc-def-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-004",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-014",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-015",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-016",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-017",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-018",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-019",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-020",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-021",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-022",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-004",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-004",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-014",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-004",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-014",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-015",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-016",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-004",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-014",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-015",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-016",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-017",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-018",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-019",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-020",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-004",
+        "winner": "B",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-007",
+        "winner": "B",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-014",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-015",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-016",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      }
+    ],
+    "A_vs_C": [
+      {
+        "item_id": "hc-def-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-004",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-006",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-014",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-015",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-016",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-017",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-018",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-019",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-020",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-021",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-022",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-002",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-004",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-004",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-014",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-004",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-005",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-010",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-014",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-015",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-016",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-004",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-005",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-007",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-010",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-014",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-015",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-016",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-017",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-018",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-019",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-020",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-001",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-002",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-003",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-004",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-005",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-006",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-007",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-008",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-009",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-010",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-011",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-012",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-013",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-014",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-015",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-016",
+        "winner": "A",
+        "v_ab": "X",
+        "v_ba": "Y"
+      }
+    ],
+    "B_vs_C": [
+      {
+        "item_id": "hc-def-001",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-002",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-003",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-004",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-005",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-006",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-007",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-008",
+        "winner": "C",
+        "v_ab": "TIE",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-009",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-010",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-011",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-def-012",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-013",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-014",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-015",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-016",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-017",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-018",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-019",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-020",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-021",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-def-022",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-001",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-002",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-003",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-004",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-005",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-006",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-007",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-008",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-009",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-010",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-form-011",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-form-012",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-multi-001",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-002",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-003",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-004",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-005",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-006",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-007",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-008",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-009",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-010",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-011",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-012",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-013",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-multi-014",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-001",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-002",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-003",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-004",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-005",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-006",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-007",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-008",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-009",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-010",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-011",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-012",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "TIE"
+      },
+      {
+        "item_id": "hc-neg-013",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-neg-014",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-015",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-neg-016",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-001",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-002",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-003",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-004",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-005",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-006",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-007",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-008",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-proc-009",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-010",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-011",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-012",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-013",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-014",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-015",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-016",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-017",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-018",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-019",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-proc-020",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-001",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-002",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-003",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-004",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-005",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-006",
+        "winner": "TIE",
+        "v_ab": "X",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-007",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-008",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-009",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-010",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-011",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-012",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-013",
+        "winner": "B",
+        "v_ab": "X",
+        "v_ba": "Y"
+      },
+      {
+        "item_id": "hc-table-014",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-015",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "X"
+      },
+      {
+        "item_id": "hc-table-016",
+        "winner": "C",
+        "v_ab": "Y",
+        "v_ba": "TIE"
+      }
+    ]
+  }
+}

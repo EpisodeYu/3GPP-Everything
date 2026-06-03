@@ -121,8 +121,11 @@ async with httpx.AsyncClient() as c:
 - [x] **100 题中立题集生成**(2026-06-03):生成器 `gen_questions.py` + `golden_compare.yaml`(validate OK)— **待人领域终审**(见 CONTEXT.md §8)
 - [x] **评测层方案定稿**(2026-06-03,见 §8)
 - [x] **评测层实现 + smoke 通过**(2026-06-03):`golden_to_questions` + `collect_c` + `merge`(扩3路) + `pairwise_judge.py` + `compare_eval.py` + `compare_report.py` + 单测 17 条;3 题端到端 smoke(真 C 采集 + 真 glm-5.1 三类裁判 + 报告)全绿。跑法见 CONTEXT.md §9
-- [ ] 全量跑 A/B/C → 对比报告(待 golden 终审 + A 后端 token + B telco 环境)
-- [ ] (可选) Langfuse 上报
+- [x] **全量跑 A/B/C(100 题)完成**(2026-06-03):三系统各 100/100 答题,~900 次 glm-5.1 裁判 0 异常。
+  **结果数据 + 详细报告入库 `results/`**(`questions.jsonl` / `results.json` / `scores.json` /
+  `compare_report.md` / `REPORT.md`),供复刻与查证。结论摘要:A(本项目) 各指标第一;裸 LLM(C) 反超
+  华为 Telco-RAG(B);RAG 价值取决于检索质量。详见 `results/REPORT.md`。
+- [ ] (可选) Langfuse 上报 / 更多题集规模复测
 
 ## 8. 评测层设计(定稿 2026-06-03,实现待 approve)
 
