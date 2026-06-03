@@ -113,7 +113,8 @@ cd /data/3GPP-Everything && PYTHONPATH=/data/3GPP-Everything eval/.venv/bin/pyth
 
 **设计**(跨会话要点在记忆 `project_huawei_100q_generation`):
 - 采样脚手架 = A 的 `by_spec/*.jsonl`(R19,带 `chunk_type`);table_lookup←table / formula←formula / 其余←text。
-- **R18 公平门**:每 positive 的 `expected_facts` 去 B 的 R18 全文(`Documents.db`)核验覆盖率,<0.5 判 R19-only → skip。本次 84 题里 74 题覆盖 1.0;主动拦掉 24.193/37.355/38.306 等 R19-only。
+- **闭卷门**(`question_is_closed_book`):positive 题面**禁 spec 号 + 裸 clause/table/section 号**——否则等于开卷(把答案位置喂给检索器),expected_specs 也失意义。题按概念/IE/消息/表主题问,spec+sections 只进 expected_specs 当**隐藏 ground truth**(检索器须自己找对 spec)。违例即剔。
+- **R18 公平门**:每 positive 的 `expected_facts` 去 B 的 R18 全文(`Documents.db`)核验覆盖率,<0.5 判 R19-only → skip;主动拦掉 R19-only 内容。
 - 排测试/RF/study spec(`is_excluded_spec`:多部件 -N + EMC/一致性单部件);配额 def22/proc20/table16/formula12/multi14 + neg16。
 - **negative 对称门**(`A_Corpus` grep A 全库):negative 要公平须"两库皆无"。8 不存在概念(false_premise) + 8 **域外真实内容**(out_of_scope,非 3GPP:BGP/OSPF/IS-IS/MPLS-TP/Wi-Fi/PON/SRv6)。⚠️ **不能用 Rel-19 特性当库外**——A 是 R19 库会答对,不对称。每道探针词去 A 库核验,有实质命中(>=3 篇)即剔(本次剔 4 道,如 802.1Q/DOCSIS/SyncE 这些 3GPP 引用的外部标准)。
 - 调参:`POSITIVE_{SERIES_QUOTA,CATEGORY_TARGETS}` / `R18_COVERAGE_MIN` / `NEG_*_DOMAINS|AREAS` / `EXCLUDE_SAMPLING_SPECS`。

@@ -48,9 +48,13 @@ outside knowledge). Both systems retrieve from the same 3GPP corpus, so the answ
 must live in this spec.
 - Do NOT leak the answer in the question. No multiple-choice, no "which of the \
 following".
-- Mention the concept / message / table / parameter by its real 3GPP name so a \
-retriever can find it. You MAY name the spec (e.g. "per TS {spec_id}").
-- Prefer release-invariant facts (variable names, IE names, table IDs, mechanism \
+- CLOSED-BOOK (critical): the question must NOT reveal where the answer lives. Do NOT \
+mention the spec number (no "TS {spec_id}", no "29.xxx"), and do NOT cite bare \
+clause / table / section numbers (no "clause 5.2.2", no "Table 6.2.8-1", no "§"). \
+Ask ONLY by the real 3GPP NAME of the concept / message / IE / procedure / the topic \
+a table or formula is about, so the retriever must find the right spec on its own. \
+Make the named concept distinctive enough that the answer lives uniquely in this spec.
+- Prefer release-invariant facts (variable names, IE names, table topics, mechanism \
 names) over exact numeric values that may drift across releases.
 
 Return a SINGLE JSON object (no prose, no markdown fence) with keys:
@@ -122,9 +126,10 @@ def build_multi_section_messages(
         f"Clauses involved: {sec_list}\n"
         f"Combined excerpt (multiple sections of the SAME spec):\n"
         f'"""\n{excerpt}\n"""\n\n'
-        f"Write ONE multi_section question that REQUIRES combining facts from "
-        f"these sections of TS {spec_id} (do not cross into other specs). "
-        f"Set expected_specs[0].sections to the involved clauses."
+        f"Write ONE multi_section question that REQUIRES combining facts from these "
+        f"sections (do not cross into other specs). CLOSED-BOOK: the question must NOT "
+        f"name the spec number or any clause numbers — ask by the concept names only. "
+        f"Put the spec id and the involved clauses ONLY in expected_specs (hidden)."
     )
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 

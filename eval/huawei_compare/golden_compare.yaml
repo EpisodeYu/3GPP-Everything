@@ -13,1431 +13,1344 @@ categories:
 items:
 - category: definition
   language: en
-  question: According to TS 23.222, clause 8.12.1, under what condition does the AEF execute the procedure to obtain access
-    control policies for service API invocations?
-  expected_specs:
-  - spec_id: '23.222'
-    sections:
-    - 8.12.1
-  expected_facts:
-  - AEF executes procedure when policy for access control on service API is unavailable at AEF.
-  - Procedure is for obtaining policy to perform access control on service API invocations.
-  - CAPIF core function is the central repository of all policies related to service APIs.
-  - AEF can be within PLMN trust domain or 3rd party trust domain.
-  forbidden: []
-  source: hand_crafted
-  notes: Tests the ability to identify the trigger condition for the AEF policy retrieval procedure from the excerpt.
-  id: hc-def-001
-- category: definition
-  language: en
-  question: According to TS 28.104 clause 6.3, what does cross-domain MDA base its analysis on to facilitate service assurance?
-  expected_specs:
-  - spec_id: '28.104'
-    sections:
-    - '6.3'
-  expected_facts:
-  - Cross-domain MDA consumes output from single-domain MDA(s).
-  - Inputs include analytics output from single-domain MDA.
-  - Other input data such as PM and alarm notifications.
-  - Purpose is to facilitate service assurance.
-  - Simplest case is illustrated in Figure 6.3-1.
-  forbidden:
-  - single-domain MDA consumes cross-domain MDA output
-  source: hand_crafted
-  notes: Tests identification of input sources for cross-domain MDA in service assurance.
-  id: hc-def-002
-- category: definition
-  language: en
-  question: According to TS 29.594 clause 5.2.2, what are the specified content types for HTTP bodies, and what do they indicate?
-  expected_specs:
-  - spec_id: '29.594'
-    sections:
-    - 5.2.2
-  expected_facts:
-  - JSON is used as the content type for HTTP bodies.
-  - The content type 'application/json' signals the use of JSON.
-  - '''Problem Details'' JSON object is used for error details in HTTP response bodies.'
-  - The content type 'application/problem+json' signals the Problem Details.
-  - JSON format is as per IETF RFC 8259.
-  - Problem Details is as defined in IETF RFC 9457.
-  forbidden:
-  - XML content type
-  - HTTP headers from TS 29.500
-  - application/3gpp-raw
-  source: hand_crafted
-  notes: Tests knowledge of content type definitions in the 3GPP HTTP API specification.
-  id: hc-def-003
-- category: definition
-  language: en
-  question: According to TS 29.675 in the Nucmf_Provisioning API, what is specified about the content when the Individual
-    UE radio capability resource is successfully removed?
-  expected_specs:
-  - spec_id: '29.675'
-    sections:
-    - A.2
-  expected_facts:
-  - Individual UE radio capability resource
-  - successfully removed
-  - content shall be empty
-  - part of Nucmf_Provisioning API
-  forbidden:
-  - content is not empty
-  - successful removal includes non-empty data
-  source: hand_crafted
-  notes: Tests comprehension of successful resource deletion behavior.
-  id: hc-def-004
-- category: definition
-  language: en
-  question: According to TS 32.270, what are the two formats considered for Partial CDRs?
-  expected_specs:
-  - spec_id: '32.270'
-    sections:
-    - '3.1'
-  expected_facts:
-  - Two formats are considered for Partial CDRs.
-  - FQPC contains all specified fields.
-  - RPC has a reduced format.
-  forbidden: []
-  source: hand_crafted
-  notes: Tests retrieval of specific definition details from clause 3.1.
-  id: hc-def-005
-- category: definition
-  language: en
-  question: According to TS 36.108, what is the OTA total power dynamic range and how is its minimum requirement specified
-    for SAN type 1-O?
-  expected_specs:
-  - spec_id: '36.108'
-    sections:
-    - 9.4.3.1
-    - 9.4.3.2
-  expected_facts:
-  - OTA total power dynamic range is the difference between max and min transmit power of an OFDM symbol for a specified reference
-    condition.
-  - It applies at each RIB supporting transmission in the operating band.
-  - Upper limit is the OFDM symbol power at maximum output power.
-  - Lower limit is the OFDM symbol power when one resource block is transmitted.
-  - For SAN type 1-O, the requirement is that it shall be larger than or equal to levels in table 6.3.3.2-1 for SAN type 1-H.
-  forbidden:
-  - SAN type 1-B
-  - table 6.3.3.1-1
-  source: hand_crafted
-  notes: Tests understanding of the definition of OTA total power dynamic range and its specification for a specific SAN type.
-  id: hc-def-006
-- category: definition
-  language: en
-  question: Based on the provided excerpt from TS 36.307, describe the scope of clause 3A.4 and provide examples of the features
-    it covers.
-  expected_specs:
-  - spec_id: '36.307'
-    sections:
-    - 3A.4
-  expected_facts:
-  - Clause 3A.4 covers 'other release independent features'.
-  - It excludes features covered under clauses 3A.1, 3A.2, and 3A.3.
-  - Examples include generic baseband requirements.
-  - Also includes requirements not band/CA configuration specific.
-  - Table 3A.4-1 lists additional requirements for these features.
-  forbidden:
-  - band-specific requirements
-  - CA configuration specific requirements
-  source: hand_crafted
-  notes: Tests understanding of clause definition and exclusions in TS 36.307.
-  id: hc-def-007
-- category: definition
-  language: en
-  question: Describe the capabilities that the 3GPP management system should have for NetworkSlice instances as per TS 28.530
-    Clause 5.1.2.
-  expected_specs:
-  - spec_id: '28.530'
-    sections:
-    - 5.1.2
-  expected_facts:
-  - Re-allocate resources of NetworkSlice instances according to priority.
-  - Manage the NetworkSlice instance lifecycle.
-  - Provide link requirements related to the network slice to the appropriate management system for the TN part.
-  - Report performance measurement data of a NetworkSlice instance to the NOP.
-  - Report fault management data of a NetworkSlice instance.
-  - Activate, de-activate, modify, and terminate a NetworkSlice instance.
-  forbidden: []
-  source: hand_crafted
-  notes: Tests comprehension of key management system capabilities for network slice instances from the excerpt.
-  id: hc-def-008
-- category: definition
-  language: en
-  question: Describe the content and purpose of the MCData Group ID field as specified in TS 24.582, clause 11A.2.3.2.
-  expected_specs:
-  - spec_id: '24.582'
-    sections:
-    - 11A.2.3.2
-  expected_facts:
-  - The MCData Group ID field contains a SIP URI.
-  - It identifies the MCData group.
-  - The group is for MBS subchannel control messages.
-  - Coding is defined in Table 11A.2.3.2-1.
-  forbidden:
-  - IMSI
-  - voice communication
-  source: hand_crafted
-  notes: Tests definition of the MCData Group ID field in MCData standards.
-  id: hc-def-009
-- category: definition
-  language: en
-  question: Describe the timeout value for canceling an in-progress emergency group call in MCPTT as defined in TS 24.483.
+  question: Describe the function and possible values of the MCData configuration parameter that controls manual switching
+    between on-network and off-network operation.
   expected_specs:
   - spec_id: '24.483'
     sections:
-    - '6.2'
+    - 10.2.96
+    - 10.2.97
   expected_facts:
-  - The timeout value is for cancellation of in-progress emergency group calls for MCPTT.
-  - The value ranges from 0 to 65535.
-  - The time is in seconds.
-  - This element is specific to MCPTT.
-  forbidden: []
-  source: hand_crafted
-  notes: Tests knowledge of MCPTT-specific parameter details from TS 24.483.
-  id: hc-def-010
-- category: definition
-  language: en
-  question: In TS 23.288, what are the input parameters defined for the service operation when it is performed for 'analytics
-    subscription transfer preparation'?
-  expected_specs:
-  - spec_id: '23.288'
-    sections:
-    - Inputs
-  expected_facts:
-  - All input parameters for analytics exposure as specified in clause 6.1.3.
-  - 'Optional: Active data source ID(s) – Instance ID or Set ID.'
-  - 'Optional: ML Model related information, including ID(s) of NWDAF(s) containing MTTF and optional file address.'
-  - ID of the analytics consumer, e.g., NF, AF, or OAM.
-  - 'Optional: Analytics context identifier(s) as defined in clause 6.1B.4.'
+  - Indicates authorisation for manual switch to off-network operation
+  - When set to 'true', MCData user is authorised to switch
+  - When set to 'false', MCData user is not authorised to switch
+  - Applicable while in on-network operation
+  - Specific to MCData users
+  - Defines authorisation status for network mode switching
   forbidden:
-  - Subscription Correlation ID
-  - Output parameters
+  - TS 24.379
+  - LTE
+  - 5GS
   source: hand_crafted
-  notes: Tests recall of specific input parameters for the 'analytics subscription transfer preparation' service operation.
-  id: hc-def-011
+  notes: Tests retrieval of authorisation parameter meaning in MCData procedures.
+  id: hc-def-001
 - category: definition
   language: en
-  question: In TS 33.126, Clause 6.4, what is the CSP's obligation concerning the crypto keys, algorithms, and parameters
-    provided to the LEA for enabling retroactive decryption?
+  question: Describe the mechanism by which the MB-SMF ensures N2 MBS session requests are distributed to the correct NG RAN
+    nodes when an AMF involved in shared delivery becomes unreachable or has lost its context.
   expected_specs:
-  - spec_id: '33.126'
+  - spec_id: '23.527'
     sections:
-    - '6.4'
+    - 8.4.1.2
   expected_facts:
-  - CSP shall ensure crypto keys, algorithm, and parameters are delivered to LEA.
-  - LEA can decrypt encrypted Target Communications.
-  - Decryption must be retroactive.
-  forbidden: []
-  source: hand_crafted
-  notes: Tests recall of CSP requirement for retroactive decryption in lawful interception.
-  id: hc-def-012
-- category: definition
-  language: en
-  question: In the phi-axis test geometry for the notebook sized test volume per TS 38.870, describe the coordinate system
-    axes used for the theta-axis ripple test and list the eight test positions specified.
-  expected_specs:
-  - spec_id: '38.870'
-    sections:
-    - 7.6.2
-  expected_facts:
-  - Z-axis is along the phi-axis
-  - Y-axis is along the theta-axis
-  - Eight positions are (±15 cm, 0, ±15 cm) and (0, ±15 cm, ±15 cm)
-  - Theta axis rotated over 360° as supported, e.g., ±165°
-  - For theta range ≤180°, phi axis rotated 180° for a second cut
-  - Positions labeled by (X, Y, Z) offset from center
-  forbidden: []
-  source: hand_crafted
-  notes: Tests understanding of the coordinate definitions and test positions for the OTA ripple test geometry.
-  id: hc-def-013
-- category: definition
-  language: en
-  question: In the quality of service parameters for location information defined in TS 38.355, what does 'horizontalAccuracy'
-    indicate?
-  expected_specs:
-  - spec_id: '38.355'
-    sections:
-    - qos
-  expected_facts:
-  - maximum horizontal error in the location estimate
-  - at an indicated confidence level
-  - accuracy corresponds to accuracy extended uncertainty as defined in TS 23.032
-  - confidence corresponds to confidence as defined in TS 23.032
-  - not associated with a scale factor of 0.1 degrees
+  - MB-SMF sends Namf_MBSCommunication_N2MessageTransfer Request to every AMF in the same AMF set.
+  - The request includes a list of NG RAN Node IDs that have established shared delivery through the respective AMF.
+  - AMF1 uses the list from MB-SMF if available, otherwise falls back to its locally stored list of NG RAN node IDs.
+  - This distribution allows requests to reach NG RAN nodes even if AMFs have restarted and lost context.
+  - The mechanism supports activation, deactivation, or update of MBS sessions when an AMF is unavailable.
+  - Including the list in every request enables distribution via SCP reselection or AMF recovery.
   forbidden:
-  - scale factor 0.1 degrees
-  - tenMilliSeconds unit
-  - verticalCoordinateRequest required
+  - TS 23.247
+  - clause 7.2.5.2
   source: hand_crafted
-  notes: Tests recall of the specific definition of horizontalAccuracy from the excerpt, distinguishing it from other accuracy
-    parameters.
-  id: hc-def-014
+  notes: Tests understanding of MBS session request distribution resilience in the presence of AMF failures.
+  id: hc-def-002
 - category: definition
   language: en
-  question: What are the key requirements for UxNBs as specified in TS 22.125 clause 6.4?
+  question: Describe the notification used to report NRM updates to subscribed MnS consumers, including the possible update
+    types and how the MnS producer decides which notification type to send.
   expected_specs:
-  - spec_id: '22.125'
+  - spec_id: '28.532'
     sections:
-    - '6.4'
+    - 11.1.1.11.1
   expected_facts:
-  - Support UxNBs to provide enhanced and more flexible radio coverage.
-  - Provide means to control UxNB operation (e.g., start, stop, replace).
-  - Provide means to minimize power consumption of UxNBs (e.g., optimize operation parameter, optimized traffic delivery).
-  - Minimize interference caused by UxNBs changing their positions.
-  forbidden:
-  - LTE specifications
-  - UAV acronym expansion
-  - UxNB acronym expansion
-  source: hand_crafted
-  notes: Tests retrieval of specific system requirements for UxNBs from the provided excerpt.
-  id: hc-def-015
-- category: definition
-  language: en
-  question: What are the pre-conditions for documentation accompanying a Network Product regarding accounts as specified in
-    TS 33.117?
-  expected_specs:
-  - spec_id: '33.117'
-    sections:
-    - Pre-Conditions
-  expected_facts:
-  - Predefined accounts are identified in the documentation
-  - Instructions for creating new accounts are provided
-  - Instructions for viewing all existing accounts are provided
-  - No test is provided for finding undocumented hard coded accounts
-  forbidden:
-  - pre-conditions include account deletion procedures
-  - refer to TS 33.116 for account testing
-  source: hand_crafted
-  notes: Tests retrieval of specific pre-condition definitions from a 3GPP security spec.
-  id: hc-def-016
-- category: definition
-  language: en
-  question: What are the primary management responsibilities of the group management server (GMS) as specified in TS 23.280?
-  expected_specs:
-  - spec_id: '23.280'
-    sections:
-    - 7.4.2.2.4
-  expected_facts:
-  - Manages groups supported within the MC service provider
-  - Manages media policy information for use by the UE for media processing
-  - Manages group call policy information for use by the UE for on-network and off-network group call control
-  - All group management clients for a single group must use the same GMS
-  forbidden:
-  - directly controls UE devices
-  - uses HTTP client functional entities
-  source: hand_crafted
-  notes: Tests the ability to extract and summarize the defined roles of the GMS from the excerpt.
-  id: hc-def-017
-- category: definition
-  language: en
-  question: What are the specified components of the parameters for a Visual Operation Point in TS 26.118, clause 5.1.2?
-  expected_specs:
-  - spec_id: '26.118'
-    sections:
-    - 5.1.2
-  expected_facts:
-  - Codec, Profile and level requirements are included
-  - Restrictions of regular video parameters are typically expressed in Video Usability information
-  - Usage and restrictions of VR rendering metadata are part of the parameters
-  - Requirements are defined from the perspective of the video decoder and renderer
-  forbidden:
-  - Specific codec names like H.264 or HEVC
-  - Audio-related parameters
-  source: hand_crafted
-  notes: Tests understanding of the definition of Visual Operation Point parameters in TS 26.118.
-  id: hc-def-018
-- category: definition
-  language: en
-  question: What does the IAB UP configuration update function allow according to TS 38.470 Clause 5.2.12?
-  expected_specs:
-  - spec_id: '38.470'
-    sections:
-    - 5.2.12
-  expected_facts:
-  - update of BH information
-  - update of UP TNL information
-  - between IAB-donor-CU and an IAB-DU
-  forbidden: []
-  source: hand_crafted
-  notes: Tests knowledge of IAB support functions in 5G NR standards.
-  id: hc-def-019
-- category: definition
-  language: en
-  question: What is the condition for a UE to include the posSRS-TxFH-RRC-ConnectedNonRedCap field in its UE capability signalling
-    per TS 37.355?
-  expected_specs:
-  - spec_id: '37.355'
-    sections:
-    - NR-UE-TEG-Capability
-  expected_facts:
-  - posSRS-TxFH-RRC-ConnectedNonRedCap indicates support for positioning SRS with Tx frequency hopping in RRC_CONNECTED for
-    non-RedCap UEs.
-  - The UE can include this field only if it supports SRS-AllPosResources.
-  - SRS-AllPosResources is defined in TS 38.331.
-  forbidden:
-  - The field is applicable to RedCap UEs.
-  - The capability signalling parameters are specified in this excerpt.
-  source: hand_crafted
-  notes: Tests retrieval of UE capability definition and inclusion criteria.
-  id: hc-def-020
-- category: definition
-  language: en
-  question: What is the procedure for modifying an existing subscription to event notifications in the BSF as described in
-    TS 29.521 clause 4.2.6.3?
-  expected_specs:
-  - spec_id: '29.521'
-    sections:
-    - 4.2.6.3
-  expected_facts:
-  - HTTP PUT request is used to modify the subscription.
-  - Resource URI contains the subscription correlation ID {subId}.
-  - Request body includes the BsfSubscription data structure.
-  - Successful responses are HTTP 200 OK or 204 No Content.
-  - This operation does not allow unsubscription of all subscribed events.
-  forbidden:
-  - HTTP POST method is used for modification.
-  - This method allows unsubscription of all events.
-  - Reference is to TS 29.501 instead of 29.521.
-  source: hand_crafted
-  notes: Tests recall of key steps and constraints in modifying a BSF subscription.
-  id: hc-def-021
-- category: definition
-  language: en
-  question: What is the structure and coding reference of the N3IWF selection information for 5G ProSe multi-hop layer-3 remote
-    UE as specified in TS 24.555?
-  expected_specs:
-  - spec_id: '24.555'
-    sections:
-    - 5.12.2
-  expected_facts:
-  - N3IWF selection information for 5G ProSe multi-hop layer-3 remote UE
-  - Coded according to figure 5.12.2.17 and table 5.12.2.17
-  - Contains N3IWF identifier configuration (FQDN or IP address)
-  - Contains 5G ProSe multi-hop layer-3 UE-to-network relay access node selection information
-  - Ignore superfluous octets if length exceeds figure 5.12.2.1 indication
-  forbidden: []
-  source: hand_crafted
-  notes: Tests understanding of the components and coding for the N3IWF selection information information element.
-  id: hc-def-022
-- category: formula
-  language: en
-  question: According to TS 23.003 clause 2.11, what is the method for constructing the 5G-S-TMSI, including the components
-    involved and the formula used?
-  expected_specs:
-  - spec_id: '23.003'
-    sections:
-    - '2.11'
-  expected_facts:
-  - 5G-S-TMSI is constructed from AMF Set ID, AMF Pointer, and 5G-TMSI.
-  - The formula is ⟨5G-S-TMSI⟩ = ⟨AMF Set ID⟩ ⟨AMF Pointer⟩ ⟨5G-TMSI⟩.
-  - It is a shortened form of 5G-GUTI.
-  - It enables more efficient radio signalling procedures like paging and Service Request.
-  forbidden:
-  - LTE-TMSI
-  - MCC
-  - MNC
-  source: hand_crafted
-  notes: Tests understanding of the 5G-S-TMSI structure and formula from the provided excerpt.
-  id: hc-form-001
-- category: formula
-  language: en
-  question: According to TS 28.554 clause 6.5.1.1, how is the indicator R2 defined for SubNetwork and NRCellCU when the 5GS
-    service is based on QoS flows?
-  expected_specs:
-  - spec_id: '28.554'
-    sections:
-    - 6.5.1.1
-  expected_facts:
-  - R2 is defined as a ratio.
-  - Numerator is the sum over QoS flows of QF.RelActNbr.QoS.
-  - Denominator is QF.SessionTimeUE.
-  - The formula applies to SubNetwork and NRCellCU.
-  - The 5GS service is defined by QoS flows.
+  - Reports NRM updates to subscribed MnS consumers
+  - Can report multiple NRM updates at the same time
+  - Updates include creation and deletion of objects, attributes, attribute fields, attribute elements, attribute field elements,
+    and replacement of attribute values
+  - 'MnS producer decides notification types: notifyMOICreation, notifyMOIDeletion, notifyMOIAttributesValueChange, or notifyMOIChanges'
+  - Producer should take subscription information into account when deciding notification types
   forbidden:
   - LTE
-  - other 3GPP spec numbers
-  - incorrect indicator names
-  source: hand_crafted
-  notes: Tests understanding of the R2 formula definition in 5G service context.
-  id: hc-form-002
-- category: formula
-  language: en
-  question: According to TS 29.244 clause 5.2.2.2.2, what formula is provided for calculating the value used to set the Time
-    or Volume Threshold or Quota IE in the context of Credit pooling for EPC?
-  expected_specs:
-  - spec_id: '29.244'
-    sections:
-    - 5.2.2.2.2
-  expected_facts:
-  - The formula is S = Q1 * M1 + Q2 * M2 + ... + Qn * Mn
-  - S is the calculated value for the Time or Volume Threshold or Quota IE
-  - The formula is based on IETF RFC 4006
-  - It is used for Credit Pool feature in EPC
-  - Qn and Mn are variables representing quotas and multipliers
-  - The calculation is specified according to the Measurement Method
-  forbidden:
-  - 5G Core
-  - NGC
-  - Next Generation Core
-  source: hand_crafted
-  notes: Tests recall of the formula for threshold calculation in EPC credit pooling.
-  id: hc-form-003
-- category: formula
-  language: en
-  question: According to TS 29.244, Clause 5.2.2.3.2, how is the usage U calculated for a URR when Aggregated URRs IE is included?
-  expected_specs:
-  - spec_id: '29.244'
-    sections:
-    - 5.2.2.3.2
-  expected_facts:
-  - The usage U is calculated as the sum of products of usage Cn and multiplier Mn.
-  - Cn is the usage counted by each aggregated URR.
-  - Mn is the multiplier for each aggregated URR.
-  - The formula is C1*M1 + C2*M2 + ... + Cn*Mn = U.
-  - The UP function applies this calculation when Aggregated URRs IE is present.
-  - Aggregated URRs are indicated in the Aggregated URRs IE(s).
-  forbidden:
-  - U is the threshold value
-  - Cn is the credit amount
-  - Mn is the report trigger
-  source: hand_crafted
-  notes: Tests understanding of the credit pooling calculation formula in the 3GPP spec.
-  id: hc-form-004
-- category: formula
-  language: en
-  question: According to TS 33.501, Clause 13.2.4.4.1, how is the Nonce defined in the N32-f key hierarchy, and what are the
-    initialization and increment rules for the SEQ component?
-  expected_specs:
-  - spec_id: '33.501'
-    sections:
-    - 13.2.4.4.1
-  expected_facts:
-  - Nonce is the concatenation of IV salt and SEQ
-  - SEQ is a 32-bit unsigned integer
-  - SEQ starts at zero
-  - SEQ increments for each encryption invocation
-  - A separate sequence counter is maintained per IV salt
-  forbidden:
-  - SEQ is a 16-bit integer
-  - SEQ starts at one
-  - SEQ is shared across IV salts
-  source: hand_crafted
-  notes: Tests understanding of the Nonce construction and SEQ behavior in N32-f.
-  id: hc-form-005
-- category: formula
-  language: en
-  question: How is the approximate data rate for NR with aggregated carriers computed according to the formula in TS 38.306
-    clause 4.1.2?
-  expected_specs:
-  - spec_id: '38.306'
-    sections:
-    - 4.1.2
-  expected_facts:
-  - 'Formula: data rate (Mbps) = 10^{-6} * sum_{j=1}^J ( ... )'
-  - Summation over j from 1 to J aggregated carriers
-  - Variables include v_Layers^(j), Q_m^(j), f^(j), R_max, N_PRB^(BW(j),μ), T_s^μ, OH^(j)
-  - Factor of 10^{-6} converts to Mbps
-  - Term (1 - OH^(j)) accounts for overhead
-  forbidden:
-  - LTE parameters
-  - Spec number 36.306
-  - Assumed numeric values for variables
-  source: hand_crafted
-  notes: Tests retrieval and explanation of the NR aggregated data rate formula.
-  id: hc-form-006
-- category: formula
-  language: en
-  question: How is the deviation defined and calculated according to TS 22.104, Clause C.4.4?
-  expected_specs:
-  - spec_id: '22.104'
-    sections:
-    - C.4.4
-  expected_facts:
-  - Deviation is defined as the discrepancy between an actual value and a target value.
-  - 'The deviation is calculated using the formula: Deviation(t_A) = t_A - t_R.'
-  - t_A represents the actual value.
-  - t_R represents the target value.
-  - The deviation can be positive or negative, as illustrated in the examples.
-  forbidden: []
-  source: hand_crafted
-  notes: Tests the ability to recall and explain the deviation formula from the specified clause.
-  id: hc-form-007
-- category: formula
-  language: en
-  question: In TS 26.114, clause 6.2.11, what is the syntax definition for the 'imageseq' SDP attribute when still images
-    are part of a video media session?
-  expected_specs:
-  - spec_id: '26.114'
-    sections:
-    - 6.2.11
-  expected_facts:
-  - '''imageseq'' is the SDP attribute name'
-  - it is required in the offer for still images
-  - syntax starts with 'a=imageseq:'
-  - followed by PT as a required component
-  - optionally followed by SP item_count
-  forbidden: []
-  source: hand_crafted
-  notes: Tests recall of the exact syntax for the 'imageseq' SDP attribute from the specified clause.
-  id: hc-form-008
-- category: formula
-  language: en
-  question: In TS 38.181 clause 10.1, what are the values of Δ_FR1_REFSens and Δ_FR2_REFSens for the reference direction and
-    all other directions in the context of OTA REFSENS requirements for NTN?
-  expected_specs:
-  - spec_id: '38.181'
-    sections:
-    - '10.1'
-  expected_facts:
-  - Δ_FR1_REFSens equals -3 dB for the reference direction.
-  - Δ_FR1_REFSens equals 0 dB for all other directions.
-  - Δ_FR2_REFSens equals -3 dB for the reference direction.
-  - Δ_FR2_REFSens equals 0 dB for all other directions.
-  - These offsets are specified for FR1 and FR2 REFSENS OTA requirements in NTN.
-  forbidden:
-  - LTE REFSENS
-  source: hand_crafted
-  notes: Tests recall of directional offset values for REFSENS in non-terrestrial networks.
-  id: hc-form-009
-- category: formula
-  language: en
-  question: Per TS 23.401 clause 4.3.33.5, what is the formula used to calculate the Alternative IMSI value for a Multi-USIM
-    UE in the Paging Timing Collision Control mechanism, and what are its key components?
-  expected_specs:
-  - spec_id: '23.401'
-    sections:
-    - 4.3.33.5
-  expected_facts:
-  - Alternative IMSI value = [MCC] [MNC] [(MSIN value + Accepted IMSI Offset) mod (MSIN address space)]
-  - Accepted IMSI Offset is provided by MME in Attach Accept or TAU Accept message
-  - MSIN address space is used in the modulo operation
-  - MCC and MNC are derived from the UE's IMSI
-  - The formula involves the modulo operation with MSIN address space
-  forbidden:
-  - TMSI
-  - P-TMSI
-  - GUTI
-  source: hand_crafted
-  notes: Tests understanding of the Alternative IMSI calculation formula and its components for paging timing collision control.
-  id: hc-form-010
-- category: formula
-  language: en
-  question: What are the formulas for calculating the OTA reference sensitivity offset (Δ_OTAREFSENS) for the reference direction
-    and for all other directions, and how is the offset for minimum sensitivity (Δ_minSENS) defined, as specified in TS 36.181
-    clause 10.1?
-  expected_specs:
-  - spec_id: '36.181'
-    sections:
-    - '10.1'
-  expected_facts:
-  - Δ_OTAREFSENS = 44.1 - 10·log10(BeW_θ,REFSENS·BeW_φ,REFSENS) dB for reference direction
-  - Δ_OTAREFSENS = 41.1 - 10·log10(BeW_θ,REFSENS·BeW_φ,REFSENS) dB for all other directions
-  - Δ_minSENS = P_REFSENS - EIS_minSENS (dB)
-  - Constants 44.1 and 41.1 distinguish reference from other directions
-  - Beamwidths BeW_θ,REFSENS and BeW_φ,REFSENS are used in Δ_OTAREFSENS
-  - Formulas are defined in clause 10.1 of TS 36.181
-  forbidden:
-  - TS 38.181 defines Δ_OTAREFSENS
-  - Δ_OTAREFSENS uses the same constant for all directions
-  - Δ_minSENS includes beamwidths
-  source: hand_crafted
-  notes: Tests recall of specific formula structures, constants, and parameters from the excerpt.
-  id: hc-form-011
-- category: formula
-  language: en
-  question: What is the formula for calculating the timer Ty in service specific access control for MMTEL-Voice sessions,
-    as specified in TS 24.173?
-  expected_specs:
-  - spec_id: '24.173'
-    sections:
-    - J.2.1.1
-  expected_facts:
-  - Ty = (0,7 + 0,6 * rand4) * BarringTimeForMMTEL-Voice
-  - rand4 is a random variable used in the formula
-  - BarringTimeForMMTEL-Voice is a network-configurable parameter
-  - The formula includes constants 0,7 and 0,6
-  - This calculation is part of service specific access control for multimedia telephony voice
-  forbidden:
-  - rand3
-  - BarringTimeForMMTEL-Video
-  - TS 24.301
-  source: hand_crafted
-  notes: Tests retrieval and explanation of the Ty timer formula from the 3GPP spec excerpt.
-  id: hc-form-012
-- category: multi_section
-  language: en
-  question: According to TS 23.501, what are the conditions under which an AMF will reject a UE's request to move a single-access
-    PDU Session between 3GPP and non-3GPP accesses?
-  expected_specs:
-  - spec_id: '23.501'
-    sections:
-    - 5.6.1
-    - 5.6.2
-  expected_facts:
-  - Moving from 3GPP to non-3GPP is rejected if PDU session has control plane only indication.
-  - Control plane only indication rejection is due to unsupported CIoT 5GS optimisation features over non-3GPP access.
-  - Moving from non-3GPP to NB-N1 mode of 3GPP access is rejected when UP resources exceed the maximum supported.
-  - Rejection criteria are evaluated on a per PDU Session basis.
-  forbidden:
-  - TS 24.501
-  - MA PDU Session
-  source: hand_crafted
-  notes: Tests understanding of PDU Session mobility restrictions, requiring synthesis from Overview (5.6.1) and AMF-SMF interaction
-    (5.6.2) clauses.
-  id: hc-multi-001
-- category: multi_section
-  language: en
-  question: According to TS 32.160, what is the definition and UML compliance requirement for a state diagram of an information
-    object class, and how are attribute properties documented including inheritance rules, along with the structure for naming
-    operations with qualifiers and numbering?
-  expected_specs:
-  - spec_id: '32.160'
-    sections:
-    - W4.3.a.5
-    - W4.5.1
-    - Yb.1.a
-  expected_facts:
-  - State diagrams define permitted states and transitions for information object classes.
-  - States are expressed in terms of attribute values or relationships.
-  - State diagrams must be UML compliant.
-  - Attribute properties are documented in a table, with some properties defined in W4.3.a.2.
-  - Inherited attributes are not shown in child classes as they are defined in parent classes.
-  - OperationName includes the operation name followed by a qualifier (M, O, CM, CO, C).
-  - The number 'a' in operation names starts at 1 and increases with each new definition.
-  forbidden:
-  - 3GPP TS 36.xxx
-  - non-UML state diagrams
-  source: hand_crafted
-  notes: Tests the ability to combine state diagram definitions, attribute property conventions, and operation naming from
-    multiple sections of TS 32.160.
-  id: hc-multi-002
-- category: multi_section
-  language: en
-  question: Describe the Hang Time mechanism and the Group Regrouping and User Regrouping features as specified in TS 22.179
-    for managing MCPTT calls and group configurations.
-  expected_specs:
-  - spec_id: '22.179'
-    sections:
-    - 6.4.9
-    - 6.6.2.1
-    - 6.6.4.1
-  expected_facts:
-  - Hang Time is a predefined time period without traffic after which MCPTT calls terminate.
-  - Hang Time is set by an MCPTT Administrator.
-  - Group Regrouping enables dispatchers to temporarily combine MCPTT Groups.
-  - Group Regrouping is used during incidents or quiet periods for coordination.
-  - User Regrouping provides a dedicated MCPTT Group to individual users for urgent needs.
-  - User Regrouping is for conditions outside normal procedures.
-  - Regrouping features can be cancelled after the operation.
-  forbidden:
-  - TS 22.169
-  - LTE
-  - external protocols
-  source: hand_crafted
-  notes: Tests integration of administrative and operational mechanisms in MCPTT from multiple clauses.
-  id: hc-multi-003
-- category: multi_section
-  language: en
-  question: Describe the VAE capabilities specified in TS 23.286 for supporting V2X dynamic groups, file distribution, and
-    message delivery in targeted geographical areas, referencing requirements from clauses 4.3.2, 4.4.2, and 4.5.2.
-  expected_specs:
-  - spec_id: '23.286'
-    sections:
-    - 4.3.2
-    - 4.4.2
-    - 4.5.2
-  expected_facts:
-  - VAE enables V2X dynamic groups formation (AR-4.3.2-a)
-  - VAE enables switching from Uu to PC5-based communication (AR-4.3.2-c)
-  - VAE supports delivery of large files using unicast and MBMS (AR-4.4.2-a/b)
-  - VAE re-uses MBMS capabilities for file distribution (AR-4.4.2-c)
-  - VAE server distributes V2X messages to registered receivers in geographical areas (AR-4.5.2-a)
-  - VAE provides priority support for V2X messages (AR-4.5.2-e)
-  - VAE supports session-oriented services (AR-4.5.2-g)
-  forbidden:
-  - 3GPP TS 23.501
-  - NAS
-  - MME
-  source: hand_crafted
-  notes: Tests integration of multi-section requirements on V2X dynamic groups, file distribution, and message distribution
-    in TS 23.286.
-  id: hc-multi-004
-- category: multi_section
-  language: en
-  question: Describe the complete procedure for an MC service user to access resources in a partner system's domain, detailing
-    how to locate the partner IdM server's token endpoint, the token request and response steps for acquiring an access token
-    during migration, and the role of security tokens from the home IdM server in this process.
-  expected_specs:
-  - spec_id: '24.482'
-    sections:
-    - 6.2.3
-    - 6.3.1
-    - '4.1'
-  expected_facts:
-  - Find token endpoint via IdMSTokenEndPointList in MCVideO service user profile MO or MC service user profile document.
-  - Establish TLS tunnel to configured URL of partner IdM server token endpoint for migration.
-  - IdM server validates OIDC Token Request and generates OIDC Token Response with HTTP 200 OK.
-  - Determine MC service ID from received MC ID and include id_token, access_token, refresh_token in response.
-  - After obtaining home access token, acquire security token via subclauses 6.2.2 and 6.3.2.
-  - Use security token to acquire partner access token via subclauses 6.2.3 and 6.3.3.
-  forbidden:
-  - non-3GPP authentication protocols
-  - incorrect spec references like TS 33.180 details
-  - LTE-specific identity procedures
-  source: hand_crafted
-  notes: Tests integration of token acquisition, migration, and security token usage across multiple IdM clauses.
-  id: hc-multi-005
-- category: multi_section
-  language: en
-  question: Explain how the MME/SGSN's setting of the 'Not Reachable for NIDD' flag during an MT Data Request procedure relates
-    to the Connection Management procedures for T6a/b connections with the SCEF, including the checks performed by both entities.
-  expected_specs:
-  - spec_id: '29.128'
-    sections:
-    - 5.6.3
-    - 5.7.1
-    - 5.7.3
-  expected_facts:
-  - MME/SGSN sets Not Reachable for NIDD flag when UE is temporarily unreachable (e.g., power saving).
-  - SCEF Host and Realm are stored for which the flag is set.
-  - Connection Management procedure used for T6a/b connection status updates, e.g., indicating UE reachability.
-  - SCEF checks User Identity and validates T6a/b connection action (establishment, release, update) in Connection Management
-    Request.
-  - DIAMETER_ERROR_USER_UNKNOWN can be set by both MME/SGSN and SCEF if user identity is unknown.
-  forbidden:
-  - SCEF directly handles MT Data Requests
-  - T6a/b connections are for IP data only
-  source: hand_crafted
-  notes: Tests understanding of the interplay between MT Data handling and Connection Management procedures in TS 29.128.
-  id: hc-multi-006
-- category: multi_section
-  language: en
-  question: For a transmitter supporting the IVAS media profile and using the eAAC+ stereo operation point for Adaptive Bit
-    Rate (ABR) distribution, what are the combined requirements for generating CMAF tracks and switching sets as per TS 26.117?
-  expected_specs:
-  - spec_id: '26.117'
-    sections:
-    - 7.5.2.5
-    - 7.6.2.1
-    - 7.6.2.2
-  expected_facts:
-  - Support all media encoding capabilities for IVAS, IVAS-L2, or IVAS-L1 as per clause 5.3.
-  - Support sender requirements for IVAS, IVAS-L2, or IVAS-L1 as per clause 6.3.5.3.
-  - Support generation of CMAF Track conforming to CMAF Media Profile 'civs' as per clause 7.5.2.2.
-  - For ABR distribution, support generation of CMAF Switching Set as per clause 7.5.2.2.
-  - For eAAC+ stereo, CMAF track must conform to MP4AudioSampleEntry 'mp4a' and constraints from ISO/IEC 23000-19.
-  - eAAC+ stereo CMAF track also conforms to xHE-AAC Media Profile per clause 7.8.
-  - For eAAC+ stereo CMAF Switching Set, every track conforms to clause 7.6.2.1 and defines media profile 'ceac'.
-  forbidden: []
-  source: hand_crafted
-  notes: Tests the integration of IVAS transmitter requirements with eAAC+ stereo CMAF definitions.
-  id: hc-multi-007
-- category: multi_section
-  language: en
-  question: How do the antenna gain characteristics of equal and asymmetric UE modules, as described in TS 38.751, influence
-    the probability metrics for supporting 2 TRP DL reception and the comparative effectiveness of LMMSE versus RAN4 simplified
-    SINR estimation methods across different module placements?
-  expected_specs:
-  - spec_id: '38.751'
-    sections:
-    - '2.6'
-    - 6.3.6
-  expected_facts:
-  - 'Gain drop for equal modules: -11.055 dB at CDF 0.95296.'
-  - 'Gain drop for asymmetric modules: -10.865 dB at CDF 0.48074.'
-  - Probability to support 2 TRP DL peaks at 35% for symm. modules at 120 degrees AoA separation.
-  - For UEs with modules on opposite faces, LMMSE and RAN4 methods show similar performance.
-  - For UEs with modules on adjacent faces, LMMSE can help significantly due to polarization mismatch.
-  - For UEs with modules on same faces, MMSE performs better for narrow AoA offsets.
-  forbidden:
-  - LTE specifications
-  - other 3GPP documents
-  source: hand_crafted
-  notes: Tests integration of gain characteristics with performance metrics for 2 TRP DL and receiver methods.
-  id: hc-multi-008
-- category: multi_section
-  language: en
-  question: How does a UE determine the FQDN format for N3IWF selection in a visited PLMN, and what is the coding specification
-    for the UE identity AN-parameter in the EAP-Response/5G-NAS message?
-  expected_specs:
-  - spec_id: '24.502'
-    sections:
-    - 7.2.4.4.3
-    - 9.3.2.2.2
-    - 7.2.4.3
-  expected_facts:
-  - FQDN format determined from selected VPLMN's N3AN node selection information entry
-  - N3AN node selection information is part of N3AN node configuration information
-  - UE identity AN-parameter value field coded according to 5GS mobile identity IE for 5G-GUTI or SUCI
-  - If DNS response with prefixed FQDN has no records, UE repeats query without prefix
-  - UE selects N3IWF IP address with same IP version as local IP address
-  forbidden:
-  - TS 23.502
-  - MME
   - EPC
+  - '28.541'
   source: hand_crafted
-  notes: Tests knowledge of N3IWF selection procedure and AN-parameter coding in 5G non-3GPP access.
-  id: hc-multi-009
-- category: multi_section
+  notes: Tests knowledge of notification definition and producer behavior in NRM update reporting.
+  id: hc-def-003
+- category: definition
   language: en
-  question: In TS 28.623, how are the OpenAPI definitions for the Generic NRM produced and where can they be found?
+  question: Describe the specification and applicability of the cell reservation fields indicated in SIB1 for RedCap UEs.
   expected_specs:
-  - spec_id: '28.623'
+  - spec_id: '38.304'
     sections:
-    - Introduction
-    - '3.1'
-    - '3.2'
-    - '4.3'
+    - 5.3.1
   expected_facts:
-  - OpenAPI definitions are based on the Information Service (IS) from TS 28.622.
-  - Mapping rules to produce the OpenAPI definition are in TS 32.160.
-  - Definitions are specified in 3GPP Forge.
-  - Files are in the OpenAPI directory with names like TS28623_GenericNrm.yaml.
+  - cellReservedForOperatorUse has IE type 'reserved' or 'not reserved' and is specified per PLMN or per SNPN
+  - cellReservedForOtherUse has IE type 'true' and is common for all PLMNs
+  - cellReservedForFutureUse has IE type 'true' and is common for all PLMNs and NPNs
+  - All fields are indicated in the SIB1 message
+  - Fields are applicable only to RedCap UEs
+  forbidden:
+  - TS 38.331
+  - intraFreqReselection
+  - cellBarred
+  source: hand_crafted
+  notes: Tests retrieval and explanation of cell reservation field definitions from SIB1 specifications for RedCap UEs.
+  id: hc-def-004
+- category: definition
+  language: en
+  question: In the context of Lawful Interception, what are the possible target identities for an IRI-POI located in the P-CSCF
+    and MGCF?
+  expected_specs:
+  - spec_id: '33.928'
+    sections:
+    - '4.2'
+  expected_facts:
+  - PEI (IMEI only) is a target identity.
+  - IMEI is a target identity.
+  - IMPU is a target identity.
+  - IMPI is a target identity.
+  - These identities apply to IRI-POI in P-CSCF and MGCF.
   forbidden: []
   source: hand_crafted
-  notes: Tests combining facts about OpenAPI derivation and location across multiple sections of TS 28.623.
-  id: hc-multi-010
-- category: multi_section
+  notes: Tests recall of specific target identities for LI in network functions.
+  id: hc-def-005
+- category: definition
   language: en
-  question: In TS 33.896, how is user consent handled when V-NWDAF requests analytics information for a UE in a different
-    PLMN and when the UE registers via NTN access?
-  expected_specs:
-  - spec_id: '33.896'
-    sections:
-    - 6.4.2
-    - 6.1.2
-    - 6.2.2
-  expected_facts:
-  - V-NWDAF checks local operator policy and/or regulatory policy before sending analytics request to H-NWDAF.
-  - H-NWDAF determines exposure of analytics to VPLMN based on user consent, operator policy, and regulatory policy.
-  - For NTN access, AMF retrieves user consent preference for UE location information from UDM via Nudm_SDM_Get request.
-  - AMF checks UE context for stored user consent preference and validity timer expiration.
-  - UDM checks with UDR for user consent in NTN privacy profile against SUPI.
-  - AMF subscribes to UDM for user consent update and/or revocation notification via Nudm_SDM_Subscribe.
-  forbidden:
-  - LTE
-  - 4G
-  source: hand_crafted
-  notes: Tests understanding of user consent mechanisms in cross-border analytics and NTN access scenarios.
-  id: hc-multi-011
-- category: multi_section
-  language: en
-  question: In TS 38.212, for DCI format 0_3, how is the number of bits for the TRS availability indication determined and
-    how does it affect the reserved bits? Additionally, for DCI format 1_1, what mechanism is used to align the bit width
-    of the PDSCH-to-HARQ_feedback timing indicator across cells when pucch-sSCellDyn is configured?
-  expected_specs:
-  - spec_id: '38.212'
-    sections:
-    - 7.3.1.1.4
-    - 7.3.1.2.2
-  expected_facts:
-  - TRS availability indication is 0 bits if trs-ResourceSetConfig is not configured.
-  - Otherwise, TRS availability indication bits are 1 plus highest indBitID or indBitID-r18 from trs-ResourceSetConfig or
-    trs-ResourceSetConfig-r18.
-  - Reserved bits are (8 - M) for shared spectrum or FR2-2, and (6 - M) for non-shared spectrum, where M is TRS availability
-    indication bits.
-  - PDSCH-to-HARQ_feedback timing indicator bit widths must be the same for two HARQ-ACK codebooks in DCI format 1_1.
-  - If pucch-sSCellDyn is configured and bit widths differ, insert most significant bits set to '0' to equalize bit widths.
-  forbidden:
-  - LTE
-  - '36.212'
-  source: hand_crafted
-  notes: Tests understanding of bit field definitions and alignment procedures across DCI formats.
-  id: hc-multi-012
-- category: multi_section
-  language: en
-  question: In the Npcf_AMPolicyControl API of TS 29.507, what properties in the PolicyAssociationUpdateRequest schema are
-    used for alternate notification addresses, request triggers, and network slice-related UE information?
-  expected_specs:
-  - spec_id: '29.507'
-    sections:
-    - A.2
-  expected_facts:
-  - notificationUri is a required property for notifications
-  - altNotifIpv4Addrs, altNotifIpv6Addrs, altNotifFqdns provide alternate notification addresses
-  - triggers is an array of RequestTrigger items for observing policy control triggers
-  - ueSliceMbrs contains subscribed UE-Slice-MBR for S-NSSAI mappings
-  - praStatuses holds UE presence status changes for tracking areas
-  forbidden:
-  - SGW
-  - PGW
-  - EPC
-  source: hand_crafted
-  notes: Tests ability to extract and combine schema properties from different parts of the API definition.
-  id: hc-multi-013
-- category: multi_section
-  language: en
-  question: Under what condition does the minimum requirement within sub-block gaps for an MSR BS supporting non-contiguous
-    spectrum operation become -29dBm/100kHz, and in which clauses of TS 37.104 is this specified?
-  expected_specs:
-  - spec_id: '37.104'
-    sections:
-    - 6.6.2.1
-    - 6.6.2.2
-  expected_facts:
-  - 'Condition: Δf ≥ 10 MHz from both adjacent sub blocks on each side of the sub-block gap'
-  - Minimum requirement set to -29dBm/100kHz
-  - Applies to MSR BS supporting non-contiguous spectrum operation
-  - Specified in clauses 6.6.2.1 and 6.6.2.2 of TS 37.104
-  forbidden:
-  - Cumulative sum of contributions
-  source: hand_crafted
-  notes: Tests understanding of exception to the general minimum requirement calculation.
-  id: hc-multi-014
-- category: negative
-  language: en
-  question: According to TS 23.501, what is the role of the User Plane Consolidation Function (UPCF) in managing PDU sessions
-    for optimized data forwarding in 5G SA?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - consolidation threshold parameter
-  - default placement between SMF and UPF
-  - dynamic session anchoring policy
-  source: hand_crafted
-  must_say_not_found: true
-  notes: The User Plane Consolidation Function (UPCF) does not exist in 3GPP specifications; user plane handling is performed
-    by the UPF (User Plane Function) as defined in TS 23.501.
-  id: hc-neg-001
-- category: negative
-  language: en
-  question: How is the Policy Charging Synchronization Timer (PCST) utilized in the PCF to synchronize policy decisions with
-    charging updates according to TS 23.503?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - default timeout value
-  - timer format
-  - PCST configuration parameter
-  source: hand_crafted
-  must_say_not_found: true
-  notes: The PCST does not exist in 3GPP specifications; policy and charging synchronization is managed through standard procedures
-    like event triggers and CDR reporting, not a dedicated timer.
-  id: hc-neg-002
-- category: negative
-  language: en
-  question: In 3GPP TS 38.321, what is the procedure for the UE to handle the Dynamic Scheduling Latency Compensation Mechanism
-    when triggered by the network to optimize uplink scheduling?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - default timer value 5ms
-  - MAC CE length 2 bytes
-  - applies to all logical channels
-  source: hand_crafted
-  must_say_not_found: true
-  notes: The Dynamic Scheduling Latency Compensation Mechanism is not specified in any 3GPP specification; real uplink scheduling
-    in NR MAC uses dynamic grants, configured grants, and HARQ procedures.
-  id: hc-neg-003
-- category: negative
-  language: en
-  question: In IS-IS routing, when a router sets the Overload (OL) bit in its Link State PDU (LSP) header, how does this affect
-    the SPF calculation performed by other routers in terms of using that router as a transit node for IP traffic?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - OL bit causes other routers to avoid computing transit paths through the overloaded router
-  - LSP header Type-Length-Fields (TLVs) carry the OL bit in the LSPDBOL position
-  - Level-1/Level-2 routers must not use the overloaded node as a next-hop for non-local destinations
-  source: hand_crafted
-  must_say_not_found: true
-  notes: IS-IS is defined by ISO 10589 and extended by IETF RFCs (e.g., RFC 5302, RFC 5305); 3GPP does not specify IS-IS protocol
-    mechanics or its SPF behavior.
-  id: hc-neg-004
-- category: negative
-  language: en
-  question: In ITU-T G.987 XGS-PON, how does the Dynamic Bandwidth Allocation (DBA) reporting mechanism work at the XGTC layer
-    — specifically, what fields does the ONU include in its DBRu report to the OLT to request upstream bandwidth, and how
-    are the buffer occupancy values encoded?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - DBRu report
-  - XGTC frame header
-  - G.987.3 DBA
-  - buffer occupancy indicator
-  source: hand_crafted
-  must_say_not_found: true
-  notes: XGS-PON DBA and XGTC framing are defined by ITU-T (G.987 series), not by any 3GPP specification.
-  id: hc-neg-005
-- category: negative
-  language: en
-  question: In OSPFv2 as defined in RFC 2328, what is the LSA type number assigned to an AS-External-LSA, and what does the
-    link-state ID field of that LSA represent?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - Type 5 LSA
-  - link-state ID is the destination network IP address
-  - originated by ASBR
-  - external routes are flooded throughout the AS except stub areas
-  source: hand_crafted
-  must_say_not_found: true
-  notes: OSPF link-state routing is owned by IETF (RFC 2328 / RFC 5340); 3GPP does not specify interior gateway routing protocols.
-  id: hc-neg-006
-- category: negative
-  language: en
-  question: In a BGP route reflector setup as defined in RFC 4456, what is the BGP path attribute type code of the ORIGINATOR_ID
-    attribute, and what IP address does the route reflector place in that attribute when reflecting a route received from
-    a client?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - type code 9
-  - ORIGINATOR_ID
-  - router ID of the originator
-  - RFC 4456
-  source: hand_crafted
-  must_say_not_found: true
-  notes: Owned by IETF (BGP-4 and route reflection extensions); 3GPP does not specify BGP path attributes or route reflector
-    behavior.
-  id: hc-neg-007
-- category: negative
-  language: en
-  question: In a BGP-4 route reflection hierarchy, when a route reflector receives an UPDATE message from a client peer, what
-    is the specific ORIGINATOR_ID path attribute value it sets, and how does a non-client peer in the same cluster use the
-    CLUSTER_LIST to prevent routing loops?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - ORIGINATOR_ID set to the router-id of the originator
-  - CLUSTER_LIST appended with the cluster-id
-  - RFC 4456 route reflection procedures
-  - IBGP split-horizon rule exemption for route reflectors
-  source: hand_crafted
-  must_say_not_found: true
-  notes: BGP-4 route reflection is defined exclusively by the IETF (RFC 4271/4456); 3GPP does not specify inter-domain routing
-    protocols.
-  id: hc-neg-008
-- category: negative
-  language: en
-  question: In the Segment Routing Header (SRH) defined for SRv6, what is the purpose of the 'Segments Left' field and how
-    does it relate to the current active segment in the Segment List when a node processes the SRH?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - Segments Left indicates the number of remaining segments
-  - Segments Left is decremented and the next SID from the Segment List is copied into the IPv6 Destination Address
-  - the active segment is Segment List[Segments Left]
-  - SRH contains Last Entry, Flags, and Tag fields after Segments Left
-  source: hand_crafted
-  must_say_not_found: true
-  notes: Owned by IETF (RFC 8754 – SRv6 Network Programming); 3GPP does not define the SRH header structure or SRv6 SID forwarding
-    behavior.
-  id: hc-neg-009
-- category: negative
-  language: en
-  question: In the WPA3 SAE (Simultaneous Authentication of Equals) handshake defined in IEEE 802.11, what two values does
-    each station include in the Authentication frame body during the Commit exchange of the Dragonfly key exchange, and which
-    finite cyclic group ID is required as a mandatory-to-implement group for WPA3 certification?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - scalar and element
-  - group 19 (ECP 256)
-  - hunting-and-pecking
-  - FFC or ECC group ID 20
-  source: hand_crafted
-  must_say_not_found: true
-  notes: IEEE 802.11 (Wi-Fi Alliance WPA3) owns the SAE/Dragonfly handshake and GCMP cipher suite; 3GPP does not specify Wi-Fi
-    layer-2 authentication mechanisms.
-  id: hc-neg-010
-- category: negative
-  language: en
-  question: What is the default timeout value for the Service-Based Interface Flow Control Parameter (SBI-FCP) defined in
-    TS 29.500, and how is it applied to manage congestion in 5G core network services?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - default timeout of 100ms
-  - 32-bit integer format
-  - mandatory in NF service messages
-  - used for congestion avoidance
-  source: hand_crafted
-  must_say_not_found: true
-  notes: The 'Service-Based Interface Flow Control Parameter (SBI-FCP)' does not exist in 3GPP specs; SBI uses standard HTTP/2
-    flow control and has no such parameter defined.
-  id: hc-neg-011
-- category: negative
-  language: en
-  question: What is the default value and format of the Inter-AMF Handover Suspension Timer (IAHST) when it is included in
-    the 5GMM Mobility Management Configuration IE during registration procedures?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - timer value in seconds
-  - binary-coded format
-  - presence in NAS message
-  source: hand_crafted
-  must_say_not_found: true
-  notes: The IAHST is not specified in TS 24.501; handover-related timers like T3512 or T3513 are used for mobility management.
-  id: hc-neg-012
-- category: negative
-  language: en
-  question: What is the exact format and mandatory fields of the MPLS-TP Loss Measurement Message (LMM) for pseudowire OAM
-    as specified in RFC 6374?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - Transmit Counter (TC)
-  - Receive Counter (RC)
-  - Sequence Number field
-  - Timestamp values
-  source: hand_crafted
-  must_say_not_found: true
-  notes: IETF defines MPLS-TP and its OAM mechanisms in RFCs like 6374; 3GPP does not specify MPLS label stack operations
-    or MPLS-TP OAM procedures.
-  id: hc-neg-013
-- category: negative
-  language: en
-  question: What is the format and length of the RRC Connection Establishment Cause Code Extension field in the RRCSetupRequest
-    message?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - 'format: enumerated'
-  - 'length: 4 bits'
-  - 'default value: 0'
-  source: hand_crafted
-  must_say_not_found: true
-  notes: The RRCSetupRequest message in TS 38.331 includes an 'establishmentCause' field but no 'Cause Code Extension' field.
-  id: hc-neg-014
-- category: negative
-  language: en
-  question: What is the function of the Registration Acceptance Priority Factor (RAPF) in 5G NAS registration procedures as
-    specified in TS 24.501?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - RAPF is a 4-bit information element in the Registration Request
-  - RAPF has a default value of 7
-  - RAPF is mandatory for all registration types
-  source: hand_crafted
-  must_say_not_found: true
-  notes: The Registration Acceptance Priority Factor (RAPF) is not defined in 3GPP TS 24.501; registration priorities are
-    handled through other means like Back-off Timers and congestion control.
-  id: hc-neg-015
-- category: negative
-  language: en
-  question: What is the purpose and default duration of the Authentication Policy Enforcement Timer (APET) as specified in
-    TS 33.501?
-  expected_specs: []
-  expected_facts: []
-  forbidden:
-  - default duration
-  - range
-  - trigger condition
-  - reset mechanism
-  source: hand_crafted
-  must_say_not_found: true
-  notes: The Authentication Policy Enforcement Timer (APET) does not exist in TS 33.501; real authentication timers include
-    T3560 for authentication command timeout.
-  id: hc-neg-016
-- category: procedure
-  language: en
-  question: According to TS 23.015, Clause 2.1.2, in which network nodes is Operator Determined Barring for outgoing calls
-    or mobile originated short messages invoked?
+  question: In which network entities is Operator Determined Barring invoked for outgoing calls or mobile originated short
+    messages?
   expected_specs:
   - spec_id: '23.015'
     sections:
     - 2.1.2
   expected_facts:
-  - Invoked in the VLR
-  - Invoked in the SGSN
-  - Applies to outgoing calls
-  - Applies to mobile originated short messages
-  - HLR transfers subscription information for barring
+  - Operator Determined Barring is invoked in the VLR for outgoing calls or mobile originated short messages.
+  - Operator Determined Barring is invoked in the SGSN for outgoing calls or mobile originated short messages.
+  - The invocation is based on subscription information transferred by the HLR in the home PLMN country.
   forbidden:
-  - MSC
+  - invoked in MSC
+  - invoked in HLR
   source: hand_crafted
-  notes: Tests understanding of the invocation nodes for Operator Determined Barring.
-  id: hc-proc-001
-- category: procedure
+  notes: Tests retrieval of specific invocation points for Operator Determined Barring from the excerpt.
+  id: hc-def-006
+- category: definition
   language: en
-  question: According to TS 24.008 clause 5.5.3.2.1, what procedure does the receiving entity follow when it receives a STATUS
-    message reporting an incompatible call control state?
+  question: What are the conformance testing procedures for base stations that support multiple radio access technologies
+    in terms of port types and RAT assessment?
   expected_specs:
-  - spec_id: '24.008'
+  - spec_id: '37.113'
     sections:
-    - 5.5.3.2.1
+    - '4.1'
   expected_facts:
-  - The receiving entity shall clear the call by sending a RELEASE COMPLETE message.
-  - 'The RELEASE COMPLETE message includes cause #101 ''message not compatible with protocol state''.'
-  - An incompatible call control state means the combination of states cannot occur, do not match, or cannot be aligned by
-    the receiver.
-  - The exact definition of incompatible states is implementation dependent.
+  - Tests shall be performed with RATs activated according to the test configuration in subclause 4.5
+  - Tests relate to each type of port
+  - For MSR BS or other BS supporting more than one RAT, tests need not be repeated if operating RATs are assessed simultaneously
+  - For other BS supporting more than one RAT (not MSR BS), antenna port tests must be performed for each supported RAT
   forbidden:
-  - Send a RELEASE message instead of RELEASE COMPLETE.
-  - 'Use cause #102 or other cause codes.'
-  - The incompatible state definition is strictly standardized.
+  - tests must always be repeated for each RAT individually
+  - antenna port tests are not required for each RAT in non-MSR BS
   source: hand_crafted
-  notes: Tests understanding of error handling for incompatible call control states in 3GPP call control.
-  id: hc-proc-002
-- category: procedure
+  notes: Tests understanding of multi-RAT testing rules from the general conformance section.
+  id: hc-def-007
+- category: definition
   language: en
-  question: According to TS 24.482 clause A.2.1.1, which IETF RFCs define the client role that the HTTP client in the UE must
-    support, specifically for location management?
+  question: What are the constituent parts of the <UAV-application-message-info> element used in UAV communications?
   expected_specs:
-  - spec_id: '24.482'
+  - spec_id: '24.257'
     sections:
-    - A.2.1.1
+    - '7.4'
   expected_facts:
-  - UE HTTP client supports client role from IETF RFC 9112.
-  - UE HTTP client supports client role from IETF RFC 9110.
-  - Location management client HTTP client supports client role from IETF RFC 9113.
-  - These requirements are specified in TS 24.482 clause A.2.1.1.
+  - <UAV-id> contains the unique identifier of a UAV
+  - UAV-id can be a 3GPP UE ID or CAA level UAV ID
+  - <application-defined-proximity-range-info> contains range information
+  - <application-payload> contains the application payload
+  - <acknowledgement> is a string 'yes' or 'no' for acknowledgement
   forbidden:
-  - RFC 9114 or other unmentioned IETF RFCs
-  - Detailed HTTP/1.1 or HTTP/2 protocol mechanisms
+  - <C2-operation-mode-switching-performed>
+  - <registration-info>
   source: hand_crafted
-  notes: Tests retrieval of IETF RFC references for HTTP client roles in UE location management.
-  id: hc-proc-003
-- category: procedure
+  notes: Tests retrieval of data semantics for a specific UAV message element.
+  id: hc-def-008
+- category: definition
   language: en
-  question: According to TS 26.531 clause 4.4, describe the service interaction implications when the Data Collection AF is
-    deployed outside the trusted domain.
+  question: What are the critical factors that cellular connectivity provides for supporting Uncrewed Aerial Systems command
+    and control functions?
   expected_specs:
-  - spec_id: '26.531'
+  - spec_id: '22.125'
     sections:
-    - '4.4'
+    - Introduction
   expected_facts:
-  - Ndcaf service is not required.
-  - Subfunctions do not interact with Data Collection AF via 5G System service bus.
-  - Interactions are outside 3GPP scope.
-  - Reference points are R1', R3', R4', R6'.
-  - Deployment involves Application Service Provider and external AS.
-  forbidden:
-  - Ndcaf service is required
-  - Interactions via 5G System service bus
-  source: hand_crafted
-  notes: Tests retrieval of deployment-specific interaction rules and architecture details.
-  id: hc-proc-004
-- category: procedure
-  language: en
-  question: According to TS 28.105 clause 6.2c.2.2, describe the procedure for producer-initiated ML model testing, including
-    how the consumer defines policies and performance requirements, and how the producer decides on triggering re-training
-    or validation.
-  expected_specs:
-  - spec_id: '28.105'
-    sections:
-    - 6.2c.2.2
-  expected_facts:
-  - ML model testing is initiated by the MnS producer after the model is trained and validated.
-  - Consumer defines policies for testing, such as allowed time window and maximum number of testing iterations.
-  - Consumer may pre-define performance requirements for ML model testing.
-  - MnS producer decides whether to trigger ML model re-training or validation based on consumer performance requirements.
-  - ML model re-training may be triggered by the producer itself based on supplied performance requirements.
-  forbidden:
-  - consumer initiates ML model testing
-  - ML model deployment before testing
-  - re-training decisions made by consumer
-  source: hand_crafted
-  notes: Tests understanding of roles and decision-making in producer-initiated ML model testing procedures.
-  id: hc-proc-005
-- category: procedure
-  language: en
-  question: According to TS 29.230 Clause 8.1, how are 3GPP specific result codes classified in terms of ranges when transferred
-    in the Experimental-Result AVP?
-  expected_specs:
-  - spec_id: '29.230'
-    sections:
-    - '8.1'
-  expected_facts:
-  - Transferred in Experimental-Result AVP
-  - Vendor-Id with 3GPP's vendor identifier
-  - Classification follows Result-Code AVP from IETF RFC 3588
-  - Range 1xxx for Informational
-  - Range 2xxx for Success
-  - Range 4xxx for Transient Failures
-  - Range 5xxx for Permanent Failures
+  - Ubiquitous coverage
+  - High reliability and quality of service (QoS)
+  - Robust security
+  - Seamless mobility
   forbidden: []
   source: hand_crafted
-  notes: Tests knowledge of result code classification in Diameter protocol for 3GPP.
-  id: hc-proc-006
-- category: procedure
+  notes: Tests recall of key benefits specified for UAS C2 support.
+  id: hc-def-009
+- category: definition
   language: en
-  question: According to TS 37.320 clause 5.1.1.2, what are the steps a UE must take when an in-device coexistence problem
-    that may affect logged measurement results is detected?
+  question: What are the defining properties and required field of the RecordPatch schema in the Nudsf_DataRepository API?
   expected_specs:
-  - spec_id: '37.320'
+  - spec_id: '29.598'
+    sections:
+    - A.2
+  expected_facts:
+  - 'RecordPatch has two main properties: ''patch'' and ''blocks''.'
+  - '''patch'' is an array of PatchItems that reference a common data schema.'
+  - '''blocks'' is an array of Block objects, which can be of any type.'
+  - The 'patch' property is required for a RecordPatch object.
+  - An example of RecordPatch includes JSON patch operations like 'add' and 'copy'.
+  forbidden:
+  - TS 29.500
+  - SCEF
+  - clause 5.2.2
+  source: hand_crafted
+  notes: Tests recall of the RecordPatch schema structure from the spec excerpt.
+  id: hc-def-010
+- category: definition
+  language: en
+  question: What are the observed jitter statistics (mean, standard deviation, and range) for VR2-1 to VR2-8, and what is
+    the statistical model for jitter as referenced in the analysis?
+  expected_specs:
+  - spec_id: '26.926'
+    sections:
+    - 6.5.3.2
+  expected_facts:
+  - Mean jitter is 0ms
+  - Standard deviation is 5ms
+  - Range is [-8, 8] ms
+  - Jitter is modelled as a truncated Gaussian distribution
+  - Model referenced from TR 38.838
+  - VR2-1 to VR2-8 share similar jitter distribution
+  forbidden:
+  - TS 38.838
+  - untruncated Gaussian
+  - LTE
+  source: hand_crafted
+  notes: Tests retrieval of specific jitter parameters and model from 3GPP spec.
+  id: hc-def-011
+- category: definition
+  language: en
+  question: What are the possible representations of a DistinguishedName in string form, and how is a RegularDN structured
+    according to the EBNF definition?
+  expected_specs:
+  - spec_id: '32.300'
+    sections:
+    - '7.3'
+  expected_facts:
+  - DistinguishedName is either NullDN or RegularDN.
+  - RegularDN consists of DNPrefixPlusRDNSeparator and LocalDN.
+  - DNPrefixPlusRDNSeparator can be with NullDNPrefix, with DomainComponentRDN, or without DomainComponentRDN.
+  - LocalDN is composed of LocalRDN separated by RDNSeparator.
+  - RDNSeparator includes optional RDNSeparatorWhiteSpace around a CommaChar.
+  - DomainComponentRDN is defined as DCAttributeTypeAndValue.
+  - RegularRDN is defined as RegularAttributeTypeAndValue.
+  forbidden: []
+  source: hand_crafted
+  notes: Tests knowledge of the EBNF rules for DistinguishedName string representation.
+  id: hc-def-012
+- category: definition
+  language: en
+  question: What are the security requirements for authenticating users and protecting data in the VAL service, including
+    measures for inter-domain protection?
+  expected_specs:
+  - spec_id: '33.434'
+    sections:
+    - '4.1'
+    - '4.2'
+  expected_facts:
+  - All users of the VAL Service must be authenticated.
+  - VAL Client and VAL Server must mutually authenticate each other before providing service.
+  - Transmission of configuration and user profile data must be confidentiality and integrity protected with replay protection.
+  - VAL service should detect and mitigate DoS attacks.
+  - Support confidentiality of VAL user identities.
+  - Support confidentiality of VAL signalling.
+  - Inter-domain systems should protect against external attacks at the system border.
+  forbidden:
+  - TS 33.401
+  - LTE authentication
+  - 5G NAS security
+  source: hand_crafted
+  notes: Tests recall of key security requirements from the VAL service specification without referencing specific clause
+    numbers.
+  id: hc-def-013
+- category: definition
+  language: en
+  question: What are the specific transport protocols that must be robustness tested for the AAnF's Naanf interface?
+  expected_specs:
+  - spec_id: '33.537'
+    sections:
+    - 4.4.4
+  expected_facts:
+  - TCP
+  - HTTP2
+  - JSON
+  - Naanf interface
+  - robustness and fuzz testing
+  forbidden:
+  - AAnF specific additions for port scanning
+  - AAnF specific additions for vulnerability scanning
+  source: hand_crafted
+  notes: Tests retrieval of protocol names from the robustness testing scope.
+  id: hc-def-014
+- category: definition
+  language: en
+  question: What are the specifications for HTTP/2 usage and message compliance in the context of the Nhss_EE service?
+  expected_specs:
+  - spec_id: '29.563'
+    sections:
+    - 6.4.2.1
+  expected_facts:
+  - HTTP/2 shall be used as specified in 3GPP TS 29.500.
+  - HTTP/2 transport shall be as specified in 3GPP TS 29.500.
+  - HTTP messages and bodies for Nhss_EE service must comply with the OpenAPI specification.
+  - The OpenAPI specification is contained in Annex A5.
+  forbidden:
+  - HTTP/1.1
+  - Nhss_SoR service
+  source: hand_crafted
+  notes: Tests retrieval of protocol and compliance details for a specific service.
+  id: hc-def-015
+- category: definition
+  language: en
+  question: What are the two main capabilities that an intent-driven MnS producer for radio network must have to support intent-based
+    management?
+  expected_specs:
+  - spec_id: '28.312'
     sections:
     - 5.1.1.2
   expected_facts:
-  - UE stops measurement logging.
-  - UE indicates in the log that an in-device coexistence problem has occurred.
-  - Duration timer is kept running.
-  - When the problem is no longer present and duration timer not expired, logging resumes with a leap in time stamp.
-  forbidden:
-  - logging is paused
-  - duration timer is reset
+  - Enables MnS consumer to express intent containing expectation for delivering radio network for specified area
+  - Enables MnS consumer to obtain intent report information for the intent
+  - Intent report information includes fulfilment information
+  - Intent contains expectation for delivering radio network
+  forbidden: []
   source: hand_crafted
-  notes: Tests understanding of the procedure for handling in-device coexistence issues in logged measurements.
-  id: hc-proc-007
-- category: procedure
+  notes: Tests understanding of requirements for intent-driven MnS producer capabilities in radio network context.
+  id: hc-def-016
+- category: definition
   language: en
-  question: According to the schemas in TS 29.580, what mandatory fields must be present in an MBS User Data Ingest Session
-    Status Notification message when reporting subscribed events?
+  question: What condition indicates that the MeNB has a Prepared SgNB Modification for an X2 UE-associated signalling?
   expected_specs:
-  - spec_id: '29.580'
+  - spec_id: '36.423'
     sections:
-    - schemas
+    - 8.7.6.2
   expected_facts:
-  - mbsIngSessionId is a required property in MBSUserDataIngStatNotif
-  - eventNotifs is a required array in MBSUserDataIngStatNotif
-  - eventNotifs items reference EventNotification with minItems 1
-  - EventNotification requires statusEvent
-  - EventNotification requires timeStamp
+  - SGNB MODIFICATION REQUEST ACKNOWLEDGE message
+  - SgNB to MeNB Container IE included
+  - MeNB is defined to have Prepared SgNB Modification
+  - For X2 UE-associated signalling
   forbidden:
-  - mbsSessionId is required in MBSUserDataIngStatNotif
-  - statusAddInfo is required in EventNotification
+  - SGNB MODIFICATION REQUEST message
+  - T_SgNB timer
   source: hand_crafted
-  notes: Tests retrieval of notification message structure for event reporting procedures.
-  id: hc-proc-008
-- category: procedure
+  notes: Tests retrieval and understanding of the Prepared SgNB Modification condition.
+  id: hc-def-017
+- category: definition
   language: en
-  question: Based on TS 29.572 clause 5.3.2.2.1, describe the procedures defined under the CipheringKeyData service operation
-    and explain the purpose of including the Request Ciphering Key Information procedure.
+  question: What error response and associated data structure does the PCF send when it determines that the MBS Service Information
+    provided in an MBS Application Session Context Establishment request is invalid, incorrect, or insufficient?
   expected_specs:
-  - spec_id: '29.572'
+  - spec_id: '29.537'
     sections:
-    - 5.3.2.2.1
+    - 5.3.2.2.2
   expected_facts:
-  - CipheringKeyData service operation defines Request and Provide Ciphering Key Information procedures.
-  - Request Ciphering Key Information procedure is included for OpenAPI version 3 context.
-  - Request Ciphering Key procedure is not used for ciphering key transfer in TS 23.273.
-  - Request Ciphering Key procedure need not be supported by NF Service Consumer or LMF.
+  - HTTP '400 Bad Request' status code is used.
+  - ProblemDetails data structure is included.
+  - The 'cause' attribute is set to 'INVALID_MBS_SERVICE_INFO'.
+  - The condition is when MBS Service Information is invalid, incorrect, or insufficient.
   forbidden:
-  - used for ciphering key transfer in TS 23.273
-  - mandatory support by LMF
+  - FILTER_RESTRICTIONS_NOT_RESPECTED
+  - MBS_SERVICE_INFO_NOT_AUTHORIZED
+  - 403 Forbidden
   source: hand_crafted
-  notes: Tests knowledge of procedure definitions and their rationale as specified in the excerpt.
-  id: hc-proc-009
-- category: procedure
+  notes: Tests understanding of a specific error definition in MBS session context establishment.
+  id: hc-def-018
+- category: definition
   language: en
-  question: Based on TS 33.535 clause 6.1, describe how the $K_{AKMA}$ key is derived and what conditions are necessary for
-    its refreshment.
+  question: What functions are defined under the IAB support function for IAB-donor-CU and IAB-DU interactions in the IAB
+    architecture?
   expected_specs:
-  - spec_id: '33.535'
+  - spec_id: '38.470'
     sections:
-    - '6.1'
+    - 5.2.12
   expected_facts:
-  - $K_{AKMA}$ derived from $K_{AUSF}$ per Annex A.2
-  - Both $K_{AKMA}$ and A-TID in A-KID derived from $K_{AUSF}$ based on primary authentication run
-  - $K_{AKMA}$ and A-KID can only be refreshed by new successful primary authentication
-  - Detection of A-TID collision not addressed in this document
-  forbidden:
-  - Derived from $K_{seaf}$
-  - A-TID collision handling specified in clause 6.1
-  - Refresh without new authentication possible
+  - IAB-donor-CU provides IP address information for traffic transfer via inter-donor-DU tunnel.
+  - IAB UP configuration update function updates BH or UP TNL information.
+  - Mobile IAB F1 Setup Triggering function enables triggering new F1 interface establishment.
+  - Mobile IAB F1 Setup Outcome Notification function enables reporting F1 interface setup outcome.
+  forbidden: []
   source: hand_crafted
-  notes: Tests understanding of AKMA key derivation and refresh mechanism in 3GPP authentication.
-  id: hc-proc-010
+  notes: Evaluates retrieval of IAB support function details from TS 38.470.
+  id: hc-def-019
+- category: definition
+  language: en
+  question: What is the role of the CAPIF core function in relation to service API policies, and when does the AEF need to
+    execute a procedure to obtain such policies for access control?
+  expected_specs:
+  - spec_id: '23.222'
+    sections:
+    - 8.12.1
+  expected_facts:
+  - CAPIF core function is the central repository of all policies related to service APIs.
+  - AEF executes the procedure to obtain policy when it is unavailable at the AEF.
+  - The procedure is for performing access control on service API invocations.
+  - AEF can be within PLMN trust domain or within 3rd party trust domain.
+  forbidden:
+  - PCF
+  - TS 29.5xx
+  source: hand_crafted
+  notes: Tests knowledge of CAPIF core function definition and AEF procedure trigger condition.
+  id: hc-def-020
+- category: definition
+  language: en
+  question: When a UE accesses SNPN services via a PLMN using 3GPP access, what 5GMM procedures, parameters, and UE operating
+    conditions are specified for accessing the 5GCN of the SNPN?
+  expected_specs:
+  - spec_id: '24.501'
+    sections:
+    - 4.14.2
+  expected_facts:
+  - Access to 5GCN of the SNPN uses 5GMM procedures for non-3GPP access.
+  - 5GMM parameters for non-3GPP access are used.
+  - UE is performing access to SNPN over non-3GPP access.
+  - UE is not operating in SNPN access operation mode over 3GPP access.
+  - From the UE's NAS perspective, it is treated as untrusted non-3GPP access.
+  forbidden:
+  - 5GMM procedures for 3GPP access
+  - Trusted non-3GPP access
+  - Emergency services are supported in this scenario
+  source: hand_crafted
+  notes: Tests retrieval of SNPN access conditions and 5GMM procedure details from the specified clause.
+  id: hc-def-021
+- category: definition
+  language: en
+  question: Where are the positions for hand phantom browsing mode and beside the head and hand phantom talk mode defined?
+  expected_specs:
+  - spec_id: '38.161'
+    sections:
+    - 6.2.1.1
+    - 6.2.1.2
+  expected_facts:
+  - Hand phantom browsing mode
+  - Defined in Clause B.3.1
+  - Beside the head and hand phantom talk mode
+  - Defined in Clause B.3.2
+  forbidden: []
+  source: hand_crafted
+  notes: Tests retrieval of definition locations for phantom mode positions in 3GPP specs.
+  id: hc-def-022
+- category: formula
+  language: en
+  question: Describe the concept of earliness in terms of its calculation and conditions for non-zero values, based on the
+    relationship between actual and target time.
+  expected_specs:
+  - spec_id: '22.104'
+    sections:
+    - C.4.5
+  expected_facts:
+  - Earliness is non-zero when actual time (t_A) is less than target time (t_R).
+  - For t_A < t_R, Earliness(t_A) = t_R - t_A.
+  - For t_A >= t_R, Earliness(t_A) = 0.
+  - t_R denotes the target value.
+  - t_A denotes the actual value.
+  - In an example with t_R=10 and t_A=7, Earliness is 3.
+  forbidden: []
+  source: hand_crafted
+  notes: Tests retrieval and explanation of the earliness formula and its application.
+  id: hc-form-001
+- category: formula
+  language: en
+  question: Describe the formula used to compute the power ramp-up adjustment for the first PUSCH transmission on the active
+    uplink bandwidth part in UE behaviour, including its key variables and constraints.
+  expected_specs:
+  - spec_id: '38.213'
+    sections:
+    - 7.1.1
+  expected_facts:
+  - The adjustment is denoted as ΔP_rampup,b,f,c.
+  - Calculation uses a min-max function structure.
+  - 'Key terms: P_CMAX, 10*log10(2^μ * M_RB), P_O_PUSCH, alpha*PL_c, Δ_TF, δ_msg2.'
+  - M_RB is the PUSCH bandwidth in resource blocks for the first transmission.
+  - Δ_P_rampuprequested is the total power ramp-up requested by higher layers.
+  - The result is constrained by 0 and the requested ramp-up value.
+  forbidden:
+  - TS 38.321
+  - LTE
+  - clause 7.1.1
+  source: hand_crafted
+  notes: Tests understanding of the PUSCH power ramp-up formula and its components.
+  id: hc-form-002
+- category: formula
+  language: en
+  question: Describe the mathematical expression that determines when a configured uplink grant in the Nth periodicity occurs,
+    including all parameters and operations involved.
+  expected_specs:
+  - spec_id: '38.321'
+    sections:
+    - 5.8.2
+  expected_facts:
+  - Calculation uses SFN, numberOfSlotsPerFrame, numberOfSymbolsPerSlot, slot number, symbol number
+  - 'Involves start time parameters: SFN_start time, slot_start time, symbol_start time'
+  - Includes N (where N >= 0) and periodicity as variables
+  - Modulo operation with 1024 multiplied by numberOfSlotsPerFrame and numberOfSymbolsPerSlot
+  - Equation sets left-hand side equal to right-hand side after modulo computation
+  forbidden: []
+  source: hand_crafted
+  notes: Tests knowledge of the configured grant timing formula from the specified clause.
+  id: hc-form-003
+- category: formula
+  language: en
+  question: Describe the process for generating the final keystream used in message-specific confidentiality protection for
+    ProSe discovery messages, including the key derivation and input parameters to the ciphering algorithm.
+  expected_specs:
+  - spec_id: '33.503'
+    sections:
+    - A.7
+  expected_facts:
+  - The final keystream (KEYSTREAM) is obtained by ANDing output_keystream with a mask.
+  - The mask is Encrypted_bits_mask concatenated with 0xFF..FF.
+  - Input parameters include KEY, COUNT, BEARER, DIRECTION, LENGTH.
+  - KEY is the 128 least significant bits of KDF output with DUCK, UTC-based counter, MIC.
+  - COUNT is the UTC-based counter.
+  - BEARER is 0x00.
+  - DIRECTION is 0x00.
+  forbidden:
+  - TS 33.301
+  - LTE security mechanisms
+  - standard 5G confidentiality
+  source: hand_crafted
+  notes: Tests knowledge of keystream derivation and input parameters in ProSe discovery confidentiality.
+  id: hc-form-004
+- category: formula
+  language: en
+  question: Describe the structure of the 5G-S-TMSI and the requirements for allocating its 5G-TMSI part to support paging
+    and connection establishment procedures.
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - 5.9.4
+  expected_facts:
+  - 5G-S-TMSI is defined as AMF Set ID concatenated with AMF Pointer and 5G-TMSI.
+  - The 10 Least Significant Bits of the 5G-TMSI are used for paging timing by NG-RAN.
+  - AMF must ensure even distribution of the 10 LSB of the 5G-TMSI.
+  - RRC Connection Establishment contention resolution assumes low probability of same 5G-TMSI from different AMFs.
+  - AMF allocation process for 5G-TMSI should account for low collision probability.
+  - AMF could use a random seed for 5G-TMSI allocation to achieve this.
+  forbidden:
+  - GUTI
+  - 5G-GUTI
+  source: hand_crafted
+  notes: Tests knowledge of the 5G-S-TMSI formula and related allocation considerations from the spec excerpt.
+  id: hc-form-005
+- category: formula
+  language: en
+  question: What are the constituent parts that form the Truncated 5G-S-TMSI, and how are they combined according to the specification?
+  expected_specs:
+  - spec_id: '23.003'
+    sections:
+    - '2.12'
+  expected_facts:
+  - Truncated 5G-S-TMSI is a 40-bit UE identifier.
+  - It is constructed from the 5G-S-TMSI.
+  - 'Components: Truncated AMF set ID, Truncated AMF Pointer, Truncated 5G-TMSI.'
+  - The formula is ⟨Truncated 5G-S-TMSI⟩ = ⟨Truncated AMF set ID⟩ ⟨Truncated AMF Pointer⟩ ⟨Truncated 5G-TMSI⟩.
+  - Used in RRC Connection Re-Establishment for NB-IoT control plane.
+  forbidden:
+  - 48 bits
+  source: hand_crafted
+  notes: Tests recall of the structural formula for Truncated 5G-S-TMSI from the provided excerpt.
+  id: hc-form-006
+- category: formula
+  language: en
+  question: What is the formula and method used by the UP function to compute the usage for a URR that includes an Aggregated
+    URRs IE?
+  expected_specs:
+  - spec_id: '29.244'
+    sections:
+    - 5.2.2.3.2
+  expected_facts:
+  - Usage U is calculated as sum of (Cn * Mn) for all aggregated URRs.
+  - 'Formula: C1*M1 + C2*M2 + ... + Cn*Mn = U.'
+  - Cn is usage counted by each aggregated URR.
+  - Mn is the multiplier for each aggregated URR.
+  - The UP function applies multipliers and aggregates usage from Aggregated URRs IE.
+  forbidden:
+  - Simple summation without multipliers
+  - Credit pooling not involved
+  source: hand_crafted
+  notes: Tests retrieval and understanding of the credit pooling formula mechanism.
+  id: hc-form-007
+- category: formula
+  language: en
+  question: What is the formula for calculating RA-RNTI when a UE is an NB-IoT device operating in TDD mode?
+  expected_specs:
+  - spec_id: '36.321'
+    sections:
+    - 5.1.4
+  expected_facts:
+  - RA-RNTI is computed as 1 + floor(SFN_id/4) + 256 * (H-SFN mod 2)
+  - This formula applies to NB-IoT UEs in TDD mode
+  - SFN_id is the index of the first radio frame of the specified PRACH
+  - H-SFN is used in the term H-SFN mod 2
+  forbidden:
+  - carrier_id
+  source: hand_crafted
+  notes: Tests retrieval and understanding of the RA-RNTI calculation for a specific UE type and operation mode.
+  id: hc-form-008
+- category: formula
+  language: en
+  question: What is the formula for calculating nominal channel spacing in carrier aggregation for NR operating bands with
+    a 15 kHz channel raster?
+  expected_specs:
+  - spec_id: '37.104'
+    sections:
+    - 4.6.1A
+  expected_facts:
+  - Nominal channel spacing uses a ceiling function.
+  - Fraction involves BW_Channel(1) + BW_Channel(2) - 2 |GB_Channel(1) - GB_Channel(2)| divided by 0.015 * 2^{n+1}.
+  - Result multiplied by 0.015 * 2^n MHz.
+  - n is equal to μ_0.
+  - Formula applies to NR bands with 15 kHz channel raster.
+  forbidden:
+  - 0.6 MHz
+  - LTE CA channel spacing formula
+  source: hand_crafted
+  notes: Tests retrieval of the specific CA channel spacing formula for NR bands with 15 kHz raster, including variable definitions.
+  id: hc-form-009
+- category: formula
+  language: en
+  question: What is the formula for calculating the timer value Tx in the service specific access control procedure for MMTEL-Video
+    session establishment?
+  expected_specs:
+  - spec_id: '24.173'
+    sections:
+    - J.2.1.1
+  expected_facts:
+  - Tx = (0.7 + 0.6 * rand2) * BarringTimeForMMTEL-Video
+  - rand2 is a random number used in the formula
+  - BarringTimeForMMTEL-Video is a barring parameter for video sessions
+  - The formula is part of the rejection process for MMTEL-Video sessions
+  forbidden: []
+  source: hand_crafted
+  notes: Tests retrieval of the specific formula for Tx from the service specific access control context.
+  id: hc-form-010
+- category: formula
+  language: en
+  question: What is the formula used to compute the sub-cell radius for a specific number of MIMO layers in the uplink per
+    PRB in the Available MIMO Layers Coverage Map measurement?
+  expected_specs:
+  - spec_id: '28.552'
+    sections:
+    - 5.1.1.30.8
+  expected_facts:
+  - The formula is d'_y = (sum_{i=1}^M d_{iy}) / M
+  - d_{iy} is the maximum distance of UE from base station with MIMO layers y per PRB in UL in i-th AoA interval
+  - M denotes the number of AoA intervals
+  - AoA interval width can be constant (360° / M) or operator-configured
+  - UE distance and AoA based on last reported TA and AoA values
+  - Measurement name is MIMOLayersUL y
+  - Valid for SU MIMO, MU MIMO, and y=1
+  forbidden:
+  - DL MIMO layers
+  - '38.214'
+  source: hand_crafted
+  notes: Tests understanding of the formula for MIMO layers coverage map computation.
+  id: hc-form-011
+- category: formula
+  language: en
+  question: What is the formula used to generate the token in the URL signing procedure, including the hash function and the
+    input parameters?
+  expected_specs:
+  - spec_id: '26.512'
+    sections:
+    - 7.6.4.5
+  expected_facts:
+  - SHA512 hash function
+  - url is an input to the hash
+  - token_expiry parameter named UrlSignature.tokenExpiryName
+  - ue_public_ip_address parameter named UrlSignature.ipAddressName
+  - passphrase parameter named UrlSignature.passphraseName
+  forbidden: []
+  source: hand_crafted
+  notes: Tests the ability to retrieve and state the token generation formula for URL signing.
+  id: hc-form-012
+- category: multi_section
+  language: en
+  question: Describe how an Application Function handles a subscription modification request that includes both an immediate
+    reporting indication and sampling criteria with partitioning, detailing the response to the PUT request and the information
+    included in the event notification data structure.
+  expected_specs:
+  - spec_id: '29.517'
+    sections:
+    - 4.2.2.2
+    - 4.2.2.3.3
+    - 4.2.4.2
+  expected_facts:
+  - When 'immRep' is set to true and subscribed events are available, AF includes event reports in the HTTP PUT response.
+  - If 'sampRatio' is included without 'partitionCriteria', AF selects a random subset of UEs based on the sampling ratio.
+  - If 'sampRatio' is included with 'partitionCriteria', AF partitions UEs first, then selects a random subset from each partition.
+  - When 'monDur' is included in the response, it is an AF selected expiry time equal to or less than the requested expiry
+    time.
+  - The AfEventExposureNotif data structure includes the 'notifId' attribute and information about observed events.
+  forbidden: []
+  source: hand_crafted
+  notes: Tests integration of subscription modification logic and notification content from multiple clauses.
+  id: hc-multi-001
+- category: multi_section
+  language: en
+  question: Describe the OTA dynamic range requirement for SAN receivers, including its definition, the conditions under which
+    it applies, and how the test procedure accounts for polarization and directionality to verify compliance.
+  expected_specs:
+  - spec_id: '36.181'
+    sections:
+    - 10.3.4.1
+    - 10.3.4.2
+    - 10.4.1
+    - 10.4.2
+    - 10.4.3
+  expected_facts:
+  - OTA dynamic range measures receiver capability to receive wanted signal with interfering signal in SAN channel bandwidth.
+  - Requirement applies at RIB when AoA of wanted and interfering signals are same direction within OTA REFSENS RoAoA.
+  - Wanted and interfering signals apply to each supported polarization under polarization match assumption.
+  - In test procedure, polarization is accounted for to capture all power from test antenna.
+  - Test repeats for all OTA REFSENS conformance test directions and supported polarizations.
+  forbidden:
+  - TS 36.108
+  - clause 10.4.2
+  source: hand_crafted
+  notes: Tests integration of OTA dynamic range definition with test procedure details on polarization and directionality.
+  id: hc-multi-002
+- category: multi_section
+  language: en
+  question: Describe the System Information Retrieval Function (SIRF) in the context of lawful interception, including its
+    responsibilities, the interface it uses to communicate with the Lawful Interception Platform Function (LIPF), and its
+    limitations regarding notifications about network function changes.
+  expected_specs:
+  - spec_id: '33.127'
+    sections:
+    - 5.3.6
+    - 5.3.7
+    - 5.3.8
+    - 5.4.2
+  expected_facts:
+  - SIRF provides system related information to LIPF for managing interception.
+  - LI_SI is the interface between SIRF and LIPF for system information exchange.
+  - SIRF is not responsible for notifying LIPF about new NF instantiation; CSP management systems do.
+  - LIPF forwards applicable information from SIRF to the LICF.
+  - SIRF may notify LIPF via LI_SI of status changes in system functions (e.g., removed from service).
+  - NRF/SIRF are not involved in NF/POI or MDF instantiation.
+  forbidden:
+  - SIRF is responsible for instantiating new network functions
+  - LEMF is managed by SIRF
+  - LARF handles system information retrieval for SIRF
+  source: hand_crafted
+  notes: Tests understanding of SIRF's role, interfaces, and interaction patterns in lawful interception architecture.
+  id: hc-multi-003
+- category: multi_section
+  language: en
+  question: Describe the charging procedures for a UE's registration and later deregistration in a visited network, focusing
+    on the messages sent by the AMF to the charging functions, the actions taken by V-CHF and H-CHF, the significance of the
+    'roamer in' and 'roamer out' indicators, and how business charging information is integrated during registration.
+  expected_specs:
+  - spec_id: '32.256'
+    sections:
+    - 5.2.2.5.8
+    - 5.2.2.5.9
+    - 5.2.2.6.2
+  expected_facts:
+  - During registration, AMF sends Charging Data Request [Initial] to V-CHF indicating 'roamer in'.
+  - V-CHF opens a CDR for the UE registration.
+  - During deregistration, AMF sends Charging Data Request [Event] to V-CHF indicating 'roamer out'.
+  - V-CHF creates a CDR for the UE deregistration.
+  - V-CHF may send Charging Data Request [Event] to H-CHF indicating 'roamer out' for registration.
+  - H-CHF creates a CDR for the deregistration.
+  - C-CHF requests charging information from B-CHF for each S-NSSAI in Allowed NSSAI during registration.
+  forbidden:
+  - PGW
+  - SGSN
+  - 4G charging
+  source: hand_crafted
+  notes: Tests integration of charging facts from registration, deregistration, and business charging across multiple sections.
+  id: hc-multi-004
+- category: multi_section
+  language: en
+  question: Describe the conditions under which a UE may skip a sidelink transmission for certain sidelink MAC CEs, the criteria
+    for Tx carrier selection excluding specific resource pools, and how the P field in the Multiple Entry PHR MAC CE indicates
+    power management backoff.
+  expected_specs:
+  - spec_id: '38.321'
+    sections:
+    - 5.22.1.3.1a
+    - 5.22.1.11
+    - 6.1.3.9
+  expected_facts:
+  - MAC entity may skip sidelink transmission if unable to perform it simultaneously with all uplink transmissions, up to
+    UE implementation.
+  - Tx carrier re-selection is triggered for Sidelink DRX Command MAC CE or Sidelink Inter-UE Coordination Request MAC CE.
+  - Resource pools for Tx carrier selection exclude those in sl-BWP-DiscPoolConfig, sl-BWP-DiscPoolConfigCommon, sl-BWP-PoolConfigA2X,
+    sl-BWP-PoolConfigCommonA2X, or SL-PRS dedicated resource pool.
+  - P field set to 1 indicates P_CMAX,fc would have differed without power backoff due to power management.
+  - MPE field indicates applied power backoff to meet MPE requirements when serving cell operates on FR2 and P field is 1.
+  forbidden:
+  - TS 36.321
+  - clause 5.4.2.2
+  source: hand_crafted
+  notes: Tests understanding of sidelink transmission implementation choices and PHR power backoff reporting across multiple
+    sections.
+  id: hc-multi-005
+- category: multi_section
+  language: en
+  question: Describe the pre-conditions and operational dependencies between the unsubscription procedure for host UAV dynamic
+    information and the real time UAV flight path monitoring assistance procedure, focusing on the roles of the UAS Application
+    Specific Server, UAE server, and UAE client.
+  expected_specs:
+  - spec_id: '23.255'
+    sections:
+    - 7.8.2.5
+    - 7.9.1
+    - 7.9.2.1
+  expected_facts:
+  - Unsubscription requires that subscription procedure was performed by UAS Application Specific Server or UAE client.
+  - Real time monitoring requires UAE client to indicate support of the capability.
+  - UAV must receive UAS ID from UAS application specific server for real time monitoring.
+  - UAV must perform UAS UE registration procedure for real time monitoring.
+  - Support operations include registration of UAE clients real time UAV flight path monitoring assistance capability.
+  - Real time flight path monitoring assistance procedure is initiated by UAS application specific server request to UAE server.
+  - Support includes real time flight path reporting procedure from UAE client to UAS application specific server.
+  forbidden:
+  - TS 23.501
+  - 5G NR
+  - clause 7.8.2.1
+  source: hand_crafted
+  notes: Tests comprehension of interrelated UAV service procedures and their pre-conditions from multiple sections.
+  id: hc-multi-006
+- category: multi_section
+  language: en
+  question: Describe the procedure the PCF follows when it receives network performance analytics from the NWDAF for a Planned
+    Data Transfer with QoS (PDTQ) policy, including the triggers for re-negotiation and the outcome if re-negotiation fails,
+    and explain the rules for binding PCC rules with TSC Assistance Containers to QoS Flows.
+  expected_specs:
+  - spec_id: '23.503'
+    sections:
+    - 6.1.2.7
+    - 6.1.3.2.4
+    - 6.1.3.6
+  expected_facts:
+  - PCF subscribes to NWDAF for analytics on Network Performance or DN Performance for PDTQ policy area and time window.
+  - NWDAF notifies PCF when Reporting Threshold is reached or based on periodic reporting.
+  - PCF may try to re-negotiate affected PDTQ policies with AFs that accept PDTQ policy re-negotiation.
+  - If no new candidate PDTQ policy or AF doesn't accept re-negotiation, previous PDTQ policy is kept.
+  - PCC rules with TSC Assistance Container are bound to a new QoS Flow and no other PCC rule is bound to this QoS Flow.
+  - When a QoS Flow is removed, SMF deletes it and removes bound PCC rules, reporting to PCF.
+  forbidden: []
+  source: hand_crafted
+  notes: Tests ability to combine PDTQ policy re-negotiation steps with QoS Flow binding constraints from policy control sections.
+  id: hc-multi-007
+- category: multi_section
+  language: en
+  question: Describe the sequence of actions an EEC takes upon receiving a failure with REGISTRATION_REQUIRED for an EAS discovery
+    subscription, and how it subsequently manages ACR initiation with attributes like simInactTime and appGrpId, including
+    EES behaviors for context relocation and common EAS determination.
+  expected_specs:
+  - spec_id: '24.558'
+    sections:
+    - 5.3.2.3.2
+    - 5.5.2.3.2
+    - 5.7.2.2.2
+  expected_facts:
+  - EEC must perform EEC registration before resending EAS discovery request on REGISTRATION_REQUIRED error.
+  - EES treats EEC as implicitly unsubscribed if no update received before expiration time.
+  - EES may apply AF traffic influence with N6 routing information from T-EAS in ACR initiation.
+  - EES notifies EAS to start ACR towards T-EAS if EAS notification indication included.
+  - If appGrpId attribute is included, EES considers provided EAS as Common EAS for Application Group.
+  - EES includes eecSvcContSupp information into EEC context if service continuity indicated and context established.
+  - For common EAS, EES interacts with ECS or determines other EESs for announcement based on availability.
+  forbidden: []
+  source: hand_crafted
+  notes: Tests integration of discovery subscription failure handling, ACR initiation with service continuity attributes,
+    and common EAS declaration across multiple clauses.
+  id: hc-multi-008
+- category: multi_section
+  language: en
+  question: Explain the different control modes and communication link strategies for UAV operations, including how reliability
+    is ensured through multiple C2 links, and detail the requirements for direct UAV-to-UAV local broadcast communication
+    in terms of payload, range, frequency, and latency.
+  expected_specs:
+  - spec_id: '22.125'
+    sections:
+    - '4.2'
+    - '5.1'
+    - 5.2.2
+  expected_facts:
+  - C2 communication can activate more than one link with one as backup for reliability.
+  - Direct C2 can switch to Network-Assisted C2 when UAV flies beyond line of sight.
+  - UTM-navigated C2 communication is used for scenarios like approaching No Drone Zone.
+  - 'Control modes: steer to waypoints, direct stick steering, automatic flight by UTM, approaching autonomous navigation
+    infrastructure.'
+  - UAS can send identifiers to UTM such as IMEI, MSISDN, IMSI, or IP address.
+  - MNO can augment data to UTM with network-based positioning information like OTDOA.
+  - 'Direct UAV to UAV local broadcast: payload 50-1500 bytes, range up to 600m, at least 10 messages per second, latency
+    at most 100ms.'
+  forbidden:
+  - LTE direct communication
+  - non-3GPP identifiers
+  - satellite links
+  source: hand_crafted
+  notes: Tests integration of C2 communication modes and direct broadcast requirements from UAS traffic management specifications.
+  id: hc-multi-009
+- category: multi_section
+  language: en
+  question: Explain the mechanisms the LMF uses to acquire sidelink positioning capabilities and assistance data from multiple
+    UEs, detailing the procedures involving UE1, and describe how the LMF manages the broadcasting of assistance information
+    through the NG-RAN node.
+  expected_specs:
+  - spec_id: '38.305'
+    sections:
+    - 7.3A.3
+    - 7.3A.4
+    - 7.5.2
+  expected_facts:
+  - LMF instigates SLPP and Supplementary RSPP procedures with UE1 to transfer capabilities and assistance data.
+  - UE1 instigates SLPP Capability Transfer procedure with UEs 2 to n to obtain their sidelink positioning capabilities.
+  - UE1 provides its SL positioning and ranging capabilities to LMF via SLPP Provide Capabilities message.
+  - UE1 provides capabilities of UEs 2 to n to LMF using Supplementary RSPP Procedure with embedded SLPP Provide Capabilities
+    messages.
+  - UE1 may send SLPP Request Assistance Data message to LMF to request SL positioning assistance data.
+  - LMF repeats the procedure when a ciphering key changes.
+  - NG-RAN node sends NRPPa Assistance Information Feedback message to LMF for feedback on assistance information broadcasting.
+  forbidden:
+  - LTE
+  - 4G
+  source: hand_crafted
+  notes: Tests integration of sidelink positioning capability transfer and assistance data broadcasting procedures.
+  id: hc-multi-010
+- category: multi_section
+  language: en
+  question: How can a client retrieve all blocks of a specific record using the Nudsf_DataRepository API? Detail the endpoint
+    path, required path and query parameters, security scopes, and the format of a successful response.
+  expected_specs:
+  - spec_id: '29.598'
+    sections:
+    - A.2
+  expected_facts:
+  - 'Endpoint path: /{realmId}/{storageId}/records/{recordId}/blocks'
+  - GET operation with operationId GetBlockList
+  - 'Path parameters: realmId, storageId, recordId'
+  - Query parameter supported-features for feature negotiation
+  - 'Security scopes: nuds-f-dr and nuds-f-dr:block:read'
+  - Successful 200 response uses multipart/parallel content with blocks array
+  forbidden:
+  - TS 29.598
+  - clause A.2
+  source: hand_crafted
+  notes: Tests ability to combine API endpoint details, parameters, security, and response structure from the Nudsf_DataRepository
+    specification.
+  id: hc-multi-011
+- category: multi_section
+  language: en
+  question: In intent management, what are the possible values for expectationSelectivity and how does the feasibility check
+    outcome determine the subsequent states and actions for an intent?
+  expected_specs:
+  - spec_id: '28.312'
+    sections:
+    - 6.2.1.2.1.1
+    - 6.2.1.3.5.1
+    - 6.3.2
+  expected_facts:
+  - 'expectationSelectivity has values: ALL_OF, ONE_OF, ANY_OF'
+  - expectationSelectivity defines how to select among intentExpectations for validation
+  - Feasibility check results in Feasible or inFeasible outcomes
+  - 'Feasible outcome: intent becomes COMPLIANT for fulfilment'
+  - 'inFeasible outcome: MnS Producer notifies MnS Consumer of infeasibility'
+  - States after fulfilment include DEGRADED, SUSPENDED, TERMINATED, FULFILMENTFAILED
+  - Sequence involves creating intent, feasibility check, and subsequent management tasks
+  forbidden:
+  - expectationSelectivity can be PROGRESSIVE
+  - Intent uses LTE bearers
+  - Specification references TS 28.541
+  source: hand_crafted
+  notes: Tests ability to combine definition of expectationSelectivity with intent lifecycle states and feasibility check
+    process.
+  id: hc-multi-012
+- category: multi_section
+  language: en
+  question: What are the successful HTTP response details for the CreateConfiguration and Report operations in the Ndcaf service
+    APIs, including status codes, headers, and response body schemas?
+  expected_specs:
+  - spec_id: '26.532'
+    sections:
+    - B.3
+    - B.4
+  expected_facts:
+  - CreateConfiguration operation returns HTTP 201 on success.
+  - Response for CreateConfiguration includes a Location header with Url schema and body with DataReportingConfiguration schema.
+  - Report operation returns HTTP 200 or HTTP 204 on success.
+  - HTTP 200 response for Report includes a Location header with Url schema and body with DataReportingSession schema.
+  - HTTP 204 response for Report has no content.
+  forbidden: []
+  source: hand_crafted
+  notes: Tests extraction and comparison of API response structures across two service definitions.
+  id: hc-multi-013
+- category: multi_section
+  language: en
+  question: What is the definition of transmitter OFF power for an AAS base station supporting intra-band contiguous carrier
+    aggregation, including the measurement duration, filter bandwidth, center frequency, and the minimum spectral density
+    requirement?
+  expected_specs:
+  - spec_id: '37.105'
+    sections:
+    - 6.4.2.1
+    - 6.4.2.2
+    - 6.4.2.3
+    - 6.4.2.4
+    - 6.4.3.1
+  expected_facts:
+  - Measurement duration is 70/N µs
+  - N = SCS/15 for NR with SCS as smallest supported subcarrier spacing in kHz
+  - Filter bandwidth is Aggregated BS Channel Bandwidth BW_Channel_CA
+  - Center frequency is (F_edge,high + F_edge,low)/2
+  - Minimum spectral density is -85 dBm/MHz
+  forbidden:
+  - Base Station RF Bandwidth
+  source: hand_crafted
+  notes: Tests understanding of transmitter OFF power definition for AAS BS with CA and its minimum requirement, requiring
+    integration of details from multiple clauses.
+  id: hc-multi-014
+- category: negative
+  language: en
+  question: According to 3GPP TS 38.331, what is the purpose and format of the RRC Connection Priority Scaling Factor (RCPSF)
+    Information Element used in NR RRC connection control?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - 8-bit integer
+  - range 0-255
+  - default value 1
+  source: hand_crafted
+  must_say_not_found: true
+  notes: The RCPSF IE does not exist in 3GPP TS 38.331; NR RRC connection control relies on standard procedures and IEs like
+    those in RRCSetup and RRCReconfiguration messages.
+  id: hc-neg-001
+- category: negative
+  language: en
+  question: In 3GPP TS 23.501, how does the PDU Session Anchor Flexibility Indicator (PSAFI) influence the dynamic reselection
+    of the UPF during a PDU session modification in 5G systems?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - boolean field
+  - default value 0
+  - 1-bit length
+  - carried in N4 message
+  source: hand_crafted
+  must_say_not_found: true
+  notes: The PDU Session Anchor Flexibility Indicator is a fabricated concept; real UPF selection and reselection are governed
+    by URSP rules and PDU session policies as defined in TS 23.501.
+  id: hc-neg-002
+- category: negative
+  language: en
+  question: In 5G security architecture, what is the format and purpose of the Primary Authentication Mobility Anchor (PAMA)
+    information element used during inter-AMF handovers?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - PAMA is a 64-bit IE
+  - PAMA default timer T_PAMA is 30 seconds
+  - PAMA uses AES-128 for encryption
+  source: hand_crafted
+  must_say_not_found: true
+  notes: The Primary Authentication Mobility Anchor (PAMA) does not exist in 3GPP specs; handover key management uses K_SEAF
+    and SEAF procedures.
+  id: hc-neg-003
+- category: negative
+  language: en
+  question: In BGP route reflection as defined in RFC 4456, what is the type code of the ORIGINATOR_ID path attribute, and
+    what value does the route reflector set it to when reflecting a route received from a client peer?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - ORIGINATOR_ID type code 9
+  - BGP Identifier of the route originator
+  - optional non-transitive attribute
+  - CLUSTER_LIST attribute type code 10
+  source: hand_crafted
+  must_say_not_found: true
+  notes: BGP route reflection and its path attributes are defined by the IETF in RFCs 4271 and 4456; 3GPP does not specify
+    BGP routing procedures.
+  id: hc-neg-004
+- category: negative
+  language: en
+  question: In BGP-4 route reflection as defined in RFC 4456, how is the CLUSTER_LIST path attribute used to prevent routing
+    loops?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - CLUSTER_LIST
+  - cluster ID
+  - ORIGINATOR_ID
+  source: hand_crafted
+  must_say_not_found: true
+  notes: BGP-4 routing is specified by IETF; 3GPP focuses on mobile network protocols and does not define this.
+  id: hc-neg-005
+- category: negative
+  language: en
+  question: In IS-IS routing per ISO 10589, what is the purpose of the Overload (OL) bit in the LSP header, and how does a
+    Level-1/Level-2 router use it to signal that it should not be relied upon for transit traffic?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - OL bit is set in the LSP header byte to indicate the router is overloaded
+  - adjacencies are still advertised so neighbors can reach directly connected prefixes
+  - Level-2 routes are excluded from SPF calculation by neighbors when OL is set
+  - LSP remaining lifetime and sequence number fields
+  source: hand_crafted
+  must_say_not_found: true
+  notes: IS-IS is an ISO/IETF link-state routing protocol (ISO 10589 / RFC 1195) and is not defined or profiled by 3GPP.
+  id: hc-neg-006
+- category: negative
+  language: en
+  question: In IS-IS, when a router sets the Overload (OL) bit in its Link-State PDU (LSP) header, how should neighboring
+    Level-1 and Level-2 routers adjust their SPF calculation regarding transit traffic through that router?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - OL bit set in the LSP header signals the router should not be used as transit
+  - neighboring routers still compute routes to direct destinations of the overloaded router
+  - Level-1 and Level-2 routers independently ignore the overloaded router for transit paths
+  - ATT bit and OL bit are distinct flags in the IS-IS LSP header
+  source: hand_crafted
+  must_say_not_found: true
+  notes: IS-IS overload bit behavior and LSP header format are defined by ISO 10589 and IETF RFCs (e.g., RFC 5308), not by
+    any 3GPP specification.
+  id: hc-neg-007
+- category: negative
+  language: en
+  question: In NR physical layer procedures according to TS 38.213 and 38.214, what is the default value and permissible range
+    for the Beam Management Cross-Carrier Scheduling Delay parameter?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - 'default value: 5 ms'
+  - 'range: 0-100 ms'
+  - 'format: 8-bit field'
+  source: hand_crafted
+  must_say_not_found: true
+  notes: The Beam Management Cross-Carrier Scheduling Delay parameter does not exist in 3GPP specifications; cross-carrier
+    scheduling delays are managed through existing HARQ and scheduling request mechanisms.
+  id: hc-neg-008
+- category: negative
+  language: en
+  question: In OSPFv2 per RFC 2328, when a Totally Stubby Area is configured, which specific LSA types are permitted to be
+    flooded into the area by the Area Border Router, and what mechanism does the ABR use to provide reachability to external
+    and inter-area destinations?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - Type 3 Summary-LSA with link-state ID 0.0.0.0 as default route
+  - Only Type 1 Router-LSA and Type 2 Network-LSA plus a single default Summary-LSA
+  - Cisco-proprietary Totally Stubby Area concept
+  - LSA types 3, 4, and 5 are suppressed
+  source: hand_crafted
+  must_say_not_found: true
+  notes: OSPF link-state routing is defined exclusively by the IETF (RFC 2328 for v2, RFC 5340 for v3); 3GPP does not specify
+    interior gateway routing protocols.
+  id: hc-neg-009
+- category: negative
+  language: en
+  question: In TS 29.510, when an NF performs a planned restart and includes a Service Context Migration Token (SCMT) in the
+    Nnrf_NFManagement_NFUpdate request, what is the expected behavior of the NRF in transferring the active service context
+    state to a replacement NF instance, and what is the defined format of the SCMT?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - SCMT format or structure
+  - SCMT defined data type and length
+  - NRF active service context transfer procedure
+  - SCMT default value or expiry timer
+  source: hand_crafted
+  must_say_not_found: true
+  notes: The Service Context Migration Token (SCMT) does not exist in any 3GPP specification. While Nnrf_NFManagement_NFUpdate
+    is a real service operation used to update an NF's profile registered with the NRF, the NRF does not manage or migrate
+    active service-context state between NF instances; that is outs
+  id: hc-neg-010
+- category: negative
+  language: en
+  question: In TS 38.321, what is the default value of the DRX Inactivity Timer Extension Factor (DITEF) used for optimizing
+    power consumption in connected mode?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - default value of 100 ms
+  - integer format with 8 bits
+  - range from 0 to 255
+  source: hand_crafted
+  must_say_not_found: true
+  notes: The DRX Inactivity Timer Extension Factor (DITEF) is not specified in TS 38.321; instead, DRX operation uses standard
+    timers like drx-InactivityTimer.
+  id: hc-neg-011
+- category: negative
+  language: en
+  question: In policy and charging control, what is the role of the Service Data Flow Priority Reassignment Timer (SDFPRT)
+    as defined in TS 23.503?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - 'SDFPRT default value: 10 seconds'
+  - 'SDFPRT format: 16-bit integer'
+  - SDFPRT triggers after priority conflict detection
+  source: hand_crafted
+  must_say_not_found: true
+  notes: The SDFPRT timer does not exist in 3GPP specifications; standard PCC timers include session-related ones like T0
+    for modification, but no specific priority reassignment timer is specified.
+  id: hc-neg-012
+- category: negative
+  language: en
+  question: In the 5G System architecture for PDU sessions (TS 23.501), what is the purpose and specified default value of
+    the PDU Session Load Distribution Entity (PSLDE) for congestion management?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - binary format
+  - default value 0
+  - 8-bit length
+  source: hand_crafted
+  must_say_not_found: true
+  notes: The PDU Session Load Distribution Entity (PSLDE) does not exist in 3GPP specs; load balancing for PDU sessions is
+    handled through mechanisms like SMF load balancing or network slice selection.
+  id: hc-neg-013
+- category: negative
+  language: en
+  question: In the IEEE 802.11be standard, what is the EHT MCS index and corresponding modulation order for a 320 MHz channel
+    with 2 spatial streams?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - EHT MCS 12
+  - 4096-QAM
+  - 320 MHz channel width
+  source: hand_crafted
+  must_say_not_found: true
+  notes: This is specified by the IEEE 802.11 working group for Wi-Fi technology, not by 3GPP which focuses on cellular standards.
+  id: hc-neg-014
+- category: negative
+  language: en
+  question: In the IPv6 Segment Routing Header (SRH) defined in RFC 8754, what is the purpose and expected behavior when the
+    'Segments Left' field is decremented to zero at a transit node, and how does the node determine whether to process the
+    next SRv6 Segment Identifier (SID) versus forwarding the packet to the destination?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - Segments Left field
+  - SRH Flags field
+  - SRv6 SID
+  - Last Entry index in SRH
+  source: hand_crafted
+  must_say_not_found: true
+  notes: Segment Routing over IPv6 (SRv6), including the SRH header format and SID processing, is owned by the IETF (RFC 8402/8754)
+    and is not specified by 3GPP.
+  id: hc-neg-015
+- category: negative
+  language: en
+  question: What are the G-ACh (Generic Associated Channel) channel type code-points assigned for MPLS-TP Loss Measurement
+    Query, Loss Measurement Reply, Delay Measurement Query, and Delay Measurement Reply messages as defined in RFC 6374?
+  expected_specs: []
+  expected_facts: []
+  forbidden:
+  - 0x000A (LM Query)
+  - 0x000C (DM Query)
+  - Generic Associated Channel
+  - G-ACh channel type
+  source: hand_crafted
+  must_say_not_found: true
+  notes: This is owned by IETF (RFC 6374 defines MPLS-TP Loss and Delay Measurement); 3GPP does not specify MPLS label-stack
+    OAM or associated channel types.
+  id: hc-neg-016
 - category: procedure
   language: en
-  question: Describe the procedure for LMF-initiated E-CID position measurement as specified in TS 38.305, clause 8.3.4.3.1,
-    focusing on the messages exchanged between the LMF and NG-RAN node and the conditions that determine which messages are
-    sent.
+  question: Describe the actions taken by network nodes when the monitoring duration for a continuous monitoring request expires
+    in the context of SCEF-based procedures.
+  expected_specs:
+  - spec_id: '23.682'
+    sections:
+    - 5.6.8.1
+  expected_facts:
+  - Monitoring Duration expiry for continuous Monitoring Request
+  - Each involved node locally deletes Monitoring Event configuration
+  - Nodes include HSS, MME/SGSN, IWK-SCEF, SCEF
+  - Configuration is associated with individual UE or group member UE
+  forbidden:
+  - '23.682'
+  - 5.6.8.1
+  source: hand_crafted
+  notes: Tests retrieval of monitoring event configuration handling upon duration expiry.
+  id: hc-proc-001
+- category: procedure
+  language: en
+  question: Describe the authentication and authorization process that the visited edge configuration server must perform
+    with the home edge configuration server.
+  expected_specs:
+  - spec_id: '33.558'
+    sections:
+    - 5.1.1
+  expected_facts:
+  - V-ECS provides mutual authentication with H-ECS
+  - Mutual authentication occurs over the EDGE-10 interface
+  - V-ECS determines whether H-ECS is authorized
+  - H-ECS must be authorized to access V-ECS's services
+  forbidden:
+  - use of EDGE-11 interface
+  - H-ECS determines V-ECS authorization
+  source: hand_crafted
+  notes: Tests understanding of authentication mechanisms between V-ECS and H-ECS entities as specified.
+  id: hc-proc-002
+- category: procedure
+  language: en
+  question: Describe the complete procedure for a 3GPP working group to request a port number allocation using the 3GPP allocated
+    port number solution, including the necessary checklist and information required in the request.
+  expected_specs:
+  - spec_id: '29.641'
+    sections:
+    - '4.2'
+  expected_facts:
+  - LS request to 3GPP CT4 required.
+  - Protocol must be for intra-domain interface(s).
+  - Cannot meet IANA/IETF port number requirements.
+  - Solution#6 selected after evaluating other solutions.
+  - Request includes service name, transport protocols, description, interface/node statement, Work Item Code.
+  - CT4 informs requesting WG and creates a CR.
+  - CT plenary approval adds port number to Table 5-1.
+  forbidden:
+  - solution#1
+  - IANA direct port allocation
+  source: hand_crafted
+  notes: Tests knowledge of the 3GPP port number allocation procedure involving CT4 and solution#6.
+  id: hc-proc-003
+- category: procedure
+  language: en
+  question: Describe the expected actions of an eNB when it receives an OVERLOAD STOP message, including how it determines
+    traffic to resume normal operation.
+  expected_specs:
+  - spec_id: '36.413'
+    sections:
+    - 8.7.7.2
+  expected_facts:
+  - eNB assumes overload situation at the MME has ended.
+  - eNB resumes normal operation for applicable traffic towards that MME.
+  - If GUMMEI List IE is present, eNB uses it to identify traffic to cease rejecting.
+  - eNB proceeds according to TS 36.300 clauses for further actions.
+  - eNB ignores GUMMEI values with no ongoing overload action.
+  forbidden:
+  - Overload Start message
+  - TS 36.423
+  source: hand_crafted
+  notes: Tests knowledge of the OVERLOAD STOP procedure's impact on eNB behavior and traffic management.
+  id: hc-proc-004
+- category: procedure
+  language: en
+  question: Describe the procedure for an E-CID position measurement initiated by the LMF, detailing the messages exchanged
+    and how reporting differs between one-time and periodic requests.
   expected_specs:
   - spec_id: '38.305'
     sections:
@@ -1445,501 +1358,612 @@ items:
   expected_facts:
   - LMF sends NRPPa E-CID MEASUREMENT INITIATION REQUEST to NG-RAN node.
   - Request indicates E-CID measurements and whether result is expected once or periodically.
-  - NG-RAN node may configure UE using TS 36.331 or TS 38.331 for UE measurements.
-  - If result once and measurement initiated, NG-RAN sends NRPPa E-CID MEASUREMENT INITIATION RESPONSE with measurements.
-  - If result periodic and measurement initiated, NG-RAN sends NRPPa E-CID MEASUREMENT INITIATION RESPONSE without results
-    and reports periodically.
-  - If unable to initiate any measurements, NG-RAN sends NRPPa E-CID MEASUREMENT INITIATION FAILURE with error reason.
-  - If failure occurs during periodic reporting, NG-RAN sends NRPPa E-CID MEASUREMENT FAILURE INDICATION.
-  forbidden:
-  - NRPPa E-CID MEASUREMENT INITIATION REQUEST is sent by NG-RAN node.
+  - For UE measurements, NG-RAN node may configure UE via RRC procedures.
+  - For one-time result, if initiated, NG-RAN sends NRPPa E-CID MEASUREMENT INITIATION RESPONSE with measurements.
+  - For periodic result, if initiated, NG-RAN sends NRPPa E-CID MEASUREMENT INITIATION RESPONSE without results.
+  - Periodic reports are sent via E-CID Measurement Report procedure.
+  - If unable to initiate, NG-RAN sends NRPPa E-CID MEASUREMENT INITIATION FAILURE or NRPPa E-CID MEASUREMENT FAILURE INDICATION
+    for periodic failures.
+  forbidden: []
   source: hand_crafted
-  notes: Tests understanding of E-CID measurement initiation message flows and conditional responses.
-  id: hc-proc-011
+  notes: Tests understanding of LMF-initiated E-CID measurement procedure and message flows.
+  id: hc-proc-005
 - category: procedure
   language: en
-  question: 'Describe the procedure that an MS follows when it receives an integrity protected reject message with cause value
-    #78 from a satellite NG-RAN or satellite E-UTRAN cell, as specified in TS 23.122 clause 3.1.'
+  question: Describe the procedure for how the MnS producer of Domain Centralized SON ES management makes an NR capacity booster
+    cell enter the energySaving state.
   expected_specs:
-  - spec_id: '23.122'
+  - spec_id: '28.310'
     sections:
-    - '3.1'
+    - 6.2.2.1.1
   expected_facts:
-  - 'Cause value #78 is ''PLMNs not allowed to operate at the present UE location'''
-  - MS maintains a list named 'PLMNs not allowed to operate at the present UE location'
-  - List stores PLMN ID and geographical location if known
-  - Timer starts when PLMN ID is added to the list
-  - Entry deleted if timer expires, MS successfully registers to PLMN, or distance exceeds UE-specific value
-  - List is provided to the AS
+  - Centralized energy saving solution is for NR only.
+  - The solution is Domain-Centralized ES.
+  - The procedure involves MnS producer.
+  - MnS producer is from Domain Centralized SON ES management.
+  - NR capacity booster cell enters energySaving state.
   forbidden:
-  - 'cause value #77'
-  - non-satellite access
-  - LTE only
+  - LTE
+  - standalone ES solution
   source: hand_crafted
-  notes: Tests understanding of the procedure for handling reject messages with specific cause value in satellite access.
-  id: hc-proc-012
+  notes: Tests retrieval of the Domain-Centralized ES procedure details and key elements from the excerpt.
+  id: hc-proc-006
 - category: procedure
   language: en
-  question: Explain how the resource URIs for SEAL-UU APIs are structured and what components are involved, based on TS 24.546.
+  question: Describe the procedure for the EEC to unsubscribe from the ECS for service provisioning information using the
+    Eecs_ServiceProvisioning_Unsubscribe operation.
   expected_specs:
-  - spec_id: '24.546'
+  - spec_id: '24.558'
     sections:
-    - C.1.1
+    - 7.2.2.6
   expected_facts:
-  - 'URI pattern: {apiRoot}</apiName>/<apiVersion>'
-  - apiRoot includes scheme (coaps, coaps+tcp, or coaps+ws)
-  - apiRoot has host, optional port, and optional prefix
-  - apiName and apiVersion are set dependent on the API
-  - URIs differing only in scheme point to the same resource
-  - apiVersion is increased only for backward incompatible changes
-  - apiSpecificSuffixes can follow the apiVersion in the URI
+  - EEC sends an HTTP DELETE message to ECS.
+  - ECS verifies if EEC is authorized to unsubscribe.
+  - ECS unubscribes the subscription identified by subscriptionId.
+  - ECS returns '204 Not Content' message to EEC.
   forbidden:
-  - http or https schemes
-  - references to other 3GPP specs like TS 24.501
+  - 200 OK
+  - HTTP POST
   source: hand_crafted
-  notes: Tests comprehension of URI structure rules and components in SEAL-UU APIs.
-  id: hc-proc-013
+  notes: Tests understanding of the unsubscribe service operation steps.
+  id: hc-proc-007
 - category: procedure
   language: en
-  question: Explain the procedure for a UE to determine whether to transmit a PUCCH on the PCell or the PUCCH-sSCell when
-    a PUCCH cell indicator field is included in DCI, as specified in TS 38.213.
-  expected_specs:
-  - spec_id: '38.213'
-    sections:
-    - 9.A
-  expected_facts:
-  - PUCCH cell indicator field value '0' indicates PUCCH transmission on PCell
-  - PUCCH cell indicator field value '1' indicates PUCCH transmission on PUCCH-sSCell
-  - For PUCCH with HARQ-ACK only from SPS PDSCH receptions, UE transmits on PCell
-  - UE does not expect PUCCH cell indicator to indicate PUCCH-sSCell if overlapping with another PUCCH on PCell
-  - PUCCH cell indicator field can be provided via pucch-sSCellDyn, pucch-sSCellDynDCI-1-2, or pucch-sSCellDynDCI-1-3
-  forbidden:
-  - PUCCH cell indicator field indicates secondary cell directly
-  - Power control per TS 38.211
-  source: hand_crafted
-  notes: Tests understanding of PUCCH cell switching decision logic based on DCI indicator and overlap conditions.
-  id: hc-proc-014
-- category: procedure
-  language: en
-  question: In TS 33.526, what is the status of MnF-specific additions for the web server security clauses 4.3.4.7 through
-    4.3.4.12 as defined in TS 33.117?
-  expected_specs:
-  - spec_id: '33.526'
-    sections:
-    - 4.3.4.7
-    - 4.3.4.8
-    - 4.3.4.9
-    - 4.3.4.10
-    - 4.3.4.11
-    - 4.3.4.12
-  expected_facts:
-  - No MnF-specific additions to clause 4.3.4.7 of TS 33.117.
-  - No MnF-specific additions to clause 4.3.4.8 of TS 33.117.
-  - No MnF-specific additions to clause 4.3.4.9 of TS 33.117.
-  - No MnF-specific additions to clause 4.3.4.10 of TS 33.117.
-  - No MnF-specific additions to clause 4.3.4.11 of TS 33.117.
-  - No MnF-specific additions to clause 4.3.4.12 of TS 33.117.
-  forbidden:
-  - TS 33.526 includes MnF-specific additions for these clauses
-  - Additional provisions are specified in TS 33.526
-  source: hand_crafted
-  notes: Tests retrieval of clause-specific statements about no additions in TS 33.526.
-  id: hc-proc-015
-- category: procedure
-  language: en
-  question: In TS 36.104 Clause 8.3.8.1, what are the maximum probabilities for CQI false alarm and CQI block error at the
-    SNR defined in Table 8.3.8.1-1 for PUCCH format 2 with DTX detection?
-  expected_specs:
-  - spec_id: '36.104'
-    sections:
-    - 8.3.8.1
-  expected_facts:
-  - CQI false alarm probability must not exceed 10%
-  - CQI block error probability must not exceed 1%
-  - Thresholds are at SNR from Table 8.3.8.1-1
-  - Applicable to PUCCH format 2 with DTX detection
-  - Refer to TS 36.104 clause 8.3.8.1
-  forbidden:
-  - 10% and 1% for PUCCH formats without DTX detection
-  - Table 8.3.8.1-2
-  source: hand_crafted
-  notes: Tests understanding of minimum performance requirements for CQI error probabilities in a specific context.
-  id: hc-proc-016
-- category: procedure
-  language: en
-  question: In the SS_NetworkResourceAdaptation API as per TS 29.549 Clause A.5, what do the '200' and '204' response codes
-    signify when updating a subscription, and what content is returned for each?
+  question: Describe the procedure for updating an existing Individual Location Confirmation Service Subscription resource,
+    detailing the HTTP method used, the required request body format, and the possible successful responses.
   expected_specs:
   - spec_id: '29.549'
     sections:
-    - A.5
+    - A.26
   expected_facts:
-  - 200 response indicates successful subscription update.
-  - For 200 response, updated subscription information is returned.
-  - 200 response content is application/json with schema UnfTrafficSubc.
-  - 204 response indicates successful subscription update with no content.
-  - 204 response description is 'No Content'.
-  - Both responses confirm successful subscription update.
+  - The update operation uses a PUT HTTP method.
+  - The operation is identified by the operationId UpdateIndLocConfirmSubsc.
+  - The request body must be in JSON format with the schema LocConfirmSubsc.
+  - A successful update can return a 200 OK response with the updated resource in JSON.
+  - Alternatively, a 204 No Content response indicates success with no body returned.
+  - The resource being updated is an Individual Location Confirmation Service Subscription.
   forbidden:
-  - Error response codes are defined in this excerpt.
-  - The API handles subscription creation or deletion.
-  - Responses reference other schemas like UnfTrafficMoni.
+  - POST method for updating
+  - Creation of a new subscription resource
+  - Deletion of the subscription resource
   source: hand_crafted
-  notes: Tests knowledge of API response definitions for subscription updates in the given clause.
+  notes: Tests comprehension of the update procedure for a specific subscription resource based on API specification.
+  id: hc-proc-008
+- category: procedure
+  language: en
+  question: Describe the procedure that enables users to obtain service and use chargeable services with networks with whom
+    neither they nor their home environment have any direct commercial agreement.
+  expected_specs:
+  - spec_id: '22.115'
+    sections:
+    - '8'
+  expected_facts:
+  - Interworking via trusted third parties
+  - Home Environment interworks with one or more serving network operators
+  - Commercial roaming agreements negotiated and tested
+  - Fraud and cost control mechanisms limit charges
+  - Serving network capable of operating as a roaming broker
+  forbidden: []
+  source: hand_crafted
+  notes: Tests understanding of the automatic roaming agreement mechanism for indirect service access.
+  id: hc-proc-009
+- category: procedure
+  language: en
+  question: Describe the requirement for Charging ID uniqueness in PDU session charging and how it is implemented to ensure
+    billing accuracy.
+  expected_specs:
+  - spec_id: '33.515'
+    sections:
+    - 4.2.2.1.4
+  expected_facts:
+  - Charging ID is unique per PDU session per PLMN.
+  - Assigned for billing purposes.
+  - SMF supports PDU session charging using service based interface.
+  - SMF collects charging information per PDU session for 3GPP and non-3GPP access.
+  - Failure to assign unique Charging ID is a security threat.
+  forbidden:
+  - TS 32.255
+  - clause 5.1.2
+  source: hand_crafted
+  notes: Tests understanding of charging ID assignment and uniqueness requirement for PDU sessions.
+  id: hc-proc-010
+- category: procedure
+  language: en
+  question: Describe the successful operation of the MME Configuration Update procedure, including the initiating message,
+    the response, and the handling when information elements are omitted.
+  expected_specs:
+  - spec_id: '36.413'
+    sections:
+    - 8.7.5.2
+  expected_facts:
+  - MME sends MME CONFIGURATION UPDATE message with updated configuration data.
+  - eNB responds with MME CONFIGURATION UPDATE ACKNOWLEDGE message.
+  - If information elements not included, eNB interprets data not changed.
+  - eNB continues S1 operation with existing configuration data.
+  forbidden:
+  - The procedure is initiated by the eNB.
+  source: hand_crafted
+  notes: Tests retrieval of the MME Configuration Update procedure steps and behavior on omitted IEs.
+  id: hc-proc-011
+- category: procedure
+  language: en
+  question: Explain how the gNB manages QoE information reporting from the UE during an overload in the RAN, including the
+    actions taken to stop and restart reporting, and what occurs with the recorded data during the overload.
+  expected_specs:
+  - spec_id: '28.405'
+    sections:
+    - 4.5.4
+  expected_facts:
+  - gNB sends RRCReconfiguration message to UE to stop reporting
+  - Message includes pauseReporting set to TRUE in appLayerMeasConfig
+  - Access stratum continues recording data until storage capacity is full or session ends
+  - Recorded data is kept until reported to gNB or QoE measurement configuration is released
+  - gNB restarts reporting by sending RRCReconfiguration with pauseReporting set to FALSE
+  - UE application level is not directly affected by RAN overload
+  forbidden:
+  - SIB message
+  - pauseReporting set to 1
+  - LTE overload mechanism
+  source: hand_crafted
+  notes: Tests the procedure for temporary stop and restart of QoE reporting during RAN overload.
+  id: hc-proc-012
+- category: procedure
+  language: en
+  question: Explain the mechanism and components involved in the Cancel Deferred Location operation for supplementary services
+    in location management.
+  expected_specs:
+  - spec_id: '24.571'
+    sections:
+    - 5.2.1.4.1
+  expected_facts:
+  - Enables AMF to cancel ongoing periodic or triggered location in target UE
+  - Uses NAS signalling for transport
+  - Involves lcs-CancelDeferredLocation invoke component
+  - Involves return result, return error, and reject components
+  - Transported via DL NAS TRANSPORT and UL NAS TRANSPORT messages
+  forbidden:
+  - LTE location procedures
+  - TS 23.273 clause details
+  - IMS supplementary services
+  source: hand_crafted
+  notes: Tests retrieval of the Cancel Deferred Location operation details from the 3GPP spec.
+  id: hc-proc-013
+- category: procedure
+  language: en
+  question: For which mode of operation is the requirement to prevent Base Station receiver desensitization by transmitter
+    emissions applicable, and at which port is this requirement measured?
+  expected_specs:
+  - spec_id: '37.104'
+    sections:
+    - 6.6.1.2
+  expected_facts:
+  - Applies for FDD operation.
+  - Measured at the transmit antenna port.
+  - Prevents BS receivers being desensitised by emissions from the BS transmitter.
+  - Applies to any type of BS with common or separate Tx/Rx antenna ports.
+  forbidden:
+  - TDD operation
+  source: hand_crafted
+  notes: Tests retrieval of specific operational mode and measurement location from a technical requirement.
+  id: hc-proc-014
+- category: procedure
+  language: en
+  question: How does a UE determine which S-NSSAI to indicate in the PDU Session Establishment procedure when it has an Allowed
+    NSSAI for a Network Slice?
+  expected_specs:
+  - spec_id: '23.501'
+    sections:
+    - 5.15.5.3
+  expected_facts:
+  - PDU Session is associated with an S-NSSAI and a DNN.
+  - UE indicates S-NSSAI based on NSSP in URSP rules or UE Local Configuration.
+  - If mapping of Allowed NSSAI to HPLMN S-NSSAIs is provided, include corresponding S-NSSAI from mapping.
+  - S-NSSAI is selected from the Allowed NSSAI.
+  - If UE cannot determine any S-NSSAI, it shall not indicate any S-NSSAI in the procedure.
+  forbidden: []
+  source: hand_crafted
+  notes: Tests understanding of UE procedure for S-NSSAI indication in PDU Session Establishment for network slices.
+  id: hc-proc-015
+- category: procedure
+  language: en
+  question: How does an MTSI client offer Coordination of Video Orientation (CVO) in Session Description Protocol (SDP) for
+    video media streams?
+  expected_specs:
+  - spec_id: '26.114'
+    sections:
+    - 6.2.3.3
+  expected_facts:
+  - CVO is offered by including the a=extmap attribute in SDP under the relevant media line.
+  - The CVO URN is urn:3gpp:video-orientation.
+  - For 2-bit granularity, an SDP line like a=extmap:7 urn:3gpp:video-orientation is used.
+  - The number in the a=extmap attribute can be any from 1 to 14.
+  - Higher granularity CVO with 6 bits uses urn:3gpp:video-orientation:6 in SDP.
+  - Asymmetric capability is indicated using sendonly and recvonly attributes in SDP.
+  - Terminals should only send CVO signals that are useful and processable by the recipient.
+  forbidden:
+  - a=rtpmap attribute for CVO
+  - CVO supports only 2-bit rotation
+  - the a=extmap number must be fixed at 7
+  source: hand_crafted
+  notes: Tests understanding of the CVO SDP offering procedure as per the excerpt.
+  id: hc-proc-016
+- category: procedure
+  language: en
+  question: In the U2N Remote UE initial access procedure, what specific configurations does the gNB-CU establish for the
+    U2N Relay UE to enable the relaying of the Remote UE's bearers, and how is bearer mapping involved in this process?
+  expected_specs:
+  - spec_id: '38.401'
+    sections:
+    - 8.19.1
+  expected_facts:
+  - RRCReconfiguration message contains PC5 Relay RLC channel configuration and bearer mapping for SRB2 and DRBs.
+  - gNB-CU configures additional Uu Relay RLC channels between gNB-DU and U2N Relay UE.
+  - gNB-CU configures additional PC5 Relay RLC channels for U2N Relay UE for relaying U2N Remote UE's DRBs and SRBs.
+  - Bearer mapping between U2N Remote UE's DRB/SRB and PC5/Uu Relay RLC channel is configured at U2N Relay UE.
+  - This configuration step may be performed earlier as noted.
+  forbidden:
+  - '36.401'
+  - LTE
+  source: hand_crafted
+  notes: Tests retrieval of configuration steps and bearer mapping in U2N Remote UE access procedure.
   id: hc-proc-017
 - category: procedure
   language: en
-  question: In the UE initiated multicast session join procedure per TS 32.255, clause 5.2.2.24.2, what specific charging
-    actions are performed by the SMF and CHF in steps 11ch-a and 11ch-b?
+  question: What are the fields and their types in the message that signifies the end of a trace recording session?
   expected_specs:
-  - spec_id: '32.255'
+  - spec_id: '32.423'
     sections:
-    - 5.2.2.24.2
+    - G.2
   expected_facts:
-  - SMF sends Charging Data Request [Update] to CHF
-  - Trigger is 'Join Multicast MBS session'
-  - CHF updates CDR for the associated PDU session
-  forbidden: []
+  - Message named TraceRecordingSessionStop
+  - Field 'reason' with type string
+  - Field 'vendor_extension' with type map<string, string>
+  - Field number for 'reason' is 2
+  - Field number for 'vendor_extension' is 1
+  - Used for indicating trace recording session stop
+  forbidden:
+  - TraceSessionStop
   source: hand_crafted
-  notes: Tests understanding of charging steps in the MBS session join procedure.
+  notes: Tests retrieval of GPB message definitions for trace recording procedures.
   id: hc-proc-018
 - category: procedure
   language: en
-  question: What is the registration procedure between the UAE client and the UAE server as defined in TS 23.255 clause 7.1a.2.1.2?
-  expected_specs:
-  - spec_id: '23.255'
-    sections:
-    - 7.1a.2.1.2
-  expected_facts:
-  - UAE client sends registration request to UAE server.
-  - UAE server performs authentication and authorization check.
-  - Check based on pre-provisioned security information or interaction with UAS application specific server (e.g., USS/UTM).
-  - UAE server sends registration response indicating success or failure.
-  forbidden: []
-  source: hand_crafted
-  notes: Tests retrieval of the UAE registration procedure steps.
-  id: hc-proc-019
-- category: procedure
-  language: en
-  question: What is the sequence of notifications and acknowledgments between the IWF, group management server, MC service
-    server, and group members during an MC system-initiated group regroup as described in clause 10.2.2.2 of TS 23.283?
+  question: What are the key actions performed by the group management server in the group regroup procedure after the IWF
+    provides an acknowledgment?
   expected_specs:
   - spec_id: '23.283'
     sections:
     - 10.2.2.2
   expected_facts:
-  - IWF acknowledges the group management server.
-  - Group management server notifies MC service server of temporary group creation.
-  - MC service server acknowledges the notification from group management server.
-  - Group management server notifies MC service group members of constituent groups, possibly with lower security level indication.
-  - Group management server provides group regroup response to authorized MC service user's client.
+  - Group management server notifies MC service server of temporary group creation with constituent groups information.
+  - Group management server notifies group members of constituent MC service groups, possibly with an indication of lower
+    security level.
+  - Group management server provides a group regroup response to the group management client of authorised MC service user.
   forbidden:
-  - Details on how IWF uses MC service group ID (as it is outside scope).
-  - Any steps not listed in clause 10.2.2.2 (e.g., steps 1-6).
+  - LTE
+  - 5G NR
   source: hand_crafted
-  notes: Tests understanding of the group regroup procedure steps in TS 23.283.
+  notes: Tests understanding of the MC group regroup procedure steps involving the group management server.
+  id: hc-proc-019
+- category: procedure
+  language: en
+  question: What is the intended purpose of the procedure that allows the LMF and the UE to exchange assistance data in positioning
+    contexts?
+  expected_specs:
+  - spec_id: '38.305'
+    sections:
+    - 8.2.3.2.1.0
+  expected_facts:
+  - Enable LMF to provide assistance data to UE
+  - Enable UE to request assistance data from LMF
+  - Part of positioning procedures
+  forbidden:
+  - Only LMF provides data
+  - UE provides data to LMF
+  - LTE positioning assistance
+  source: hand_crafted
+  notes: Tests understanding of the dual role in LMF-UE assistance data exchange for positioning.
   id: hc-proc-020
 - category: table_lookup
   language: en
-  question: According to Figure 6.2.2.3-5 in TS 38.322, what are the field contents of each octet in a UMD PDU configured
-    with a 12-bit Sequence Number and including a Segment Offset?
+  question: Describe the Nausf_UPUProtection service operation provided by the AUSF for UE Parameters Update, focusing on
+    its inputs, outputs, and operation semantics.
   expected_specs:
-  - spec_id: '38.322'
+  - spec_id: '33.501'
     sections:
-    - 6.2.2.3
+    - 14.1.4
   expected_facts:
-  - UMD PDU with 12-bit SN and with SO
-  - Octet 1 contains SI, R, R, SN fields
-  - SN field is 12 bits long
-  - Octet 2 contains SN field
-  - Octet 3 and Octet 4 contain SO field
-  - Data field starts at Octet 5
+  - Service name is Nausf_UPUProtection with operation Protect.
+  - Operation semantics are Request/Response.
+  - 'Required inputs: Requester ID, SUPI, service name, UE Parameters Update Data.'
+  - 'Optional input: ACK Indication.'
+  - 'Required outputs: UPU-MAC-I_AUSF and CounterUPU or error counter_wrap.'
+  - If ACK Indication is present, optional output UPU-XMAC_IUE is computed and returned.
   forbidden:
-  - Acknowledged Mode PDU
-  - 7-bit Sequence Number
-  - no Segment Offset
+  - LTE security context
+  - 3GPP TS 24.501 NAS message details
   source: hand_crafted
-  notes: Tests retrieval of PDU octet structure from a specification diagram.
+  notes: Tests retrieval and understanding of the Nausf_UPUProtection service details from the spec excerpt.
   id: hc-table-001
 - category: table_lookup
   language: en
-  question: According to TS 23.304, what does the acronym PQI stand for?
+  question: For the modifyMOIAttributes operation, list the IS operation parameter names and their corresponding SS parameter
+    names.
   expected_specs:
-  - spec_id: '23.304'
+  - spec_id: '28.532'
     sections:
-    - '3.2'
+    - 12.1.3.1.4
   expected_facts:
-  - PQI
-  - PC5 5QI
-  - defined in TS 23.304 Clause 3.2
+  - baseObjectInstance maps to SS parameter config
+  - scope maps to SS parameter config
+  - filter maps to SS parameter config
+  - modificationList maps to SS parameter config
+  - All IS parameters are mandatory (S = M)
+  - For scope, BASE_ONLY is the default supported scope
   forbidden:
-  - PC5 QoS Flow Identifier
+  - parameters map to different SS parameter names
+  - scope default is not BASE_ONLY
   source: hand_crafted
-  notes: Tests retrieval of a specific abbreviation definition from a standard table.
+  notes: Tests retrieval of parameter mapping from the modifyMOIAttributes operation table.
   id: hc-table-002
 - category: table_lookup
   language: en
-  question: According to TS 24.007 Clause 9.3.4, what parameters are associated with the GMMAS-SECURITY-RES primitive in the
-    service primitives table at GMMAS-SAP?
+  question: Identify the key issues addressed by the solutions for user consent for UE data exposure in roaming cases involving
+    HPLMN and VPLMN.
   expected_specs:
-  - spec_id: '24.007'
+  - spec_id: '33.896'
     sections:
-    - 9.3.4
+    - '6.1'
   expected_facts:
-  - GMMAS-SECURITY-RES
-  - CK
-  - IK
+  - 'Solution #3: User Consent for UE Data Exposure to HPLMN in the Roaming case'
+  - 'Solution #4: User Consent for UE Data Exposure to VPLMN in the Roaming case'
+  - Both solutions map to KI#1
   forbidden:
-  - Layer 3-PDU
-  - CN Domain Identity
-  - Establishment cause
+  - KI#2
+  - KI#3
+  - KI#4
   source: hand_crafted
-  notes: Tests retrieval of specific parameter information from a standardized 3GPP table.
+  notes: Tests retrieval of solution-to-key-issue mappings from a table based on descriptive names.
   id: hc-table-003
 - category: table_lookup
   language: en
-  question: According to TS 29.598 clause 6.1.3.8.3.2, what URI query parameters does the PATCH method support on this resource,
-    and what data structures are specified in the PATCH request body?
+  question: In 3GPP terminology, what are the abbreviations for 'Mission Critical Push To Talk' and 'Push To Talk'?
   expected_specs:
-  - spec_id: '29.598'
+  - spec_id: '22.179'
     sections:
-    - 6.1.3.8.3.2
+    - '3.2'
   expected_facts:
-  - supported-features is a URI query parameter
-  - Data type for supported-features is SupportedFeatures
-  - supported-features has cardinality 0..1 (optional)
-  - Request body data structure is array(PatchItem)
-  - Request body cardinality is 1..N (mandatory)
-  - array(PatchItem) contains delta data of Notification Subscription
+  - MCPTT stands for Mission Critical Push To Talk
+  - PTT stands for Push To Talk
+  - Mission Critical Push To Talk is the expansion of MCPTT
+  - Push To Talk is the expansion of PTT
   forbidden: []
   source: hand_crafted
-  notes: Tests retrieval of specific parameter and data structure definitions from 3GPP standard tables.
+  notes: Tests retrieval of specific abbreviation expansions from a 3GPP abbreviations table.
   id: hc-table-004
 - category: table_lookup
   language: en
-  question: According to TS 33.519 clause 3.3, what does the abbreviation CAPIF stand for?
+  question: In the ACProfile type, which attribute is mandatory and what are its data type and cardinality?
   expected_specs:
-  - spec_id: '33.519'
+  - spec_id: '24.558'
     sections:
-    - '3.3'
+    - 6.2.5.2.3
   expected_facts:
-  - CAPIF
-  - Common API Framework for 3GPP northbound APIs
-  - Defined in TS 33.519 clause 3.3
-  - Precedence over 3GPP TR 21.905
-  - Abbreviation table in clause 3.3
-  forbidden:
-  - Common Application Programming Interface Framework
+  - acId
+  - string
+  - M
+  - '1'
+  forbidden: []
   source: hand_crafted
-  notes: Tests retrieval of abbreviation definitions from a specific table in the standards.
+  notes: Tests the ability to identify mandatory attributes and their properties from the ACProfile definition table.
   id: hc-table-005
 - category: table_lookup
   language: en
-  question: According to Table 8.11.5-1 in TS 23.554, under what conditions is the Information Element 'Recipient UE Service
-    ID/AS Service ID' mandatory for the Message received request?
-  expected_specs:
-  - spec_id: '23.554'
-    sections:
-    - 8.11.5
-  expected_facts:
-  - 'IE name: Recipient UE Service ID/AS Service ID'
-  - 'Status: O (Optional)'
-  - Mandatory for Point-to-Point messaging
-  - Mandatory for AS-to-Point messaging
-  forbidden:
-  - LTE
-  - '24.501'
-  source: hand_crafted
-  notes: Tests retrieval of conditional mandatoriness from a table.
-  id: hc-table-006
-- category: table_lookup
-  language: en
-  question: According to the option item table in TS 29.165 clause C.3.1, what is the reference clause and applicability at
-    the II-NNI for the Three-Party (3PTY) option item?
-  expected_specs:
-  - spec_id: '29.165'
-    sections:
-    - C.3.1
-  expected_facts:
-  - Three-Party (3PTY)
-  - clause 12.18
-  - 'Yes'
-  forbidden:
-  - TS 32.260
-  - IMSI
-  source: hand_crafted
-  notes: Tests ability to retrieve specific details from a 3GPP table.
-  id: hc-table-007
-- category: table_lookup
-  language: en
-  question: As per TS 23.282 clause 7.13.3.1.45, what are the information elements in the Update notification subscription
-    request and their statuses?
-  expected_specs:
-  - spec_id: '23.282'
-    sections:
-    - 7.13.3.1.45
-  expected_facts:
-  - MCData ID is a mandatory (M) information element.
-  - Validity duration is a mandatory (M) information element.
-  - MCData ID is the identity of the MCData client initiating the request.
-  - Validity duration indicates how long the notification channel will last.
-  forbidden:
-  - Result
-  source: hand_crafted
-  notes: Tests retrieval of table details for a specific message in a 3GPP spec.
-  id: hc-table-008
-- category: table_lookup
-  language: en
-  question: In TS 36.141, clause 8.2.6.5, what is the SINR [dB] specified for a test with 8 RX antennas under the EPA 5 Low
-    propagation condition and DIP set Set 2?
+  question: In the Category B Option 2 receiver measurement table, what test requirement is specified for the frequency offset
+    range where the measurement filter -3dB point is between 0.15 MHz and 0.2 MHz?
   expected_specs:
   - spec_id: '36.141'
     sections:
-    - 8.2.6.5
+    - 6.6.3.5.2.2
   expected_facts:
-  - 8 RX antennas
-  - EPA 5 Low propagation condition
-  - DIP set Set 2
-  - SINR -4.0 dB
-  - FRC A4-4
+  - Frequency offset of measurement filter -3dB point (Δf) ranges from 0.15 MHz to 0.2 MHz.
+  - Frequency offset of measurement filter centre frequency (f_offset) ranges from 0.165 MHz to 0.215 MHz.
+  - Test requirement for this range is -12.5dBm.
+  - Measurement bandwidth for this range is 30 kHz.
+  - The table is under Category B Option 2 for receiver conformance.
   forbidden:
-  - TS 36.101
-  - ETU 70 Low
-  - Set 1*
+  - TS 36.341 or any other 3GPP specification number.
+  - Incorrect test requirement value such as -10dBm.
+  - Measurement bandwidth other than 30 kHz for this range.
   source: hand_crafted
-  notes: Tests retrieval of specific test parameters from a 3GPP specification table.
+  notes: Tests retrieval of specific table entries for LTE receiver spurious response or similar measurements.
+  id: hc-table-006
+- category: table_lookup
+  language: en
+  question: In the context of this specification, what do the abbreviations V2I, V2N, V2P, V2V, and V2X stand for?
+  expected_specs:
+  - spec_id: '23.287'
+    sections:
+    - '3.2'
+  expected_facts:
+  - V2I stands for Vehicle-to-Infrastructure
+  - V2N stands for Vehicle-to-Network
+  - V2P stands for Vehicle-to-Pedestrian
+  - V2V stands for Vehicle-to-Vehicle
+  - V2X stands for Vehicle-to-Everything
+  forbidden:
+  - LTE
+  - EPC
+  - 4G
+  source: hand_crafted
+  notes: Tests the ability to retrieve and list specific abbreviation expansions from a standards table.
+  id: hc-table-007
+- category: table_lookup
+  language: en
+  question: In the scenario where A refers B to C using the REFER method and A initiates the initial session as the Transferor,
+    what are the roles assigned to A in the initial and transferred sessions, and what are the session endpoints for each?
+  expected_specs:
+  - spec_id: '24.629'
+    sections:
+    - C.2
+  expected_facts:
+  - A is the Transferor in the initial session.
+  - Initial session endpoint is A-B.
+  - A is the Transferor in the transferred session.
+  - Transferred session endpoint is A-C.
+  - Transfer target is C.
+  forbidden:
+  - A is the Transferee in the transferred session.
+  - B is the Transferor in the transferred session.
+  source: hand_crafted
+  notes: Tests role and endpoint identification from a referral example table.
+  id: hc-table-008
+- category: table_lookup
+  language: en
+  question: List the information elements and their statuses in the Discover MBS Session response.
+  expected_specs:
+  - spec_id: '23.289'
+    sections:
+    - 7.3.2.9
+  expected_facts:
+  - MBS Session ID(s) is mandatory
+  - List of MBS service area information is optional
+  - Frequency is optional
+  - 5QI is optional
+  forbidden: []
+  source: hand_crafted
+  notes: Tests retrieval of information elements and their statuses from a specific table.
   id: hc-table-009
 - category: table_lookup
   language: en
-  question: In the EBNF syntax defined in TS 32.300 Annex D, what are the start and end symbols for a group, an option, and
-    a repeat as specified in the symbol table?
+  question: What are the adjacent channel leakage ratio (ACLR) limits and the associated parameters for NR base station transmissions
+    in scenarios with sub-block or inter RF bandwidth gaps?
   expected_specs:
-  - spec_id: '32.300'
+  - spec_id: '37.104'
     sections:
-    - Annex D
+    - 6.6.4.6
   expected_facts:
-  - '''('' is the start-group-symbol'
-  - ''')'' is the end-group-symbol'
-  - '''['' is the start-option-symbol'
-  - ''']'' is the end-option-symbol'
-  - '''{'' is the start-repeat-symbol'
-  - '''}'' is the end-repeat-symbol'
-  forbidden: []
+  - ACLR limit is 45 dB
+  - Assumed adjacent channel carrier is 5 MHz NR
+  - Filter type is Square with bandwidth BW_Config
+  - Channel bandwidths are 5, 10, 15, and 20 MHz
+  - Frequency offsets are 2.5 MHz and 7.5 MHz
+  - Gap sizes are W_gap >= 15 MHz and >=45 MHz for 2.5 MHz offset, and >=20 MHz and >=50 MHz for 7.5 MHz offset
+  forbidden:
+  - LTE
+  - 36.xxx
   source: hand_crafted
-  notes: Tests retrieval of specific EBNF symbol definitions from the informative annex.
+  notes: Tests retrieval of NR ACLR table data from TS 37.104 clause 6.6.4.6.
   id: hc-table-010
 - category: table_lookup
   language: en
-  question: In the abbreviations defined in clause 3.3 of TS 33.256, what are the full forms for the abbreviations UAV, USS,
-    and UUAA?
+  question: What are the attributes in the ValKeyInfo type that are marked as mandatory and have a cardinality of one?
   expected_specs:
-  - spec_id: '33.256'
+  - spec_id: '29.549'
     sections:
-    - '3.3'
+    - 7.6.1.4.2.2
   expected_facts:
-  - 'UAV: Uncrewed Aerial Vehicle'
-  - 'USS: UAS Service Supplier'
-  - 'UUAA: USS UAV Authorization/Authentication'
-  forbidden: []
+  - userUri is mandatory with cardinality 1
+  - valService is mandatory with cardinality 1
+  - keyInfo is mandatory with cardinality 1
+  forbidden:
+  - skmsId is mandatory
+  - valTgtUe is mandatory
+  - keyInfo has cardinality 0..1
   source: hand_crafted
-  notes: Tests retrieval of multiple abbreviation definitions from a specific 3GPP table.
+  notes: Tests retrieval of attribute presence and cardinality details from a specific type definition.
   id: hc-table-011
 - category: table_lookup
   language: en
-  question: In the spatial correlation table provided in TS 38.761 Clause 6.2.2.3, which azimuth points have a measured value
-    that is not equal to the reference value?
+  question: What are the attributes of the NsmfEventExposureNotification data type, including their data types, cardinalities,
+    and whether they are mandatory or optional?
   expected_specs:
-  - spec_id: '38.761'
+  - spec_id: '29.508'
     sections:
-    - 6.2.2.3
+    - 5.6.2.3
   expected_facts:
-  - azimuth point 20
-  - azimuth point 24
-  - azimuth point 28
-  - azimuth point 29
-  forbidden:
-  - TS 36.761
-  - LTE spatial correlation
+  - notifId is mandatory with cardinality 1 and data type string
+  - eventNotifs is mandatory with cardinality 1..N and data type array(EventNotification)
+  - ackUri is optional with cardinality 0..1 and data type Uri
+  - ackUri applies only to the UP_PATH_CH event
+  forbidden: []
   source: hand_crafted
-  notes: Tests retrieval of table data where measured and reference values differ.
+  notes: Tests ability to retrieve and summarize table attributes for the NsmfEventExposureNotification type.
   id: hc-table-012
 - category: table_lookup
   language: en
-  question: What are the HTTP response headers listed in Table 6.2.3.3.1-5 of TS 26.532 for the 307 and 308 response codes
-    of the Ndcaf_DataReportingProvisioning_RetrieveSession operation, and which header is mandatory?
+  question: What are the configured carrier selection priorities for E-UTRAN, UTRAN, and GERAN in idle and connected mode
+    when the Service Provider ID (SPID) is 256?
   expected_specs:
-  - spec_id: '26.532'
+  - spec_id: '36.300'
     sections:
-    - 6.2.3.3.1
+    - I.2
   expected_facts:
-  - Location header is present
-  - 3gpp-Sbi-Target-Nf-Id header is present
-  - Access-Control-Allow-Origin header is present
-  - Access-Control-Allow-Methods header is present
-  - Access-Control-Expose-Headers header is present
-  - 'Location header is mandatory (P: M)'
+  - E-UTRAN carriers priority is high for SPID 256
+  - UTRAN carriers priority is medium for SPID 256
+  - GERAN carriers priority is low for SPID 256
+  - E-UTRAN priority higher than UTRAN and GERAN for SPID 256
+  - UTRAN priority lower than E-UTRAN but higher than GERAN for SPID 256
+  - GERAN priority lower than both E-UTRAN and UTRAN for SPID 256
   forbidden:
-  - LTE
-  - other operations
+  - TS 36.300
+  - clause I.2
+  - Table I.2-1
   source: hand_crafted
-  notes: Tests retrieval and interpretation of table data from a 3GPP spec.
+  notes: Tests retrieval of carrier priority configurations from reference SPID tables.
   id: hc-table-013
 - category: table_lookup
   language: en
-  question: What are the information elements specified for the Floor Queue Position Info message in the table per TS 24.380
-    clause 8.2.12?
+  question: What are the specified power levels for DM-RS transmissions based on the number of CDM groups without data for
+    different DM-RS configuration types?
   expected_specs:
-  - spec_id: '24.380'
+  - spec_id: '38.214'
     sections:
-    - 8.2.12
+    - 6.2.2
   expected_facts:
-  - Floor Queue Position Info message
-  - User ID field
-  - SSRC of queued floor participant field
+  - DM-RS power is 0 dB for 1 CDM group without data in configuration type 1 and enhanced type 1
+  - DM-RS power is 0 dB for 1 CDM group without data in configuration type 2 and enhanced type 2
+  - DM-RS power is -3 dB for 2 CDM groups without data in configuration type 1 and enhanced type 1
+  - DM-RS power is -3 dB for 2 CDM groups without data in configuration type 2 and enhanced type 2
+  - DM-RS power is -4.77 dB for 3 CDM groups without data only in configuration type 2 and enhanced type 2
+  - DM-RS power is not applicable for 3 CDM groups without data in configuration type 1 and enhanced type 1
   forbidden:
-  - Floor Indicator field
-  - Clause 8.2.13
-  - TS 24.381
+  - LTE DM-RS power values
+  - Incorrect configuration type assignments
+  - Power values from other 3GPP specs
   source: hand_crafted
-  notes: Tests retrieval of message fields from a specific 3GPP table excerpt.
+  notes: Tests retrieval of DM-RS power adjustment table from TS 38.214 clause 6.2.2.
   id: hc-table-014
 - category: table_lookup
   language: en
-  question: What are the protocol layers listed in the NG-U structure for PDU/MBS Session according to TS 38.410, Clause 7.2?
+  question: What reference point is used for offline charging between an IMS Network Entity or an Application Server and the
+    Charging Data Function, and what is its 3GPP symbol?
   expected_specs:
-  - spec_id: '38.410'
+  - spec_id: '32.260'
     sections:
-    - '7.2'
+    - '3'
   expected_facts:
-  - PDU/MBS Session (User plane PDUs)
-  - GTP-U
-  - UDP
-  - IP
-  - Data link layer
-  - Physical layer
+  - Rf
+  - Offline Charging Reference Point
+  - between an IMS Network Entity or an AS and CDF
   forbidden:
-  - SCTP
-  - NAS
+  - Gx
   source: hand_crafted
-  notes: Tests retrieval of protocol stack layers from a diagram description.
+  notes: Tests retrieval of specific reference point symbol and description from a table in 3GPP charging specifications.
   id: hc-table-015
 - category: table_lookup
   language: en
-  question: What optional features are defined in Table 6.2.8-1 for the Nnef_SMService API in TS 29.541?
+  question: What use cases are associated with the potential normative work item for a delivery protocol for 3D objects and
+    scenes?
   expected_specs:
-  - spec_id: '29.541'
+  - spec_id: '26.928'
     sections:
-    - 6.2.8
+    - 5.2.3
   expected_facts:
-  - 'Table 6.2.8-1: Supported Features'
-  - Feature number is N/A
-  - No feature names or descriptions listed
-  - API is Nnef_SMService
-  - Features are optional
-  forbidden:
-  - UPF discovery feature
-  - QoS management feature
-  - Any specific feature names not in excerpt
+  - 'Use Case 1: 3D Image Messaging'
+  - 'Use Case 2: AR Sharing'
+  - 'Use Case 10: Online shopping from a catalogue – downloading'
+  forbidden: []
   source: hand_crafted
-  notes: Tests retrieval of table contents to identify the lack of defined features.
+  notes: Tests retrieval of linked use cases from a normative work table.
   id: hc-table-016

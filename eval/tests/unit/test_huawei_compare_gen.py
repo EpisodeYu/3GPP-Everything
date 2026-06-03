@@ -120,7 +120,7 @@ _WL = {"23.501", "38.214"}
 
 def test_validate_positive_ok() -> None:
     parsed = {
-        "question": "What is a PDU Session per TS 23.501?",
+        "question": "What is a PDU Session in the 5G system?",
         "category": "definition",
         "expected_specs": [{"spec_id": "23.501", "sections": ["5.6.1"]}],
         "expected_facts": ["logical connection", "UE", "data network"],
@@ -178,6 +178,42 @@ def test_validate_respects_skip_reason() -> None:
         {"skip_reason": "boilerplate"}, kind="positive", whitelist=_WL
     )
     assert item is None and skip == "boilerplate"
+
+
+def test_question_is_closed_book() -> None:
+    # 点 spec 号 / clause / table → 开卷
+    assert not G.question_is_closed_book("According to TS 29.594, what content types are used?")
+    assert not G.question_is_closed_book("Per 23.501, define a PDU session.")
+    assert not G.question_is_closed_book("In clause 5.2.2, what is specified?")
+    assert not G.question_is_closed_book("What does Table 6.2.8-1 list?")
+    assert not G.question_is_closed_book("See Annex B for the procedure.")
+    # 纯概念 → 闭卷;含 timer/IE 名里的数字不算
+    assert G.question_is_closed_book("What is a PDU session in the 5G system?")
+    assert G.question_is_closed_book("What triggers the T3512 periodic registration timer?")
+    assert G.question_is_closed_book("How does the Nchf charging service signal content types?")
+
+
+def test_validate_positive_rejects_open_book() -> None:
+    parsed = {
+        "question": "According to TS 23.501, what is a PDU session?",
+        "category": "definition",
+        "expected_specs": [{"spec_id": "23.501", "sections": []}],
+        "expected_facts": ["a", "b", "c"],
+    }
+    item, skip = G.validate_and_normalize(parsed, kind="positive", whitelist=_WL)
+    assert item is None and skip == "open-book-question"
+
+
+def test_validate_negative_may_name_spec() -> None:
+    # negative 点 spec 是允许的(false_premise 合理设问)
+    parsed = {
+        "question": "In TS 24.501, what is the Mobility Profile ID IE format?",
+        "expected_specs": [],
+        "expected_facts": [],
+        "forbidden": ["MPID format"],
+    }
+    item, skip = G.validate_and_normalize(parsed, kind="false_premise", whitelist=_WL)
+    assert skip is None and item["category"] == "negative"
 
 
 def test_validate_spec_id_normalization() -> None:

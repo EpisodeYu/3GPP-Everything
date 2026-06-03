@@ -150,6 +150,27 @@ MAX_QUESTION_CHARS = 1000
 _HEADER_RE = re.compile(r"^\[[^\]]+\]\s*", re.MULTILINE)  # 去掉 "[23.501 § 1 Scope]" 前缀
 _NONWORD_RE = re.compile(r"[^a-z0-9]+")
 
+# 闭卷门:positive 题面不得泄露答案位置——禁 spec 号 + 裸 clause/table/section 号。
+# (negative 不受此限:点 spec 反而是 false_premise 的合理设问。)
+_OPEN_BOOK_RE = re.compile(
+    r"\bTS\s*\d{2}\.\d{3}"  # "TS 29.594"
+    r"|\b\d{2}\.\d{3}\b"  # 裸 spec 号 "29.594"
+    r"|\bclause\s+\d"  # "clause 5.2.2"
+    r"|\bsub-?clause\s+\d"
+    r"|\bsection\s+\d"
+    r"|\bTable\s+\d"  # "Table 6.2.8-1"
+    r"|\bFigure\s+\d"
+    r"|\bAnnex\s+[A-Z]\b"
+    r"|§",
+    re.IGNORECASE,
+)
+
+
+def question_is_closed_book(question: str) -> bool:
+    """positive 题面是否"闭卷"(不点 spec 号/裸 clause/table/section 号)。"""
+    return _OPEN_BOOK_RE.search(question or "") is None
+
+
 # 采样源排除：测试/一致性/RF/EMC/study 规范——非 RAG 用户常问的"知识"题源。
 # 交集里所有多部件 -N spec 都是测试/study（36.521-x/37.145-x/38.101-x/38.141-x/38.521-x/
 # 23.700-xx）→ 全排；再补几个单部件一致性/EMC spec。仅排"采样源"，expected_specs 白名单
@@ -389,6 +410,10 @@ def validate_and_normalize(
         return None, "empty-question"
     if len(q) > MAX_QUESTION_CHARS:
         q = q[:MAX_QUESTION_CHARS] + "…"
+
+    # positive 必须闭卷:题面不得点 spec 号/裸 clause/table 号(否则等于开卷,见 README)
+    if not is_negative and not question_is_closed_book(q):
+        return None, "open-book-question"
 
     category = "negative" if is_negative else str(parsed.get("category") or "").strip().lower()
     if not is_negative and category not in POSITIVE_CATEGORY_TARGETS:
