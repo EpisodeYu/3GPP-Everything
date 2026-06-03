@@ -29,9 +29,11 @@ from eval.teleqna.infer import DEFAULT_TIMEOUT_S, _LiteLLMChatClient
 
 SYSTEM_C = "C"
 DEFAULT_MODEL = "deepseek-v4-pro"
-DEFAULT_MAX_TOKENS = 4096
+DEFAULT_MAX_TOKENS = 8192  # deepseek-v4-pro 是 reasoning 模型,reasoning 吃 token,给足避免空答
 DEFAULT_CONCURRENT = 6
 DEFAULT_RPM = 50
+# reasoning 长度非确定,偶发吃光预算吐空 content → 同参重试(下次 reasoning 可能更短)兜底
+EMPTY_RETRIES = 3
 
 _SYSTEM_PROMPT = (
     "You are a 3GPP telecommunications standards expert. Answer the user's question "
@@ -74,20 +76,26 @@ async def _collect_one(
         {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "user", "content": question},
     ]
+    answer = ""
     async with sem:
         t0 = time.perf_counter()
-        try:
-            payload = await client.chat(messages=messages, max_tokens=max_tokens, temperature=0.0)
-        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as exc:
-            return SystemAnswer(
-                item_id=iid,
-                question=question,
-                system=SYSTEM_C,
-                elapsed_ms=int((time.perf_counter() - t0) * 1000),
-                error={"type": type(exc).__name__, "detail": str(exc)[:500]},
-                meta={"model": client.model},
-            )
-    answer = ((payload.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+        for _ in range(EMPTY_RETRIES + 1):
+            try:
+                payload = await client.chat(
+                    messages=messages, max_tokens=max_tokens, temperature=0.0
+                )
+            except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as exc:
+                return SystemAnswer(
+                    item_id=iid,
+                    question=question,
+                    system=SYSTEM_C,
+                    elapsed_ms=int((time.perf_counter() - t0) * 1000),
+                    error={"type": type(exc).__name__, "detail": str(exc)[:500]},
+                    meta={"model": client.model},
+                )
+            answer = ((payload.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+            if answer.strip():  # 非空即收;空(reasoning 溢出)则重试
+                break
     return SystemAnswer(
         item_id=iid,
         question=question,
