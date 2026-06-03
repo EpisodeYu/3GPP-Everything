@@ -96,9 +96,12 @@ cd /data/3GPP-Everything && eval/.venv/bin/python -m eval.huawei_compare.merge_r
 
 ## 7. 下一步
 
-1. **人对 `golden_compare.yaml` 做领域终审**(见 §8 复跑/调参);确认后冻结为正式题集。
-2. **评测层**:成对盲评 judge(位置对冲)+ 绝对指标 judge(复用 `fact_coverage_judge`/`negative_judge`/Ragas)+ `compare_report.py`。
-3. 采集只读 `{item_id, question}`,把 100 题转成 collect 用的 jsonl(或让 collect 直接读 golden yaml)即可全量跑 A/B。
+1. **人对 `golden_compare.yaml` 做领域终审**(见本文 §8 复跑/调参);确认后冻结为正式题集。
+2. **评测层(方案已定稿,待 approve 后开建)**:**3 系统** A/B + **C=裸 deepseek-v4-pro**,裁判 **glm-5.1**,
+   指标 fact_coverage + spec归属 + fact-in-context recall(LLM-free) + 拒答 + 成对盲评(faithfulness 去掉)。
+   **完整设计 + 决策依据见 `README.md` §8**。交付物:`collect_c` / `merge`(扩3路) / `pairwise_judge.py` /
+   `compare_eval.py` / `compare_report.py` / `golden_to_questions.py` + 单测。
+3. 采集只读 `{item_id, question}`,把 100 题转成 collect 用的 jsonl(`golden_to_questions.py`)即可全量跑 A/B/C。
 
 ## 8. 100 题生成器(`gen_questions.py`)
 
