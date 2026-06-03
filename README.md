@@ -34,7 +34,7 @@
 
 在 **100 题中立自产题集**（从 A∩B 的 R18 交集 spec 采样、闭卷、负题对称）上，三方盲评对比：
 
-- **A = 3GPP-Everything**（本项目，生成 LLM = mimo-v2.5-pro）
+- **A = 3GPP-Everything**（本项目；LLM 可配置，本次基准用 mimo-v2.5-pro）
 - **B = 华为开源 Telco-RAG**（`github.com/netop-team/Telco-RAG`，生成 LLM = gpt-4o-mini，R18 离线库）
 - **C = 裸 LLM 基线**（deepseek-v4-pro，无检索）—— 用于检验"RAG 是否真有用，还是 LLM 预训练就会"
 - 裁判 = **glm-5.1**（与三方生成 backbone 都不同源，避免同源偏袒）；成对盲评匿名 + 位置对冲。
@@ -50,13 +50,12 @@
 | ✅ 正确拒答（负题） | **93%** | 0% | 56% |
 | ⚠️ 幻觉率（负题，越低越好） | **0%** | 93% | 43% |
 
-**成对盲评胜率（位置对冲）**：A vs B = **98:2**；A vs C = **84:10**（平 6）；B vs C = C **81:15**（平 4）。
+**成对盲评胜率（位置对冲）**：A vs B = **98:2**；A vs C = **84:10**（平 6）。
 
 **结论**
 
-1. **本项目（A）在每一项指标上都明显第一**：最正确、可溯源、不幻觉。
-2. **裸 LLM（C）反超华为 Telco-RAG（B）** —— 中立题集上，B 的 RAG 不如直接用一个强 LLM。
-3. **RAG 的价值取决于检索质量**：好检索（A）带来 +0.36 正确性并把幻觉压到 0；弱检索的 RAG（B）短板在检索（spec 命中仅 7%），反成负作用。
+1. **本项目（A）在每一项指标上都明显第一**：最正确（fact_coverage 0.80）、可溯源（spec 命中 96%）、负题零幻觉。
+2. **RAG 的价值取决于检索质量**：A 相对裸 LLM 基线（C）带来 +0.36 正确性并把幻觉压到 0，体现好检索的增益；B 在本中立题集上检索召回偏低（spec 命中 7%）是其得分的主因。
 
 > 完整方法、逐题数据与详细报告：[`eval/huawei_compare/results/REPORT.md`](./eval/huawei_compare/results/REPORT.md)；题集与可复现代码见 [`eval/huawei_compare/`](./eval/huawei_compare/)。
 
@@ -76,18 +75,18 @@
 
 ### 模型层
 
-| 用途 | 模型 | 提供方 | 备注 |
-|---|---|---|---|
-| **Agent 主脑** | `mimo-v2.5-pro` | 小米（本机 LiteLLM） | 1M context、function calling、长 horizon agent |
-| **轻量任务**（路由/改写/multi-query/self-RAG） | `mimo-v2.5` | 小米（本机 LiteLLM） | MoE，原生 omni 多模态 |
-| **Vision**（索引期图片描述） | `mimo-v2.5` | 小米（本机 LiteLLM） | 单次调用同时输出 description + 结构化字段（figure_kind / visible_labels / visible_acronyms / spec_role） |
-| **Embedding** | `voyage-4-large` @ **1024 维** | Voyage AI | MRL 截断（2048 vs 1024 retrieval 差距 ≤ 2pp，省存储一半 + 检索更快） |
-| **Reranker** | `rerank-2.5` | Voyage AI | top-50 → top-5 |
-| **Eval Judge** | `deepseek-v4-pro` | DeepSeek（本机 LiteLLM） | Ragas faithfulness / answer relevancy / correctness；与生成模型异源避免 self-bias |
-| **Negative Judge** | `mimo-v2.5-pro` | 小米（本机 LiteLLM） | 拒答题 VALID/PARTIAL/INVALID 三档判别 |
-| **对比裁判** | `glm-5.1` | 智谱（本机 LiteLLM） | 华为对比测试成对盲评 + 绝对指标（与 A/B/C 三方 backbone 都不同源） |
+> **生成侧 LLM 不锁定**：所有 LLM 统一走本机 [LiteLLM](https://github.com/BerriAI/litellm) proxy（OpenAI 协议适配），生成/Vision/self-RAG 等用哪个模型**可自由配置、随时切换**，不写死任何具体模型。Embedding / Reranker 当前以 Voyage 为默认。下方"评测基准"行的模型名仅作复现基准记录。
 
-> 所有 LLM 统一走本机 [LiteLLM](https://github.com/BerriAI/litellm) proxy（OpenAI 协议适配），LangGraph 节点零额外抽象。
+| 用途 | 模型 | 备注 |
+|---|---|---|
+| **生成 / Agent 主脑** | 可配置 LLM（任意 OpenAI 兼容，经本机 LiteLLM） | 需 ≥1M context / function calling / 长 horizon 能力；按需切换 |
+| **轻量任务**（路由/改写/multi-query/self-RAG） | 可配置 LLM（经本机 LiteLLM） | — |
+| **Vision**（索引期图片描述） | 可配置多模态 LLM（经本机 LiteLLM） | 单次调用同时输出 description + 结构化字段（figure_kind / visible_labels / visible_acronyms / spec_role） |
+| **Embedding（当前默认）** | `voyage-4-large` @ **1024 维** | Voyage AI；MRL 截断（2048 vs 1024 retrieval 差距 ≤ 2pp，省存储一半 + 检索更快） |
+| **Reranker（当前默认）** | `rerank-2.5` | Voyage AI；top-50 → top-5 |
+| **Eval Judge**（评测基准） | `deepseek-v4-pro` | Ragas faithfulness / answer relevancy / correctness；与生成模型异源避免 self-bias |
+| **Negative Judge**（评测基准） | `mimo-v2.5-pro` | 拒答题 VALID/PARTIAL/INVALID 三档判别 |
+| **对比裁判**（评测基准） | `glm-5.1` | 华为对比测试成对盲评 + 绝对指标（与对比三方 backbone 都不同源） |
 
 ### 数据 / 存储 / 缓存（**复用宿主已运行实例**）
 
@@ -123,7 +122,7 @@ flowchart LR
     DEDUP --> FILTER["过滤 5G TS<br/>保留 1270 篇"]
     FILTER --> SECTION["section 树还原"]
     SECTION --> ATOMIC["原子块切分<br/>(text/table/formula/figure/asn1/action_list)"]
-    ATOMIC --> VISION["mimo-v2.5 Vision<br/>(图片→结构化描述)"]
+    ATOMIC --> VISION["Vision 多模态 LLM<br/>(图片→结构化描述)"]
     VISION --> CHUNK["small2big 打包<br/>target=250 / max=400 / overlap=50 tokens<br/>(Voyage tokenizer)"]
     CHUNK --> EMBED["voyage-4-large<br/>output_dimension=1024"]
     EMBED --> QD["Qdrant<br/>tgpp_chunks_voyage_d1024"]
@@ -139,7 +138,7 @@ flowchart LR
 - **主源走预解析数据**：直接消费 [`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) HF `marked/` 文件树（每篇 spec 一个 `raw.md` + 同目录图片），避免从零造解析。
 - **chunking = small2big**：~250 token 小检索 chunk + parent section 大召回（`parent_section_id` 分组）；表格 / 公式 / 图片 / ASN.1 / RRC action list 走原子切片不切碎；chunk 头部强制注入 `[<spec_id> § <clause> <title>]` 让 BM25 命中标题词、embedding 获得上下文。
 - **chunk_id 真·幂等**：`uuid5(spec_id + clause + sha256(content)[:16])` —— 内容不变 → ID 不变 → 重跑无重复。
-- **Vision**：mimo-v2.5 单次调用同时产出 description + 结构化字段；Redis 永久缓存按 `sha256(image_bytes)` 去重。
+- **Vision**：多模态 LLM 单次调用同时产出 description + 结构化字段；Redis 永久缓存按 `sha256(image_bytes)` 去重。
 - **Embedding 维度**：单值 1024 维（节省存储一半 + 检索更快，retrieval 指标差距 ≤ 2pp）。
 - **Reranker**：Voyage `rerank-2.5`，与 voyage embedding 同供应商协同最佳。
 
@@ -192,7 +191,7 @@ reranked = await voyage_client.rerank(query, [c.content for c in unique], model=
 
 1. Prompt 强约束："仅基于 reranked 内容生成；找不到 → 明示'未在 3GPP 文档中找到 …'"。
 2. 引用格式 `[spec_id § section_path ¶offset]` + 正则抽取写入 `state.citations`。
-3. self-RAG 用**独立模型**（mimo-v2.5）做三维自评避免同源偏差；`insufficient` 直接走"找不到"分支。
+3. self-RAG 用**独立模型**做三维自评避免同源偏差；`insufficient` 直接走"找不到"分支。
 4. `web_search` 仅在用户**显式触发**时调用，结果强制加前缀"以下内容来自 Web 搜索，未经 3GPP 验证："。
 
 详细节点实现 / Prompt 库 / Checkpoint 操作集见 [`docs/03-development/03-agent.md`](./docs/03-development/03-agent.md)。
@@ -208,7 +207,7 @@ flowchart LR
     AG --> LI["LlamaIndex Hybrid Retriever"]
     LI --> QD["Qdrant<br/>(dense 1024d)"]
     LI --> BM["BM25<br/>(sparse, by_spec jsonl)"]
-    AG --> LLM["LiteLLM 本机<br/>mimo-v2.5-pro / mimo-v2.5"]
+    AG --> LLM["LiteLLM 本机<br/>(可配置 LLM)"]
     AG --> VG["Voyage AI<br/>embedding + rerank-2.5"]
     AG --> TV["Tavily Web Search<br/>(用户显式触发)"]
     API --> PG["PostgreSQL<br/>(LangGraph checkpoint + 业务)"]
@@ -218,7 +217,7 @@ flowchart LR
     subgraph ingest["索引流水线 (offline)"]
         H["GSMA/3GPP HF Dataset<br/>(R18+R19, 1270 specs)"] --> CK["chunker<br/>(small2big)"]
         DL["Docling (兜底)"] --> CK
-        CK --> VS["mimo-v2.5 Vision<br/>(图片描述)"]
+        CK --> VS["Vision 多模态 LLM<br/>(图片描述)"]
         VS --> QD
         VS --> BM
         VS --> PG
@@ -315,7 +314,7 @@ make prod-restart / prod-logs / prod-backup / prod-restore BACKUP=./backups/<ts>
 
 - **现成轮子优先**：3GPP 文档主源走 [`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) 官方 HF 数据集（已预解析为结构化 markdown），避免从零造解析。
 - **服务器友好**：宿主已运行的 Qdrant / PostgreSQL / Redis / LiteLLM 全部复用，仅独立命名空间隔离。
-- **混合 API 策略**：embedding/reranker 走 Voyage 海外 SOTA，主 LLM 走本机 LiteLLM 国产（MiMo），平衡质量与成本/可控性。
+- **混合 API 策略**：embedding/reranker 走 Voyage 海外 SOTA（当前默认），生成 LLM 走本机 LiteLLM（OpenAI 协议，可自由配置/切换，不锁定供应商），平衡质量与成本/可控性。
 - **严格 grounding**：找不到证据明示"未在 3GPP 文档中找到"，Web 搜索仅在用户显式触发时启用并带"未经 3GPP 验证"标签。
 - **流式 + 可取消 + 可恢复**：LangGraph `astream_events` + SSE 10 类 event；`AsyncPostgresSaver` checkpoint 支持取消/暂停/恢复/fork/rollback 全套语义。
 
@@ -337,8 +336,8 @@ A production-grade RAG agent over 3GPP specifications — live at **https://3gpp
 
 - **Coverage**: GSMA Rel-18 + Rel-19 5G-series TS — 1270 specs / 394,859 chunks.
 - **Stack**: LangGraph (orchestration) + LlamaIndex (retrieval) + LangChain (adapters); FastAPI + SSE backend; Flutter Web/Android frontend.
-- **Models**: `mimo-v2.5-pro` / `mimo-v2.5` (local LiteLLM, omni multimodal) + Voyage `voyage-4-large` @ 1024d + `rerank-2.5`; eval judges `deepseek-v4-pro` (Ragas) / `glm-5.1` (Huawei comparison).
-- **RAG**: GSMA/3GPP HF dataset → small2big chunking (atomic blocks for tables/formulas/ASN.1/figures) → mimo-v2.5 Vision for figures → hybrid retrieval (Qdrant dense + BM25 + RRF) → Voyage rerank → LangGraph dual-path (simple fast / complex with HyDE + multi-query + self-RAG). Strict citation-only grounding; web search only when explicitly invoked.
-- **vs Huawei Telco-RAG** (neutral 100-question R18 set, glm-5.1 judge): this project leads on every metric (fact-coverage 0.80 vs 0.22, spec-attribution 96% vs 7%, 0% vs 93% hallucination on negatives); a naked strong LLM (deepseek-v4-pro, no retrieval) even outscores Telco-RAG — RAG only helps when retrieval is good. Details: [`eval/huawei_compare/results/REPORT.md`](./eval/huawei_compare/results/REPORT.md).
+- **Models**: generation / Vision / self-RAG run on a **configurable LLM** via local LiteLLM (any OpenAI-compatible model — not hardcoded); Embedding / Reranker default to Voyage `voyage-4-large` @ 1024d & `rerank-2.5`. Eval-baseline judges: `deepseek-v4-pro` (Ragas) / `glm-5.1` (Huawei comparison).
+- **RAG**: GSMA/3GPP HF dataset → small2big chunking (atomic blocks for tables/formulas/ASN.1/figures) → multimodal-LLM Vision for figures → hybrid retrieval (Qdrant dense + BM25 + RRF) → Voyage rerank → LangGraph dual-path (simple fast / complex with HyDE + multi-query + self-RAG). Strict citation-only grounding; web search only when explicitly invoked.
+- **vs Huawei Telco-RAG** (neutral 100-question R18 set, glm-5.1 judge): this project leads on every metric (fact-coverage 0.80 vs 0.22, spec-attribution 96% vs 7%, 0% vs 93% hallucination on negatives); RAG's value hinges on retrieval quality. Details: [`eval/huawei_compare/results/REPORT.md`](./eval/huawei_compare/results/REPORT.md).
 
 See [`docs/`](./docs/) for full design docs.
