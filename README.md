@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo/final/social-preview.png" width="680" alt="3GPP-Everything">
+</p>
+
 # 3GPP-Everything
 
 > 基于 3GPP 规范文档的生产级 RAG Agent —— 让你像查代码一样查协议。
