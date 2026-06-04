@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="120" y1="0" x2="392" y2="0">
+      <stop offset="0" stop-color="#3B82F6"/><stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+    <linearGradient id="gt" gradientUnits="userSpaceOnUse" x1="600" y1="0" x2="1120" y2="0">
+      <stop offset="0" stop-color="#7DB1FF"/><stop offset="1" stop-color="#6FE6D4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="#000000"/>
+
+  <!-- logo mark (centered, top) -->
+  <g transform="translate(640 248) scale(1.2) translate(-256 -256)">
+    <g fill="none" stroke="url(#g)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 120 156 L 190 156"/><path d="M 150 256 L 190 256"/><path d="M 120 356 L 190 356"/>
+      <path d="M 190 156 A 34 50 0 0 1 190 256"/><path d="M 190 256 A 34 50 0 0 1 190 356"/>
+      <path d="M 392 156 L 322 156"/><path d="M 362 256 L 322 256"/><path d="M 392 356 L 322 356"/>
+      <path d="M 322 156 A 34 50 0 0 0 322 256"/><path d="M 322 256 A 34 50 0 0 0 322 356"/>
+      <path d="M 236 256 L 276 256"/>
+    </g>
+  </g>
+
+  <!-- wordmark + tagline (centered, below) -->
+  <text x="640" y="486" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="78" font-weight="bold" fill="#FFFFFF">3GPP-Everything</text>
+  <text x="640" y="546" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="32" fill="#9AA4B2">Production-grade RAG over 3GPP specs</text>
+</svg>
