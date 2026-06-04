@@ -1,13 +1,13 @@
 # 3GPP-Everything
 
 > 基于 3GPP 规范文档的生产级 RAG Agent —— 让你像查代码一样查协议。
-> 🌐 在线访问：**https://3gpp-everything.org/**
+> 🌐 在线访问：**[https://3gpp-everything.org/](https://3gpp-everything.org/)**
 
-[![Status](https://img.shields.io/badge/status-online-success)](https://3gpp-everything.org/) [![Index](https://img.shields.io/badge/index-1270%20specs%20%2F%20394k%20chunks-success)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[Status](https://3gpp-everything.org/) [Index]() [License](./LICENSE)
 
 ## 是什么
 
-一个对 3GPP 标准文档做深度 RAG 的 Agent 系统，覆盖 GSMA 发布的 **Rel-18 + Rel-19 全部 5G 系列 TS（1270 篇 / 394,859 段落块）**。核心是：用自然语言问 3GPP，拿到**带段落级原文引用、可点击跳转到完整章节**的回答，且**找不到证据就明说"未在 3GPP 文档中找到"，绝不用模型通用知识糊弄**。
+一个对 3GPP 标准文档做深度 RAG 的 Agent 系统，覆盖 GSMA 发布的 **Rel-18 + Rel-19 全部 5G 系列 TS（1270 篇 / 394,859 段落块）**。核心是：用自然语言问 3GPP，拿到**带段落级原文引用、可点击跳转到完整章节**的回答，遵循协议的严谨性**，不掺杂模型通用知识**。
 
 你可以：
 
@@ -19,16 +19,18 @@
 
 ## 核心能力（按当前实现）
 
-| 能力 | 说明 |
-|---|---|
-| **检索增强问答** | Hybrid 检索（Qdrant dense 1024 维 + BM25 sparse + RRF 融合）→ Voyage rerank → LLM 生成；small2big 召回（命中小块、回展父 section） |
-| **段落级引用 + 阅读器** | 回答内嵌 `[spec_id § section ¶offset]` 引用，正则抽取为可点 chip → 跳转章节阅读器看完整原文 |
-| **严格 grounding** | 仅基于检索内容生成；查无证据明示"未在 3GPP 文档中找到"；self-RAG 用独立模型做 grounding/coverage/confidence 三维自评（最多 retry 2 次强制收敛） |
-| **双路 Agent** | simple 快路径（术语/字段定义，P95 < 15s）；complex 路径（多证据，HyDE + multi-query + self-RAG，P95 < 60s） |
-| **工具调度** | glossary / toc / params / web_search（web 仅显式触发并标注未验证） |
-| **会话与协作** | 多轮历史压缩、checkpoint 取消/暂停/恢复、fork/rollback；收藏、笔记、反馈、管理员反馈溯源 |
-| **鉴权** | JWT + refresh + RBAC（普通用户 / 管理员） |
-| **流式** | LangGraph `astream_events` → SSE 10 类事件（run/node/chunks_hit/chunks_rerank/token/final/…） |
+
+| 能力               | 说明                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------ |
+| **检索增强问答**       | Hybrid 检索（Qdrant dense 1024 维 + BM25 sparse + RRF 融合）→ Voyage rerank → LLM 生成；small2big 召回（命中小块、回展父 section） |
+| **段落级引用 + 阅读器**  | 回答内嵌 `[spec_id § section ¶offset]` 引用，正则抽取为可点 chip → 跳转章节阅读器看完整原文                                            |
+| **严格 grounding** | 仅基于检索内容生成；查无证据明示"未在 3GPP 文档中找到"；self-RAG 用独立模型做 grounding/coverage/confidence 三维自评（最多 retry 2 次强制收敛）         |
+| **双路 Agent**     | simple 快路径（术语/字段定义，P95 < 15s）；complex 路径（多证据，HyDE + multi-query + self-RAG，P95 < 60s）                        |
+| **工具调度**         | glossary / toc / params / web_search（web 仅显式触发并标注未验证）                                                        |
+| **会话与协作**        | 多轮历史压缩、checkpoint 取消/暂停/恢复、fork/rollback；收藏、笔记、反馈、管理员反馈溯源                                                    |
+| **鉴权**           | JWT + refresh + RBAC（普通用户 / 管理员）                                                                             |
+| **流式**           | LangGraph `astream_events` → SSE 10 类事件（run/node/chunks_hit/chunks_rerank/token/final/…）                     |
+
 
 ## 与华为 Telco-RAG 的对比评测
 
@@ -41,14 +43,16 @@
 
 **Scorecard**
 
-| 指标 | A 本项目 | B 华为 Telco-RAG | C 裸 LLM |
-|---|---|---|---|
-| 正确性 fact_coverage（正题） | **0.80** | 0.22 | 0.44 |
-| spec 归属命中（可溯源） | **96%** | 7% | 39% |
-| 检索到 recall（A/B） | 0.93 | 0.12 | — |
-| 利用率 = 答出÷检索到（A/B） | 0.84 | 0.58 | — |
-| ✅ 正确拒答（负题） | **93%** | 0% | 56% |
-| ⚠️ 幻觉率（负题，越低越好） | **0%** | 93% | 43% |
+
+| 指标                    | A 本项目    | B 华为 Telco-RAG | C 裸 LLM |
+| --------------------- | -------- | -------------- | ------- |
+| 正确性 fact_coverage（正题） | **0.80** | 0.22           | 0.44    |
+| spec 归属命中（可溯源）        | **96%**  | 7%             | 39%     |
+| 检索到 recall（A/B）       | 0.93     | 0.12           | —       |
+| 利用率 = 答出÷检索到（A/B）     | 0.84     | 0.58           | —       |
+| ✅ 正确拒答（负题）            | **93%**  | 0%             | 56%     |
+| ⚠️ 幻觉率（负题，越低越好）       | **0%**   | 93%            | 43%     |
+
 
 **成对盲评胜率（位置对冲）**：A vs B = **98:2**；A vs C = **84:10**（平 6）。
 
@@ -57,7 +61,7 @@
 1. **本项目（A）在每一项指标上都明显第一**：最正确（fact_coverage 0.80）、可溯源（spec 命中 96%）、负题零幻觉。
 2. **RAG 的价值取决于检索质量**：A 相对裸 LLM 基线（C）带来 +0.36 正确性并把幻觉压到 0，体现好检索的增益；B 在本中立题集上检索召回偏低（spec 命中 7%）是其得分的主因。
 
-> 完整方法、逐题数据与详细报告：[`eval/huawei_compare/results/REPORT.md`](./eval/huawei_compare/results/REPORT.md)；题集与可复现代码见 [`eval/huawei_compare/`](./eval/huawei_compare/)。
+> 完整方法、逐题数据与详细报告：`[eval/huawei_compare/results/REPORT.md](./eval/huawei_compare/results/REPORT.md)`；题集与可复现代码见 `[eval/huawei_compare/](./eval/huawei_compare/)`。
 
 ## 技术栈
 
@@ -65,11 +69,13 @@
 
 ### Agent / RAG 框架（三件套协同）
 
-| 层 | 选型 | 角色 |
-|---|---|---|
-| **编排层** | [LangGraph](https://github.com/langchain-ai/langgraph) 1.x | 状态机、节点流式（`astream_events`）、PostgreSQL checkpointer 持久化会话上下文与中断恢复 |
-| **数据/检索层** | [LlamaIndex](https://github.com/run-llama/llama_index) 0.13+ | 文档摄取、Hybrid Retriever、BM25、reranker 包装 |
-| **适配层** | [LangChain](https://github.com/langchain-ai/langchain) 0.3+ | LLM 客户端（`ChatOpenAI` → LiteLLM）、Tool 装饰器、Prompt 模板 |
+
+| 层          | 选型                                                           | 角色                                                               |
+| ---------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| **编排层**    | [LangGraph](https://github.com/langchain-ai/langgraph) 1.x   | 状态机、节点流式（`astream_events`）、PostgreSQL checkpointer 持久化会话上下文与中断恢复 |
+| **数据/检索层** | [LlamaIndex](https://github.com/run-llama/llama_index) 0.13+ | 文档摄取、Hybrid Retriever、BM25、reranker 包装                           |
+| **适配层**    | [LangChain](https://github.com/langchain-ai/langchain) 0.3+  | LLM 客户端（`ChatOpenAI` → LiteLLM）、Tool 装饰器、Prompt 模板               |
+
 
 > **关键边界**：LangGraph 节点不直接调 LlamaIndex 的高层 query engine（黑盒），而是把 LlamaIndex 当成"可控的检索 SDK"暴露 `retrieve / rerank` 等原子函数给 graph 调用。
 
@@ -77,40 +83,46 @@
 
 > **生成侧 LLM 不锁定**：所有 LLM 统一走本机 [LiteLLM](https://github.com/BerriAI/litellm) proxy（OpenAI 协议适配），生成/Vision/self-RAG 等用哪个模型**可自由配置、随时切换**，不写死任何具体模型。Embedding / Reranker 当前以 Voyage 为默认。下方"评测基准"行的模型名仅作复现基准记录。
 
-| 用途 | 模型 | 备注 |
-|---|---|---|
-| **生成 / Agent 主脑** | 可配置 LLM（任意 OpenAI 兼容，经本机 LiteLLM） | 需 ≥1M context / function calling / 长 horizon 能力；按需切换 |
-| **轻量任务**（路由/改写/multi-query/self-RAG） | 可配置 LLM（经本机 LiteLLM） | — |
-| **Vision**（索引期图片描述） | 可配置多模态 LLM（经本机 LiteLLM） | 单次调用同时输出 description + 结构化字段（figure_kind / visible_labels / visible_acronyms / spec_role） |
-| **Embedding（当前默认）** | `voyage-4-large` @ **1024 维** | Voyage AI；MRL 截断（2048 vs 1024 retrieval 差距 ≤ 2pp，省存储一半 + 检索更快） |
-| **Reranker（当前默认）** | `rerank-2.5` | Voyage AI；top-50 → top-5 |
-| **Eval Judge**（评测基准） | `deepseek-v4-pro` | Ragas faithfulness / answer relevancy / correctness；与生成模型异源避免 self-bias |
-| **Negative Judge**（评测基准） | `mimo-v2.5-pro` | 拒答题 VALID/PARTIAL/INVALID 三档判别 |
-| **对比裁判**（评测基准） | `glm-5.1` | 华为对比测试成对盲评 + 绝对指标（与对比三方 backbone 都不同源） |
+
+| 用途                                   | 模型                                | 备注                                                                                        |
+| ------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------- |
+| **生成 / Agent 主脑**                    | 可配置 LLM（任意 OpenAI 兼容，经本机 LiteLLM） | 需 ≥1M context / function calling / 长 horizon 能力；按需切换                                      |
+| **轻量任务**（路由/改写/multi-query/self-RAG） | 可配置 LLM（经本机 LiteLLM）              | —                                                                                         |
+| **Vision**（索引期图片描述）                  | 可配置多模态 LLM（经本机 LiteLLM）           | 单次调用同时输出 description + 结构化字段（figure_kind / visible_labels / visible_acronyms / spec_role） |
+| **Embedding（当前默认）**                  | `voyage-4-large` @ **1024 维**     | Voyage AI；MRL 截断（2048 vs 1024 retrieval 差距 ≤ 2pp，省存储一半 + 检索更快）                            |
+| **Reranker（当前默认）**                   | `rerank-2.5`                      | Voyage AI；top-50 → top-5                                                                  |
+| **Eval Judge**（评测基准）                 | `deepseek-v4-pro`                 | Ragas faithfulness / answer relevancy / correctness；与生成模型异源避免 self-bias                   |
+| **Negative Judge**（评测基准）             | `mimo-v2.5-pro`                   | 拒答题 VALID/PARTIAL/INVALID 三档判别                                                            |
+| **对比裁判**（评测基准）                       | `glm-5.1`                         | 华为对比测试成对盲评 + 绝对指标（与对比三方 backbone 都不同源）                                                    |
+
 
 ### 数据 / 存储 / 缓存（**复用宿主已运行实例**）
 
-| 层 | 选型 | 用途 |
-|---|---|---|
-| 向量库 | Qdrant `:6333` | dense 检索（`tgpp_chunks_voyage_d1024`，394,859 points） |
-| 关系库 | PostgreSQL `:5432` | 业务数据 + LangGraph `AsyncPostgresSaver` checkpoint + ApiUsage |
-| 稀疏检索 | LlamaIndex BM25 | 持久化到 `INGEST_DATA_DIR/bm25/voyage/by_spec/{spec_id}.jsonl`，backend 加载现场构建 |
-| 缓存 | Redis `:6379` | retrieve/rerank/Vision 描述/history summary，跨进程共享 |
-| ORM / 迁移 | SQLAlchemy 2.0 (async) + asyncpg + Alembic | 与 LangGraph PG checkpointer 共用连接 |
+
+| 层        | 选型                                         | 用途                                                                        |
+| -------- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| 向量库      | Qdrant                                     | dense 检索（`tgpp_chunks_voyage_d1024`，394,859 points）                       |
+| 关系库      | PostgreSQL                                 | 业务数据 + LangGraph `AsyncPostgresSaver` checkpoint + ApiUsage               |
+| 稀疏检索     | LlamaIndex BM25                            | 持久化到 `INGEST_DATA_DIR/bm25/voyage/by_spec/{spec_id}.jsonl`，backend 加载现场构建 |
+| 缓存       | Redis                                      | retrieve/rerank/Vision 描述/history summary，跨进程共享                           |
+| ORM / 迁移 | SQLAlchemy 2.0 (async) + asyncpg + Alembic | 与 LangGraph PG checkpointer 共用连接                                          |
+
 
 ### 后端 / 前端 / 工具
 
-| 层 | 选型 |
-|---|---|
-| 后端 | FastAPI + SSE + Pydantic v2 + python-jose（JWT + refresh + RBAC） |
-| 前端 | Flutter 3.x（Web + Android 同码） + Riverpod 2.x + go_router + dio (SSE) + flutter_markdown_plus + flutter_math_fork；黑白主调 + 冷调蓝 accent |
-| Web 搜索（用户显式触发） | Tavily |
-| 监控 | Langfuse Cloud（每节点 span + token stream + dataset run） |
-| 评测 | Ragas + 175 题金标准 YAML + TeleQnA 原生 MCQ + 华为对比 100 题中立集；`eval-{daily,weekly}` GitHub Actions CI |
-| 部署 | Docker Compose + Nginx + Let's Encrypt（独立 ingress 项目跨项目分流） |
-| Lint / Type / Test | Ruff + Black + MyPy + Pytest + pytest-asyncio + httpx |
 
-完整决策依据与备选见 [`docs/02-tech-selection.md`](./docs/02-tech-selection.md)。
+| 层                  | 选型                                                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 后端                 | FastAPI + SSE + Pydantic v2 + python-jose（JWT + refresh + RBAC）                                                                    |
+| 前端                 | Flutter 3.x（Web + Android 同码） + Riverpod 2.x + go_router + dio (SSE) + flutter_markdown_plus + flutter_math_fork；黑白主调 + 冷调蓝 accent |
+| Web 搜索（用户显式触发）     | Tavily                                                                                                                             |
+| 监控                 | Langfuse Cloud（每节点 span + token stream + dataset run）                                                                              |
+| 评测                 | Ragas + 175 题金标准 YAML + TeleQnA 原生 MCQ + 华为对比 100 题中立集；`eval-{daily,weekly}` GitHub Actions CI                                     |
+| 部署                 | Docker Compose + Nginx + Let's Encrypt（独立 ingress 项目跨项目分流）                                                                         |
+| Lint / Type / Test | Ruff + Black + MyPy + Pytest + pytest-asyncio + httpx                                                                              |
+
+
+完整决策依据与备选见 `[docs/02-tech-selection.md](./docs/02-tech-selection.md)`。
 
 ## RAG 策略
 
@@ -133,9 +145,11 @@ flowchart LR
     DL -.-> SECTION
 ```
 
+
+
 **关键策略**：
 
-- **主源走预解析数据**：直接消费 [`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) HF `marked/` 文件树（每篇 spec 一个 `raw.md` + 同目录图片），避免从零造解析。
+- **主源走预解析数据**：直接消费 `[GSMA/3GPP](https://huggingface.co/datasets/GSMA/3GPP)` HF `marked/` 文件树（每篇 spec 一个 `raw.md` + 同目录图片），避免从零造解析。
 - **chunking = small2big**：~250 token 小检索 chunk + parent section 大召回（`parent_section_id` 分组）；表格 / 公式 / 图片 / ASN.1 / RRC action list 走原子切片不切碎；chunk 头部强制注入 `[<spec_id> § <clause> <title>]` 让 BM25 命中标题词、embedding 获得上下文。
 - **chunk_id 真·幂等**：`uuid5(spec_id + clause + sha256(content)[:16])` —— 内容不变 → ID 不变 → 重跑无重复。
 - **Vision**：多模态 LLM 单次调用同时产出 description + 结构化字段；Redis 永久缓存按 `sha256(image_bytes)` 去重。
@@ -161,13 +175,17 @@ stateDiagram-v2
     self_rag --> [*]: verdict=accept/insufficient
 ```
 
+
+
 **分支与性能预算**：
 
-| 路径 | 触发 | 节点序列 | P95 |
-|---|---|---|---|
-| **simple fast path** | 单一术语 / 字段定义 | classify(含 rewrite) → retrieve → rerank → generate → 轻量 grounding check | < 15s |
-| **complex** | 多 entity / 多文档证据 | rewrite → hyde → multi_query → retrieve/rerank → generate → self-RAG（最多 retry 2 次强制收敛） | < 60s |
-| **tool 路径** | `query_class==tool` 且 `explicit_tools` 非空 | classify → tool_dispatch → generate（模板化渲染）→ self_rag | 视工具 |
+
+| 路径                   | 触发                                        | 节点序列                                                                                   | P95   |
+| -------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------- | ----- |
+| **simple fast path** | 单一术语 / 字段定义                               | classify(含 rewrite) → retrieve → rerank → generate → 轻量 grounding check                | < 15s |
+| **complex**          | 多 entity / 多文档证据                          | rewrite → hyde → multi_query → retrieve/rerank → generate → self-RAG（最多 retry 2 次强制收敛） | < 60s |
+| **tool 路径**          | `query_class==tool` 且 `explicit_tools` 非空 | classify → tool_dispatch → generate（模板化渲染）→ self_rag                                   | 视工具   |
+
 
 **核心检索逻辑**：
 
@@ -194,7 +212,7 @@ reranked = await voyage_client.rerank(query, [c.content for c in unique], model=
 3. self-RAG 用**独立模型**做三维自评避免同源偏差；`insufficient` 直接走"找不到"分支。
 4. `web_search` 仅在用户**显式触发**时调用，结果强制加前缀"以下内容来自 Web 搜索，未经 3GPP 验证："。
 
-详细节点实现 / Prompt 库 / Checkpoint 操作集见 [`docs/03-development/03-agent.md`](./docs/03-development/03-agent.md)。
+详细节点实现 / Prompt 库 / Checkpoint 操作集见 `[docs/03-development/03-agent.md](./docs/03-development/03-agent.md)`。
 
 ## 架构速览
 
@@ -223,6 +241,8 @@ flowchart LR
         VS --> PG
     end
 ```
+
+
 
 ## 快速开始（本地自托管）
 
@@ -285,7 +305,7 @@ docker compose --profile ingest -f deploy/docker-compose.prod.yml run --rm inges
 make prod-restart / prod-logs / prod-backup / prod-restore BACKUP=./backups/<ts>
 ```
 
-完整 runbook、备份/恢复与故障回滚见 [`docs/03-development/07-cicd-and-deployment.md`](./docs/03-development/07-cicd-and-deployment.md)。
+完整 runbook、备份/恢复与故障回滚见 `[docs/03-development/07-cicd-and-deployment.md](./docs/03-development/07-cicd-and-deployment.md)`。
 
 ## 项目结构
 
@@ -312,7 +332,7 @@ make prod-restart / prod-logs / prod-backup / prod-restore BACKUP=./backups/<ts>
 
 ## 设计要点
 
-- **现成轮子优先**：3GPP 文档主源走 [`GSMA/3GPP`](https://huggingface.co/datasets/GSMA/3GPP) 官方 HF 数据集（已预解析为结构化 markdown），避免从零造解析。
+- **现成轮子优先**：3GPP 文档主源走 `[GSMA/3GPP](https://huggingface.co/datasets/GSMA/3GPP)` 官方 HF 数据集（已预解析为结构化 markdown），避免从零造解析。
 - **服务器友好**：宿主已运行的 Qdrant / PostgreSQL / Redis / LiteLLM 全部复用，仅独立命名空间隔离。
 - **混合 API 策略**：embedding/reranker 走 Voyage 海外 SOTA（当前默认），生成 LLM 走本机 LiteLLM（OpenAI 协议，可自由配置/切换，不锁定供应商），平衡质量与成本/可控性。
 - **严格 grounding**：找不到证据明示"未在 3GPP 文档中找到"，Web 搜索仅在用户显式触发时启用并带"未经 3GPP 验证"标签。
@@ -332,12 +352,12 @@ make prod-restart / prod-logs / prod-backup / prod-restore BACKUP=./backups/<ts>
 
 ## English (brief)
 
-A production-grade RAG agent over 3GPP specifications — live at **https://3gpp-everything.org/**.
+A production-grade RAG agent over 3GPP specifications — live at **[https://3gpp-everything.org/](https://3gpp-everything.org/)**.
 
 - **Coverage**: GSMA Rel-18 + Rel-19 5G-series TS — 1270 specs / 394,859 chunks.
 - **Stack**: LangGraph (orchestration) + LlamaIndex (retrieval) + LangChain (adapters); FastAPI + SSE backend; Flutter Web/Android frontend.
 - **Models**: generation / Vision / self-RAG run on a **configurable LLM** via local LiteLLM (any OpenAI-compatible model — not hardcoded); Embedding / Reranker default to Voyage `voyage-4-large` @ 1024d & `rerank-2.5`. Eval-baseline judges: `deepseek-v4-pro` (Ragas) / `glm-5.1` (Huawei comparison).
 - **RAG**: GSMA/3GPP HF dataset → small2big chunking (atomic blocks for tables/formulas/ASN.1/figures) → multimodal-LLM Vision for figures → hybrid retrieval (Qdrant dense + BM25 + RRF) → Voyage rerank → LangGraph dual-path (simple fast / complex with HyDE + multi-query + self-RAG). Strict citation-only grounding; web search only when explicitly invoked.
-- **vs Huawei Telco-RAG** (neutral 100-question R18 set, glm-5.1 judge): this project leads on every metric (fact-coverage 0.80 vs 0.22, spec-attribution 96% vs 7%, 0% vs 93% hallucination on negatives); RAG's value hinges on retrieval quality. Details: [`eval/huawei_compare/results/REPORT.md`](./eval/huawei_compare/results/REPORT.md).
+- **vs Huawei Telco-RAG** (neutral 100-question R18 set, glm-5.1 judge): this project leads on every metric (fact-coverage 0.80 vs 0.22, spec-attribution 96% vs 7%, 0% vs 93% hallucination on negatives); RAG's value hinges on retrieval quality. Details: `[eval/huawei_compare/results/REPORT.md](./eval/huawei_compare/results/REPORT.md)`.
 
-See [`docs/`](./docs/) for full design docs.
+See `[docs/](./docs/)` for full design docs.
