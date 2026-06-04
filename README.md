@@ -7,7 +7,7 @@
 > 基于 3GPP 规范文档的生产级 RAG Agent —— 让你像查代码一样查协议。
 > 🌐 在线访问：**[https://3gpp-everything.org/](https://3gpp-everything.org/)**
 
-[Status](https://3gpp-everything.org/) [Index]() [License](./LICENSE)
+[![Status](https://img.shields.io/badge/status-online-success)](https://3gpp-everything.org/) [![Index](https://img.shields.io/badge/index-1270%20specs%20%2F%20394k%20chunks-success)]() [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 ## 是什么
 
