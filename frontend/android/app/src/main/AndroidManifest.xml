@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 网络访问：release/profile 包必须显式声明（debug manifest 才会自动加），
+         否则 release 包无网络权限 → "failed host lookup"。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="3GPP Everything"
         android:name="${applicationName}"
