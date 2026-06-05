@@ -55,10 +55,12 @@ DEFAULT_MULTIDIM_DIMS: tuple[int, ...] = (2048, 1024)
 PROVIDER_MODEL_ENV = {
     "voyage": "VOYAGE_EMBEDDING_MODEL",
     "glm": "GLM_EMBEDDING_MODEL",
+    "openai": "OPENAI_EMBEDDING_MODEL",
 }
 PROVIDER_DEFAULT_MODEL = {
     "voyage": "voyage-4-large",
     "glm": "embedding-3",
+    "openai": "text-embedding-3-large",
 }
 
 

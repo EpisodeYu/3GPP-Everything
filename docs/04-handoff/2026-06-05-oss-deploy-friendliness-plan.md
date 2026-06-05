@@ -67,12 +67,19 @@
 - **T2.3** README/快速开始加"拿现成索引"路径，与"从零 ingestion"并列。
 - **验收**：干净机器跑完 bootstrap 后，`index-status --provider voyage` 显示满量 points；问一题能拿到带引用的答案。
 
-### 阶段三：拆供应商锁（解 P1-2 / P1-3）— 改动面最大
+### 阶段三：拆供应商锁（解 P1-2 / P1-3）— ✅ 已落地（2026-06-05）
 
-- **T3.1** `EMBEDDING_PROVIDER` 放开 `openai` / `local`（bge / sentence-transformers）分支；collection 名已带 provider+dim 天然隔离。
-- **T3.2** 加 `RERANK_PROVIDER` + `RERANK_ENABLED`：允许本地 cross-encoder 或关闭走 RRF。
-- **T3.3** `.env.example` 顶部加"国际用户最小配置"段，并列 OpenAI 一套默认。
-- **验收**：以 `EMBEDDING_PROVIDER=openai`（或 local）+ rerank 关闭跑通端到端检索；新增分支有 unit 覆盖；`make lint` / `make test` 全绿。
+实际交付（按 Simplicity 收敛：openai 走同一 LiteLLM proxy 无新依赖，故未做重依赖的 `local`；
+rerank 用既有的 reranker=None→fused 降级路径，故用 `RERANK_ENABLED` 开关而非新建 `RERANK_PROVIDER`）：
+
+- **T3.1** ✅ `EMBEDDING_PROVIDER` 放开 `openai`（Literal 加 openai）+ 新增 `OPENAI_EMBEDDING_MODEL`
+  + settings 派生属性 `embedding_model`（按 provider 选）；`litellm_client.embed` 缺省改用它
+  （唯一调用点 dense.py），不再写死 voyage。ingestion `PROVIDER_MODEL_ENV`/`Provider` 同步加 openai。
+- **T3.2** ✅ 新增 `RERANK_ENABLED`（默认 true）；false → `deps.reranker=None`，rerank 节点既有降级退回 RRF/fused。
+- **T3.3** ✅ `.env.example` Embedding 段加"国际用户最小配置"提示（openai + RERANK_ENABLED=false）+ 新 key。
+- **测试/回归**：`test_config`（embedding_model 随 provider / RERANK_ENABLED）、`test_litellm_client`
+  （embed 缺省模型随 provider）；backend 401 unit + ingestion 92 unit 全绿；ruff/black/mypy 全过。
+- **未变**：默认仍 voyage@1024 + rerank 开，现网与现有索引零影响（纯增量）。
 
 ## 3. 风险与注记
 

@@ -238,7 +238,9 @@ class LiteLLMClient:
         生产 dense 路径一直 fallback 到 sparse-only（2026-05-22 M7.5 启动盘点时发现）。
         """
         body: dict[str, Any] = {
-            "model": model or self._settings.VOYAGE_EMBEDDING_MODEL,
+            # provider-aware：缺省按 EMBEDDING_PROVIDER 选模型（voyage/glm/openai），
+            # 不再写死 voyage——否则 EMBEDDING_PROVIDER=openai 时 query 仍用 voyage 编码。
+            "model": model or self._settings.embedding_model,
             "input": list(inputs),
         }
         target_dim = dimensions if dimensions is not None else self._settings.EMBEDDING_DIMENSIONS

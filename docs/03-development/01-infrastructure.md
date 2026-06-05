@@ -101,11 +101,14 @@ LLM_LIGHT_MODEL=mimo-v2.5
 LLM_VISION_MODEL=mimo-v2.5       # reasoning 模型；与 omni 同价但 1M 上下文。代码默认 max_tokens=16384，按需消耗不会浪费。
 
 # === Embedding 与 Reranker（外部 API；本项目统一走 LiteLLM proxy）===
-EMBEDDING_PROVIDER=voyage         # voyage 单轨（2026-05-16 决议）；glm 代码 fallback 保留
+# P1-2 供应商解锁：provider 可选 voyage（默认）/ glm / openai；RERANK_ENABLED=false 关 rerank。
+EMBEDDING_PROVIDER=voyage         # voyage（默认）/ glm / openai；决定 query 编码模型 + collection 命名
 VOYAGE_API_KEY=                    # 由 LiteLLM 注入，本项目代码不直接读
 VOYAGE_EMBEDDING_MODEL=voyage-4-large   # 200M tokens 免费已加 payment，限速 3M TPM / 2000 RPM
 VOYAGE_RERANK_MODEL=rerank-2.5          # 200M tokens 免费，单价 $0.05/M
-GLM_EMBEDDING_MODEL=embedding-3          # 智谱代码 fallback，默认不主动使用
+GLM_EMBEDDING_MODEL=embedding-3          # provider=glm 时用
+OPENAI_EMBEDDING_MODEL=text-embedding-3-large   # provider=openai 时用（支持 MRL 截断）
+RERANK_ENABLED=true              # false → 退回 RRF/fused 排序，不调 rerank 上游（无 Voyage 部署）
 
 # Embedding 维度：1024（M3 决胜 2026-05-16，2048 collection 已 drop）
 EMBEDDING_DIMENSIONS=1024

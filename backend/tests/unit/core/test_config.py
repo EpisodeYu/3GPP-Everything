@@ -13,6 +13,37 @@ def test_defaults() -> None:
     assert s.QDRANT_COLLECTION_PREFIX == "tgpp_chunks"
     assert s.qdrant_collection == "tgpp_chunks_voyage_d1024"
     assert s.bm25_dir == "/data/tgpp/bm25/voyage"
+    # P1-2 供应商解锁：默认仍 voyage + rerank 开
+    assert s.embedding_model == "voyage-4-large"
+    assert s.RERANK_ENABLED is True
+
+
+def test_embedding_model_follows_provider(monkeypatch) -> None:
+    """embedding_model 派生属性随 EMBEDDING_PROVIDER 切换；openai 走同一 LiteLLM proxy。"""
+    cases = {
+        "voyage": "voyage-4-large",
+        "glm": "embedding-3",
+        "openai": "text-embedding-3-large",
+    }
+    for provider, model in cases.items():
+        monkeypatch.setenv("EMBEDDING_PROVIDER", provider)
+        s = Settings(_env_file=None)  # type: ignore[call-arg]
+        assert s.embedding_model == model
+        # collection 名按 provider 隔离，换 provider 不会撞旧索引
+        assert s.qdrant_collection == f"tgpp_chunks_{provider}_d1024"
+
+
+def test_openai_embedding_model_override(monkeypatch) -> None:
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.embedding_model == "text-embedding-3-small"
+
+
+def test_rerank_can_be_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("RERANK_ENABLED", "false")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.RERANK_ENABLED is False
 
 
 def test_retrieval_defaults_match_m75_calibration() -> None:

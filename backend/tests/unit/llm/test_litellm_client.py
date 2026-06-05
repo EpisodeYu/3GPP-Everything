@@ -126,6 +126,25 @@ async def test_embed_passes_dimensions() -> None:
     assert resp["data"][0]["embedding"] == [0.1] * 4
 
 
+async def test_embed_default_model_follows_provider() -> None:
+    """P1-2：embed 缺省模型随 EMBEDDING_PROVIDER（openai → text-embedding-3-large），
+    不再写死 voyage——否则 provider=openai 时 query 仍被 voyage 编码。"""
+    captured: dict[str, Any] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(req.content)
+        return httpx.Response(
+            200,
+            json={"data": [{"index": 0, "embedding": [0.1] * 4}], "usage": {"prompt_tokens": 3}},
+        )
+
+    s = _settings(EMBEDDING_PROVIDER="openai", OPENAI_EMBEDDING_MODEL="text-embedding-3-large")
+    async with LiteLLMClient(settings=s, client=_mock_client(handler)) as cli:
+        await cli.embed(["query"])
+
+    assert captured["body"]["model"] == "text-embedding-3-large"
+
+
 async def test_embed_uses_settings_default_dimension() -> None:
     """未显式传 dimensions → fallback 到 Settings.EMBEDDING_DIMENSIONS；双字段都写。"""
     captured: dict[str, Any] = {}

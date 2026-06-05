@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-Provider = Literal["voyage", "glm"]
+Provider = Literal["voyage", "glm", "openai"]
 
 
 @dataclass(slots=True)

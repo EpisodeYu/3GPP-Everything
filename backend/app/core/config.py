@@ -64,12 +64,19 @@ class Settings(BaseSettings):
     LLM_VISION_MODEL: str = "mimo-v2.5"
 
     # === Embedding / Rerank ===
-    EMBEDDING_PROVIDER: Literal["voyage", "glm"] = "voyage"
+    # provider 决定 query 编码用哪个模型 + collection 命名（{prefix}_{provider}_d{dim}）。
+    # 换 provider/维度 = 索引不兼容，必须重建（见 deploy/index/README.md）。openai 走同一
+    # LiteLLM proxy，无需新依赖；text-embedding-3-large 支持 MRL，可按 dimensions 截到 1024。
+    EMBEDDING_PROVIDER: Literal["voyage", "glm", "openai"] = "voyage"
     VOYAGE_EMBEDDING_MODEL: str = "voyage-4-large"
     VOYAGE_RERANK_MODEL: str = "rerank-2.5"
     GLM_EMBEDDING_MODEL: str = "embedding-3"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"
     EMBEDDING_DIMENSIONS: int = 1024
     VOYAGE_OUTPUT_DIMENSION: int = 1024
+    # rerank 开关：false 时 deps.reranker=None，rerank 节点退回 RRF/fused 排序（不调
+    # 任何 rerank 上游）。给没有 Voyage / 任何 rerank 供应商的部署用。
+    RERANK_ENABLED: bool = True
 
     # === Tavily ===
     TAVILY_API_KEY: SecretStr = SecretStr("")
@@ -197,6 +204,15 @@ class Settings(BaseSettings):
     def database_url_sync(self) -> str:
         """同步 driver URL（alembic / sqlite 单测用），把 +asyncpg 换成默认 psycopg。"""
         return self.DATABASE_URL.replace("+asyncpg", "")
+
+    @property
+    def embedding_model(self) -> str:
+        """当前 provider 对应的 embedding 模型名（query 编码 + ingestion 对齐用）。"""
+        return {
+            "voyage": self.VOYAGE_EMBEDDING_MODEL,
+            "glm": self.GLM_EMBEDDING_MODEL,
+            "openai": self.OPENAI_EMBEDDING_MODEL,
+        }[self.EMBEDDING_PROVIDER]
 
     @property
     def qdrant_collection(self) -> str:

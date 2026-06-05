@@ -66,7 +66,11 @@ class AgentDeps:
         litellm = LiteLLMClient(settings=s)
         dense = DenseRetriever.from_env(embedder=litellm, settings=s)
         sparse = SparseRetriever.from_env(settings=s)
-        reranker = Reranker.from_env(litellm_client=litellm, settings=s)
+        # RERANK_ENABLED=false → reranker 置 None；rerank 节点对 None 已有降级
+        # （退回 fused/RRF 排序，不调任何 rerank 上游）。给无 Voyage 的部署用。
+        reranker = (
+            Reranker.from_env(litellm_client=litellm, settings=s) if s.RERANK_ENABLED else None
+        )
         cache = RetrievalCache(settings=s)
         # summary 缓存用独立 redis 句柄（decode_responses=True，与 history_compactor
         # 期望的 str 值一致）；连不上不阻塞——compact_history 对 get/setex 异常已降级。
