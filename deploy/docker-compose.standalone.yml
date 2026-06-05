@@ -70,8 +70,10 @@ services:
     restart: unless-stopped
 
   # 自带 Qdrant（dev/prod 复用宿主，standalone 自起）。
+  # 版本 ≥ 生产侧（1.17.1）：发布的索引 snapshot 由 1.17.x 产出，旧版 Qdrant 无法 recover
+  # 新版 snapshot 格式，故这里与生产对齐，保证 scripts/bootstrap-index.sh 能恢复。
   qdrant:
-    image: qdrant/qdrant:v1.12.4
+    image: qdrant/qdrant:v1.17.1
     container_name: tgpp-qdrant
     volumes:
       - tgpp-qdrant:/qdrant/storage

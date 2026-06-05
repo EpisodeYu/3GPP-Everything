@@ -22,6 +22,8 @@ frontend/android/.gradle/
 deploy/litellm/.env
 deploy/litellm/config.yaml
 backups/
+# 索引发布/恢复的本地大产物（export-index / bootstrap-index 输出，~4G）
+dist/
 *.log
 # repo-root /data 是 HF 缓存 / 索引中间产物挂载点；前面加 / 锚定只匹配根，
 # 不误伤 Flutter `frontend/lib/data/` / `frontend/test/data/`（M5.0 漏 commit 的根因）。

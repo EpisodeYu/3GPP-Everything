@@ -51,7 +51,14 @@
 - **T1.3** 清掉 `~/infra/ingress/` 私有引用：README 生产部署段明确标注"ingress 为 maintainer 私有，外部部署请自备反代"，或抽一份最小 nginx+certbot 到 `deploy/ingress/`。
 - **验收**：在一台**无任何宿主依赖**的干净机器上 `docker compose -f deploy/docker-compose.standalone.yml up` → `/health` 200、`/ready` 4 依赖联通（数据为空可接受，阶段二补）。
 
-### 阶段二：让用户拿到数据（解 P1-1）— 价值最高
+### 阶段二：让用户拿到数据（解 P1-1）— 🔨 工具已交付（2026-06-05），待发布
+
+> 决策：渠道 = **HuggingFace Datasets**；repo = `EpisodeYu/3gpp-everything-index`。
+> 交付：`scripts/export-index.sh`（产 bundle）、`scripts/bootstrap-index.sh`（一键恢复+校验）、
+> `scripts/publish-index-hf.sh`（人执行的上传，带 PUBLISH 确认门）、`deploy/index/README.md`、
+> README 索引侧加"选项 A 拉现成索引"、standalone qdrant 钉版升 `v1.17.1`（对齐生产，保证 snapshot 可 recover）。
+> 已验证：三脚本 bash 语法、**PG dump 白名单零用户表泄漏**（只 chunks_meta+glossary）、qdrant snapshot 端点可达。
+> 未跑：完整 export(~4G)→bootstrap E2E 与 HF 上传/下载往返（需人发布 + 干净机器，见 §3 剩余风险）。
 
 > **前置（归人）**：确认 GSMA/3GPP 数据集授权允许再分发派生的 embedding 向量 + 原文片段。人已认领"可发布，我来确认授权"。授权未落实前不执行本阶段的对外上传动作。
 
