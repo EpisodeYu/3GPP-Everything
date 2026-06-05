@@ -129,6 +129,12 @@ class AuthApi {
     return Me.fromJson(resp.data!);
   }
 
+  /// users 表是否为空（决定登录页是否显示"创建管理员"面板）。无需鉴权，走 public dio。
+  Future<bool> bootstrapStatus() async {
+    final resp = await dioPublic.get<Map<String, dynamic>>('/auth/bootstrap-status');
+    return (resp.data?['needs_bootstrap'] as bool?) ?? false;
+  }
+
   AuthException _toAuthException(DioException e) {
     final data = e.response?.data;
     if (data is Map<String, dynamic>) {
@@ -145,4 +151,14 @@ final authApiProvider = Provider<AuthApi>((ref) {
     dio: ref.watch(dioProvider),
     dioPublic: ref.watch(dioPublicProvider),
   );
+});
+
+/// 登录页用：是否需要 bootstrap（users 表为空）。取不到状态时默认 false（隐藏面板）——
+/// 已初始化的部署（绝大多数访客场景）稳妥地不显示死入口。
+final bootstrapStatusProvider = FutureProvider<bool>((ref) async {
+  try {
+    return await ref.watch(authApiProvider).bootstrapStatus();
+  } on Object {
+    return false;
+  }
 });

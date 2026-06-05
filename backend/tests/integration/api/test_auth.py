@@ -35,6 +35,22 @@ async def _login(client: Any, username: str, password: str) -> dict[str, Any]:
     return res.json()
 
 
+# === bootstrap-status ===
+
+
+async def test_bootstrap_status_true_when_empty_then_false(client: Any) -> None:
+    """登录页据此隐藏建管理员面板：空库 needs_bootstrap=true，建完管理员后变 false。"""
+    res = await client.get("/api/v1/auth/bootstrap-status")
+    assert res.status_code == 200, res.text
+    assert res.json() == {"needs_bootstrap": True}
+
+    await _bootstrap_admin(client)
+
+    res2 = await client.get("/api/v1/auth/bootstrap-status")
+    assert res2.status_code == 200
+    assert res2.json() == {"needs_bootstrap": False}
+
+
 # === bootstrap-admin ===
 
 

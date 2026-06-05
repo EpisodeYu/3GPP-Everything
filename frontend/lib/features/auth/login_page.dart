@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/l10n/app_localizations.dart';
+import '../../data/api/auth_api.dart';
 import '../../domain/auth/auth_controller.dart';
 import '../../domain/auth/auth_state.dart';
 
@@ -105,15 +106,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           )
                         : Text(t.loginSubmit),
                   ),
-                  const SizedBox(height: 24),
-                  _BootstrapPanel(
-                    isOpen: _bootstrapOpen,
-                    onToggle: () =>
-                        setState(() => _bootstrapOpen = !_bootstrapOpen),
-                    inviteCodeController: _inviteCode,
-                    loading: loading,
-                    onSubmit: _onBootstrap,
-                  ),
+                  // 仅在「未初始化」（users 表为空）的部署显示创建管理员面板；
+                  // 已有用户的部署（含本线上站）隐藏该死入口。取不到状态 → 隐藏。
+                  ref.watch(bootstrapStatusProvider).maybeWhen(
+                        data: (needsBootstrap) => needsBootstrap
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 24),
+                                child: _BootstrapPanel(
+                                  isOpen: _bootstrapOpen,
+                                  onToggle: () => setState(
+                                      () => _bootstrapOpen = !_bootstrapOpen),
+                                  inviteCodeController: _inviteCode,
+                                  loading: loading,
+                                  onSubmit: _onBootstrap,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                        orElse: () => const SizedBox.shrink(),
+                      ),
                 ],
               ),
             ),

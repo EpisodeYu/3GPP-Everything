@@ -41,7 +41,8 @@
 
 | 资源 | 方法 | 路径 | 说明 |
 |------|------|------|------|
-| **Auth** | POST | `/api/v1/auth/bootstrap-admin` | 首次部署时创建第一个管理员（只能执行一次） |
+| **Auth** | GET | `/api/v1/auth/bootstrap-status` | `users` 表是否为空（登录页据此决定是否显示建管理员面板）；无需鉴权，只回布尔 |
+|  | POST | `/api/v1/auth/bootstrap-admin` | 首次部署时创建第一个管理员（只能执行一次） |
 |  | POST | `/api/v1/auth/login` | 用户名/密码登录 → 签发 access + refresh token |
 |  | POST | `/api/v1/auth/refresh` | 刷新 JWT |
 |  | POST | `/api/v1/auth/logout` | 撤销当前 refresh token |

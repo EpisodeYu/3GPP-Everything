@@ -21,6 +21,12 @@ class BootstrapAdminBody(BaseModel):
     invite_code: SecretStr
 
 
+class BootstrapStatusResponse(BaseModel):
+    """`GET /auth/bootstrap-status`：users 表是否为空（登录页据此决定是否显示建管理员面板）。"""
+
+    needs_bootstrap: bool
+
+
 class LoginBody(BaseModel):
     """`POST /auth/login`。"""
 

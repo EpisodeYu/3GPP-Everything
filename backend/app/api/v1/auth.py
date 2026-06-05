@@ -43,6 +43,7 @@ from app.db.base import get_db
 from app.db.models import RefreshToken, User
 from app.schemas.auth import (
     BootstrapAdminBody,
+    BootstrapStatusResponse,
     LoginBody,
     LogoutBody,
     MeResponse,
@@ -77,6 +78,19 @@ async def _issue_token_pair(db: AsyncSession, *, user: User, settings: Settings)
         refresh_token=refresh,
         expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
+
+
+@router.get("/bootstrap-status", response_model=BootstrapStatusResponse)
+async def bootstrap_status(
+    db: AsyncSession = Depends(get_db),
+) -> BootstrapStatusResponse:
+    """登录页用：users 表是否为空（决定是否显示"首次部署？创建管理员"面板）。无需鉴权。
+
+    只暴露一个布尔，不泄露用户数/任何用户信息；该状态本就可由 bootstrap-admin 的
+    409/401 推断，故不构成新增信息泄露。
+    """
+    count = (await db.execute(select(func.count()).select_from(User))).scalar_one()
+    return BootstrapStatusResponse(needs_bootstrap=count == 0)
 
 
 @router.post(

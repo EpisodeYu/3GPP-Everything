@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tgpp/data/api/auth_api.dart';
 import 'package:tgpp/domain/auth/auth_controller.dart';
 import 'package:tgpp/domain/auth/auth_state.dart';
 import 'package:tgpp/features/auth/login_page.dart';
@@ -45,18 +46,24 @@ class _FakeAuthController extends AuthController {
   }
 }
 
-Future<_FakeAuthController> _pumpLogin(WidgetTester tester) async {
+Future<_FakeAuthController> _pumpLogin(
+  WidgetTester tester, {
+  bool needsBootstrap = true,
+}) async {
   final fake = _FakeAuthController();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         authControllerProvider.overrideWith(() => fake),
+        bootstrapStatusProvider.overrideWith((ref) async => needsBootstrap),
       ],
       child: localizedMaterialApp(home: const LoginPage()),
     ),
   );
   // AsyncNotifier 初始 state 是 AsyncLoading，build() 在 microtask 完成后才切到
-  // AsyncData(AuthAnonymous)。多 pump 一次保证按钮 enabled。
+  // AsyncData(AuthAnonymous)；bootstrapStatusProvider(FutureProvider) 同样要 microtask
+  // 落到 data。pump 两次让两者都 settle（按钮 enabled + 面板按 needsBootstrap 显示）。
+  await tester.pump();
   await tester.pump();
   return fake;
 }
@@ -70,6 +77,14 @@ void main() {
     expect(find.byKey(const Key('login_submit')), findsOneWidget);
     expect(find.byKey(const Key('bootstrap_toggle')), findsOneWidget);
     expect(find.byKey(const Key('bootstrap_invite')), findsNothing);
+  });
+
+  testWidgets('已初始化（needsBootstrap=false）时隐藏创建管理员面板', (tester) async {
+    await _pumpLogin(tester, needsBootstrap: false);
+
+    // 登录表单仍在，但 bootstrap 入口被隐藏
+    expect(find.byKey(const Key('login_username')), findsOneWidget);
+    expect(find.byKey(const Key('bootstrap_toggle')), findsNothing);
   });
 
   testWidgets('空字段提交不会调用 login', (tester) async {
