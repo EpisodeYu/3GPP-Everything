@@ -35,6 +35,11 @@ maintainer 侧                                          终端用户侧
 HF_TOKEN=hf_xxx ./scripts/publish-index-hf.sh ./dist/index-<ts>
 ```
 
+> 🔧 **上传卡死兜底**：huggingface_hub 默认走 Xet 后端。低配机器上 hf_xet 可能挂死
+> （`pre-uploaded` 长时间停在 0 字节、进程低 CPU）。此时加 `NO_XET=1` 改走经典 LFS：
+> `NO_XET=1 HF_TOKEN=hf_xxx ./scripts/publish-index-hf.sh ./dist/index-<ts>`。
+> 不要叠加 `HF_XET_HIGH_PERFORMANCE=1`（低配机更易触发卡死）。
+
 > ⚠️ **版权 / 对外发布**：发布即公开，数据可能被第三方缓存/索引，事后删除难完全收回。
 > 发布前必须确认 **3GPP/GSMA 数据集授权允许再分发派生的 embedding 向量 + 原文片段**。
 > `publish-index-hf.sh` 带一道 `PUBLISH` 确认门，但合规判断在人。

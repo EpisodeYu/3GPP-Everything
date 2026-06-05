@@ -11,11 +11,20 @@
 # 依赖：huggingface_hub（已在 ingestion uv 环境里，本脚本用 `uv run --project ingestion`）。
 # 鉴权：HF_TOKEN 环境变量，或事先 `huggingface-cli login`（写 token）。需对目标 repo 有写权限。
 #
+# ★ hf_xet 卡死兜底：huggingface_hub 默认走 Xet 后端上传大文件。实测在低配机器
+#   （2 核 / 小内存）上 hf_xet 可能挂死（pre-uploaded 长时间停在 0 字节、进程低 CPU、
+#   连接 Send-Q 不动）。此时设 NO_XET=1 改走经典 LFS 即可（更稳，略慢）。
+#   ⚠️ 不要叠加 HF_XET_HIGH_PERFORMANCE=1，它在低配机上更易触发卡死。
+#
 # 用法：
 #   HF_TOKEN=hf_xxx ./scripts/publish-index-hf.sh ./dist/index-<ts>
 #   HF_REPO=EpisodeYu/3gpp-everything-index HF_TOKEN=hf_xxx ./scripts/publish-index-hf.sh ./dist/index-<ts>
+#   NO_XET=1 HF_TOKEN=hf_xxx ./scripts/publish-index-hf.sh ./dist/index-<ts>   # 上传卡死时改走 LFS
 
 set -euo pipefail
+
+# hf_xet 卡死时的兜底开关：NO_XET=1 → 禁用 Xet 走经典 LFS。
+[[ "${NO_XET:-}" == "1" ]] && export HF_HUB_DISABLE_XET=1 && echo "[publish] NO_XET=1 → 走经典 LFS 上传"
 
 BUNDLE_DIR="${1:-}"
 HF_REPO="${HF_REPO:-EpisodeYu/3gpp-everything-index}"
