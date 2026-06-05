@@ -1,0 +1,195 @@
+# tgpp standalone compose —— 零宿主依赖的单机自托管全栈。
+#
+# 锚：docs/03-development/01-infrastructure.md §2.5（本文件即该节预留的 standalone）
+#     docs/04-handoff/2026-06-05-oss-deploy-friendliness-plan.md（P0）
+#
+# 与 dev (docker-compose.yml) / prod (docker-compose.prod.yml) 的本质区别：
+#   - dev/prod 把 Qdrant + LiteLLM 当作「宿主已运行的复用实例」，通过 external network
+#     (p2-rag-assistant_default / litellm_default) 用容器名访问 —— 那是 maintainer 自己
+#     机器上的私有服务，外部用户 clone 下来没有这两个网络，`up` 直接报 network not found。
+#   - 本文件把 qdrant + litellm **也搬进 compose**，全部挂在自家 tgpp-net 上，
+#     **不依赖任何 external network、不依赖任何宿主已运行服务**。一条命令起整个栈。
+#
+# 用法（外部用户从零自托管的推荐路径）：
+#   1. cp .env.example .env                      # 填 APP_SECRET_KEY / *_PASSWORD / LITELLM_API_KEY
+#   2. cp deploy/litellm/config.yaml.example deploy/litellm/config.yaml
+#      cp deploy/litellm/.env.example         deploy/litellm/.env   # 填上游模型 key + master_key
+#      （LITELLM_MASTER_KEY 必须与项目 .env 的 LITELLM_API_KEY 一致，见 deploy/litellm/README.md）
+#   3. make standalone-up                         # 起 api + qdrant + litellm + pg + redis
+#   4. curl 127.0.0.1:8002/ready                  # 4 依赖全绿（此时索引为空，灌数据见阶段二）
+#   5.（可选 Web UI）make web-build && \
+#      docker compose -f deploy/docker-compose.standalone.yml --profile web up -d web
+#
+# 注意：与 dev/prod 同名容器（tgpp-api 等），三者不可同时跑。切换前先 down 另一套。
+
+name: tgpp
+
+services:
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: tgpp-api:standalone
+    container_name: tgpp-api
+    env_file: ../.env
+    # 覆盖 .env 里的 host.docker.internal 写法：standalone 下 qdrant / litellm 是本
+    # compose 内部服务，用 compose DNS 的服务名直连即可。
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      LITELLM_BASE_URL: http://litellm:4000/v1
+    ports:
+      - "8002:8002"
+    volumes:
+      # 索引数据：BM25 jsonl / 原始 markdown / 中间产物。索引为空也得有挂载点。
+      - ${INGEST_DATA_DIR:-./data}:/data/tgpp
+    networks: [tgpp-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      litellm:
+        condition: service_started
+    # 去掉 Dockerfile 默认的 --reload（standalone 不挂源码 volume，无需热重载）。
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002", "--workers", "1"]
+    healthcheck:
+      # backend 镜像基于 python:3.11-slim，没装 curl；用 python urllib（与 prod 一致）。
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health',timeout=3).status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # BM25 启动加载（满量索引时 ~36s），留足 90s；空索引会更快。
+      start_period: 90s
+    restart: unless-stopped
+
+  # 自带 Qdrant（dev/prod 复用宿主，standalone 自起）。
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: tgpp-qdrant
+    volumes:
+      - tgpp-qdrant:/qdrant/storage
+    # dev 调试方便：暴露到宿主回环；纯容器互访其实不需要 publish。
+    ports:
+      - "127.0.0.1:6333:6333"
+    networks: [tgpp-net]
+    restart: unless-stopped
+
+  # 自带 LiteLLM proxy（dev/prod 复用宿主，standalone 自起）。
+  # 所有 LLM/embedding/rerank 经此 OpenAI 兼容 endpoint 转发到上游；切模型只改
+  # deploy/litellm/config.yaml，业务代码不动。上游 key 在 deploy/litellm/.env。
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable  # 可 pin 具体版本，如 :v1.55.8
+    container_name: tgpp-litellm
+    env_file: ./litellm/.env
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
+    ports:
+      - "127.0.0.1:4000:4000"
+    networks: [tgpp-net]
+    healthcheck:
+      # litellm 镜像基于 python，用 urllib 探 /health/liveliness（与 /ready 探针同路径）。
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness',timeout=3).status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: tgpp-postgres
+    env_file: ../.env
+    environment:
+      POSTGRES_DB: tgpp_everything
+      POSTGRES_USER: tgpp_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing in .env}
+    volumes:
+      - tgpp-pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "127.0.0.1:55432:5432"
+    networks: [tgpp-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tgpp_app -d tgpp_everything"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tgpp-redis
+    env_file: ../.env
+    command:
+      [
+        "redis-server",
+        "--appendonly", "no",
+        "--save", "",
+        "--requirepass", "${REDIS_PASSWORD:?missing in .env}"
+      ]
+    ports:
+      - "127.0.0.1:56379:6379"
+    networks: [tgpp-net]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Web UI：需先 host 上 `make web-build` 产出 frontend/build/web（M5.6：镜像不装 Flutter
+  # SDK）。因此走 profile，默认 `up` 不带它，核心栈不被前端构建阻塞。
+  #   make web-build && docker compose -f deploy/docker-compose.standalone.yml --profile web up -d web
+  web:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: tgpp-web:standalone
+    container_name: tgpp-web
+    ports:
+      - "8082:80"
+    networks: [tgpp-net]
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles: ["web"]
+    restart: unless-stopped
+
+  # 索引任务按需：docker compose -f deploy/docker-compose.standalone.yml --profile ingest run --rm ingest ...
+  ingest:
+    build:
+      context: ../ingestion
+      dockerfile: Dockerfile
+    image: tgpp-ingest:standalone
+    container_name: tgpp-ingest
+    env_file: ../.env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      LITELLM_BASE_URL: http://litellm:4000/v1
+    volumes:
+      - ${INGEST_DATA_DIR:-./data}:/data/tgpp
+    networks: [tgpp-net]
+    profiles: ["ingest"]
+
+volumes:
+  tgpp-pgdata:
+  tgpp-qdrant:
+
+networks:
+  # 唯一网络，纯自家 bridge。注意：没有任何 external network —— 这正是 standalone
+  # 与 dev/prod 的关键区别，保证零宿主依赖。
+  tgpp-net:
+    driver: bridge

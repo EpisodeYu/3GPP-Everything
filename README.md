@@ -250,19 +250,34 @@ flowchart LR
 
 ## 快速开始（本地自托管）
 
+> **零宿主依赖**：standalone 把 Qdrant / LiteLLM / PostgreSQL / Redis **全部打进
+> compose**，clone 下来一条命令起整个栈，不需要机器上预先跑任何服务。
+> （若你已有现成的宿主 Qdrant / LiteLLM 想复用，走 `make dev`，见末尾「复用宿主服务」。）
+
 ```bash
-# 1. 准备
+# 1. 项目配置
 cp .env.example .env
-# 编辑 .env 填入 HF_TOKEN、VOYAGE_API_KEY、LITELLM_*、QDRANT_*、PG_*、REDIS_*、LANGFUSE_* 等
+# 编辑 .env：APP_SECRET_KEY（openssl rand -hex 32）、POSTGRES_PASSWORD、
+#            REDIS_PASSWORD、LITELLM_API_KEY（与下一步的 master key 一致）
 
-# 2. 启动 dev compose（复用宿主已有 Qdrant / PostgreSQL / Redis / LiteLLM）
-make dev          # 或: docker compose -f deploy/docker-compose.yml up --build
+# 2. LiteLLM proxy 配置（接你自己的模型上游；详见 deploy/litellm/README.md）
+cp deploy/litellm/config.yaml.example deploy/litellm/config.yaml
+cp deploy/litellm/.env.example         deploy/litellm/.env
+# 编辑 deploy/litellm/.env：LITELLM_MASTER_KEY（= 项目 .env 的 LITELLM_API_KEY）+ 上游 key
+# config.yaml 默认国产栈（mimo + voyage）；国际用户可改用内置的 OpenAI 栈
 
-# 3. 后端健康检查
+# 3. 起全栈（api + qdrant + litellm + pg + redis）
+make standalone-up
+
+# 4. 健康检查
 curl http://127.0.0.1:8002/health   # liveness
-curl http://127.0.0.1:8002/ready    # 4 依赖（PG/Qdrant/Redis/LiteLLM）联通性
+curl http://127.0.0.1:8002/ready    # 4 依赖（PG/Qdrant/Redis/LiteLLM）全绿
 
-# ── 索引侧 ──────────────────────────────────────────────
+# 5.（可选）Web UI —— 需先 host 上构建前端静态产物（镜像不含 Flutter SDK）
+make web-build
+docker compose -f deploy/docker-compose.standalone.yml --profile web up -d web   # → http://127.0.0.1:8082
+
+# ── 索引侧（此时索引为空，需自行摄取；预建索引发布见 roadmap）──────────
 uv run --project ingestion python -m ingestion.cli pull-manifest
 uv run --project ingestion python -m ingestion.cli pipeline-hf --spec-id 38.331
 uv run --project ingestion python -m ingestion.cli index-status --provider voyage
@@ -276,9 +291,26 @@ make lint                          # ruff + black + mypy
 make test                          # unit + integration
 ```
 
+<details>
+<summary><b>复用宿主服务（<code>make dev</code>）</b></summary>
+
+如果你的机器上已经跑着 Qdrant / LiteLLM（如多项目共享一套），用 `make dev`：它只起
+业务容器 + 项目专属 PG/Redis，通过 external network 用容器名连宿主的 Qdrant / LiteLLM。
+**注意**：`deploy/docker-compose.yml` 里的 external network 名（`p2-rag-assistant_default`
+/ `litellm_default`）是按 maintainer 环境写的，复用前需改成你自己宿主上 Qdrant /
+LiteLLM 所在的 compose network 名。一般自托管直接用上面的 standalone 更省事。
+
+</details>
+
 ## 生产部署
 
-业务容器只跑 `api + web + ingest`；80/443 + TLS + Let's Encrypt + 跨项目分流抽离到独立 ingress 项目（`~/infra/ingress/`）。PostgreSQL / Redis 本项目自带（`tgpp-postgres` / `tgpp-redis`）；Qdrant + LiteLLM 复用宿主已运行实例。
+> ⚠️ 下面这套是 **maintainer 自己的生产拓扑**：业务容器（`api + web + ingest`）跑在
+> `docker-compose.prod.yml`，而 80/443 + TLS + Let's Encrypt + 跨项目分流抽到一个**独立的
+> 私有 ingress 项目（`~/infra/ingress/`，不在本仓库内）**。Qdrant + LiteLLM 复用宿主已运行实例。
+> **外部用户不要照抄 `~/infra/ingress/` 那几步**（你没有那个项目）——
+> 自托管上生产请用上文的 **standalone**（它直接 publish `8002`/`8082`，前面**自备任意反代**
+> （Nginx / Caddy / Traefik）做 TLS 即可），无需本项目的私有 ingress。下面的步骤仅供
+> maintainer 同款环境复现参考。
 
 ```bash
 # 1. 拉代码 + .env（ALLOWED_ORIGINS 追加 https://<DOMAIN>）

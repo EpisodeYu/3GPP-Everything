@@ -1,4 +1,5 @@
 .PHONY: help dev lint test test-unit test-int eval eval-daily eval-weekly down ingest-poc fmt \
+        standalone-up standalone-down standalone-logs \
         web-deps web-analyze web-test web-smoke web-smoke-chrome web-run web-build web-docker apk-build \
         check-openapi-diff \
         prod-up prod-down prod-restart prod-logs prod-build prod-deploy prod-health \
@@ -12,6 +13,22 @@ dev:                      ## 启动后端 + 前端容器（dev 模式）
 
 down:                     ## 停掉并清理 dev 容器
 	docker compose --env-file .env -f deploy/docker-compose.yml down
+
+# ----- standalone（零宿主依赖的单机自托管：自带 qdrant + litellm + pg + redis）-----
+# 锚：deploy/docker-compose.standalone.yml + deploy/litellm/README.md
+# 前置：cp .env.example .env；cp deploy/litellm/{config.yaml,.env}.example 去掉 .example 并填值。
+STANDALONE_COMPOSE := docker compose --env-file .env -f deploy/docker-compose.standalone.yml
+
+standalone-up:            ## 起自托管全栈（api+qdrant+litellm+pg+redis）；Web 另用 --profile web
+	$(STANDALONE_COMPOSE) up --build -d
+	@echo "✓ standalone 已起。探活: curl 127.0.0.1:8002/ready"
+	@echo "  Web UI（可选）: make web-build && $(STANDALONE_COMPOSE) --profile web up -d web"
+
+standalone-down:          ## 停掉 standalone 全栈（保留数据卷）
+	$(STANDALONE_COMPOSE) down
+
+standalone-logs:          ## 跟随 standalone 日志
+	$(STANDALONE_COMPOSE) logs -f --tail=200
 
 lint:                     ## ruff + black --check + mypy
 	cd backend && uv run ruff check . && uv run black --check . && uv run mypy app

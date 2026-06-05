@@ -18,6 +18,9 @@ frontend/android/.gradle/
 .env
 .env.local
 .env.bak.*
+# standalone 的 litellm 实配（含上游 key）；只入库 .example
+deploy/litellm/.env
+deploy/litellm/config.yaml
 backups/
 *.log
 # repo-root /data 是 HF 缓存 / 索引中间产物挂载点；前面加 / 锚定只匹配根，

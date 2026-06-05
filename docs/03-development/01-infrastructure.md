@@ -190,6 +190,12 @@ HF_TOKEN=                          # 可选；公开 dataset 匿名可读，带 
 ### 2.5 Docker Compose 框架
 
 > 2026-05-27 update：dev / prod compose 均**自带** `postgres` + `redis`，对称结构；Qdrant + LiteLLM 仍复用宿主（attach 外部 network）。完整内容直接看 `deploy/docker-compose.yml`（dev）与 `deploy/docker-compose.prod.yml`（prod），本文不再镜像粘贴避免漂移。
+>
+> 2026-06-05 update（开源友好度 P0）：新增第三套 `deploy/docker-compose.standalone.yml`，
+> **把 Qdrant + LiteLLM 也搬进 compose**，零宿主依赖、无任何 external network，供外部用户
+> clone 即起。三套 compose 同名容器（`tgpp-*`），互斥不可同时跑。LiteLLM 上游配置见
+> `deploy/litellm/`（`config.yaml.example` + `.env.example` + `README.md`）。详见
+> `docs/04-handoff/2026-06-05-oss-deploy-friendliness-plan.md`。
 
 关键 service 一览：
 
@@ -201,13 +207,15 @@ HF_TOKEN=                          # 可选；公开 dataset 匿名可读，带 
 | `postgres` | `tgpp-postgres`，`postgres:16-alpine`；`127.0.0.1:55432:5432` 暴露宿主回环 | `tgpp-postgres`，仅 `expose: 5432`（仅 compose 内可达） |
 | `redis` | `tgpp-redis`，`redis:7-alpine`；`127.0.0.1:56379:6379` 暴露宿主回环 | `tgpp-redis`，仅 `expose: 6379` |
 
-外部网络：
+外部网络（**仅 dev / prod**；standalone 无任何 external network）：
 
 - `qdrant-net`（`name: p2-rag-assistant_default`）：让 api/ingest 用容器名访问宿主 Qdrant
 - `litellm-net`（`name: litellm_default`）：同上访问 LiteLLM
 - 已**移除** `dangdang-net` 引用（2026-05-27 解耦决议）
 
-> Qdrant / LiteLLM 仍复用宿主；如未来要把它们也迁进项目，加 `deploy/docker-compose.standalone.yml` 即可。
+> dev / prod 复用宿主 Qdrant / LiteLLM（external network）；**standalone** 把它们也搬进
+> compose（service `qdrant` + `litellm`，挂在自家 `tgpp-net`），故 standalone 不引用任何
+> external network——这是它能在干净机器上零依赖起栈的关键。
 
 ### 2.6 Python 工程化
 

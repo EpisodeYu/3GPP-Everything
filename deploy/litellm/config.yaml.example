@@ -1,0 +1,54 @@
+# LiteLLM proxy 配置样例 —— standalone 自托管用。
+#
+# 用法：cp config.yaml.example config.yaml，按需启用其中一套 model stack。
+# 上游 API key 不写死在这里，统一用 os.environ/<VAR> 引用，值放 deploy/litellm/.env。
+#
+# ★ 关键契约：这里的 `model_name` 必须与项目根 .env 里 LLM_*/VOYAGE_*/EMBEDDING_*
+#   引用的模型名**一一对应**。业务代码（backend/ingestion）只认这些名字，由本文件
+#   把它们映射到真实上游。换上游 = 只改本文件 + deploy/litellm/.env，业务零改动。
+
+model_list:
+  # ============================================================================
+  # 栈 A：国产栈（与项目 .env 的默认值对齐，开箱即用，无需改 .env 的 LLM_*）
+  #   需要：小米 MiMo（OpenAI 兼容）+ Voyage 的 key，填到 deploy/litellm/.env
+  # ============================================================================
+  - model_name: mimo-v2.5-pro          # .env LLM_AGENT_MODEL
+    litellm_params:
+      model: openai/mimo-v2.5-pro       # MiMo 是 OpenAI 兼容 endpoint，用 openai/ 前缀
+      api_base: os.environ/MIMO_API_BASE
+      api_key: os.environ/MIMO_API_KEY
+  - model_name: mimo-v2.5              # .env LLM_LIGHT_MODEL / LLM_VISION_MODEL
+    litellm_params:
+      model: openai/mimo-v2.5
+      api_base: os.environ/MIMO_API_BASE
+      api_key: os.environ/MIMO_API_KEY
+  - model_name: voyage-4-large         # .env VOYAGE_EMBEDDING_MODEL（dense 检索）
+    litellm_params:
+      model: voyage/voyage-4-large
+      api_key: os.environ/VOYAGE_API_KEY
+  - model_name: rerank-2.5             # .env VOYAGE_RERANK_MODEL（rerank 透传）
+    litellm_params:
+      model: voyage/rerank-2.5
+      api_key: os.environ/VOYAGE_API_KEY
+
+  # ============================================================================
+  # 栈 B：OpenAI 栈（国际用户推荐）。取消下面注释，并相应改项目 .env：
+  #   LLM_AGENT_MODEL=gpt-4o
+  #   LLM_LIGHT_MODEL=gpt-4o-mini
+  #   LLM_VISION_MODEL=gpt-4o
+  #   embedding 默认仍走 Voyage（EMBEDDING_PROVIDER 放开见 P1-2，本阶段不动）。
+  #   只填 deploy/litellm/.env 的 OPENAI_API_KEY。
+  # ============================================================================
+  # - model_name: gpt-4o
+  #   litellm_params:
+  #     model: openai/gpt-4o
+  #     api_key: os.environ/OPENAI_API_KEY
+  # - model_name: gpt-4o-mini
+  #   litellm_params:
+  #     model: openai/gpt-4o-mini
+  #     api_key: os.environ/OPENAI_API_KEY
+
+# proxy 自身鉴权：业务用项目 .env 的 LITELLM_API_KEY 作 Bearer token 访问本 proxy，
+# 该值必须等于这里的 master_key（来自 deploy/litellm/.env 的 LITELLM_MASTER_KEY）。
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
