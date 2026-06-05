@@ -248,53 +248,97 @@ flowchart LR
 
 
 
-## 快速开始（本地自托管）
+## 快速开始（自托管完整指南）
 
 > **零宿主依赖**：standalone 把 Qdrant / LiteLLM / PostgreSQL / Redis **全部打进
-> compose**，clone 下来一条命令起整个栈，不需要机器上预先跑任何服务。
+> compose**，clone 下来一条命令起整栈，机器上无需预先跑任何服务。
 > （若你已有现成的宿主 Qdrant / LiteLLM 想复用，走 `make dev`，见末尾「复用宿主服务」。）
 
+### 前置要求
+
+- **Docker** + **Docker Compose v2**（`docker compose version` 可用）
+- **内存 ≥ 4G**（满量索引时 Qdrant 约 ~1.7G + api ~600M；想跑评测建议 ≥ 6G）
+- **磁盘 ≥ 15G 空闲**（镜像 + 索引 snapshot 2.2G + BM25 + Qdrant 数据）
+- 拉现成索引需能访问 **huggingface.co**
+- 至少一套**模型上游 key**：生成 LLM（OpenAI / 小米 MiMo / 任意 OpenAI 兼容）；embedding/rerank 可选（见步骤 4 兼容性）
+- （可选 Web UI）host 上装 **Flutter SDK**（镜像不含，见步骤 6）
+
+### 部署步骤
+
 ```bash
+# 0. 拉代码
+git clone https://github.com/EpisodeYu/3GPP-Everything && cd 3GPP-Everything
+
 # 1. 项目配置
 cp .env.example .env
-# 编辑 .env：APP_SECRET_KEY（openssl rand -hex 32）、POSTGRES_PASSWORD、
-#            REDIS_PASSWORD、LITELLM_API_KEY（与下一步的 master key 一致）
+# 必填：
+#   APP_SECRET_KEY               openssl rand -hex 32
+#   POSTGRES_PASSWORD            任意强密码
+#   REDIS_PASSWORD               任意强密码
+#   LITELLM_API_KEY              = 下一步 deploy/litellm/.env 的 LITELLM_MASTER_KEY
+#   BOOTSTRAP_ADMIN_INVITE_CODE  首个管理员注册码（创建后清空/轮换；见步骤 5）
+# 国际用户用 OpenAI 全套：再设 LLM_AGENT_MODEL=gpt-4o / LLM_LIGHT_MODEL=gpt-4o-mini /
+#   LLM_VISION_MODEL=gpt-4o；embedding 想用 OpenAI 设 EMBEDDING_PROVIDER=openai，
+#   不接 rerank 设 RERANK_ENABLED=false（详见 .env.example 注释）
 
-# 2. LiteLLM proxy 配置（接你自己的模型上游；详见 deploy/litellm/README.md）
+# 2. LiteLLM proxy 配置（把上面的模型名映射到真实上游；详见 deploy/litellm/README.md）
 cp deploy/litellm/config.yaml.example deploy/litellm/config.yaml
 cp deploy/litellm/.env.example         deploy/litellm/.env
-# 编辑 deploy/litellm/.env：LITELLM_MASTER_KEY（= 项目 .env 的 LITELLM_API_KEY）+ 上游 key
-# config.yaml 默认国产栈（mimo + voyage）；国际用户可改用内置的 OpenAI 栈
+# 编辑 deploy/litellm/.env：LITELLM_MASTER_KEY（=项目 .env 的 LITELLM_API_KEY）+ 上游 key
+# 编辑 config.yaml：选国产栈（默认 mimo+voyage）或取消注释 OpenAI 栈
 
-# 3. 起全栈（api + qdrant + litellm + pg + redis）
+# 3. 起全栈，等就绪
 make standalone-up
+curl http://127.0.0.1:8002/ready    # 4 依赖（PG/Qdrant/Redis/LiteLLM）全绿即 OK（此时索引为空）
 
-# 4. 健康检查
-curl http://127.0.0.1:8002/health   # liveness
-curl http://127.0.0.1:8002/ready    # 4 依赖（PG/Qdrant/Redis/LiteLLM）全绿
+# 4. 拉现成索引（推荐；免从零 ingestion，省 Voyage 费用 + 数小时）
+./scripts/bootstrap-index.sh        # 默认 HF: EpisodeYu/3gpp-everything-index
+#   ⚠️ 索引按 voyage-4-large @1024 建；.env 的 EMBEDDING_PROVIDER/DIMENSIONS 须一致，
+#      否则 bootstrap 直接 abort（换 provider 得自建索引，见「自建索引」）。
+#      兼容性 / 离线用法见 deploy/index/README.md
 
-# 5.（可选）Web UI —— 需先 host 上构建前端静态产物（镜像不含 Flutter SDK）
-make web-build
+# 5. 起 Web UI（可选；需 host 先装 Flutter 再 build，镜像不含 SDK）
+FLUTTER=/path/to/flutter make web-build
 docker compose -f deploy/docker-compose.standalone.yml --profile web up -d web   # → http://127.0.0.1:8082
+```
 
-# ── 索引侧 ──────────────────────────────────────────────
-# 选项 A（推荐）：拉现成索引（395k chunks），免从零 ingestion（省 Voyage 费用 + 数小时）
-./scripts/bootstrap-index.sh                  # 默认 HF: EpisodeYu/3gpp-everything-index
-#   细节 / 兼容性约束见 deploy/index/README.md
+### 创建账号（首个管理员 → 其他用户）
 
-# 选项 B：从零摄取（需 Voyage key + 时间；想自建 / 增量更新时用）
+系统**不开放自助注册**，账号由管理员创建；首个管理员走 bootstrap：
+
+1. 打开 Web UI 登录页，展开 **「首次部署？创建管理员」**，填 `.env` 里的
+   `BOOTSTRAP_ADMIN_INVITE_CODE` → 创建首个管理员并登录。
+   （或直接打 API：`POST /api/v1/auth/bootstrap-admin`，body 含 `username/password/invite_code`）
+2. 之后由管理员在「用户管理」给其他人开账号。
+
+> bootstrap **仅在 users 表为空时有效**，已有用户后该入口一律返回 409。
+> 建议创建首个管理员后把 `BOOTSTRAP_ADMIN_INVITE_CODE` 清空或轮换。
+
+### 故障排查
+
+| 症状 | 处理 |
+|------|------|
+| `/ready` 某依赖红 | `make standalone-logs` 看日志；litellm 红多为 `config.yaml`/`.env` 的 key 名/master key 不一致（见 `deploy/litellm/README.md`）|
+| `bootstrap-index` 上传/下载卡在 0 字节 | hf_xet 在低配机卡死 → 加 `NO_XET=1`（publish 侧）或升级 `huggingface_hub`（见 `deploy/index/README.md`）|
+| bootstrap 报「不兼容」 | bundle 是 `voyage@1024`；`.env` 的 `EMBEDDING_PROVIDER`/`EMBEDDING_DIMENSIONS` 要一致，否则需自建索引 |
+| 登录页「创建管理员」总失败 | 已有用户（409）；或 `.env` 未设 `BOOTSTRAP_ADMIN_INVITE_CODE`（401）|
+| 端口/容器名冲突 | standalone 与 dev/prod 同名容器（`tgpp-*`），三者不可同跑；先 `make standalone-down` |
+
+<details>
+<summary><b>自建索引（替代步骤 4）/ 评测 / 测试</b></summary>
+
+```bash
+# 自建索引（需 Voyage key + 时间；想自建 / 增量更新 / 换 embedding provider 时用）
 uv run --project ingestion python -m ingestion.cli pull-manifest
-uv run --project ingestion python -m ingestion.cli pipeline-hf --spec-id 38.331
+uv run --project ingestion python -m ingestion.cli pipeline-hf --spec-id 38.331   # 单篇试跑
 uv run --project ingestion python -m ingestion.cli index-status --provider voyage
 
-# ── 评测侧 ──────────────────────────────────────────────
+# 评测 / 测试（开发用）
 uv run --project eval python -m eval.cli golden validate -f eval/golden/v1.yaml
-uv run --project eval python -m eval.cli golden stats    -f eval/golden/v1.yaml
-
-# ── 测试 / lint ─────────────────────────────────────────
-make lint                          # ruff + black + mypy
-make test                          # unit + integration
+make lint && make test
 ```
+
+</details>
 
 <details>
 <summary><b>复用宿主服务（<code>make dev</code>）</b></summary>
