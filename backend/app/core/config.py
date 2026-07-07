@@ -176,6 +176,21 @@ class Settings(BaseSettings):
     RETRIEVAL_MAPREDUCE_BUDGET: int = 12  # 轮转合并后总 chunk 数（喂 generate）
     RETRIEVAL_MAPREDUCE_CONCURRENCY: int = 3  # per-query rerank 并发上限（限 proxy 争用）
 
+    # === small2big 召回侧扩段（Issue #3）===
+    # rerank 之后、generate 之前的 expand 节点：命中小 chunk 按 parent_section_id 回扩
+    # 为整段 section 喂 LLM（small-to-big）；超阈值退化为命中块前后各 N 个兄弟块。
+    # 兄弟块顺序来自 PG chunks_meta（document_order），content 从 Qdrant 批量取。
+    # 默认 ON；A/B ablation 与 kill-switch 都靠这个开关。口径见 issue #3 方案。
+    SMALL2BIG_ENABLED: bool = True
+    # 退化触发：parent_section_chars 超过此值 → 不取整段，退回相邻 N 块窗口。
+    # 源自 docs/03-development/02-ingestion-and-indexing.md 召回侧约定（起步 50k）。
+    SMALL2BIG_MAX_SECTION_CHARS: int = 50000
+    # 退化窗口：命中块 document_order 前后各 N 个兄弟块（同 :461 起步 N=5）。
+    SMALL2BIG_NEIGHBOR_WINDOW: int = 5
+    # 跨块全局字符预算：按 rerank 名次累计扩段字符，超出后靠后的块不再扩（保留小块），
+    # 护住 generate prompt 的 token 成本 / 延迟。~24k 字符 ≈ 6k token；eval 可调。
+    SMALL2BIG_TOTAL_BUDGET_CHARS: int = 24000
+
     # === 检索缓存 key 前缀 ===
     CACHE_KEY_PREFIX: str = "tgpp:cache"
 

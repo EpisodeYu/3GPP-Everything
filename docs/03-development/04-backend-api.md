@@ -342,6 +342,15 @@ data: {"chunks":[{"chunk_id":"...","spec_id":"23.501","section_path":"5.6.1","pr
 event: node_end
 data: {"node":"rerank","duration_ms":420}
 
+event: node_start
+data: {"node":"expand"}
+
+event: chunks_expanded
+data: {"chunks":[{"chunk_id":"...","spec_id":"23.501","section_path":"5.6.1","section_title":"...","content":"<整段 section 文本>","degraded":false}, ...]}
+
+event: node_end
+data: {"node":"expand","duration_ms":80,"summary":{"expanded_count":3}}
+
 event: token
 data: {"delta":"PDU "}
 
@@ -364,6 +373,8 @@ data: {}
 > **2026-05-28 起 autotitle 与 agent 并发起跑**（`asyncio.create_task` 在 SSE 入口立即启动），主循环每次事件后 poll，title 通常在第一个 `token` 之前就到；agent 跑完时若 title 仍未好，2s 短超时兜底 + cancel，不阻塞 `end`。CancelledError 路径同步 cancel title task，避免后台 LLM 烧 token。DB 写仍在主 task 串行（AsyncSession 非 task-safe）。详见 `03-agent.md §7` 首轮自动标题说明。
 
 > **2026-05-28 起 `token` 事件改走 LangGraph custom event**：`generate.py` 用 `LiteLLMClient.chat_stream()` 拼 chunk，并通过 `adispatch_custom_event("token", {"delta": ...})` + writer 双通道 emit；SSE 路由的 `on_custom_event name=="token"` 透传给前端。原因：LangGraph `astream_events("v2")` 的 `on_chat_model_stream` 只识别 LangChain `BaseChatModel.astream`，自定义 httpx LiteLLMClient 走不到该路径，prod 表现为"等 final 一次性吐全文"。流式失败兜底回退到非流式 `chat()`（仍保 canned-graph 集成测）。
+
+> **2026-07 起 `chunks_expanded` 事件（small2big，Issue #3）**：`expand` 节点在 rerank 与 generate 之间把命中小块按 `parent_section_id` 回扩为整段 section，emit `chunks_expanded`（payload 同 chunks_rerank 形态 + `content`=整段 + `degraded`）。SSE 路由 `on_custom_event name in {chunks_hit, chunks_rerank, chunks_expanded}` 统一透传。`expand` 也进 `_NODE_NAMES` → 有 node_start/node_end（summary `expanded_count`）。前端未识别该 event 走 UnknownChatEvent 优雅忽略；`SMALL2BIG_ENABLED=false` 或无 parent 时 expand 透传，不发该事件。
 
 > **2026-05-31 reasoning 折叠框 + `node_progress` 事件**：`hyde.py` 同款改用 `LiteLLMClient.chat_stream()`，每个 chunk 通过 `adispatch_custom_event("node_progress", {"node":"hyde","delta":...})` + writer 双通道 emit；SSE 路由 `on_custom_event name=="node_progress"` 透传。前端 `ReasoningPanel` 在用户提问到首个 `token` 到达期间显示一个灰色折叠框，hyde 节点的 LLM 输出字符级流式刷新（其它 LLM 节点 thinking=disabled / 输出短，从 `node_end.summary` 一次性渲染人话）；首个 `token` 到达自动折叠成"已思考 X.Xs"。流式失败兜底走非流式 `chat()` 后一次性补一条 `node_progress`，UI 不至于空白。同次改动把 `_summary_for_node_end` 的 `rewrite` / `multi_query` summary 从 count 展开为 `rewritten_query` / `sub_queries` 原文，让前端 reasoning 文本能直接显示「改写为：…」「拆出 N 个子查询：…」。详见 `03-agent.md §7` SSE 表 `node_progress` 行。
 

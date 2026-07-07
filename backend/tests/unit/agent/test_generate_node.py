@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.agent.nodes import generate_node, parse_citations
-from app.agent.nodes.generate import _render_tool_results, _sanitize_preview
+from app.agent.nodes.generate import _chunk_view, _render_tool_results, _sanitize_preview
 from app.agent.state import AgentState
 from app.agent.state import RetrievedChunk as StateChunk
 
@@ -26,6 +26,14 @@ def _chunk(
         content=f"chunk content {cid}",
         score_rerank=0.9,
     )
+
+
+def test_chunk_view_prefers_expanded_content() -> None:
+    """small2big（Issue #3）：expand 扩过段的块喂整段，未扩的回退小块。"""
+    c = _chunk("c1", spec="38.331", section=("5", "3"))
+    assert _chunk_view(c)["content"] == "chunk content c1"
+    c_expanded = c.model_copy(update={"expanded_content": "FULL SECTION TEXT"})
+    assert _chunk_view(c_expanded)["content"] == "FULL SECTION TEXT"
 
 
 async def test_generate_streams_answer_and_extracts_citations() -> None:

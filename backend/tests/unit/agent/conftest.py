@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
@@ -79,6 +79,8 @@ class StubDense:
     """async dense retriever stub。"""
 
     chunks: list[RetrievalChunk]
+    # small2big expand 节点用：chunk_id → content 映射，模拟 Qdrant 批量取 content。
+    content_map: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -94,6 +96,10 @@ class StubDense:
             {"query": query, "top_k": top_k, "filter_spec_ids": list(filter_spec_ids or [])}
         )
         return list(self.chunks)[:top_k]
+
+    async def fetch_content_by_ids(self, ids: Sequence[str]) -> dict[str, str]:
+        self.calls.append({"fetch_ids": list(ids)})
+        return {cid: self.content_map[cid] for cid in ids if cid in self.content_map}
 
     async def close(self) -> None:
         pass
@@ -195,6 +201,7 @@ def make_deps(
     sparse: StubSparse | None = None,
     reranker: StubReranker | None = None,
     settings: Settings | None = None,
+    db_sessionmaker: Any | None = None,
 ) -> AgentDeps:
     return AgentDeps(
         llm=llm or StubLLM(responses=[""]),  # type: ignore[arg-type]
@@ -202,6 +209,7 @@ def make_deps(
         sparse=sparse,
         reranker=reranker,
         cache=None,
+        db_sessionmaker=db_sessionmaker,
         settings=settings or make_settings(),
     )
 

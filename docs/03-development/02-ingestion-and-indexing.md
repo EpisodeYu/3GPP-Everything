@@ -453,6 +453,13 @@ class Chunk:
 
 **召回侧约定（small2big）**：
 
+> **query-time 扩段已落地（Issue #3, 2026-07）**：召回侧回扩由 backend agent 的 `expand`
+> 节点在 **rerank 之后、generate 之前**接入（不改 reranker 输入，只回扩喂 LLM）。兄弟块
+> 顺序来自 PG `chunks_meta`（`parent_section_id` + `document_order`），content 从 Qdrant
+> 按 chunk_id 批量取；退化阈值 / 邻居窗口 / 全局字符预算由 `SMALL2BIG_*` 开关控制（默认
+> ON）。实现与口径见 [`03-agent.md §4.6b`](03-agent.md) `expand_node`。下方为索引侧字段
+> 与起步参数的原始约定。
+
 - 检索：用小 chunk（target=250）embedding；BM25 用 `content`（已含标题词）
 - 召回：拿到命中 chunk 后，按 `parent_section_id` group by 取整段 section 给 reranker / LLM
 - 退化（M3 评测前起步配置，2026-05-15 确认）：

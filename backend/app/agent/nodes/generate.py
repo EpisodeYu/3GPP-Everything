@@ -301,12 +301,14 @@ def _render_tool_results(state: AgentState) -> str:
 
 
 def _chunk_view(c: StateChunk) -> dict[str, Any]:
+    # small2big（Issue #3）：expand 节点扩段后优先喂整段 section；未扩（开关关 / 退化 /
+    # 无 parent）时回退命中小块本身。引用 `[N]` 仍按列表序号，与是否扩段无关。
     return {
         "chunk_id": c.chunk_id,
         "spec_id": c.spec_id,
         "section_path": list(c.section_path),
         "section_title": c.section_title,
-        "content": c.content,
+        "content": c.expanded_content or c.content,
     }
 
 

@@ -24,13 +24,21 @@ class _StubQueryResponse:
 
 
 class _StubQdrant:
-    def __init__(self, points: list[_StubPoint]) -> None:
+    def __init__(self, points: list[_StubPoint], *, raise_on_retrieve: bool = False) -> None:
         self._points = points
         self.calls: list[dict[str, Any]] = []
+        self._raise_on_retrieve = raise_on_retrieve
 
     async def query_points(self, **kwargs: Any) -> _StubQueryResponse:
         self.calls.append(kwargs)
         return _StubQueryResponse(self._points[: kwargs.get("limit", len(self._points))])
+
+    async def retrieve(self, **kwargs: Any) -> list[_StubPoint]:
+        self.calls.append({"op": "retrieve", **kwargs})
+        if self._raise_on_retrieve:
+            raise RuntimeError("qdrant down")
+        wanted = set(kwargs.get("ids") or [])
+        return [p for p in self._points if (p.payload.get("chunk_id") or p.id) in wanted]
 
     async def close(self) -> None:
         pass
@@ -98,6 +106,36 @@ async def test_filter_spec_ids_passed_to_qdrant() -> None:
     j = qf.model_dump()
     assert j["must"][0]["key"] == "spec_id"
     assert set(j["must"][0]["match"]["any"]) == {"38.331", "23.501"}
+
+
+async def test_fetch_content_by_ids_returns_map() -> None:
+    """small2big（Issue #3）：按 chunk_id 批量取 Qdrant payload content。"""
+    points = [
+        _StubPoint(id="c1", score=0.0, payload={"chunk_id": "c1", "content": "aaa"}),
+        _StubPoint(id="c2", score=0.0, payload={"chunk_id": "c2", "content": "bbb"}),
+        _StubPoint(id="c3", score=0.0, payload={"chunk_id": "c3", "content": ""}),
+    ]
+    qdrant = _StubQdrant(points)
+    r = DenseRetriever(
+        qdrant_client=qdrant,  # type: ignore[arg-type]
+        embedder=_StubEmbedder(vector=[0.0] * 4),  # type: ignore[arg-type]
+        collection="c",
+        dimensions=4,
+    )
+    out = await r.fetch_content_by_ids(["c1", "c2", "c3"])
+    assert out == {"c1": "aaa", "c2": "bbb"}  # 空 content 不入 map
+    assert await r.fetch_content_by_ids([]) == {}
+
+
+async def test_fetch_content_by_ids_swallows_errors() -> None:
+    qdrant = _StubQdrant([], raise_on_retrieve=True)
+    r = DenseRetriever(
+        qdrant_client=qdrant,  # type: ignore[arg-type]
+        embedder=_StubEmbedder(vector=[0.0] * 4),  # type: ignore[arg-type]
+        collection="c",
+        dimensions=4,
+    )
+    assert await r.fetch_content_by_ids(["c1"]) == {}  # 异常降级，不抛
 
 
 async def test_embed_failure_raises_retrieval_error() -> None:

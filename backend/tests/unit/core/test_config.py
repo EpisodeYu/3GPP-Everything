@@ -64,6 +64,23 @@ def test_retrieval_defaults_match_m75_calibration() -> None:
     assert s.RERANK_TOP_K == 8
 
 
+def test_small2big_defaults() -> None:
+    """small2big（Issue #3）默认值：默认 ON + 起步阈值/窗口/全局预算。"""
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.SMALL2BIG_ENABLED is True
+    assert s.SMALL2BIG_MAX_SECTION_CHARS == 50000
+    assert s.SMALL2BIG_NEIGHBOR_WINDOW == 5
+    assert s.SMALL2BIG_TOTAL_BUDGET_CHARS == 24000
+
+
+def test_small2big_can_be_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("SMALL2BIG_ENABLED", "false")
+    monkeypatch.setenv("SMALL2BIG_TOTAL_BUDGET_CHARS", "8000")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.SMALL2BIG_ENABLED is False
+    assert s.SMALL2BIG_TOTAL_BUDGET_CHARS == 8000
+
+
 def test_sync_url_strips_asyncpg() -> None:
     s = Settings(_env_file=None, DATABASE_URL="postgresql+asyncpg://u:p@h/db")  # type: ignore[call-arg]
     assert s.database_url_sync == "postgresql://u:p@h/db"

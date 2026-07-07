@@ -60,6 +60,10 @@ class RetrievedChunk(BaseModel):
     score_rerank: float | None = None
     fused_score: float = 0.0
     extra: dict[str, Any] = Field(default_factory=dict)
+    # small2big（Issue #3）：expand 节点把命中小块回扩为整段 section 后写这里；
+    # generate 的 _chunk_view 优先喂它（`expanded_content or content`）。检索层无此
+    # 概念（expand 只在图内产出），故只在 agent 状态镜像里一等出现，from_retrieval 默认 ""。
+    expanded_content: str = ""
 
     @classmethod
     def from_retrieval(cls, c: _RetrievalChunk) -> RetrievedChunk:

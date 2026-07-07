@@ -123,6 +123,36 @@ class TestConsumeSseStream:
         assert resp.terminal_event == "final"
 
     @pytest.mark.asyncio
+    async def test_chunks_expanded_captured(self) -> None:
+        """small2big（Issue #3）：chunks_expanded 事件写入 resp.chunks_expanded。"""
+        lines = _build_sse_lines(
+            ("run_start", {"run_id": "r1"}),
+            (
+                "chunks_rerank",
+                {"chunks": [{"chunk_id": "c1", "spec_id": "38.331", "content": "small"}]},
+            ),
+            (
+                "chunks_expanded",
+                {
+                    "chunks": [
+                        {
+                            "chunk_id": "c1",
+                            "spec_id": "38.331",
+                            "content": "FULL",
+                            "degraded": False,
+                        }
+                    ]
+                },
+            ),
+            ("final", {"answer": "ok", "citations": [], "confidence": 0.5}),
+            ("end", {}),
+        )
+        resp = await consume_sse_stream(_alines(lines))
+        assert len(resp.chunks_expanded) == 1
+        assert resp.chunks_expanded[0]["chunk_id"] == "c1"
+        assert resp.chunks_expanded[0]["content"] == "FULL"
+
+    @pytest.mark.asyncio
     async def test_cancelled(self) -> None:
         lines = _build_sse_lines(
             ("run_start", {"run_id": "r1"}),
@@ -264,6 +294,40 @@ class TestJoinContexts:
         ctx = _join_contexts(resp)
         assert "[38.331 §5.3.5]" in ctx
         assert "hit-only" in ctx
+
+    def test_small2big_expanded_overrides_by_chunk_id(self) -> None:
+        """small2big（Issue #3）：被扩块喂整段（chunks_expanded），未扩块保留小块。
+
+        chunks_expanded 只含被扩子集，故仍以 chunks_rerank 为全集底座，按 chunk_id 覆盖。
+        """
+        resp = AgentResponse(
+            chunks_rerank=[
+                {
+                    "chunk_id": "c1",
+                    "spec_id": "38.331",
+                    "section_path": "5.3",
+                    "content": "small-c1",
+                },
+                {
+                    "chunk_id": "c2",
+                    "spec_id": "38.331",
+                    "section_path": "6.1",
+                    "content": "small-c2",
+                },
+            ],
+            chunks_expanded=[
+                {
+                    "chunk_id": "c1",
+                    "spec_id": "38.331",
+                    "section_path": "5.3",
+                    "content": "FULL SECTION 5.3",
+                },
+            ],
+        )
+        ctx = _join_contexts(resp)
+        assert "FULL SECTION 5.3" in ctx  # c1 用扩段
+        assert "small-c1" not in ctx
+        assert "small-c2" in ctx  # c2 未扩，保留小块
 
     def test_field_priority_content_then_preview_then_text(self) -> None:
         """优先 content > preview > text；都没 → 跳过该 chunk。

@@ -109,6 +109,34 @@ class DenseRetriever:
 
         return [_point_to_chunk(p) for p in resp.points]
 
+    async def fetch_content_by_ids(self, ids: Sequence[str]) -> dict[str, str]:
+        """按 chunk_id 批量取 Qdrant payload 的 content（small2big 扩段用）。
+
+        Qdrant point id = chunk_id（ingestion `_ensure_qdrant_point_id` 直接透传），
+        与 backend reader `docs.py::_fetch_content_map` 同一模式：一次 retrieve 批量拿，
+        失败/空返回 {}，由调用方降级（保留小块）。不抛，避免阻塞 agent 主路径。
+        """
+        if not ids:
+            return {}
+        try:
+            points = await self._qdrant.retrieve(
+                collection_name=self._collection,
+                ids=list(ids),
+                with_payload=True,
+                with_vectors=False,
+            )
+        except Exception as exc:
+            log.warning("qdrant retrieve content by ids failed (%d ids): %s", len(ids), exc)
+            return {}
+        out: dict[str, str] = {}
+        for p in points:
+            payload = dict(getattr(p, "payload", {}) or {})
+            cid = str(payload.get("chunk_id") or p.id)
+            content = payload.get("content")
+            if content:
+                out[cid] = str(content)
+        return out
+
 
 def _build_filter(spec_ids: Sequence[str] | None) -> qmodels.Filter | None:
     if not spec_ids:

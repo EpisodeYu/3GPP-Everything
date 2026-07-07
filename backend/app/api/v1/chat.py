@@ -3,9 +3,13 @@
 文档锚点：`docs/03-development/04-backend-api.md §4` + `03-agent.md §7 / §11` +
 `2026-05-17-m4.6-m4.9-decisions.md §一 Q6-Q10`。
 
-SSE event 列表（11 类）：
+SSE event 列表（12 类）：
     run_start / node_start / node_end / chunks_hit / chunks_rerank /
-    node_progress / token / final / end / cancelled / error
+    chunks_expanded / node_progress / token / final / end / cancelled / error
+
+`chunks_expanded`（2026-07，Issue #3 small2big）：expand 节点把命中小块按
+`parent_section_id` 回扩为整段 section 后 emit，payload 同 chunks_rerank 形态 +
+`degraded`（是否退化窗口）。前端暂优雅忽略；eval runner 用它拼 LLM 真正看到的上下文。
 
 `node_progress`（2026-05-31）：节点内部 LLM 字符级流式 reasoning 信号。当前只
 hyde 节点使用，通过 `adispatch_custom_event("node_progress", {"node":"hyde",
@@ -65,6 +69,7 @@ _NODE_NAMES: set[str] = {
     "tool_dispatch",
     "retrieve",
     "rerank",
+    "expand",
     "generate",
     "self_rag",
 }
@@ -227,6 +232,20 @@ def _summary_for_node_end(node: str, output: Any) -> dict[str, Any]:
         v = output.get(key)
         if isinstance(v, list):
             out[f"{key}_count"] = len(v)
+        return out
+
+    if node == "expand":
+        # small2big（Issue #3）：回被扩段的 chunk 数；明细走 chunks_expanded。
+        v = output.get("reranked")
+        if isinstance(v, list):
+            cnt = 0
+            for c in v:
+                ec = getattr(c, "expanded_content", None)
+                if ec is None and isinstance(c, dict):
+                    ec = c.get("expanded_content")
+                if ec:
+                    cnt += 1
+            out["expanded_count"] = cnt
         return out
 
     if node == "self_rag":
@@ -529,7 +548,11 @@ def _build_sse_stream(
                             delta = str(d_payload.get("delta") or "")
                     if delta:
                         yield _sse("token", {"delta": delta})
-                elif kind == "on_custom_event" and name in ("chunks_hit", "chunks_rerank"):
+                elif kind == "on_custom_event" and name in (
+                    "chunks_hit",
+                    "chunks_rerank",
+                    "chunks_expanded",
+                ):
                     yield _sse(name, data)
                 elif kind == "on_custom_event" and name == "node_progress":
                     # hyde 等节点 adispatch_custom_event("node_progress", {...})

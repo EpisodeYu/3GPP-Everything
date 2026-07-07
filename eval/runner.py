@@ -59,6 +59,9 @@ class AgentResponse:
     confidence: float = 0.0
     chunks_hit: list[dict] = field(default_factory=list)
     chunks_rerank: list[dict] = field(default_factory=list)
+    # small2big（Issue #3）：expand 节点回扩整段 section 后 emit 的上下文（content=整段）。
+    # 非空时优先作为 LLM 真正看到的上下文，喂 ragas_context_recall / faithfulness。
+    chunks_expanded: list[dict] = field(default_factory=list)
     node_durations_ms: dict[str, int] = field(default_factory=dict)
     terminal_event: str = "incomplete"
     error: dict | None = None
@@ -133,6 +136,10 @@ def _apply_event(resp: AgentResponse, ev: SSEEvent) -> None:
         chunks = data.get("chunks") or []
         if isinstance(chunks, list):
             resp.chunks_rerank = list(chunks)
+    elif ev.event == "chunks_expanded":
+        chunks = data.get("chunks") or []
+        if isinstance(chunks, list):
+            resp.chunks_expanded = list(chunks)
     elif ev.event == "node_end":
         node = data.get("node")
         dur = data.get("duration_ms")
@@ -405,6 +412,11 @@ def _join_contexts(resp: AgentResponse, *, max_chars: int = 16000) -> str:
     （前 240 字，留给前端流式展示）。runner 优先取 `content`，
     fallback `preview` / `text` 字段防御老 backend 部署或未来 schema 变更。
 
+    small2big（Issue #3）：expand 节点扩了段的 chunk，LLM 实际看到的是**整段 section**
+    而非小块。为让 ragas_context_recall / faithfulness 反映 LLM 真实上下文，这里把
+    `chunks_expanded`（content=整段）按 chunk_id **覆盖**到对应 chunks_rerank 条目；
+    未扩的块保留小块内容。chunks_expanded 只含被扩子集，故仍以 chunks_rerank 为全集底座。
+
     每个 chunk 拼成：
 
         [<spec_id> §<section_path>]
@@ -416,10 +428,19 @@ def _join_contexts(resp: AgentResponse, *, max_chars: int = 16000) -> str:
     空字符串安全返回 ""。
     """
     chunks: list[dict] = list(resp.chunks_rerank or resp.chunks_hit or [])
+    expanded_by_id: dict[str, str] = {
+        str(c.get("chunk_id") or ""): str(c.get("content") or "")
+        for c in resp.chunks_expanded
+        if c.get("chunk_id") and c.get("content")
+    }
     parts: list[str] = []
     total = 0
     for c in chunks:
-        text = str(c.get("content") or c.get("preview") or c.get("text") or "").strip()
+        cid = str(c.get("chunk_id") or "")
+        text = (
+            expanded_by_id.get(cid)
+            or str(c.get("content") or c.get("preview") or c.get("text") or "")
+        ).strip()
         if not text:
             continue
         sid = str(c.get("spec_id") or "").strip()

@@ -90,12 +90,15 @@ async def test_astream_updates_emit_chunks_hit_after_retrieve() -> None:
             assert isinstance(payload, dict)
             sequence.append(("custom", payload.get("type") or "<no-type>"))
 
-    # 节点完成顺序（simple 分支）：classify → retrieve → rerank → generate → self_rag
+    # 节点完成顺序（simple 分支）：classify → retrieve → rerank → expand → generate → self_rag
+    # expand = small2big 扩段（Issue #3）；本测试 deps 无 db_sessionmaker → 透传（返回 {}），
+    # 但节点仍执行，故 update 序列里出现（不改状态）。
     update_nodes = [name for kind, name in sequence if kind == "update"]
     assert update_nodes == [
         "classify",
         "retrieve",
         "rerank",
+        "expand",
         "generate",
         "self_rag",
     ], f"节点 update 顺序异常：{update_nodes!r}"
@@ -145,6 +148,7 @@ async def test_astream_events_v2_covers_all_nodes() -> None:
             "classify",
             "retrieve",
             "rerank",
+            "expand",
             "generate",
             "self_rag",
         }:
@@ -153,6 +157,7 @@ async def test_astream_events_v2_covers_all_nodes() -> None:
             "classify",
             "retrieve",
             "rerank",
+            "expand",
             "generate",
             "self_rag",
         }:
@@ -162,8 +167,8 @@ async def test_astream_events_v2_covers_all_nodes() -> None:
             if isinstance(data, dict):
                 custom_payloads.append(data)
 
-    # 5 个节点都应有 start + end
-    for node in ("classify", "retrieve", "rerank", "generate", "self_rag"):
+    # 6 个节点都应有 start + end（含 small2big expand，Issue #3）
+    for node in ("classify", "retrieve", "rerank", "expand", "generate", "self_rag"):
         assert node in started, f"on_chain_start 缺 {node}：{started!r}"
         assert node in ended, f"on_chain_end 缺 {node}：{ended!r}"
 

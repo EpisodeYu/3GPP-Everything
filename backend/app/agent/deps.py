@@ -12,6 +12,7 @@ config 字段会比较密；显式 `AgentDeps` 让节点签名清楚（`async de
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -32,6 +33,8 @@ class _DenseRetrieverProto(Protocol):
     async def retrieve(
         self, query: str, *, top_k: int = ..., filter_spec_ids: list[str] | None = ...
     ) -> list[_RetrievalChunk]: ...
+
+    async def fetch_content_by_ids(self, ids: Sequence[str]) -> dict[str, str]: ...
 
 
 class _SparseRetrieverProto(Protocol):

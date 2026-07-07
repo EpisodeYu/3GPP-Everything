@@ -110,6 +110,12 @@ GLM_EMBEDDING_MODEL=embedding-3          # provider=glm 时用
 OPENAI_EMBEDDING_MODEL=text-embedding-3-large   # provider=openai 时用（支持 MRL 截断）
 RERANK_ENABLED=true              # false → 退回 RRF/fused 排序，不调 rerank 上游（无 Voyage 部署）
 
+# small2big 召回侧扩段（Issue #3）：rerank 后按 parent_section_id 回扩整段 section 喂 LLM。
+SMALL2BIG_ENABLED=true               # 默认 ON；关掉 = kill-switch / A-B ablation baseline
+SMALL2BIG_MAX_SECTION_CHARS=50000    # 整段超此字符数 → 退化为命中块前后各 N 个兄弟块
+SMALL2BIG_NEIGHBOR_WINDOW=5          # 退化窗口大小 N
+SMALL2BIG_TOTAL_BUDGET_CHARS=24000   # 跨块全局字符预算，护 generate token 成本 / 延迟
+
 # Embedding 维度：1024（M3 决胜 2026-05-16，2048 collection 已 drop）
 EMBEDDING_DIMENSIONS=1024
 VOYAGE_OUTPUT_DIMENSION=1024      # 与 LiteLLM `config.yaml` 一致
