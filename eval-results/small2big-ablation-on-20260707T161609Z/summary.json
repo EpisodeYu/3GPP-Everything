@@ -1,0 +1,123 @@
+{
+  "ts": "20260707T161609Z",
+  "mode": "on",
+  "n_runs": 1,
+  "n_items": 56,
+  "item_ids": [
+    "hand-def-001",
+    "hand-def-002",
+    "hand-def-003",
+    "hand-def-004",
+    "hand-def-005",
+    "hand-def-006",
+    "hand-def-007",
+    "hand-def-008",
+    "hand-proc-001",
+    "hand-proc-002",
+    "hand-proc-003",
+    "hand-proc-004",
+    "hand-proc-005",
+    "hand-proc-006",
+    "hand-procedure-007",
+    "hand-procedure-008",
+    "hand-multi-001",
+    "hand-multi-002",
+    "hand-multi-003",
+    "hand-multi-004",
+    "hand-multi-005",
+    "hand-multi-006",
+    "hand-multi-007",
+    "hand-multi-008",
+    "hand-table-001",
+    "hand-table-002",
+    "hand-table-003",
+    "hand-table-004",
+    "hand-table-005",
+    "hand-table-006",
+    "hand-table-007",
+    "hand-table-008",
+    "hand-formula-001",
+    "hand-formula-002",
+    "hand-formula-003",
+    "hand-formula-004",
+    "hand-formula-005",
+    "hand-formula-006",
+    "hand-formula-007",
+    "hand-formula-008",
+    "hand-neg-001",
+    "hand-neg-002",
+    "hand-neg-003",
+    "hand-neg-004",
+    "hand-neg-005",
+    "hand-neg-006",
+    "hand-neg-007",
+    "hand-neg-008",
+    "hand-neg-009",
+    "hand-neg-010",
+    "hand-neg-011",
+    "hand-neg-012",
+    "hand-neg-013",
+    "hand-neg-014",
+    "hand-neg-015",
+    "hand-neg-016"
+  ],
+  "aggregate": {
+    "ragas_context_recall": {
+      "max_of_n": 0.5565,
+      "mean_of_n": 0.5565,
+      "n_items": 53
+    },
+    "fact_coverage": {
+      "max_of_n": 0.67,
+      "mean_of_n": 0.67,
+      "n_items": 40
+    },
+    "ragas_faithfulness": {
+      "max_of_n": 0.8045,
+      "mean_of_n": 0.8045,
+      "n_items": 56
+    },
+    "ragas_answer_relevance": {
+      "max_of_n": 0.7745,
+      "mean_of_n": 0.7745,
+      "n_items": 56
+    },
+    "ragas_context_precision": {
+      "max_of_n": 0.7457,
+      "mean_of_n": 0.7457,
+      "n_items": 54
+    },
+    "context_recall_section": {
+      "max_of_n": 0.85,
+      "mean_of_n": 0.85,
+      "n_items": 40
+    },
+    "context_recall_spec": {
+      "max_of_n": 0.95,
+      "mean_of_n": 0.95,
+      "n_items": 40
+    },
+    "negative_pass": {
+      "max_of_n": 0.9667,
+      "mean_of_n": 0.9667,
+      "n_items": 15
+    },
+    "duration_ms": {
+      "p50": 60155.0,
+      "p95": 98458.0,
+      "n": 56
+    }
+  },
+  "compare_to": "eval-results/small2big-ablation-off-20260707T073652Z/summary.json",
+  "delta_vs_baseline": {
+    "ragas_context_recall": -0.0691,
+    "fact_coverage": 0.0417,
+    "ragas_faithfulness": -0.0127,
+    "ragas_answer_relevance": -0.0264,
+    "ragas_context_precision": -0.0326,
+    "context_recall_section": 0.0,
+    "context_recall_spec": 0.0,
+    "negative_pass": 0.0292,
+    "p95_ms": -4088.0
+  }
+}
