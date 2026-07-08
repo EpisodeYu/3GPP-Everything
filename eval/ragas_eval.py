@@ -12,7 +12,8 @@
 设计要点：
 - ragas / langchain-openai 走 optional-deps `ragas`，未装时 import 这模块只在调用计算时才报错
 - 单题模式（一题一次 evaluate）：换 batch 模式时单题失败会污染整批；单题模式同时满足"异常隔离"硬要求
-- contexts 取 chunks_rerank → chunks_hit → citations 的 fallback（与 runner 一致）
+- contexts 取 chunks_rerank → chunks_hit → citations 的 fallback（与 runner 一致）；
+  small2big 扩过段的 chunk 按 chunk_id 用 chunks_expanded 整段覆盖小块（off 无扩段=no-op）
 - **context_precision 用 `ContextUtilization` 而非 `ContextPrecision`（2026-05-30 起切换）**：
   ContextPrecision 用 reference 判 chunk 是否 useful；当 reference 是多个 fact 拼成的多
   sentence 时，judge 倾向于挑剔（"chunk 只覆盖一个 fact 不算 useful"），导致 false negatives。
@@ -89,11 +90,25 @@ def _empty_metric_dict() -> dict[str, float | None]:
 
 
 def _extract_contexts(resp: AgentResponse) -> list[str]:
-    """从 AgentResponse 拼 ragas 用的 contexts 列表（fallback 顺序与 runner 一致）。"""
+    """从 AgentResponse 拼 ragas 用的 contexts 列表（fallback 顺序与 runner 一致）。
+
+    small2big（Issue #3）：被 expand 扩过段的 chunk，LLM 实际看到的是**整段 section**。
+    为让 ragas（faithfulness / context_recall）针对 LLM 真正看到的上下文打分，这里按
+    chunk_id 用 `chunks_expanded` 的整段内容**覆盖** chunks_rerank 里的小块；未扩的块
+    保留小块。off（未开 small2big）无 chunks_expanded → 此逻辑为 no-op，行为不变。
+    """
     src = resp.chunks_rerank or resp.chunks_hit or resp.citations
+    expanded_by_id: dict[str, str] = {
+        str(c.get("chunk_id") or ""): str(c.get("content") or "")
+        for c in resp.chunks_expanded
+        if c.get("chunk_id") and c.get("content")
+    }
     out: list[str] = []
     for c in src:
-        text = c.get("content") or c.get("text") or c.get("snippet") or ""
+        cid = str(c.get("chunk_id") or "")
+        text = (
+            expanded_by_id.get(cid) or c.get("content") or c.get("text") or c.get("snippet") or ""
+        )
         if isinstance(text, str) and text.strip():
             out.append(text)
             continue

@@ -687,10 +687,14 @@ async def run_eval(
                 api_prefix=api_prefix,
             )
         except httpx.HTTPStatusError as exc:
-            log.exception("agent http error on %s", it.id)
+            # 注意：call_agent 的 /messages 走 client.stream()，此处 exc.response 是**未
+            # read 的流式响应**，访问 .text 会抛 httpx.ResponseNotRead 把整轮 run_eval
+            # 打断。只记 status_code（+ reason），保持"单题 HTTP 错误不阻塞后续"的语义。
+            status = exc.response.status_code
+            log.warning("agent http error on %s: status=%s", it.id, status)
             resp = AgentResponse(
                 terminal_event="http_error",
-                error={"status": exc.response.status_code, "text": exc.response.text[:500]},
+                error={"status": status, "reason": exc.response.reason_phrase or ""},
             )
         except Exception as exc:
             log.exception("agent call failed on %s", it.id)

@@ -94,6 +94,22 @@ class TestExtractContexts:
     def test_empty(self) -> None:
         assert _extract_contexts(AgentResponse()) == []
 
+    def test_small2big_expanded_overrides_by_chunk_id(self) -> None:
+        """small2big（Issue #3）：扩过段的 chunk 用 chunks_expanded 覆盖小块，未扩的保留。"""
+        resp = AgentResponse(
+            chunks_rerank=[
+                {"chunk_id": "c1", "content": "small-c1"},
+                {"chunk_id": "c2", "content": "small-c2"},
+            ],
+            chunks_expanded=[{"chunk_id": "c1", "content": "FULL SECTION c1"}],
+        )
+        assert _extract_contexts(resp) == ["FULL SECTION c1", "small-c2"]
+
+    def test_no_expanded_is_noop(self) -> None:
+        """off（无 chunks_expanded）→ 行为与旧版一致（no-op）。"""
+        resp = AgentResponse(chunks_rerank=[{"chunk_id": "c1", "content": "small-c1"}])
+        assert _extract_contexts(resp) == ["small-c1"]
+
 
 # === _ground_truth ========================================================
 

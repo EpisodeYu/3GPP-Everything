@@ -759,6 +759,44 @@ async def test_run_eval_http_error_isolated(tmp_path: Path) -> None:
     assert results[0].error is not None
 
 
+@pytest.mark.asyncio
+async def test_run_eval_streaming_messages_error_isolated(tmp_path: Path) -> None:
+    """/messages（流式端点）返回 429 → run_eval 不崩，单题记 http_error（含 status）。
+
+    回归 2026-07 bug：旧 handler 访问 exc.response.text 在**未 read 的流式响应**上抛
+    httpx.ResponseNotRead，把整轮评测打断。修复后只记 status_code，不访问 .text。
+    """
+    items = [
+        {
+            "id": "def-1",
+            "category": "definition",
+            "language": "en",
+            "source": "hand_crafted",
+            "question": "?",
+            "expected_specs": [],
+            "expected_facts": [],
+            "forbidden": [],
+            "must_say_not_found": False,
+        }
+    ]
+    golden = tmp_path / "v1.yaml"
+    _write_minimal_golden(golden, items)
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path.endswith("/sessions") and req.method == "POST":
+            return httpx.Response(201, json={"id": "s1", "title": "t", "mode_default": "qa"})
+        if "/messages" in req.url.path:  # 流式端点上的 429（后端限流）
+            return httpx.Response(429, json={"detail": "rate_limited"})
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        results = await run_eval(golden, client=client, auth_token="t")
+    assert len(results) == 1
+    assert results[0].terminal_event == "http_error"
+    assert results[0].error is not None and results[0].error.get("status") == 429
+
+
 # === fact_coverage_judge 注入路径（2026-05-29） ============================
 
 
