@@ -39,6 +39,7 @@ import statistics
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 import yaml
@@ -47,13 +48,19 @@ REPO = Path(__file__).resolve().parents[2]
 GOLDEN = REPO / "eval" / "golden" / "v1.yaml"
 
 # 质量指标（取 max/mean-of-n）；duration_ms 单独算 P50/P95。
+# negative_pass：VALID_REFUSAL=1 / PARTIAL=0.5 / INVALID=0（仅 negative item 有值）。
 QUALITY_METRICS = [
     "ragas_context_recall",
     "fact_coverage",
     "ragas_faithfulness",
     "ragas_answer_relevance",
+    "ragas_context_precision",
     "context_recall_section",
+    "context_recall_spec",
+    "negative_pass",
 ]
+
+_NEG_VERDICT_NUM = {"VALID_REFUSAL": 1.0, "PARTIAL_REFUSAL": 0.5, "INVALID": 0.0}
 
 
 def build_subset() -> tuple[Path, list[str]]:
@@ -87,16 +94,70 @@ def _pct(xs: list[float], q: float) -> float | None:
     return round(ordered[idx], 1)
 
 
-async def one_run(golden_path: Path, base_url: str, token: str) -> dict[str, dict]:
+class _TimeoutScorer:
+    """包一层 ragas scorer，给每次 score_item 注入更长 timeout 的 RunConfig。
+
+    run_eval 调 `scorer.score_item(it, resp)`（不传 run_config），默认走 ragas 内置
+    timeout=180s，长答案 faithfulness 常 TimeoutError。这里用 RAGAS_TIMEOUT_S 抬高
+    per-job timeout 降低超时率（超时项仍返回 None，聚合自动跳过 = "不计入对比"）。
+    """
+
+    def __init__(self, inner: Any, timeout_s: float, max_workers: int) -> None:
+        from ragas.run_config import RunConfig
+
+        self._inner = inner
+        self._rc = RunConfig(timeout=int(timeout_s), max_workers=max_workers)
+
+    def score_item(self, item: Any, resp: Any) -> dict[str, float | None]:
+        return self._inner.score_item(item, resp, run_config=self._rc)
+
+
+def _build_judges() -> tuple[Any, Any, Any]:
+    """ragas scorer + negative judge + fact_coverage judge；任一缺 key/包 → None（降级）。"""
     from eval.ragas_eval import build_default_ragas_scorer
+
+    scorer: Any = build_default_ragas_scorer()  # 缺 key 直接抛，ablation 无意义故不吞
+    timeout_s = float(os.environ.get("RAGAS_TIMEOUT_S", "300"))
+    max_workers = int(os.environ.get("RAGAS_MAX_WORKERS", "16"))
+    scorer = _TimeoutScorer(scorer, timeout_s, max_workers)
+    negative_judge: Any = None
+    fact_judge: Any = None
+    try:
+        from eval.negative_judge import build_default_negative_judge
+
+        negative_judge = build_default_negative_judge()
+    except Exception as e:
+        print(f"[s2b-eval] negative_judge disabled: {e}")
+    try:
+        from eval.fact_coverage_judge import build_default_fact_coverage_judge
+
+        fact_judge = build_default_fact_coverage_judge()
+    except Exception as e:
+        print(f"[s2b-eval] fact_coverage_judge disabled (fallback substring): {e}")
+    return scorer, negative_judge, fact_judge
+
+
+async def one_run(golden_path: Path, base_url: str, token: str) -> dict[str, dict]:
     from eval.runner import run_eval
 
-    scorer = build_default_ragas_scorer()
+    scorer, negative_judge, fact_judge = _build_judges()
     async with httpx.AsyncClient(base_url=base_url, timeout=180) as client:
-        results = await run_eval(golden_path, client=client, auth_token=token, ragas_scorer=scorer)
+        results = await run_eval(
+            golden_path,
+            client=client,
+            auth_token=token,
+            ragas_scorer=scorer,
+            negative_judge=negative_judge,
+            fact_coverage_judge=fact_judge,
+        )
     out: dict[str, dict] = {}
     for r in results:
-        row = {m: getattr(r, m, None) for m in QUALITY_METRICS}
+        row: dict[str, Any] = {
+            m: getattr(r, m, None) for m in QUALITY_METRICS if m != "negative_pass"
+        }
+        row["negative_pass"] = _NEG_VERDICT_NUM.get(
+            getattr(r, "negative_judge_verdict", None) or ""
+        )
         row["duration_ms"] = getattr(r, "duration_ms", 0)
         out[r.item_id] = row
     return out
@@ -133,7 +194,16 @@ def _delta(cur: dict, baseline_summary: dict) -> dict:
     """on − off 的 delta（主指标 mean_of_n + p95）。baseline_summary = off 趟的 summary.json。"""
     base = baseline_summary.get("aggregate", {})
     d: dict = {}
-    for m in ("ragas_context_recall", "fact_coverage", "ragas_faithfulness"):
+    for m in (
+        "ragas_context_recall",
+        "fact_coverage",
+        "ragas_faithfulness",
+        "ragas_answer_relevance",
+        "ragas_context_precision",
+        "context_recall_section",
+        "context_recall_spec",
+        "negative_pass",
+    ):
         cur_v = (cur.get(m) or {}).get("mean_of_n")
         base_v = (base.get(m) or {}).get("mean_of_n")
         if cur_v is not None and base_v is not None:

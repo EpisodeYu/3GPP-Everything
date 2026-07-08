@@ -403,7 +403,7 @@ def _result_to_langfuse_scores(result: EvalResult) -> dict[str, float | bool | N
     }
 
 
-def _join_contexts(resp: AgentResponse, *, max_chars: int = 16000) -> str:
+def _join_contexts(resp: AgentResponse, *, max_chars: int = 32000) -> str:
     """把 chunks_rerank（fallback chunks_hit）的完整 chunk 文本拼成单段 string。
 
     Langfuse Cloud 内置 faithfulness evaluator 模板要求 `{{context}}` 是
@@ -423,9 +423,10 @@ def _join_contexts(resp: AgentResponse, *, max_chars: int = 16000) -> str:
         <full content>
 
     多 chunk 用 `\\n\\n---\\n\\n` 分隔；累计长度超过 `max_chars` 截断（防 token 爆掉
-    evaluator judge 模型上下文）。`max_chars=16000` 默认 ≈ 16K 字符 ≈ 4-5K token，
-    占 deepseek/gpt-4o-mini class judge 64K 上下文 < 10%，留足 prompt + response 余量。
-    空字符串安全返回 ""。
+    evaluator judge 模型上下文）。`max_chars=32000` 默认 ≈ 8-10K token，对齐 small2big
+    的 SMALL2BIG_TOTAL_BUDGET_CHARS（默认 24000）+ 非扩块，保证扩段后的整段上下文不被
+    截断（否则 ON 的 context 被腰斩，评测虚低）；仍 < deepseek/gpt-4o-mini class judge
+    64K 上下文的 ~15%，留足 prompt + response 余量。空字符串安全返回 ""。
     """
     chunks: list[dict] = list(resp.chunks_rerank or resp.chunks_hit or [])
     expanded_by_id: dict[str, str] = {
