@@ -11,7 +11,7 @@
 - ✅ 全流程 idempotent：重跑同一篇 spec 不产生重复 chunk
 - ✅ POC（M2）：20 篇代表性 spec 完成 Voyage 单轨 + 维度 ablation 索引；**M3 决胜（2026-05-16）后 2048 collection 已 drop**，仅保留 `tgpp_chunks_voyage_d1024`
 - ✅ 生产（M6）：GSMA Rel-18 + Rel-19 按 `spec_id` 去重保留最新、过滤为 5G 相关系列 TS 后的 `1271` 篇 specs 索引（voyage × **1024 维**）；POC 20 篇通过 `--skip-indexed` 复用
-- ✅ BM25 稀疏索引（LlamaIndex 持久化到 `INGEST_DATA_DIR/bm25/`）
+- ✅ BM25 稀疏索引（`bm25s` 持久化到 `INGEST_DATA_DIR/bm25/`：`by_spec/*.jsonl` 源 + `index/` mmap 矩阵）
 - ✅ 进度日志可视、失败可续传
 
 ## 2. 主路径总图（GSMA HuggingFace）

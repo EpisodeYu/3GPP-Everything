@@ -16,15 +16,15 @@
 | 维度 | 最终选型 | 备选 | 关键理由 |
 |------|---------|------|----------|
 | **框架·编排** | LangGraph 1.x | - | 业界 2026 共识；PG checkpointer；状态流原生支持 |
-| **框架·检索/解析** | LlamaIndex 0.13+ | - | Docling 集成、auto-merging/hierarchical 索引、hybrid 检索原生 |
-| **框架·工具/Prompt** | LangChain 0.3+ | - | 与 LangGraph 同生态、Loader 全、Tools/Prompt 兼容层 |
+| **框架·检索** | **自研检索层**（`qdrant-client` async + `bm25s`） | ~~LlamaIndex 0.13+~~ | **实施纠偏（M4）**：backend 未引入 LlamaIndex，dense 直接 `qdrant-client`、sparse 直接 `bm25s`；见 §1 注 |
+| **框架·工具/Prompt** | LangChain（仅 `langchain-core`） | - | 只用 message 类型 + 流式回调配合 LangGraph；LLM 客户端为自写 `LiteLLMClient`（见 §2.4），**非** `ChatOpenAI` |
 | **Agent 主 LLM** | `mimo-v2.5-pro` (本机 LiteLLM) | `glm-5.1` | 1M context、function calling、长 horizon agent |
 | **轻量 LLM**（路由/改写/多查询） | `mimo-v2.5` (本机 LiteLLM) | `glm-4.5-air` | 便宜一半、原生 omni、1M context |
 | **Vision**（索引期图片描述） | `mimo-v2.5` (本机 LiteLLM) | `qwen-vl-plus` | 已在 LiteLLM、omni 多模态、零额外配置 |
 | **Embedding** | Voyage `voyage-4-large` **单轨** | 智谱 `embedding-3`（代码层 fallback） | 2026-05-16 决议：放弃双轨评测，改 voyage 单轨 + **维度 ablation**（M2 2048+1024 双维度 collection，M3 决胜）。账号 200M tokens 免费已加 payment 解除限速 |
 | **Embedding（fallback）** | 智谱 `embedding-3` (本机 LiteLLM) | — | 仅保留代码 + LiteLLM 配置；不做评测、不主动建索引；voyage 海外不可达或额度告急时切换 |
 | **Reranker** | Voyage `rerank-2.5` | Jina v2 | 与 voyage embedding 同供应商，协同最佳；账号 200M tokens 免费 |
-| **稀疏检索** | LlamaIndex BM25 / SPLADE | Qdrant 原生 sparse | 与 dense 混合做 hybrid |
+| **稀疏检索** | `bm25s` | ~~LlamaIndex BM25~~ / Qdrant 原生 sparse | 与 dense 混合做 hybrid；直接用 `bm25s`（mmap 持久化），不经 LlamaIndex wrapper |
 | **文档主源** | `GSMA/3GPP` HF `marked/` tree (Rel-18 + Rel-19，按 `spec_id` 去重保留最新，仅 5G 相关系列 TS) | TSpec-LLM (已陈旧)、自爬+Docling | 官方预解析 markdown；过滤后约 1296 篇；表格 inline、公式保留、图片为同目录文件；不收录 TR |
 | **文档兜底** | LibreOffice + Docling | unstructured | 用于外部上传 doc / Rel-17 / 离群 spec |
 | **FTP 爬虫** | `download_3gpp` PyPI | `gw-space/3gpp-document-downloader-mcp` | 兜底场景才用，主路径用 HF |
@@ -51,6 +51,19 @@
 | **反代/TLS** | Nginx + Let's Encrypt (certbot) | Caddy | 用户已指定方向 |
 
 ## 1. 框架三件套（LangChain + LangGraph + LlamaIndex）的角色分工
+
+> **⚠️ 实施纠偏（2026-05-18, M4；口径以本注为准）**：本节是 M1 规划期的"三件套"设想。实际实现已收敛为
+> **LangGraph 编排 + 自研检索层 + 自写 `LiteLLMClient`**：
+>
+> - **未引入 LlamaIndex**：`backend/app/retrieval/dense.py` 直接用 `qdrant-client.AsyncQdrantClient` +
+>   `LiteLLMClient.embed()`；`sparse.py` 直接用 `bm25s`。backend `pyproject.toml` 无任何 `llama-index-*` 依赖
+>   （删除记录见 [`04-handoff/2026-05-18-m4-complete.md`](04-handoff/2026-05-18-m4-complete.md)）。
+> - **LLM 客户端非 LangChain `ChatOpenAI`**：backend / agent 统一走自写的 async `LiteLLMClient`（§2.4）；
+>   `langchain-openai.ChatOpenAI` 仅在 **eval 侧**作 Ragas / 对比裁判使用。
+> - **LangChain 在 backend 的真实角色**：仅 `langchain-core` 的 message 类型（`BaseMessage` 等）+ 流式自定义
+>   事件回调（`adispatch_custom_event`）+ `RunnableConfig`，配合 LangGraph，**不作 LLM 客户端**。
+>
+> 下方原始设想（含 mermaid 与角色分工）保留作决策留痕。
 
 业界 2026 production RAG agent 的成熟模式是**三框架协同**而非二选一：
 
@@ -129,7 +142,11 @@ flowchart TB
 
 ### 2.4 LangChain ↔ LiteLLM 接入
 
-走 OpenAI 协议适配：
+> **⚠️ 实施纠偏**：实际 backend **未采用**下方 `ChatOpenAI` 接法。所有 LLM / embedding / rerank 调用走自写的
+> async `LiteLLMClient`（`backend/app/llm/litellm_client.py`，直接 httpx 打 LiteLLM proxy 的
+> `/chat/completions`·`/embeddings`·`/rerank`）。下方 `ChatOpenAI` 片段仅在 eval 侧 Ragas judge 使用。
+
+走 OpenAI 协议适配（历史设想，eval 裁判沿用）：
 
 ```python
 from langchain_openai import ChatOpenAI
@@ -265,12 +282,12 @@ graph LR
     R --> G["LLM generate"]
 ```
 
-- **Dense**：Qdrant + Voyage / GLM embedding
-- **Sparse**：LlamaIndex 内置 `BM25Retriever`（基于 rank_bm25），独立持久化到磁盘
+- **Dense**：Qdrant + Voyage / GLM embedding（`qdrant-client.AsyncQdrantClient` 直连，非 LlamaIndex）
+- **Sparse**：`bm25s`（BM25 高性能实现，非 LlamaIndex wrapper），ingestion 端持久化、backend mmap 加载
 - **元数据过滤**：spec_id、release、series、section_path、chunk_type（text/table/formula/figure_desc）
 - **融合**：reciprocal rank fusion (RRF) → reranker
 
-如 LlamaIndex BM25 性能不够，二期切到 Qdrant 原生 sparse vector（`bm42` / `splade`）。
+如 `bm25s` 性能不够，二期切到 Qdrant 原生 sparse vector（`bm42` / `splade`）。
 
 ## 6. 向量库 — Qdrant（复用本机）
 

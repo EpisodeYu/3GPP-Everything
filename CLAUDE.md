@@ -105,7 +105,7 @@
 4. **删除数据/索引**：清 Qdrant collection、`alembic downgrade` 跨多个 revision、删除 PG 表、`docker volume rm`
 5. **改产品决策**：UX 走向、模块边界、放弃/新增需求条目（需求文档里没列的功能即"新增"）
 6. **评测/质量门槛降级**：调低 faithfulness / context recall 等已写入文档的阈值
-7. **依赖大改动**：升级 LangChain / LangGraph / LlamaIndex 主版本，或引入未在 `02-tech-selection.md §0` 列出的新框架
+7. **依赖大改动**：升级 LangChain / LangGraph 主版本，或引入未在 `02-tech-selection.md §0` 列出的新框架
 8. **多种合理实现，权衡不清**：实现路径 A 与 B 各有取舍，且影响后续 ≥ 2 个模块
 9. **连续两次尝试同一问题都失败**：不要进入"再试一遍"循环。停，描述清楚卡在哪。
 10. **运行成本异常**：单次任务 LLM 调用 > 50 次或耗时 > 30 分钟仍未完成

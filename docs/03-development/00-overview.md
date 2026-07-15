@@ -25,7 +25,7 @@ graph TB
     O["00 总览（本文）"]
     I["01 基础设施<br/>(磁盘/Docker/共享服务接入/.env)"]
     G["02 文档摄取与索引<br/>(FTP/Docling/chunk/Qdrant)"]
-    A["03 Agent 编排<br/>(LangGraph + LlamaIndex retriever)"]
+    A["03 Agent 编排<br/>(LangGraph + 自研检索层)"]
     B["04 后端 API<br/>(FastAPI + SSE + PG schema)"]
     F["05 前端<br/>(Flutter Web+Android)"]
     E["06 评测与可观测性<br/>(金标准/Ragas/Langfuse)"]
@@ -137,7 +137,7 @@ graph LR
 │   │   ├── schemas/                # Pydantic
 │   │   ├── services/               # 业务逻辑
 │   │   ├── agent/                  # LangGraph 状态图
-│   │   ├── retrieval/              # LlamaIndex retriever wrapper
+│   │   ├── retrieval/              # 自研检索层：dense(qdrant-client) + sparse(bm25s) + rerank
 │   │   ├── tools/                  # web_search / glossary / toc / params
 │   │   ├── llm/                    # LiteLLM client / model registry
 │   │   └── main.py

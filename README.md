@@ -71,17 +71,18 @@
 
 > **设计原则**：现成轮子优先 + 复用本机服务 + 关键质量环节走海外 SOTA + 主 LLM 走本机国产 LiteLLM。
 
-### Agent / RAG 框架（三件套协同）
+### Agent / RAG 框架
 
 
-| 层          | 选型                                                           | 角色                                                               |
-| ---------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
-| **编排层**    | [LangGraph](https://github.com/langchain-ai/langgraph) 1.x   | 状态机、节点流式（`astream_events`）、PostgreSQL checkpointer 持久化会话上下文与中断恢复 |
-| **数据/检索层** | [LlamaIndex](https://github.com/run-llama/llama_index) 0.13+ | 文档摄取、Hybrid Retriever、BM25、reranker 包装                           |
-| **适配层**    | [LangChain](https://github.com/langchain-ai/langchain) 0.3+  | LLM 客户端（`ChatOpenAI` → LiteLLM）、Tool 装饰器、Prompt 模板               |
+| 层             | 选型                                                                        | 角色                                                                                     |
+| ------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **编排层**       | [LangGraph](https://github.com/langchain-ai/langgraph) 1.x                | 状态机、节点流式（`astream_events`）、PostgreSQL checkpointer 持久化会话上下文与中断恢复                        |
+| **检索层**       | 自研（`qdrant-client` async + `bm25s`）                                        | dense（Qdrant `query_points`）+ sparse（bm25s，mmap 加载）+ RRF 融合 + small2big；`retrieve/rerank` 作为原子函数暴露给 graph |
+| **LLM 客户端**   | 自写 `LiteLLMClient`（async httpx）                                            | 直连本机 LiteLLM proxy 的 `/chat/completions`·`/embeddings`·`/rerank`，集中限流/计费/降级；**非** LangChain `ChatOpenAI` |
+| **LangChain** | [LangChain](https://github.com/langchain-ai/langchain) `langchain-core` 0.3+ | 仅用 message 类型 + 流式自定义事件回调（`adispatch_custom_event`）配合 LangGraph；不承担 LLM 客户端职责            |
 
 
-> **关键边界**：LangGraph 节点不直接调 LlamaIndex 的高层 query engine（黑盒），而是把 LlamaIndex 当成"可控的检索 SDK"暴露 `retrieve / rerank` 等原子函数给 graph 调用。
+> **关键边界**：检索层**不引入** LlamaIndex / LangChain 的高层 Retriever 黑盒——dense 直接 `embed(query) → qdrant.query_points`、sparse 直接走 `bm25s`，只把 `retrieve / rerank` 等原子函数暴露给 LangGraph 节点，减少 hot path 上的抽象/反射开销。
 
 ### 模型层
 
@@ -107,7 +108,7 @@
 | -------- | ------------------------------------------ | ------------------------------------------------------------------------- |
 | 向量库      | Qdrant                                     | dense 检索（`tgpp_chunks_voyage_d1024`，394,859 points）                       |
 | 关系库      | PostgreSQL                                 | 业务数据 + LangGraph `AsyncPostgresSaver` checkpoint + ApiUsage               |
-| 稀疏检索     | LlamaIndex BM25                            | 持久化到 `INGEST_DATA_DIR/bm25/voyage/by_spec/{spec_id}.jsonl`，backend 加载现场构建 |
+| 稀疏检索     | `bm25s`                                    | ingestion 持久化到 `INGEST_DATA_DIR/bm25/voyage/`（`by_spec/*.jsonl` + `index/`）；backend 启动走 mmap fast path 加载 |
 | 缓存       | Redis                                      | retrieve/rerank/Vision 描述/history summary，跨进程共享                           |
 | ORM / 迁移 | SQLAlchemy 2.0 (async) + asyncpg + Alembic | 与 LangGraph PG checkpointer 共用连接                                          |
 
@@ -198,12 +199,12 @@ stateDiagram-v2
 queries = state.rewritten_queries or [state.user_input]
 if state.hyde_doc: queries.append(state.hyde_doc)        # complex 路径才有
 for q in queries:
-    dense  = await dense_retriever.aretrieve(q, top_k=30)   # Qdrant @ 1024 维
-    sparse = await sparse_retriever.aretrieve(q, top_k=30)  # LlamaIndex BM25
+    dense  = await dense_retriever.retrieve(q, top_k=30)    # Qdrant async @ 1024 维
+    sparse = sparse_retriever.retrieve(q, top_k=30)         # bm25s（sync，跑在 asyncio.to_thread）
     candidates.extend(rrf_merge(dense, sparse, k=60))       # RRF: score=Σ 1/(60+rank_i)
 unique = dedup_by_chunk_id(candidates)[:50]
-# rerank: voyage rerank-2.5, top-50 → top-5
-reranked = await voyage_client.rerank(query, [c.content for c in unique], model="rerank-2.5", top_k=5)
+# rerank: voyage rerank-2.5 经本机 LiteLLM proxy，top-50 → top-5
+reranked = await llm.rerank(query=query, documents=[c.content for c in unique], top_k=5)
 ```
 
 - **Redis 缓存**：`tgpp:cache:retrieve:{sha256(query+filter)}` / `tgpp:cache:rerank:{sha256(query+top_chunk_ids)}`，TTL 1h。
@@ -226,10 +227,10 @@ flowchart LR
     NX --> FE["Flutter Web/Android"]
     NX --> API["FastAPI + SSE"]
     API --> AG["LangGraph Agent<br/>(classify/rewrite/HyDE/retrieve/rerank/generate/self-RAG)"]
-    AG --> LI["LlamaIndex Hybrid Retriever"]
-    LI --> QD["Qdrant<br/>(dense 1024d)"]
-    LI --> BM["BM25<br/>(sparse, by_spec jsonl)"]
-    AG --> LLM["LiteLLM 本机<br/>(可配置 LLM)"]
+    AG --> RT["检索层<br/>(dense + sparse + RRF)"]
+    RT --> QD["Qdrant<br/>(dense 1024d)"]
+    RT --> BM["bm25s<br/>(sparse, by_spec jsonl + mmap index)"]
+    AG --> LLM["LiteLLMClient → 本机 LiteLLM<br/>(可配置 LLM)"]
     AG --> VG["Voyage AI<br/>embedding + rerank-2.5"]
     AG --> TV["Tavily Web Search<br/>(用户显式触发)"]
     API --> PG["PostgreSQL<br/>(LangGraph checkpoint + 业务)"]
@@ -440,7 +441,7 @@ make prod-restart / prod-logs / prod-backup / prod-restore BACKUP=./backups/<ts>
 A production-grade RAG agent over 3GPP specifications — live at **[https://3gpp-everything.org/](https://3gpp-everything.org/)**.
 
 - **Coverage**: GSMA Rel-18 + Rel-19 5G-series TS — 1270 specs / 394,859 chunks.
-- **Stack**: LangGraph (orchestration) + LlamaIndex (retrieval) + LangChain (adapters); FastAPI + SSE backend; Flutter Web/Android frontend.
+- **Stack**: LangGraph (orchestration) + a self-built retrieval layer (`qdrant-client` dense + `bm25s` sparse + RRF) + a self-written async `LiteLLMClient` (all LLM/embedding/rerank calls hit the local LiteLLM proxy — no LangChain `ChatOpenAI`; `langchain-core` is used only for LangGraph message types & streaming callbacks); FastAPI + SSE backend; Flutter Web/Android frontend.
 - **Models**: generation / Vision / self-RAG run on a **configurable LLM** via local LiteLLM (any OpenAI-compatible model — not hardcoded); Embedding / Reranker default to Voyage `voyage-4-large` @ 1024d & `rerank-2.5`. Eval-baseline judges: `deepseek-v4-pro` (Ragas) / `glm-5.1` (Huawei comparison).
 - **RAG**: GSMA/3GPP HF dataset → small2big chunking (atomic blocks for tables/formulas/ASN.1/figures) → multimodal-LLM Vision for figures → hybrid retrieval (Qdrant dense + BM25 + RRF) → Voyage rerank → LangGraph dual-path (simple fast / complex with HyDE + multi-query + self-RAG). Strict citation-only grounding; web search only when explicitly invoked.
 - **vs Huawei Telco-RAG** (neutral 100-question R18 set, glm-5.1 judge): this project leads on every metric (fact-coverage 0.80 vs 0.22, spec-attribution 96% vs 7%, 0% vs 93% hallucination on negatives); RAG's value hinges on retrieval quality. Details: `[eval/huawei_compare/results/REPORT.md](./eval/huawei_compare/results/REPORT.md)`.

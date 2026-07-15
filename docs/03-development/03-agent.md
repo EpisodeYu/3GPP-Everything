@@ -214,15 +214,15 @@ async def retrieve_node(state: AgentState) -> AgentState:
         queries.append(state.hyde_doc)
     candidates = []
     for q in queries:
-        dense = await dense_retriever.aretrieve(q, top_k=30)
-        sparse = await sparse_retriever.aretrieve(q, top_k=30)
+        dense = await dense_retriever.retrieve(q, top_k=30)   # Qdrant async
+        sparse = sparse_retriever.retrieve(q, top_k=30)       # bm25s sync（跑在 asyncio.to_thread）
         candidates.extend(rrf_merge(dense, sparse))
     # 排重 + 元数据过滤
     unique = dedup_by_chunk_id(candidates)[:50]
     return state.model_copy(update={"candidates": unique})
 ```
 
-- `dense_retriever`：`backend/app/retrieval/dense.py` 包 LlamaIndex VectorStoreIndex（Qdrant backend，复用 `tgpp_chunks_voyage_d1024`）
+- `dense_retriever`：`backend/app/retrieval/dense.py` 直接用 `qdrant-client.AsyncQdrantClient` + `LiteLLMClient.embed()`（**不经** LlamaIndex VectorStoreIndex；复用 `tgpp_chunks_voyage_d1024`）
 - `sparse_retriever`：`backend/app/retrieval/sparse.py` 包 `bm25s` 直接构建/加载，从 `/data/tgpp/bm25/voyage/` 持久化目录读：
   - **M8 起 — mmap fast path（默认）**：`bm25s.BM25.load(<dir>/index, mmap=True, load_corpus=False)` + `JsonlCorpus(corpus.jsonl)` lazy 访问。要求 ingestion 端跑过 `bm25-rebuild`（或新的 `finalize()` 默认带 build）。启动 < 1s，RSS 仅 ~250 MiB（mmap page 按需驻留）
   - **fallback**：找不到 `index/` 时退回旧 in-memory build（从 `by_spec/*.jsonl` 反序列化 list[dict] 再 `bm25s.tokenize+index`），实测 394k chunks 启动 30-60s、VmSize 峰值 ~2.5 GiB（启动日志会打 warning，应跑 `ingestion bm25-rebuild` 修复）
