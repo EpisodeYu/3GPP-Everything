@@ -51,3 +51,16 @@ flutter:
   # M5.6：开启 gen_l10n 自动从 lib/core/l10n/*.arb 生成 AppLocalizations。
   # 详细规则见 frontend/l10n.yaml。
   generate: true
+  # 质感优化：内置字体，摆脱 Web 端默认 Roboto「细而糊」与中文走 CDN 兜底失败。
+  # - Inter：可变字体单文件（876KB），覆盖 100-900 全字重，Flutter 按 fontWeight
+  #   自动取 wght 轴；作为拉丁/数字主字体。
+  # - NotoSansSC：从可变字体 instancer 固定到 Regular(400) 的静态实例（~10MB），
+  #   作为 CJK fallback；Medium/粗体标题由引擎合成，避免再多打包一份数 MB。
+  # 两者都随包发布，离线 nginx 部署也稳定；nginx 已对 font/ttf 开 gzip（~6MB 传输）。
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
+    - family: NotoSansSC
+      fonts:
+        - asset: assets/fonts/NotoSansSC-Regular.ttf

@@ -40,10 +40,7 @@ class AppShell extends ConsumerWidget {
           return Scaffold(
             body: Row(
               children: [
-                const SizedBox(
-                  width: 280,
-                  child: _SessionsSidebar(),
-                ),
+                const SizedBox(width: 280, child: _SessionsSidebar()),
                 const VerticalDivider(width: 1, thickness: 1),
                 Expanded(child: selectableChild),
               ],
@@ -51,9 +48,7 @@ class AppShell extends ConsumerWidget {
           );
         }
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('3GPP Everything'),
-          ),
+          appBar: AppBar(title: const Text('3GPP Everything')),
           drawer: const Drawer(
             width: 300,
             child: SafeArea(child: _SessionsSidebar()),
@@ -71,7 +66,9 @@ class _SessionsSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionsAsync = ref.watch(sessionsControllerProvider);
-    final me = ref.watch(authControllerProvider).maybeWhen(
+    final me = ref
+        .watch(authControllerProvider)
+        .maybeWhen(
           data: (s) => s is AuthAuthenticated ? s.me : null,
           orElse: () => null,
         );
@@ -146,7 +143,8 @@ class _SessionsSidebar extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => _SidebarError(
               message: '$e',
-              onRetry: () => ref.read(sessionsControllerProvider.notifier).refresh(),
+              onRetry: () =>
+                  ref.read(sessionsControllerProvider.notifier).refresh(),
             ),
           ),
         ),
@@ -161,8 +159,7 @@ class _SessionsSidebar extends ConsumerWidget {
                     style: TextButton.styleFrom(
                       foregroundColor: Theme.of(context).colorScheme.error,
                     ),
-                    onPressed: () =>
-                        _onDeleteAll(context, ref, items.length),
+                    onPressed: () => _onDeleteAll(context, ref, items.length),
                     icon: const Icon(Icons.delete_sweep_outlined, size: 18),
                     label: Text(t.sidebarDeleteAll),
                   ),
@@ -233,7 +230,9 @@ class _SessionsSidebar extends ConsumerWidget {
     );
     if (newTitle == null || newTitle.isEmpty || newTitle == s.title) return;
     try {
-      await ref.read(sessionsControllerProvider.notifier).rename(s.id, newTitle);
+      await ref
+          .read(sessionsControllerProvider.notifier)
+          .rename(s.id, newTitle);
     } on Object catch (e) {
       if (context.mounted) _snack(context, t.snackbarRenameFailed('$e'));
     }
@@ -378,7 +377,8 @@ class _DocPickerDialogState extends ConsumerState<_DocPickerDialog> {
                 hintText: '按 spec_id 过滤（如 23.501）',
                 prefixIcon: Icon(Icons.search, size: 18),
               ),
-              onChanged: (v) => setState(() => _filter = v.trim().toLowerCase()),
+              onChanged: (v) =>
+                  setState(() => _filter = v.trim().toLowerCase()),
             ),
             const SizedBox(height: 12),
             Expanded(
@@ -398,11 +398,12 @@ class _DocPickerDialogState extends ConsumerState<_DocPickerDialog> {
                   final filtered = _filter.isEmpty
                       ? resp.items
                       : resp.items
-                          .where(
-                            (d) => d.specId.toLowerCase().contains(_filter) ||
-                                d.title.toLowerCase().contains(_filter),
-                          )
-                          .toList();
+                            .where(
+                              (d) =>
+                                  d.specId.toLowerCase().contains(_filter) ||
+                                  d.title.toLowerCase().contains(_filter),
+                            )
+                            .toList();
                   if (filtered.isEmpty) {
                     return Center(
                       child: Text(
@@ -423,7 +424,7 @@ class _DocPickerDialogState extends ConsumerState<_DocPickerDialog> {
                         title: Text(d.specId),
                         subtitle: Text(
                           '${d.release} · series ${d.series} · ${d.chunkCount} chunks',
-                          style: const TextStyle(fontSize: 11),
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                         onTap: () => Navigator.of(context).pop(d.specId),
                       );
@@ -446,8 +447,9 @@ class _DocPickerDialogState extends ConsumerState<_DocPickerDialog> {
   }
 }
 
-final _docsListProvider =
-    FutureProvider.autoDispose<DocListResponse>((ref) async {
+final _docsListProvider = FutureProvider.autoDispose<DocListResponse>((
+  ref,
+) async {
   // 同样等待鉴权状态恢复，避免首屏加载时发起未授权请求。
   final authState = await ref.watch(authControllerProvider.future);
   if (authState is! AuthAuthenticated) {
@@ -711,7 +713,9 @@ class _SessionList extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
             child: Text(
               t.sidebarArchivedGroup,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           for (final s in archived)
@@ -745,55 +749,66 @@ class _SessionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final isArchived = session.isArchivedBranch;
     final fg = isArchived
         ? scheme.onSurface.withValues(alpha: 0.55)
         : scheme.onSurface;
-    return Material(
-      color: selected ? scheme.surfaceContainerHighest : Colors.transparent,
-      child: ListTile(
-        key: Key('session_tile_${session.id}'),
-        dense: true,
-        selected: selected,
-        title: Text(
-          session.displayTitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: fg, fontWeight: selected ? FontWeight.w600 : null),
-        ),
-        subtitle: isArchived
-            ? Text(
-                'archived',
-                style: TextStyle(fontSize: 10, color: fg),
-              )
-            : null,
-        onTap: onTap,
-        trailing: PopupMenuButton<String>(
-          key: Key('session_menu_${session.id}'),
-          itemBuilder: (ctx) {
-            final t = AppLocalizations.of(ctx);
-            return [
-              PopupMenuItem(
-                value: 'rename',
-                child: Text(t.sidebarSessionMenuRename),
-              ),
-              PopupMenuItem(
-                value: 'delete',
-                child: Text(t.sidebarSessionMenuDelete),
-              ),
-            ];
-          },
-          onSelected: (v) {
-            switch (v) {
-              case 'rename':
-                onRename();
-                break;
-              case 'delete':
-                onDelete();
-                break;
-            }
-          },
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Material(
+        color: selected
+            ? scheme.primary.withValues(alpha: 0.10)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          key: Key('session_tile_${session.id}'),
+          dense: true,
+          selected: selected,
+          title: Text(
+            session.displayTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: selected ? scheme.primary : fg,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+          subtitle: isArchived
+              ? Text(
+                  'archived',
+                  style: theme.textTheme.labelSmall?.copyWith(color: fg),
+                )
+              : null,
+          onTap: onTap,
+          trailing: PopupMenuButton<String>(
+            key: Key('session_menu_${session.id}'),
+            itemBuilder: (ctx) {
+              final t = AppLocalizations.of(ctx);
+              return [
+                PopupMenuItem(
+                  value: 'rename',
+                  child: Text(t.sidebarSessionMenuRename),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text(t.sidebarSessionMenuDelete),
+                ),
+              ];
+            },
+            onSelected: (v) {
+              switch (v) {
+                case 'rename':
+                  onRename();
+                  break;
+                case 'delete':
+                  onDelete();
+                  break;
+              }
+            },
+          ),
         ),
       ),
     );

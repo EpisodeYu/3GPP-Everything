@@ -112,8 +112,7 @@ void main() {
 
   testWidgets('AuthAnonymous.errorMessage 渲染为错误提示', (tester) async {
     final fake = await _pumpLogin(tester);
-    fake.finalState =
-        const AuthAnonymous(errorMessage: 'bad_credentials');
+    fake.finalState = const AuthAnonymous(errorMessage: 'bad_credentials');
 
     await tester.enterText(find.byKey(const Key('login_username')), 'alice');
     await tester.enterText(find.byKey(const Key('login_password')), 'pw123456');
@@ -138,6 +137,10 @@ void main() {
       find.byKey(const Key('bootstrap_invite')),
       'invite-xyz',
     );
+    // 登录页现在是可滚动布局（LayoutBuilder + SingleChildScrollView）：展开
+    // bootstrap 面板后 submit 按钮可能落在 800x600 视口外，先滚到可见再点。
+    await tester.ensureVisible(find.byKey(const Key('bootstrap_submit')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('bootstrap_submit')));
     await tester.pump();
 

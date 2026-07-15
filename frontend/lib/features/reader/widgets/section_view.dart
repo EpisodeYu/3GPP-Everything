@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/markdown_style.dart';
 import '../../../data/api/docs_api.dart';
 import '../reader_controller.dart';
 import 'highlight_overlay.dart';
@@ -67,7 +68,10 @@ class _SectionViewState extends ConsumerState<SectionView> {
 
   @override
   Widget build(BuildContext context) {
-    final ref = SectionRef(specId: widget.specId, sectionPath: widget.sectionPath);
+    final ref = SectionRef(
+      specId: widget.specId,
+      sectionPath: widget.sectionPath,
+    );
     final async = this.ref.watch(sectionDetailProvider(ref));
     return async.when(
       loading: () => const Center(
@@ -149,11 +153,7 @@ class _ChunksList extends StatelessWidget {
 }
 
 class _ChunkBlock extends StatelessWidget {
-  const _ChunkBlock({
-    super.key,
-    required this.chunk,
-    required this.active,
-  });
+  const _ChunkBlock({super.key, required this.chunk, required this.active});
 
   final ChunkOut chunk;
   final bool active;
@@ -191,6 +191,7 @@ class _ChunkBlock extends StatelessWidget {
               data: content,
               selectable: true,
               shrinkWrap: true,
+              styleSheet: appMarkdownStyleSheet(context),
             ),
           ],
         ),
@@ -205,17 +206,18 @@ class _ChunkTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        border: Border.all(color: scheme.outline),
+        color: scheme.surfaceContainerHigh,
+        border: Border.all(color: scheme.outlineVariant),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         type,
-        style: TextStyle(
-          fontSize: 11,
+        style: theme.textTheme.labelSmall?.copyWith(
           color: scheme.onSurfaceVariant,
           fontFamily: 'monospace',
         ),

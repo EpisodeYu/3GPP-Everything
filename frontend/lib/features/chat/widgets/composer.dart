@@ -92,7 +92,7 @@ class _ComposerState extends State<Composer> {
         ? '会话已暂停，点恢复继续'
         : (widget.isRunning ? '正在生成…' : '问点什么');
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -108,15 +108,15 @@ class _ComposerState extends State<Composer> {
                   minLines: 1,
                   maxLines: 6,
                   enabled: !widget.isRunning && !widget.isPaused,
+                  style: theme.textTheme.bodyLarge,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     hintText: hint,
-                    filled: true,
                     fillColor: theme.colorScheme.surfaceContainer,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               ..._buildActions(),
             ],
           ),
@@ -162,9 +162,8 @@ class _ComposerState extends State<Composer> {
         ),
       ];
     }
-    final canSend = !widget.isRunning &&
-        !widget.isPaused &&
-        _ctrl.text.trim().isNotEmpty;
+    final canSend =
+        !widget.isRunning && !widget.isPaused && _ctrl.text.trim().isNotEmpty;
     return [
       FilledButton.icon(
         key: const Key('composer_send'),

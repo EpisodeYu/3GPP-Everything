@@ -397,14 +397,57 @@ app_zh.arb        # 中文
 
 设计语言：**黑白主调 + 冷调蓝 accent**，专业感优先，参考 Google AI Studio / Grok mobile 的灰阶留白风格。
 
-- light / dark 两套，跟系统；用户可在右上角强制切换（M5.6）
-- Material 3 ColorScheme：
-  - `seedColor`: `Color(0xFF4F6D7A)`（冷调蓝灰）
-  - light: `surface=#FFFFFF / onSurface=#1A1A1A / surfaceContainer=#F5F5F5 / outline=#E5E5E5`
-  - dark:  `surface=#0E0E0E / onSurface=#EDEDED / surfaceContainer=#1C1C1C / outline=#2A2A2A`
-  - 仅在关键起点（发送按钮、当前会话高亮、引用 chip 边框、节点状态 chip "running" 态）使用 accent；其余一律灰阶
-- 圆角：cards 16px / chips 999px / buttons 12px（与参考图保持一致的现代圆润感）
-- 代码块、引用 chip、表格在两个主题下都要可读（`monospace` 字体 + 浅灰背景框）
+实现全部收敛在 `frontend/lib/core/theme.dart`（`AppTheme`）+ 共享 markdown 排版
+`frontend/lib/core/markdown_style.dart`（`appMarkdownStyleSheet`）。
+
+### 10.1 字体（2026-07 质感优化）
+
+Web 端默认 Roboto 字重偏细、渲染发糊，且无内置 CJK 时中文会去 Google Fonts CDN
+拉 Noto 兜底、离线部署失败 → 中文又细又糊。因此**内置字体、随包发布**：
+
+- **Inter**：拉丁 / 数字主字体，可变字体单文件 `assets/fonts/Inter-Variable.ttf`
+  （~876KB，覆盖 100-900 全字重，Flutter 按 `fontWeight` 自动取 wght 轴）。
+- **NotoSansSC**：CJK fallback，从可变字体 `fontTools.varLib.instancer` 固定到
+  Regular(400) 的静态实例 `assets/fonts/NotoSansSC-Regular.ttf`（~10MB）；
+  Medium/粗体标题由引擎合成，避免再多打一份数 MB。
+- 全局 `fontFamily: 'Inter'` + `fontFamilyFallback: ['NotoSansSC']`，中文自动回退。
+- `pubspec.yaml` 的 `flutter.fonts` 声明两 family；`frontend/nginx/default.conf`
+  已把 `font/ttf` / `application/font-sfnt` 加入 `gzip_types`（10MB → ~6MB 传输），
+  并走 30d immutable 长缓存（首屏一次下载）。
+
+### 10.2 排版（显式 TextTheme）
+
+基于 M3 baseline 尺寸（不改字号，保持布局稳定），仅调字体 / 字重 / 行高 / 字距 /
+次要色：标题 `w600` + 收紧字距（headline/title `letterSpacing -0.2 ~ -0.1`）；
+正文 `height 1.55`；次要文字（bodySmall / labelSmall）用更实的 `onSurfaceVariant`
+解决「灰得看不清」。
+
+### 10.3 配色（Material 3 ColorScheme）
+
+- `seedColor`: `Color(0xFF4F6D7A)`（冷调蓝灰）
+- light: `surface=#FFFFFF / onSurface=#1A1A1A / onSurfaceVariant=#565B63`；
+  分层灰阶 `surfaceContainerLow=#FAFAFB / surfaceContainer=#F4F5F6 /
+  High=#EDEEF0 / Highest=#E7E9EC`；`outline=#D7D9DE / outlineVariant=#EBECEF`
+- dark:  `surface=#0E0E0E / onSurface=#EDEDED / onSurfaceVariant=#B4B9C1`；
+  `surfaceContainerLow=#151515 / surfaceContainer=#1C1C1C / High=#232323 /
+  Highest=#2A2A2A`；`outline=#3A3A3A / outlineVariant=#262626`
+- 仅在关键起点（发送按钮、当前会话高亮、引用 chip 边框、节点状态 chip "running" 态）
+  使用 accent；其余一律灰阶
+
+### 10.4 层次与组件
+
+- 圆角：cards 16px / chips 999px / buttons 12px / 输入框 12px / 气泡 16px
+- 轻量层次：`AppTheme.softShadow(brightness)` 给卡片 / 气泡 / 浮层一点「浮起」感
+  （light 两层近乎透明黑影；dark 近乎不投影）；卡片 / 分隔线用 `outlineVariant`
+  发丝边，替代原先生硬的整框实线
+- 统一组件主题：`divider / card / chip / filled·outlined·text·iconButton /
+  inputDecoration（filled+圆角+focus accent）/ appBar / dialog / popupMenu /
+  snackBar（floating）/ listTile / tooltip / scrollbar`
+- 聊天气泡：user 用克制 accent 底 + 淡 primary 描边；assistant 用
+  `surfaceContainerLow` 卡面 + 发丝边 + softShadow
+- 代码块、引用 chip、表格在两个主题下都要可读（`monospace` 字体 + 浅灰背景框）；
+  答案 / 规范正文的 markdown 统一走 `appMarkdownStyleSheet`（正文 / 标题 / 代码块 /
+  引用左描边 / 表格发丝边）
 
 ## 11. 测试
 

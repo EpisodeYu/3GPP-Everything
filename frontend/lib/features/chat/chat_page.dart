@@ -60,6 +60,8 @@ class _WelcomePane extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -69,17 +71,29 @@ class _WelcomePane extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(
-                Icons.chat_bubble_outline,
-                size: 56,
-                color: Theme.of(context).colorScheme.primary,
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: Icon(
+                  Icons.chat_bubble_outline,
+                  size: 34,
+                  color: scheme.primary,
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               Text(
                 AppLocalizations.of(context).chatEmptyTitle,
-                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
               const NewSessionButton(buttonKey: Key('welcome_new_session')),
             ],
           ),
@@ -100,10 +114,7 @@ class _MissingSessionPane extends StatelessWidget {
         children: [
           const Icon(Icons.search_off, size: 48),
           const SizedBox(height: 12),
-          Text(
-            '找不到该会话',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('找不到该会话', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           OutlinedButton(
             key: const Key('missing_back_home'),
@@ -229,17 +240,13 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           .rollback(n);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '已删除最后 $n 轮（共 ${resp.deletedMessages} 条消息）',
-          ),
-        ),
+        SnackBar(content: Text('已删除最后 $n 轮（共 ${resp.deletedMessages} 条消息）')),
       );
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('回滚失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('回滚失败：$e')));
     }
   }
 
@@ -262,9 +269,9 @@ class _ChatViewState extends ConsumerState<_ChatView> {
       await controller.editLastTurn(text);
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('修改失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('修改失败：$e')));
     }
   }
 
@@ -285,9 +292,9 @@ class _ChatViewState extends ConsumerState<_ChatView> {
       final cp = list.items.isNotEmpty ? list.items.first : null;
       if (cp == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前会话还没有可分叉的 checkpoint')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('当前会话还没有可分叉的 checkpoint')));
         return;
       }
       final created = await ref
@@ -301,9 +308,9 @@ class _ChatViewState extends ConsumerState<_ChatView> {
       context.go('/sessions/${created.id}');
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('分叉失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('分叉失败：$e')));
     }
   }
 
@@ -319,13 +326,13 @@ class _ChatViewState extends ConsumerState<_ChatView> {
       case _AssistantAction.copy:
         // fire-and-forget：测试 / 平台 channel 未挂时 setData 可能抛
         // MissingPluginException；不让它阻塞 UI 反馈。
-        Clipboard.setData(ClipboardData(text: m.content)).catchError(
-          (Object _) {},
-        );
+        Clipboard.setData(
+          ClipboardData(text: m.content),
+        ).catchError((Object _) {});
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已复制消息')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已复制消息')));
         break;
       case _AssistantAction.thumbUp:
         await _submitFeedback(m, 1);
@@ -355,13 +362,13 @@ class _ChatViewState extends ConsumerState<_ChatView> {
     if (!mounted) return;
     switch (action) {
       case _UserAction.copy:
-        Clipboard.setData(ClipboardData(text: m.content)).catchError(
-          (Object _) {},
-        );
+        Clipboard.setData(
+          ClipboardData(text: m.content),
+        ).catchError((Object _) {});
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已复制消息')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已复制消息')));
         break;
       case _UserAction.forkFromHere:
         await _onForkFromUserMessage(m);
@@ -371,18 +378,16 @@ class _ChatViewState extends ConsumerState<_ChatView> {
 
   Future<void> _submitFeedback(MessageOut m, int thumb) async {
     try {
-      await ref
-          .read(feedbackApiProvider)
-          .upsert(m.id, thumb: thumb);
+      await ref.read(feedbackApiProvider).upsert(m.id, thumb: thumb);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(thumb > 0 ? '已点赞' : '已点踩')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(thumb > 0 ? '已点赞' : '已点踩')));
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('反馈失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('反馈失败：$e')));
     }
   }
 
@@ -398,14 +403,14 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           .read(feedbackApiProvider)
           .upsert(m.id, thumb: result.thumb, reason: result.reason);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('反馈已提交')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('反馈已提交')));
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('反馈失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('反馈失败：$e')));
     }
   }
 
@@ -415,14 +420,14 @@ class _ChatViewState extends ConsumerState<_ChatView> {
           .read(favoritesApiProvider)
           .create(targetType: 'message', targetId: m.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已收藏')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已收藏')));
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('收藏失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('收藏失败：$e')));
     }
   }
 
@@ -434,20 +439,18 @@ class _ChatViewState extends ConsumerState<_ChatView> {
     if (body == null || body.trim().isEmpty) return;
     if (!mounted) return;
     try {
-      await ref.read(notesApiProvider).create(
-            targetType: 'message',
-            targetId: m.id,
-            body: body.trim(),
-          );
+      await ref
+          .read(notesApiProvider)
+          .create(targetType: 'message', targetId: m.id, body: body.trim());
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已保存笔记')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已保存笔记')));
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存笔记失败：$e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('保存笔记失败：$e')));
     }
   }
 
@@ -465,33 +468,32 @@ class _ChatViewState extends ConsumerState<_ChatView> {
 
     // 每帧后尝试一次"跳回原消息"滚动（直到锚点 mount 命中为止，触发后自动停）。
     if (_wantsHighlight) {
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _maybeScrollToHighlight());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _maybeScrollToHighlight(),
+      );
     }
 
     final state = stateAsync.value;
-    final isRunning = state?.run.status == RunStatus.streaming ||
+    final isRunning =
+        state?.run.status == RunStatus.streaming ||
         state?.run.status == RunStatus.cancelling;
     final showPaused = _shouldShowPausedBanner(state);
     // 编辑入口可见性：非 archived + 非 run 中 + history 末尾形如 user+assistant。
     // 使用 chat_controller 的 isLastTurnEditable 同款逻辑保持一致。
     final lastEditableUserId =
         (!isArchived && state != null && !isRunning && !showPaused)
-            ? _lastEditableUserMessageId(state)
-            : null;
+        ? _lastEditableUserMessageId(state)
+        : null;
     // 编辑态气泡只能命中"当前可编辑的最后一条"——streaming/archived/paused 进来
     // 时 editableLastUserId 为 null，下面 ?: 自动失效。
-    final editingMessageId = (_editingMessageId != null &&
-            _editingMessageId == lastEditableUserId)
+    final editingMessageId =
+        (_editingMessageId != null && _editingMessageId == lastEditableUserId)
         ? _editingMessageId
         : null;
 
     return Column(
       children: [
-        _Header(
-          session: session,
-          onRollback: isArchived ? null : _onRollback,
-        ),
+        _Header(session: session, onRollback: isArchived ? null : _onRollback),
         const Divider(height: 1),
         Expanded(
           child: stateAsync.when(
@@ -518,8 +520,7 @@ class _ChatViewState extends ConsumerState<_ChatView> {
         // 2026-05-31：原本独立一行的 NodeStatusStrip 已被消息列表里的
         // ReasoningPanel 取代（信息更丰富 + 嵌在「回答位置」更符合用户预期），
         // 不再在 Composer 上方单独渲染节点 chip。
-        if (showPaused)
-          _PausedBanner(onResume: isArchived ? null : _onResume),
+        if (showPaused) _PausedBanner(onResume: isArchived ? null : _onResume),
         if (state?.run.status == RunStatus.error)
           _ErrorBanner(message: state!.run.errorMessage ?? 'unknown'),
         const Divider(height: 1),
@@ -659,11 +660,13 @@ class _MessagesList extends StatelessWidget {
     // 命中"跳回原消息"目标的气泡：挂锚点 key + 包一层一次性高亮淡出。
     void addEntry(MessageOut m, Widget w) {
       if (highlightMessageId != null && m.id == highlightMessageId) {
-        items.add(HighlightOverlay(
-          key: highlightAnchorKey,
-          active: highlightActive,
-          child: w,
-        ));
+        items.add(
+          HighlightOverlay(
+            key: highlightAnchorKey,
+            active: highlightActive,
+            child: w,
+          ),
+        );
       } else {
         items.add(w);
       }
@@ -676,27 +679,31 @@ class _MessagesList extends StatelessWidget {
       if (m.role == 'assistant') {
         final snap = state.reasoningByMessageId[m.id];
         if (snap != null) {
-          items.add(ReasoningPanel(
-            key: ValueKey('reasoning-${m.id}'),
-            nodes: snap.nodes,
-            reasoningByNode: snap.reasoningByNode,
-            activeNode: null,
-            startedAt: null,
-            collapsedFromController: true,
-            frozenElapsed: snap.elapsed,
-          ));
+          items.add(
+            ReasoningPanel(
+              key: ValueKey('reasoning-${m.id}'),
+              nodes: snap.nodes,
+              reasoningByNode: snap.reasoningByNode,
+              activeNode: null,
+              startedAt: null,
+              collapsedFromController: true,
+              frozenElapsed: snap.elapsed,
+            ),
+          );
         }
       }
       // inline 编辑态：命中这条 user 消息 → 用 _EditableUserBubble 直接接管。
       // 跳过长按 / 操作按钮叠加，让编辑专心进行。
       if (m.role == 'user' && m.id == editingMessageId) {
-        items.add(_EditableUserBubble(
-          key: ValueKey('editable-user-bubble-${m.id}'),
-          messageId: m.id,
-          originalText: m.content,
-          onSend: onSendEdited,
-          onCancel: onCancelEdit,
-        ));
+        items.add(
+          _EditableUserBubble(
+            key: ValueKey('editable-user-bubble-${m.id}'),
+            messageId: m.id,
+            originalText: m.content,
+            onSend: onSendEdited,
+            onCancel: onCancelEdit,
+          ),
+        );
         continue;
       }
       final bubble = MessageBubble(
@@ -771,7 +778,8 @@ class _MessagesList extends StatelessWidget {
       addEntry(m, child);
     }
     final run = state.run;
-    final showStreaming = run.status == RunStatus.streaming ||
+    final showStreaming =
+        run.status == RunStatus.streaming ||
         run.status == RunStatus.cancelling ||
         run.status == RunStatus.paused;
     // 即便 run.status 已切到 done / cancelled / error，只要本轮 reasoning 还在
@@ -780,26 +788,32 @@ class _MessagesList extends StatelessWidget {
     final hasRunBubble = showStreaming;
     if (hasRunBubble) {
       if (run.userInput.isNotEmpty) {
-        items.add(MessageBubble(
-          key: const Key('msg-streaming-user'),
-          role: 'user',
-          content: run.userInput,
-        ));
+        items.add(
+          MessageBubble(
+            key: const Key('msg-streaming-user'),
+            role: 'user',
+            content: run.userInput,
+          ),
+        );
       }
       // ReasoningPanel 放在 streaming bubble 上方（在「回答的位置」）。任何时候
       // 只要有 nodes 或 hyde reasoning 累积都显示；空 → 自动 SizedBox.shrink。
-      items.add(ReasoningPanel(
-        key: const Key('reasoning_panel_inline'),
-        nodes: run.nodes,
-        reasoningByNode: run.reasoningByNode,
-        activeNode: run.activeNode,
-        startedAt: run.reasoningStartedAt,
-        collapsedFromController: run.reasoningCollapsed,
-      ));
-      items.add(StreamingAssistantBubble(
-        key: const Key('msg-streaming-assistant'),
-        partial: run.partialAnswer,
-      ));
+      items.add(
+        ReasoningPanel(
+          key: const Key('reasoning_panel_inline'),
+          nodes: run.nodes,
+          reasoningByNode: run.reasoningByNode,
+          activeNode: run.activeNode,
+          startedAt: run.reasoningStartedAt,
+          collapsedFromController: run.reasoningCollapsed,
+        ),
+      );
+      items.add(
+        StreamingAssistantBubble(
+          key: const Key('msg-streaming-assistant'),
+          partial: run.partialAnswer,
+        ),
+      );
     }
 
     if (items.isEmpty) {
@@ -835,8 +849,10 @@ class _PausedBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Icon(Icons.pause_circle_filled,
-              color: theme.colorScheme.onTertiaryContainer),
+          Icon(
+            Icons.pause_circle_filled,
+            color: theme.colorScheme.onTertiaryContainer,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1169,8 +1185,10 @@ class _RollbackDialogState extends State<_RollbackDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('一轮 = 一条提问 + 对应的回答。此操作不可撤销，'
-              '会同时删除对应的 LangGraph checkpoint。'),
+          const Text(
+            '一轮 = 一条提问 + 对应的回答。此操作不可撤销，'
+            '会同时删除对应的 LangGraph checkpoint。',
+          ),
           const SizedBox(height: 16),
           Slider(
             key: const Key('rollback_slider'),

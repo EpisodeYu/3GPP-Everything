@@ -3,8 +3,30 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
 import '../../../core/l10n/app_localizations.dart';
+import '../../../core/markdown_style.dart';
+import '../../../core/theme.dart';
 import '../../../data/api/messages_api.dart';
 import 'citation_chip.dart';
+
+/// 气泡装饰：user 用克制的 accent 底 + 淡描边；assistant 用 surfaceContainer
+/// 卡面 + 发丝边 + 极轻投影，去掉原本生硬的整框实线，观感更「浮起」的卡片。
+BoxDecoration _bubbleDecoration(ThemeData theme, {required bool isUser}) {
+  final scheme = theme.colorScheme;
+  final isDark = theme.brightness == Brightness.dark;
+  if (isUser) {
+    return BoxDecoration(
+      color: scheme.primaryContainer.withValues(alpha: isDark ? 0.32 : 0.5),
+      border: Border.all(color: scheme.primary.withValues(alpha: 0.22)),
+      borderRadius: BorderRadius.circular(AppTheme.radiusBubble),
+    );
+  }
+  return BoxDecoration(
+    color: scheme.surfaceContainerLow,
+    border: Border.all(color: scheme.outlineVariant),
+    borderRadius: BorderRadius.circular(AppTheme.radiusBubble),
+    boxShadow: AppTheme.softShadow(theme.brightness),
+  );
+}
 
 /// 单条聊天消息气泡。User 与 Assistant 视觉区分：
 /// - User：右对齐、accent 弱填充背景
@@ -42,25 +64,19 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bg = _isUser
-        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
-        : theme.colorScheme.surfaceContainer;
     final align = _isUser ? Alignment.centerRight : Alignment.centerLeft;
-    final crossAlign =
-        _isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final crossAlign = _isUser
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start;
 
     return Align(
       alignment: align,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: bg,
-            border: Border.all(color: theme.colorScheme.outline),
-            borderRadius: BorderRadius.circular(14),
-          ),
+          margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: _bubbleDecoration(theme, isUser: _isUser),
           child: Column(
             crossAxisAlignment: crossAlign,
             mainAxisSize: MainAxisSize.min,
@@ -113,13 +129,9 @@ class StreamingAssistantBubble extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainer,
-            border: Border.all(color: theme.colorScheme.outline),
-            borderRadius: BorderRadius.circular(14),
-          ),
+          margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: _bubbleDecoration(theme, isUser: false),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +147,6 @@ class StreamingAssistantBubble extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// 把文本按块级 `$$ ... $$` 切片，分别用 markdown / math 渲染后纵向堆叠。
@@ -159,8 +170,9 @@ class _MarkdownWithMath extends StatelessWidget {
       return _md(context, (segments.first as _MdSegment).text);
     }
     return Column(
-      crossAxisAlignment:
-          isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: isUser
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final s in segments)
@@ -198,10 +210,9 @@ class _MarkdownWithMath extends StatelessWidget {
       data: md,
       selectable: false,
       shrinkWrap: true,
+      styleSheet: appMarkdownStyleSheet(context),
       inlineSyntaxes: [CitationInlineSyntax()],
-      builders: {
-        'citation': CitationElementBuilder(citationsByRank: byRank),
-      },
+      builders: {'citation': CitationElementBuilder(citationsByRank: byRank)},
     );
   }
 
