@@ -512,9 +512,7 @@ async def test_admin_can_read_any_users_session(app_and_state: Any, db_session: 
         sid = r.json()["id"]
         db_session.add_all(
             [
-                Message(
-                    session_id=uuid.UUID(sid), role="user", content="什么是 PDCP", status="ok"
-                ),
+                Message(session_id=uuid.UUID(sid), role="user", content="什么是 PDCP", status="ok"),
                 Message(
                     session_id=uuid.UUID(sid), role="assistant", content="PDCP 是…", status="ok"
                 ),

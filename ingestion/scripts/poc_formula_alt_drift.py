@@ -136,9 +136,7 @@ def main(
         )
     typer.echo("-" * 56)
     grand_pct = (grand_annotated / grand_total * 100.0) if grand_total else 0.0
-    typer.echo(
-        f"{'TOTAL':<10} {grand_total:>7} {grand_annotated:>7} {grand_pct:>6.2f}%"
-    )
+    typer.echo(f"{'TOTAL':<10} {grand_total:>7} {grand_annotated:>7} {grand_pct:>6.2f}%")
 
     typer.echo("\nBy chunk_type (annotated / total)：")
     type_agg: dict[str, dict[str, int]] = {}
