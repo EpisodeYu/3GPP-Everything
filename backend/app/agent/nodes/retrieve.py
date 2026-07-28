@@ -4,7 +4,8 @@
 
 - dense 走 `DenseRetriever.retrieve()`；sparse 走 `SparseRetriever.retrieve()` (sync)，
   在 `asyncio.to_thread` 里跑避免阻塞 event loop
-- 多个 query 串行检索（M4.2 simple 路径只 1 条；M4.3 multi_query 时再考虑并发）
+- 多个 query 在节点内有界并发，受 settings.RETRIEVAL_QUERY_CONCURRENCY 限制；
+  单 query 内仍保持 dense → sparse，避免放大 BM25 线程竞争
 - 用 RRF 融合并排重，截断到 settings.RETRIEVAL_FINAL_TOP_K（默认 50）
 - 缓存：`{prefix}:retrieve:{sha256(queries+spec_filter)}` TTL 1h；命中直接还原
 - 节点产出后通过 `get_stream_writer()` 发自定义事件 `chunks_hit`，供
@@ -76,14 +77,9 @@ async def retrieve_node(state: AgentState, *, deps: AgentDeps) -> dict[str, Any]
             await _emit_chunks_hit(chunks)
             return {"candidates": chunks}
 
-    dense_lists: list[list[RetrievedChunk]] = []
-    sparse_lists: list[list[RetrievedChunk]] = []
-
-    for q in queries:
-        d, sp = await _fetch_dense_sparse(deps, q, s)
-        dense_lists.append(d)
-        if deps.sparse is not None:
-            sparse_lists.append(sp)
+    fetched = await _fetch_many(deps, queries, s)
+    dense_lists = [dense for dense, _ in fetched]
+    sparse_lists = [sparse for _, sparse in fetched] if deps.sparse is not None else []
 
     fused = rrf_merge(
         *dense_lists,
@@ -134,6 +130,21 @@ async def _fetch_dense_sparse(
     return dense, sparse
 
 
+async def _fetch_many(
+    deps: AgentDeps, queries: list[str], s: Any
+) -> list[tuple[list[RetrievedChunk], list[RetrievedChunk]]]:
+    """按输入顺序返回多 query 结果，同时限制单次 retrieve 节点的在途查询数。"""
+    sem = asyncio.Semaphore(max(1, s.RETRIEVAL_QUERY_CONCURRENCY))
+
+    async def _bounded_fetch(
+        query: str,
+    ) -> tuple[list[RetrievedChunk], list[RetrievedChunk]]:
+        async with sem:
+            return await _fetch_dense_sparse(deps, query, s)
+
+    return await asyncio.gather(*(_bounded_fetch(query) for query in queries))
+
+
 async def _mapreduce_retrieve(
     state: AgentState, deps: AgentDeps, base_queries: list[str]
 ) -> dict[str, Any]:
@@ -165,8 +176,11 @@ async def _mapreduce_retrieve(
     all_sparse: list[list[RetrievedChunk]] = []
     by_query: list[list[StateChunk]] = []
 
-    for q in base_queries:
-        dense, sparse = await _fetch_dense_sparse(deps, q, s)
+    hyde_query = state.hyde_doc.strip() if state.hyde_doc and state.hyde_doc.strip() else None
+    queries = [*base_queries, *([hyde_query] if hyde_query else [])]
+    fetched = await _fetch_many(deps, queries, s)
+
+    for dense, sparse in fetched[: len(base_queries)]:
         all_dense.append(dense)
         all_sparse.append(sparse)
         pool = rrf_merge(
@@ -177,8 +191,8 @@ async def _mapreduce_retrieve(
         )
         by_query.append([StateChunk.from_retrieval(c) for c in pool])
 
-    if state.hyde_doc and state.hyde_doc.strip():
-        dense, sparse = await _fetch_dense_sparse(deps, state.hyde_doc.strip(), s)
+    if hyde_query:
+        dense, sparse = fetched[-1]
         all_dense.append(dense)
         all_sparse.append(sparse)
 

@@ -160,6 +160,9 @@ class Settings(BaseSettings):
     RETRIEVAL_FINAL_TOP_K: int = 80
     RERANK_TOP_K: int = 8
     RETRIEVAL_CACHE_TTL_S: int = 3600
+    # multi-query retrieve 的单请求并发上限；<= 0 按 1 处理，便于紧急退回串行。
+    # 与 rerank 并发分开配置：两者上游资源和调参边界不同。
+    RETRIEVAL_QUERY_CONCURRENCY: int = 3
 
     # === Map-reduce 检索（A 范式）===
     # 仅 complexity=complex 且 query_class!=definition 且子查询数 > 1 时生效；其余

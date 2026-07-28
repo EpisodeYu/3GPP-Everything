@@ -25,13 +25,10 @@ pytestmark = pytest.mark.integration
 
 
 @dataclass
-class SequencedDense:
-    """按调用次序返回预置 chunk 列表的 dense stub（与 query 字符串解耦）。
+class QueryAwareDense:
+    """按 query 返回预置 chunk，允许 map-reduce retrieve 并发执行。"""
 
-    map-reduce retrieve 的 dense 调用是串行的：facet0, facet1, …, 最后 hyde。
-    """
-
-    per_call: list[list[RetrievalChunk]]
+    by_query: dict[str, list[RetrievalChunk]]
     calls: list[str] = field(default_factory=list)
 
     async def retrieve(
@@ -41,10 +38,8 @@ class SequencedDense:
         top_k: int = 30,
         filter_spec_ids: Sequence[str] | None = None,
     ) -> list[RetrievalChunk]:
-        i = len(self.calls)
         self.calls.append(query)
-        chunks = self.per_call[i] if i < len(self.per_call) else []
-        return list(chunks)[:top_k]
+        return list(self.by_query.get(query, []))[:top_k]
 
     async def close(self) -> None:
         pass
@@ -86,7 +81,14 @@ async def test_mapreduce_end_to_end_yields_multi_facet_reranked() -> None:
     facet_a = make_chunk("a1", spec_id="38.331", title="RRC connection establishment")
     facet_b = make_chunk("b1", spec_id="23.501", title="Registration management")
     facet_c = make_chunk("c1", spec_id="38.413", title="Initial UE message")
-    dense = SequencedDense(per_call=[[facet_a], [facet_b], [facet_c], []])
+    dense = QueryAwareDense(
+        by_query={
+            _REWRITE: [facet_a],
+            "AMF registration procedure": [facet_b],
+            "NGAP initial UE message": [facet_c],
+            _HYDE: [],
+        }
+    )
     deps = make_deps(
         llm=_llm(),
         dense=dense,  # type: ignore[arg-type]
@@ -113,7 +115,14 @@ async def test_flag_off_same_input_uses_single_pool() -> None:
     facet_a = make_chunk("a1", spec_id="38.331")
     facet_b = make_chunk("b1", spec_id="23.501")
     facet_c = make_chunk("c1", spec_id="38.413")
-    dense = SequencedDense(per_call=[[facet_a], [facet_b], [facet_c], []])
+    dense = QueryAwareDense(
+        by_query={
+            _REWRITE: [facet_a],
+            "AMF registration procedure": [facet_b],
+            "NGAP initial UE message": [facet_c],
+            _HYDE: [],
+        }
+    )
     deps = make_deps(
         llm=_llm(),
         dense=dense,  # type: ignore[arg-type]
