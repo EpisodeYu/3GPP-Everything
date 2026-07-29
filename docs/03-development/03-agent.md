@@ -212,10 +212,17 @@ async def retrieve_node(state: AgentState) -> AgentState:
     queries = state.rewritten_queries or [state.user_input]
     if state.hyde_doc:
         queries.append(state.hyde_doc)
+
+    semaphore = asyncio.Semaphore(settings.RETRIEVAL_QUERY_CONCURRENCY)
+    async def fetch(q):
+        async with semaphore:
+            # 单 query 内仍保持 dense → sparse；不同 query 有界并发
+            dense = await dense_retriever.retrieve(q, top_k=30)
+            sparse = await asyncio.to_thread(sparse_retriever.retrieve, q, top_k=30)
+            return dense, sparse
+
     candidates = []
-    for q in queries:
-        dense = await dense_retriever.retrieve(q, top_k=30)   # Qdrant async
-        sparse = sparse_retriever.retrieve(q, top_k=30)       # bm25s sync（跑在 asyncio.to_thread）
+    for dense, sparse in await asyncio.gather(*(fetch(q) for q in queries)):
         candidates.extend(rrf_merge(dense, sparse))
     # 排重 + 元数据过滤
     unique = dedup_by_chunk_id(candidates)[:50]
@@ -240,6 +247,12 @@ async def retrieve_node(state: AgentState) -> AgentState:
 > 默认关；其余路径（simple/definition/tool）完全走上方 single-pool 逻辑。
 > 实现见 `nodes/retrieve.py` `_mapreduce_retrieve`，完整口径
 > [`../04-handoff/2026-06-02-mapreduce-retrieval-plan.md`](../04-handoff/2026-06-02-mapreduce-retrieval-plan.md)。
+>
+> **2026-07-28 并发优化**：single-pool 与 map-reduce 的 multi-query retrieve 统一改为
+> 节点内部 `asyncio.gather` + `Semaphore` 有界并发，默认
+> `RETRIEVAL_QUERY_CONCURRENCY=3`；HyDE 与 facet 同批调度但仍只进入 flat pool。
+> 图拓扑、cache、checkpoint、self-RAG retry 与 `chunks_hit` SSE 契约均不变；配置
+> `<=0` 按 1 处理，可退化回原串行行为。
 
 ### 4.6 `rerank_node`
 
