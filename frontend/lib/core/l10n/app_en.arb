@@ -7,6 +7,8 @@
   "loginPasswordLabel": "Password",
   "loginUsernameRequired": "Please enter a username",
   "loginPasswordRequired": "Please enter a password",
+  "loginShowPassword": "Show password",
+  "loginHidePassword": "Hide password",
   "loginSubmit": "Sign in",
   "bootstrapToggle": "First deployment? Create an admin",
   "bootstrapInviteLabel": "Invite code (BOOTSTRAP_ADMIN_INVITE_CODE)",

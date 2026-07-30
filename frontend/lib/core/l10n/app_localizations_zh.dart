@@ -27,6 +27,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginPasswordRequired => '请输入密码';
 
   @override
+  String get loginShowPassword => '显示密码';
+
+  @override
+  String get loginHidePassword => '隐藏密码';
+
+  @override
   String get loginSubmit => '登录';
 
   @override

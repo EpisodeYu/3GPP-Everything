@@ -7,6 +7,8 @@
   "loginPasswordLabel": "密码",
   "loginUsernameRequired": "请输入用户名",
   "loginPasswordRequired": "请输入密码",
+  "loginShowPassword": "显示密码",
+  "loginHidePassword": "隐藏密码",
   "loginSubmit": "登录",
   "bootstrapToggle": "首次部署？创建管理员",
   "bootstrapInviteLabel": "邀请码 (BOOTSTRAP_ADMIN_INVITE_CODE)",

@@ -48,6 +48,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    # 登录页复用品牌 PWA 透明图标；同一资源随 Web / Android 一起打包。
+    - web/icons/Icon-512.png
   # M5.6：开启 gen_l10n 自动从 lib/core/l10n/*.arb 生成 AppLocalizations。
   # 详细规则见 frontend/l10n.yaml。
   generate: true
