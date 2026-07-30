@@ -15,7 +15,7 @@
 
 你可以：
 
-- **问问题，拿原文**：自然语言提问（如"PDU Session 建立完整流程"），得到带 `[spec § 章节]` 引用的回答；点引用 chip 直接打开章节阅读器看完整原文。
+- **问问题，拿原文**：自然语言提问（如"PDU Session 建立完整流程"），得到带 `[N]` 索引引用的回答；后端按索引回填 spec / section 元数据，点引用 chip 直接打开章节阅读器看完整原文。
 - **跨文档 / 多证据推理**：复杂问题（多实体、多文档对比）自动走 HyDE + multi-query + 多文档检索 + self-RAG 自评闭环。
 - **工具型查询**：缩写表（glossary）、章节目录（toc）、参数/IE 字段（params）、Web 搜索（仅用户显式触发，结果标注"未经 3GPP 验证"）。
 - **收藏 / 笔记 / 反馈**：对回答收藏、记笔记；点赞/点踩反馈，管理员可溯源到整段会话与引用。
@@ -27,12 +27,12 @@
 | 能力               | 说明                                                                                                           |
 | ---------------- | ------------------------------------------------------------------------------------------------------------ |
 | **检索增强问答**       | Hybrid 检索（Qdrant dense 1024 维 + BM25 sparse + RRF 融合）→ Voyage rerank → LLM 生成；small2big 召回（命中小块、回展父 section） |
-| **段落级引用 + 阅读器**  | 回答内嵌 `[spec_id § section ¶offset]` 引用，正则抽取为可点 chip → 跳转章节阅读器看完整原文                                            |
+| **段落级引用 + 阅读器**  | 回答内嵌 `[N]` 索引引用，后端按命中 chunk 的 1-based 序号回填 spec / section 元数据并渲染为可点 chip → 跳转章节阅读器看完整原文                         |
 | **严格 grounding** | 仅基于检索内容生成；查无证据明示"未在 3GPP 文档中找到"；self-RAG 用独立模型做 grounding/coverage/confidence 三维自评（最多 retry 2 次强制收敛）         |
 | **双路 Agent**     | simple 快路径（术语/字段定义，P95 < 15s）；complex 路径（多证据，HyDE + multi-query + self-RAG，P95 < 60s）                        |
 | **工具调度**         | glossary / toc / params / web_search（web 仅显式触发并标注未验证）                                                        |
 | **会话与协作**        | 多轮历史压缩、checkpoint 取消/暂停/恢复、fork/rollback；收藏、笔记、反馈、管理员反馈溯源                                                    |
-| **鉴权**           | JWT + refresh + RBAC（普通用户 / 管理员）                                                                             |
+| **鉴权与限流**        | JWT + refresh + RBAC（普通用户 / 管理员）；登录限流、普通用户每日对话配额、SSE 错误脱敏、生产环境关闭 Swagger/ReDoc                                  |
 | **流式**           | LangGraph `astream_events` → SSE 10 类事件（run/node/chunks_hit/chunks_rerank/token/final/…）                     |
 
 
@@ -213,9 +213,11 @@ reranked = await llm.rerank(query=query, documents=[c.content for c in unique], 
 **严格 grounding 守约**：
 
 1. Prompt 强约束："仅基于 reranked 内容生成；找不到 → 明示'未在 3GPP 文档中找到 …'"。
-2. 引用格式 `[spec_id § section_path ¶offset]` + 正则抽取写入 `state.citations`。
+2. 引用采用 `[N]` 索引方案：LLM 只输出 retrieved chunks 列表的 1-based 序号；后端做边界检查、去重并回填 `spec_id / section_path / chunk_id` 元数据，前端再按 rank 渲染可点 chip。
 3. self-RAG 用**独立模型**做三维自评避免同源偏差；`insufficient` 直接走"找不到"分支。
 4. `web_search` 仅在用户**显式触发**时调用，结果强制加前缀"以下内容来自 Web 搜索，未经 3GPP 验证："。
+
+> `[N]` 方案把“引用哪个 chunk”的事实交给后端权威回填，避免 LLM 复述 spec / section 字符串时发生格式漂移，也消除了 prompt、后端解析和前端正则之间的文本耦合。
 
 详细节点实现 / Prompt 库 / Checkpoint 操作集见 `[docs/03-development/03-agent.md](./docs/03-development/03-agent.md)`。
 
@@ -443,7 +445,7 @@ A production-grade RAG agent over 3GPP specifications — live at **[https://3gp
 - **Coverage**: GSMA Rel-18 + Rel-19 5G-series TS — 1270 specs / 394,859 chunks.
 - **Stack**: LangGraph (orchestration) + a self-built retrieval layer (`qdrant-client` dense + `bm25s` sparse + RRF) + a self-written async `LiteLLMClient` (all LLM/embedding/rerank calls hit the local LiteLLM proxy — no LangChain `ChatOpenAI`; `langchain-core` is used only for LangGraph message types & streaming callbacks); FastAPI + SSE backend; Flutter Web/Android frontend.
 - **Models**: generation / Vision / self-RAG run on a **configurable LLM** via local LiteLLM (any OpenAI-compatible model — not hardcoded); Embedding / Reranker default to Voyage `voyage-4-large` @ 1024d & `rerank-2.5`. Eval-baseline judges: `deepseek-v4-pro` (Ragas) / `glm-5.1` (Huawei comparison).
-- **RAG**: GSMA/3GPP HF dataset → small2big chunking (atomic blocks for tables/formulas/ASN.1/figures) → multimodal-LLM Vision for figures → hybrid retrieval (Qdrant dense + BM25 + RRF) → Voyage rerank → LangGraph dual-path (simple fast / complex with HyDE + multi-query + self-RAG). Strict citation-only grounding; web search only when explicitly invoked.
+- **RAG**: GSMA/3GPP HF dataset → small2big chunking (atomic blocks for tables/formulas/ASN.1/figures) → multimodal-LLM Vision for figures → hybrid retrieval (Qdrant dense + BM25 + RRF) → Voyage rerank → LangGraph dual-path (simple fast / complex with HyDE + multi-query + self-RAG). Strict citation-only grounding with `[N]` index-based citations; web search only when explicitly invoked.
 - **vs Huawei Telco-RAG** (neutral 100-question R18 set, glm-5.1 judge): this project leads on every metric (fact-coverage 0.80 vs 0.22, spec-attribution 96% vs 7%, 0% vs 93% hallucination on negatives); RAG's value hinges on retrieval quality. Details: `[eval/huawei_compare/results/REPORT.md](./eval/huawei_compare/results/REPORT.md)`.
 
 See `[docs/](./docs/)` for full design docs.
