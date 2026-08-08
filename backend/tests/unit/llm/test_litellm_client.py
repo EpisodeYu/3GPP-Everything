@@ -39,6 +39,7 @@ async def test_chat_success() -> None:
         captured["url"] = str(req.url)
         captured["body"] = json.loads(req.content)
         captured["auth"] = req.headers.get("authorization")
+        captured["request_id"] = req.headers.get("x-request-id")
         return httpx.Response(
             200,
             json={"choices": [{"message": {"role": "assistant", "content": "ok"}}]},
@@ -52,12 +53,10 @@ async def test_chat_success() -> None:
     assert captured["body"]["model"] == "mimo-v2.5"
     assert captured["body"]["stream"] is False
     assert captured["auth"] == "Bearer sk-test"
+    assert len(captured["request_id"]) == 32
 
 
-async def test_chat_thinking_wraps_into_extra_body() -> None:
-    """mimo `thinking` 是 provider-specific 参数，LiteLLM proxy 直接 top-level 透
-    传会被 OpenAI spec 校验剥掉（实测 reasoning_tokens 不变）；必须用 `extra_body`
-    包裹。本测锁住这一规则不被悄悄退回。"""
+async def test_chat_thinking_uses_gateway_reasoning_contract() -> None:
     captured: dict[str, Any] = {}
 
     def handler(req: httpx.Request) -> httpx.Response:
@@ -72,8 +71,9 @@ async def test_chat_thinking_wraps_into_extra_body() -> None:
         )
 
     body = captured["body"]
-    assert "thinking" not in body  # 不能 top-level
-    assert body["extra_body"]["thinking"] == {"type": "disabled"}
+    assert "thinking" not in body
+    assert "extra_body" not in body
+    assert body["reasoning_control"] == "disabled"
 
 
 async def test_chat_4xx_raises_llm_error() -> None:
@@ -102,6 +102,29 @@ async def test_chat_5xx_retries_then_succeeds() -> None:
 
     assert resp["choices"][0]["message"]["content"] == "ok"
     assert calls["n"] == 2
+
+
+async def test_chat_default_leaves_retry_ownership_to_gateway() -> None:
+    calls = {"n": 0}
+
+    def handler(_req: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(503, json={"error": "transient"})
+
+    async with LiteLLMClient(settings=_settings(), client=_mock_client(handler)) as cli:
+        with pytest.raises(httpx.HTTPStatusError):
+            await cli.chat(messages=[{"role": "user", "content": "x"}])
+
+    assert calls["n"] == 1
+
+
+async def test_chat_rejects_invalid_reasoning_control() -> None:
+    async with LiteLLMClient(settings=_settings(), client=_mock_client(lambda _: None)) as cli:
+        with pytest.raises(ValueError, match=r"thinking\.type"):
+            await cli.chat(
+                messages=[{"role": "user", "content": "x"}],
+                thinking={"type": "low"},
+            )
 
 
 async def test_embed_passes_dimensions() -> None:

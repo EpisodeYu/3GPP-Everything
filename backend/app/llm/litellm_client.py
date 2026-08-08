@@ -23,6 +23,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import uuid
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
@@ -39,7 +40,7 @@ from app.core.errors import LLMError, UpstreamError
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MAX_RETRIES = 3
+DEFAULT_MAX_RETRIES = 0
 
 
 def _approx_token_count(text: str) -> int:
@@ -92,6 +93,7 @@ class LiteLLMClient:
         return {
             "Authorization": f"Bearer {self._settings.LITELLM_API_KEY.get_secret_value()}",
             "Content-Type": "application/json",
+            "X-Request-ID": uuid.uuid4().hex,
         }
 
     async def __aenter__(self) -> LiteLLMClient:
@@ -124,7 +126,8 @@ class LiteLLMClient:
         rewrite / multi_query / self_rag / session_title）传 `{"type":"disabled"}`
         来：(1) 让 `temperature=0` 真生效（思考模式下 mimo 强制 temp=1.0，无法
         确定性输出）；(2) 把 reasoning_tokens 削为 0，节省成本与延迟。
-        LiteLLM proxy 未识别字段会被过滤，必须通过 `extra_body` 包裹透传。
+        客户端发送统一 `reasoning_control`，共享网关按实际 Provider 映射到
+        `extra_body.thinking`。
         """
         body = self._build_chat_body(
             messages=messages,
@@ -209,10 +212,10 @@ class LiteLLMClient:
         if response_format is not None:
             body["response_format"] = response_format
         if thinking is not None:
-            # mimo `thinking` 是 provider-specific param，LiteLLM proxy 不在 OpenAI
-            # spec 白名单里，直接 top-level 传会被过滤；必须 `extra_body` 包裹透传。
-            # 实测：top-level → reasoning_tokens 仍 ~200；extra_body 包裹 → 0。
-            body.setdefault("extra_body", {})["thinking"] = thinking
+            thinking_type = thinking.get("type")
+            if thinking_type not in {"enabled", "disabled"}:
+                raise ValueError("thinking.type must be enabled or disabled")
+            body["reasoning_control"] = thinking_type
         if extra:
             body.update(extra)
         return body
