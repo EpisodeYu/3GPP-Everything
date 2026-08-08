@@ -189,7 +189,10 @@ async def test_embed_uses_settings_default_dimension() -> None:
 
 
 async def test_rerank_parses_results_field() -> None:
-    def handler(_req: httpx.Request) -> httpx.Response:
+    captured: dict[str, Any] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(req.content)
         return httpx.Response(
             200,
             json={
@@ -206,6 +209,8 @@ async def test_rerank_parses_results_field() -> None:
         {"index": 1, "relevance_score": 0.9},
         {"index": 0, "relevance_score": 0.4},
     ]
+    assert captured["body"]["top_n"] == 2
+    assert "top_k" not in captured["body"]
 
 
 async def test_rerank_falls_back_to_data_field() -> None:

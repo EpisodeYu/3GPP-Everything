@@ -274,7 +274,7 @@ class LiteLLMClient:
             "documents": list(documents),
         }
         if top_k is not None:
-            body["top_k"] = int(top_k)
+            body["top_n"] = int(top_k)
         payload = await self._post_json("/rerank", body)
         self._record_rerank_usage(
             model_name=body["model"], query=query, documents=list(documents), resp=payload
