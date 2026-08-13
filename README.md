@@ -121,7 +121,7 @@
 | 后端                 | FastAPI + SSE + Pydantic v2 + python-jose（JWT + refresh + RBAC）                                                                    |
 | 前端                 | Flutter 3.x（Web + Android 同码） + Riverpod 2.x + go_router + dio (SSE) + flutter_markdown_plus + flutter_math_fork；黑白主调 + 冷调蓝 accent |
 | Web 搜索（用户显式触发）     | Tavily                                                                                                                             |
-| 监控                 | Langfuse Cloud（每个 Agent run 的节点级 span + dataset run；LLM token / cost 子观测见 Issue #9 PR2）                                              |
+| 监控                 | Langfuse Cloud（Agent run → 节点 span → chat/stream/embedding/rerank 子观测，含 usage/cost/TTFT；另含 dataset run）                                  |
 | 评测                 | Ragas + 175 题金标准 YAML + TeleQnA 原生 MCQ + 华为对比 100 题中立集；`eval-{daily,weekly}` GitHub Actions CI                                     |
 | 部署                 | Docker Compose + Nginx + Let's Encrypt（独立 ingress 项目跨项目分流）                                                                         |
 | Lint / Type / Test | Ruff + Black + MyPy + Pytest + pytest-asyncio + httpx                                                                              |

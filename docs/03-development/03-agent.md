@@ -590,7 +590,8 @@ async for event in graph.astream_events(..., config=config, version="v2"):
 - pause/resume 复用 assistant stub 的 trace ID，但创建新的 handler/root observation；fork 不复制运行标识，下一轮会产生新 trace。
 - 缺 key、kill-switch 关闭、SDK 初始化失败时返回 `None`，主聊天链路保持 fail-open；只在 FastAPI lifespan shutdown 时统一 flush/shutdown，不阻塞 SSE。
 - `LANGFUSE_CAPTURE_CONTENT=false` 为默认值：问题、答案、历史正文被遮蔽，候选块只保留 ID/spec/section/score/字符数，secret/token/password 永久遮蔽，并限制字符串、集合和递归深度。
-- 本阶段只接节点级 trace。自定义 `LiteLLMClient` 的 generation、token/usage/cost 与首 token 时间属于 Issue #9 PR2，不能从现有节点 span 推断。
+- 自定义 `LiteLLMClient` 不依赖 LangChain model wrapper：PR2 从当前 RunnableConfig 的 node run ID 解析 callback observation，并用显式 `trace_id + parent_span_id` 创建直接子观测，规避 LangGraph async task 中 OpenTelemetry current context 不传播的问题；解析不到节点 parent 时直接跳过，不创建 orphan trace，也不初始化 Langfuse。
+- `chat` / `chat_stream` 记录 generation（model、受控 IO、usage/cost、HTTP/retry/error）；stream 只在 tracing active 时请求最终 usage chunk，在首个正文 token 设置 completion start time，并覆盖正常、timeout、cancel 与显式 close 收尾。`embed` 记录 embedding 但永不记录向量；`rerank` 用 span 记录数量、字符数、top_n、分数与估算计费元数据，不上传完整文档池。
 
 ## 9. 测试策略
 
@@ -769,7 +770,7 @@ if state.paused:    interrupt({"reason": "paused by user"})  # 区别：paused �
   - **暂停 → 关进程 → 重启 → 恢复续跑**
   - **从历史 checkpoint fork 出新会话 + 老会话变只读（status=archived_branch）**
   - **rollback 最后 N 轮 messages + checkpoints 一致性**
-- [x] `[human]` Langfuse Cloud 中能看到节点级 trace（2026-08-13：真实 Cloud 冒烟确认 `tgpp-agent → classify/retrieve`、父子关系与 content mask；token/usage/cost 明细留 Issue #9 PR2）
+- [x] `[human]` Langfuse Cloud 中能看到节点级 trace 与 LiteLLM 子观测（2026-08-13：真实 Cloud 冒烟确认 `tgpp-agent → node → chat/stream/embedding/rerank` 父子关系、usage/cost、stream TTFT、cancelled generation 与 content mask）
 
 > **2026-05-17 完成 M4.5**
 > - 交付：`agent/checkpoint.py`（list/pause/cancel/resume/fork/rollback 5 个纯函数 + `CheckpointSummary` dataclass）；`agent/langfuse_handler.py`（懒单例 `init_langfuse` + `build_callback_handler` + `build_trace_metadata`，缺 key 全返 None）；`build_graph(deps, *, checkpointer=...)` 接受可选 saver，生产 `AsyncPostgresSaver`、测试 `InMemorySaver`；`AgentState` 早已带 paused/run_id，9 个节点开头都已检测 cancelled/paused → `langgraph.types.interrupt`（M4.8 batch A.2 完成迁移）

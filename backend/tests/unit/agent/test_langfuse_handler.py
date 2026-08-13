@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import uuid
+from types import SimpleNamespace
 from typing import Any
 
 from app.agent import langfuse_handler
@@ -278,3 +280,35 @@ def test_shutdown_langfuse_is_idempotent() -> None:
 
     assert client.shutdown_calls == 1
     assert langfuse_handler._client is None
+
+
+def test_current_langgraph_trace_context_resolves_node_observation(monkeypatch: Any) -> None:
+    from langgraph import config as langgraph_config
+
+    run_id = uuid.uuid4()
+    observation = SimpleNamespace(trace_id="ab" * 16, id="cd" * 8)
+    handler = SimpleNamespace(_runs={run_id: observation})
+    callbacks = SimpleNamespace(
+        parent_run_id=run_id,
+        handlers=[handler],
+        inheritable_handlers=[handler],
+    )
+    monkeypatch.setattr(langgraph_config, "get_config", lambda: {"callbacks": callbacks})
+
+    assert langfuse_handler.current_langgraph_trace_context() == {
+        "trace_id": "ab" * 16,
+        "parent_span_id": "cd" * 8,
+    }
+
+
+def test_current_langgraph_trace_context_fails_closed_without_node(
+    monkeypatch: Any,
+) -> None:
+    from langgraph import config as langgraph_config
+
+    monkeypatch.setattr(
+        langgraph_config,
+        "get_config",
+        lambda: {"callbacks": SimpleNamespace(parent_run_id=None)},
+    )
+    assert langfuse_handler.current_langgraph_trace_context() is None

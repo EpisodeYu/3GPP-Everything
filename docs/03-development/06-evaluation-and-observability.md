@@ -37,6 +37,7 @@
 - [x] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-5.1`（2026-05-20 落 `eval/ragas_eval.py` + `eval.runner.run_eval(ragas_scorer=...)` hook；单题异常隔离 + None 占位；ragas / langchain-openai 进 `[project.optional-dependencies] ragas` extras；27 单测含 mock evaluate / NaN / crash / pandas fallback）
 - [x] `[已存在]` Telco-DPR 风格 retrieval-only 评测：`eval/runner_retrieval.py`（M3 决胜已用）+ `eval/retrieval/{retriever,metrics,client}.py`
 - [x] `[Issue #9 PR1]` Langfuse client + LangChain CallbackHandler：`backend/app/agent/langfuse_handler.py`（v4；请求级 handler + 稳定 trace ID）；send/resume 注入 graph config 后形成 root + 实际执行节点 spans；缺 key / kill-switch / SDK 异常自动 disable
+- [x] `[Issue #9 PR2]` 自定义 LiteLLM 子观测：`chat` / `chat_stream` 为 generation、`embed` 为 embedding、`rerank` 为 span；显式绑定当前 LangGraph 节点 parent，记录 model/usage/cost/TTFT/HTTP/retry/error，流式正常/超时/取消均收尾；无 traced node 时不初始化 Langfuse、不改变请求与返回契约（2026-08-13）
 - [x] `[M7.3]` Langfuse Dataset：`eval/langfuse_dataset.py` push 金标准 + runner 每次跑上传 score（2026-05-20 落 `push_golden_to_langfuse` + `push_run_score` + `make_eval_trace_id` + 单例 `get_client`；`run_eval(langfuse_run_label=..., langfuse_dataset_name=...)` 一处启用；缺 key 自动 disable，runner 主路径不变；21 单测含 mock SDK / 缺 key / 单条失败隔离 / runner 集成）
 - [x] `[已存在]` `ApiUsage` 表 + Alembic 迁移 + `/admin/stats` 7 天聚合查询（M4.10）
 - [x] `[M7.4]` 成本与用量监控**写入链路**：`services/usage.py` + `llm/pricing.py` + `services/alerts.py`（仅 log warning）+ LiteLLM 响应 `usage` 钩（2026-05-22 落地，[`../04-handoff/2026-05-22-m7.4-complete.md`](../04-handoff/2026-05-22-m7.4-complete.md)）
@@ -712,7 +713,13 @@ async def main():
 | `LANGFUSE_RELEASE` | 空 | 发布脚本自动注入当前 git 短 SHA |
 | `LANGFUSE_CAPTURE_CONTENT` | `false` | 默认遮蔽问题、答案、历史和检索正文；secret 始终遮蔽 |
 
-节点级 trace 的 identity、resume 和 payload 规则见 [`03-agent.md §8`](03-agent.md)。Issue #9 PR1 不记录自定义 LiteLLM 调用的 token/usage/cost；这些 child observations 属于 PR2。
+节点级 trace 的 identity、resume 和 payload 规则见 [`03-agent.md §8`](03-agent.md)。Issue #9 PR2 已把自定义 `LiteLLMClient` 调用作为当前节点的直接子观测：
+
+- `chat` / `chat_stream`：generation，记录 model parameters、provider usage、本地 pricing/provider cost、HTTP/retry/error；stream 在首个正文 token 设置 completion start time，并在正常结束、timeout、cancel 或显式 close 时收尾。
+- `embed`：embedding，只记录输入条数/字符数、向量数量/维度和 token/cost，永不上传向量值。
+- `rerank`：span，只记录 query/document 数量与字符数、top_n、结果索引/分数，以及 provider/估算计费元数据；生产不上传完整 query/document pool。
+- 只有当前 LangGraph node 的 callback observation 可解析时才创建；显式传 `trace_id + parent_span_id`，避免 async task context 丢失导致 orphan trace。Langfuse/SDK 失败继续 fail-open。
+- `LANGFUSE_CAPTURE_CONTENT=false` 时 chat 输入输出也只保留条数、角色和字符数；embedding/rerank 即使允许采集，也仅在 dev 环境提供有数量和长度上限的预览。
 
 需要在 Langfuse Cloud 上手工做的：
 

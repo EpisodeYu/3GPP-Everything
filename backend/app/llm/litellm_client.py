@@ -20,11 +20,11 @@ backend / agent 内所有 LLM 调用统一走本机 LiteLLM proxy（OpenAI 兼�
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 import uuid
 from collections.abc import AsyncIterator, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -37,6 +37,22 @@ from tenacity import (
 
 from app.core.config import Settings, get_settings
 from app.core.errors import LLMError, UpstreamError
+from app.llm.langfuse_observability import (
+    LangfuseObservation,
+    RequestTelemetry,
+    chat_cost_details,
+    chat_input,
+    chat_output,
+    chat_usage_details,
+    embedding_cost_details,
+    embedding_input,
+    embedding_output,
+    embedding_usage_details,
+    model_parameters,
+    rerank_input,
+    rerank_output,
+)
+from app.llm.pricing import rerank_billable_tokens, rerank_cost_usd
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +73,66 @@ def _is_retryable(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
         return exc.response.status_code >= 500
     return isinstance(exc, httpx.RequestError | httpx.TimeoutException)
+
+
+def _stream_content_parts(chunk: dict[str, Any]) -> list[str]:
+    parts: list[str] = []
+    choices = chunk.get("choices")
+    for choice in choices if isinstance(choices, list) else []:
+        if not isinstance(choice, dict):
+            continue
+        delta = choice.get("delta")
+        if not isinstance(delta, dict):
+            continue
+        content = delta.get("content")
+        if isinstance(content, str):
+            parts.append(content)
+        elif isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict) and isinstance(item.get("text"), str):
+                    parts.append(item["text"])
+    return parts
+
+
+def _stream_finish_reasons(chunk: dict[str, Any]) -> list[str]:
+    choices = chunk.get("choices")
+    if not isinstance(choices, list):
+        return []
+    return [
+        str(choice["finish_reason"])
+        for choice in choices
+        if isinstance(choice, dict) and choice.get("finish_reason") is not None
+    ]
+
+
+def _rerank_accounting(
+    *, query: str, documents: Sequence[str], response: dict[str, Any]
+) -> dict[str, Any]:
+    query_tokens = _approx_token_count(query)
+    document_tokens = sum(_approx_token_count(document) for document in documents)
+    usage_value = response.get("usage")
+    usage = usage_value if isinstance(usage_value, dict) else {}
+    meta_value = response.get("meta")
+    meta = meta_value if isinstance(meta_value, dict) else {}
+    tokens_value = meta.get("tokens")
+    tokens = tokens_value if isinstance(tokens_value, dict) else {}
+    try:
+        meta_total = max(int(usage.get("total_tokens") or tokens.get("input_tokens") or 0), 0)
+    except (TypeError, ValueError):
+        meta_total = 0
+    usage_source = "provider" if meta_total > 0 else "approximate"
+    if meta_total > 0 and documents:
+        document_tokens = max(meta_total - query_tokens * len(documents), document_tokens)
+    return {
+        "query_tokens": query_tokens,
+        "document_tokens": document_tokens,
+        "billable_tokens": rerank_billable_tokens(
+            query_tokens=query_tokens,
+            doc_tokens=document_tokens,
+            n_docs=len(documents),
+        ),
+        "usage_source": usage_source,
+    }
 
 
 class LiteLLMClient:
@@ -139,9 +215,33 @@ class LiteLLMClient:
             thinking=thinking,
             extra=extra,
         )
-        resp = await self._post_json("/chat/completions", body)
-        self._record_chat_usage(model_name=body["model"], resp=resp)
-        return resp
+        telemetry = RequestTelemetry()
+        observation = LangfuseObservation.start(
+            settings=self._settings,
+            name="litellm.chat",
+            as_type="generation",
+            input=chat_input(self._settings, messages),
+            model=str(body["model"]),
+            model_parameters=model_parameters(body),
+            metadata={"operation": "chat", "streaming": False},
+        )
+        try:
+            resp = await self._post_json("/chat/completions", body, telemetry=telemetry)
+            usage_details = chat_usage_details(resp)
+            observation.finish_success(
+                output=chat_output(self._settings, response=resp),
+                telemetry=telemetry,
+                usage_details=usage_details,
+                cost_details=chat_cost_details(
+                    model=str(body["model"]), response=resp, usage=usage_details
+                ),
+                metadata={"usage_source": "provider" if usage_details is not None else "missing"},
+            )
+            self._record_chat_usage(model_name=body["model"], resp=resp)
+            return resp
+        except BaseException as exc:
+            observation.finish_error(exc, telemetry=telemetry)
+            raise
 
     async def chat_stream(
         self,
@@ -169,8 +269,27 @@ class LiteLLMClient:
             extra=extra,
         )
         url = f"{self.base_url}/chat/completions"
+        telemetry = RequestTelemetry(attempts=1)
+        observation = LangfuseObservation.start(
+            settings=self._settings,
+            name="litellm.chat_stream",
+            as_type="generation",
+            input=chat_input(self._settings, messages),
+            model=str(body["model"]),
+            model_parameters=model_parameters(body),
+            metadata={"operation": "chat", "streaming": True},
+        )
+        if observation.active:
+            # Traced calls request a final usage-only chunk for generation cost.
+            # Untraced calls retain the pre-PR2 request and yield contract exactly.
+            body.setdefault("stream_options", {"include_usage": True})
+        completion_start_time: datetime | None = None
+        content_parts: list[str] = []
+        finish_reasons: list[str] = []
+        usage_response: dict[str, Any] = {}
         try:
             async with self._client.stream("POST", url, headers=self._headers, json=body) as resp:
+                telemetry.status_code = resp.status_code
                 if resp.status_code >= 400:
                     text = await resp.aread()
                     raise LLMError(
@@ -182,11 +301,44 @@ class LiteLLMClient:
                         continue
                     payload = line[len("data:") :].strip()
                     if payload == "[DONE]":
-                        return
-                    with contextlib.suppress(json.JSONDecodeError):
-                        yield json.loads(payload)
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                    except json.JSONDecodeError:
+                        continue
+                    chunk_content_parts = _stream_content_parts(chunk)
+                    # Role-only and final usage-only chunks are not first-token events.
+                    if completion_start_time is None and chunk_content_parts:
+                        completion_start_time = datetime.now(UTC)
+                    content_parts.extend(chunk_content_parts)
+                    finish_reasons.extend(_stream_finish_reasons(chunk))
+                    if isinstance(chunk.get("usage"), dict):
+                        usage_response = {"usage": chunk["usage"]}
+                    yield chunk
         except (httpx.RequestError, httpx.TimeoutException) as exc:
-            raise LLMError(f"chat_stream network error: {exc}") from exc
+            wrapped = LLMError(f"chat_stream network error: {exc}")
+            observation.finish_error(exc, telemetry=telemetry)
+            raise wrapped from exc
+        except BaseException as exc:
+            observation.finish_error(exc, telemetry=telemetry)
+            raise
+        usage_details = chat_usage_details(usage_response)
+        observation.finish_success(
+            output=chat_output(
+                self._settings,
+                streamed_content="".join(content_parts),
+                finish_reasons=finish_reasons,
+            ),
+            telemetry=telemetry,
+            usage_details=usage_details,
+            cost_details=chat_cost_details(
+                model=str(body["model"]), response=usage_response, usage=usage_details
+            ),
+            completion_start_time=completion_start_time,
+            metadata={"usage_source": "provider" if usage_details is not None else "missing"},
+        )
+        if usage_details is not None:
+            self._record_chat_usage(model_name=body["model"], resp=usage_response)
 
     def _build_chat_body(
         self,
@@ -250,9 +402,36 @@ class LiteLLMClient:
         if target_dim is not None:
             body["dimensions"] = int(target_dim)
             body["output_dimension"] = int(target_dim)
-        resp = await self._post_json("/embeddings", body)
-        self._record_embedding_usage(model_name=body["model"], inputs=list(inputs), resp=resp)
-        return resp
+        telemetry = RequestTelemetry()
+        observation = LangfuseObservation.start(
+            settings=self._settings,
+            name="litellm.embedding",
+            as_type="embedding",
+            input=embedding_input(self._settings, inputs),
+            model=str(body["model"]),
+            model_parameters=model_parameters(body),
+            metadata={"operation": "embedding"},
+        )
+        try:
+            resp = await self._post_json("/embeddings", body, telemetry=telemetry)
+            usage_details = embedding_usage_details(resp)
+            observation.finish_success(
+                output=embedding_output(resp),
+                telemetry=telemetry,
+                usage_details=usage_details,
+                cost_details=embedding_cost_details(
+                    model=str(body["model"]), response=resp, usage=usage_details
+                ),
+                metadata={
+                    "usage_source": "provider" if usage_details is not None else "missing",
+                    "vectors_recorded": False,
+                },
+            )
+            self._record_embedding_usage(model_name=body["model"], inputs=list(inputs), resp=resp)
+            return resp
+        except BaseException as exc:
+            observation.finish_error(exc, telemetry=telemetry)
+            raise
 
     # ---------- rerank ----------
 
@@ -275,22 +454,70 @@ class LiteLLMClient:
         }
         if top_k is not None:
             body["top_n"] = int(top_k)
-        payload = await self._post_json("/rerank", body)
-        self._record_rerank_usage(
-            model_name=body["model"], query=query, documents=list(documents), resp=payload
+        telemetry = RequestTelemetry()
+        observation = LangfuseObservation.start(
+            settings=self._settings,
+            name="litellm.rerank",
+            as_type="span",
+            input=rerank_input(
+                self._settings,
+                query=query,
+                documents=documents,
+                top_n=top_k,
+            ),
+            metadata={
+                "operation": "rerank",
+                "model": body["model"],
+                **model_parameters(body),
+            },
         )
-        results = payload.get("results") or payload.get("data") or []
-        return [
-            {
-                "index": int(item["index"]),
-                "relevance_score": float(item.get("relevance_score") or item.get("score") or 0.0),
-            }
-            for item in results
-        ]
+        try:
+            payload = await self._post_json("/rerank", body, telemetry=telemetry)
+            self._record_rerank_usage(
+                model_name=body["model"], query=query, documents=list(documents), resp=payload
+            )
+            results = payload.get("results") or payload.get("data") or []
+            parsed = [
+                {
+                    "index": int(item["index"]),
+                    "relevance_score": float(
+                        item.get("relevance_score") or item.get("score") or 0.0
+                    ),
+                }
+                for item in results
+            ]
+            accounting = _rerank_accounting(query=query, documents=documents, response=payload)
+            observation.finish_success(
+                output=rerank_output(parsed),
+                telemetry=telemetry,
+                metadata={
+                    "usage_source": accounting["usage_source"],
+                    "query_tokens": accounting["query_tokens"],
+                    "document_tokens": accounting["document_tokens"],
+                    "billable_tokens": accounting["billable_tokens"],
+                    "estimated_cost_usd": rerank_cost_usd(
+                        str(body["model"]),
+                        query_tokens=accounting["query_tokens"],
+                        doc_tokens=accounting["document_tokens"],
+                        n_docs=len(documents),
+                    ),
+                    "full_documents_recorded": False,
+                },
+            )
+            return parsed
+        except BaseException as exc:
+            observation.finish_error(exc, telemetry=telemetry)
+            raise
 
     # ---------- core ----------
 
-    async def _post_json(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+    async def _post_json(
+        self,
+        path: str,
+        body: dict[str, Any],
+        *,
+        telemetry: RequestTelemetry | None = None,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}{path}"
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(self._max_retries + 1),
@@ -300,7 +527,11 @@ class LiteLLMClient:
         ):
             with attempt:
                 try:
+                    if telemetry is not None:
+                        telemetry.attempts += 1
                     resp = await self._client.post(url, headers=self._headers, json=body)
+                    if telemetry is not None:
+                        telemetry.status_code = resp.status_code
                     resp.raise_for_status()
                     return resp.json()
                 except httpx.HTTPStatusError as exc:
