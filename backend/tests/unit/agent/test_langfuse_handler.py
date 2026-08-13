@@ -223,6 +223,44 @@ def test_mask_trace_data_hides_candidate_query_text_by_default() -> None:
     }
 
 
+def test_mask_trace_data_hides_derived_queries_and_compacts_nested_candidate_pools() -> None:
+    masked = langfuse_handler.mask_trace_data(
+        data={
+            "contextualized_input": "private standalone question",
+            "rewritten_queries": ["private facet one", "private facet two"],
+            "self_rag_missing": ["private missing fact"],
+            "tool_results": {"web": "private web result"},
+            "candidates_by_query": [
+                [
+                    {
+                        "chunk_id": "chunk-1",
+                        "spec_id": "23.501",
+                        "content": "private retrieved content",
+                        "fused_score": 0.8,
+                        "score_rerank": 0.9,
+                    }
+                ]
+            ],
+        }
+    )
+
+    assert masked["contextualized_input"] == "<masked:27 chars>"
+    assert masked["rewritten_queries"] == {"masked": True, "item_count": 2}
+    assert masked["self_rag_missing"] == {"masked": True, "item_count": 1}
+    assert masked["tool_results"] == {"masked": True, "field_count": 1}
+    assert masked["candidates_by_query"] == [
+        [
+            {
+                "chunk_id": "chunk-1",
+                "spec_id": "23.501",
+                "fused_score": 0.8,
+                "score_rerank": 0.9,
+                "content_chars": 25,
+            }
+        ]
+    ]
+
+
 def test_mask_trace_data_capture_content_still_truncates_large_strings() -> None:
     masked = langfuse_handler.mask_trace_data(data={"user_input": "x" * 5000}, capture_content=True)
 

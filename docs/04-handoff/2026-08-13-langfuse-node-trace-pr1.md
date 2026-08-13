@@ -15,12 +15,12 @@
 ## 验证记录
 
 - `make lint`：通过（backend Ruff/Black/MyPy；ingestion Ruff/Black）。
-- `make test`：434 unit 通过；136 integration 通过、1 跳过。
+- `make test`：435 unit 通过；136 integration 通过、1 跳过。
 - Agent 真实依赖子集：全量 integration 中 simple 5 题 + complex 5 题通过。
 - `make eval`：1 个 canned smoke 通过、2 个 live suite 按环境门禁跳过。
 - `make check-openapi-diff`：通过，2 个既有前端聚合类型 warning。
 - Langfuse SDK contract：真实 v4 callback + 内存 exporter 验证 root/node 父子关系、实际分支、同名 retry、异常/取消 observation 收尾。
-- Langfuse Cloud 冒烟：真实项目写入一个无 LLM 的两节点 graph；确认 `tgpp-agent → classify/retrieve`、trace/session/user metadata 可查询，问题正文默认被遮蔽。
+- Langfuse Cloud 冒烟：真实项目写入无 LLM 的两节点 graph；确认 `tgpp-agent → classify/retrieve`、trace/session/user metadata 可查询；原始问题、指代消解、改写查询、self-RAG missing、答案和 chunk 正文均被遮蔽，二维候选池仍保留 chunk ID/定位/评分诊断字段。
 
 ## 运维开关
 

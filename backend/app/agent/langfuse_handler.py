@@ -29,13 +29,22 @@ _MAX_DICT_ITEMS = 100
 _MAX_DEPTH = 8
 _CONTENT_KEYS = {
     "content",
+    "contextualized_input",
     "final_answer",
     "hyde_doc",
     "messages",
     "history",
+    "prompt",
+    "prompts",
+    "queries",
+    "query",
+    "rewritten_queries",
+    "rewritten_query",
+    "self_rag_missing",
+    "tool_results",
     "user_input",
 }
-_CHUNK_LIST_KEYS = {"candidates", "candidates_by_query", "reranked"}
+_CHUNK_LIST_KEYS = {"candidates", "reranked"}
 _CHUNK_FIELDS = (
     "chunk_id",
     "spec_id",
@@ -44,7 +53,9 @@ _CHUNK_FIELDS = (
     "score_dense",
     "score_sparse",
     "score_fused",
+    "fused_score",
     "rerank_score",
+    "score_rerank",
 )
 
 
@@ -146,6 +157,12 @@ def _mask_value(
     normalized_key = (key or "").lower()
     if not capture_content and normalized_key == "raw_history":
         return _compact_history(value)
+    if normalized_key == "candidates_by_query" and isinstance(value, (list, tuple)):
+        return [
+            [_compact_chunk(item) for item in chunks[:_MAX_LIST_ITEMS]]
+            for chunks in value[:_MAX_LIST_ITEMS]
+            if isinstance(chunks, (list, tuple))
+        ]
     if normalized_key in _CHUNK_LIST_KEYS and isinstance(value, (list, tuple)):
         return [_compact_chunk(item) for item in value[:_MAX_LIST_ITEMS]]
     if normalized_key == "candidates_by_query" and isinstance(value, dict):
