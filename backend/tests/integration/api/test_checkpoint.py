@@ -16,6 +16,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import asc, select
 
 from app.agent.checkpoint import CheckpointSummary
+from app.agent.langfuse_handler import LangfuseRun
 from app.db.models import Message, MessageCitation
 from app.db.models import Session as DBSession
 
@@ -60,6 +61,7 @@ class _CheckpointGraph:
         self.aupdate_state_calls: list[dict[str, Any]] = []
         self.fork_calls: list[dict[str, Any]] = []
         self.rollback_calls: list[dict[str, Any]] = []
+        self.run_configs: list[dict[str, Any]] = []
 
     async def aupdate_state(
         self,
@@ -71,6 +73,7 @@ class _CheckpointGraph:
     async def astream_events(
         self, state: Any, *, config: Any, version: str
     ) -> AsyncIterator[dict[str, Any]]:
+        self.run_configs.append(config)
         # 续跑：直接给 final_state 让 SSE 收尾
         yield {
             "event": "on_chain_end",
@@ -286,6 +289,9 @@ async def test_fork_copies_history_messages_to_new_session(
             content="原答案",
             status="ok",
             confidence=0.9,
+            langgraph_run_id="source-run",
+            langgraph_checkpoint_id="source-checkpoint",
+            langfuse_trace_id="ab" * 16,
             created_at=base + _dt.timedelta(microseconds=10),
         )
         stub = Message(
@@ -323,6 +329,9 @@ async def test_fork_copies_history_messages_to_new_session(
     copied = list(res.scalars().all())
     assert [(m.role, m.content) for m in copied] == [("user", "原问题"), ("assistant", "原答案")]
     assert copied[1].confidence == 0.9
+    assert copied[1].langgraph_run_id is None
+    assert copied[1].langgraph_checkpoint_id is None
+    assert copied[1].langfuse_trace_id is None
 
     # citation 也复制到新 assistant
     cres = await db_session.execute(
@@ -636,6 +645,66 @@ async def test_resume_clears_paused_and_streams_sse(app_and_state: Any, db_sessi
 
     # graph 收到清 paused 的 aupdate_state（{"paused": False}）
     assert any(c["values"].get("paused") is False for c in graph.aupdate_state_calls)
+
+
+async def test_resume_reuses_existing_langfuse_trace_id(
+    app_and_state: Any, db_session: Any, monkeypatch: Any
+) -> None:
+    """同一 assistant run 的 resume 用新 handler 继续写入原 Langfuse trace。"""
+
+    import app.api.v1.checkpoint as checkpoint_mod
+
+    app, _, _ = app_and_state
+    graph = _CheckpointGraph()
+    app.state.agent_graph = graph
+    stored_trace_id = "12" * 16
+    factory_calls: list[dict[str, Any]] = []
+    handler = object()
+
+    def _fake_build(**kwargs: Any) -> LangfuseRun:
+        factory_calls.append(kwargs)
+        return LangfuseRun(
+            trace_id=stored_trace_id,
+            handler=handler,
+            metadata={"run_id": kwargs["run_id"]},
+        )
+
+    monkeypatch.setattr(checkpoint_mod, "build_langfuse_run", _fake_build)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client, username="resume-trace-user")
+        sid = await _create_session(client, token)
+        stub = Message(
+            session_id=uuid.UUID(sid),
+            role="assistant",
+            content="",
+            mode="qa",
+            status="ok",
+            langgraph_run_id="run-resume-trace",
+            langfuse_trace_id=stored_trace_id,
+        )
+        db_session.add(stub)
+        await db_session.commit()
+
+        pause_response = await client.post(
+            f"/api/v1/sessions/{sid}/runs/run-resume-trace/pause",
+            headers=_auth_headers(token),
+        )
+        assert pause_response.status_code == 200
+        resume_response = await client.post(
+            f"/api/v1/sessions/{sid}/resume",
+            headers=_auth_headers(token),
+        )
+        assert resume_response.status_code == 200, resume_response.text
+
+    assert len(factory_calls) == 1
+    assert factory_calls[0]["run_id"] == "run-resume-trace"
+    assert factory_calls[0]["trace_id"] == stored_trace_id
+    assert graph.run_configs[0]["callbacks"] == [handler]
+
+    await db_session.refresh(stub)
+    assert stub.langfuse_trace_id == stored_trace_id
 
 
 async def test_checkpoint_routes_require_auth(app_and_state: Any) -> None:

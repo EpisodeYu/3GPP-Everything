@@ -565,20 +565,32 @@ LangGraph `astream_events(v="v2")` 产出事件序列。后端把这些事件**�
 ## 8. Langfuse 集成
 
 ```python
-from langfuse.callback import CallbackHandler
-
-handler = CallbackHandler(
-    public_key=..., secret_key=..., host=...,
-    session_id=session_id,
-    user_id=user_id,
-    metadata={"app": "tgpp", "mode": state.mode},
+langfuse_run = build_langfuse_run(
+    run_id=run_id,
+    session_id=str(session_id),
+    user_id=str(user_id),
+    message_id=str(assistant_message_id),
+    mode=mode,
 )
-async for event in graph.astream_events(..., config={"callbacks":[handler]}):
+
+config = {"configurable": {"thread_id": str(session_id)}}
+if langfuse_run is not None:
+    config.update(
+        run_name="tgpp-agent",
+        callbacks=[langfuse_run.handler],
+        metadata=langfuse_run.metadata,
+    )
+async for event in graph.astream_events(..., config=config, version="v2"):
     ...
 ```
 
-- 每次 graph 调用一个 trace；每个节点一个 span
-- 在 `generate_node` 前 `handler.flush()` 一次，确保 token 流的 trace 能 quasi-实时看到
+- Langfuse client 是进程级单例；`CallbackHandler` 带可变 run map，所以每次 graph invocation 都新建，不能跨并发请求复用。
+- assistant run 用 `tgpp:{run_id}` 确定性生成 32 位 trace ID，并在 graph 执行前写入 `messages.langfuse_trace_id`；失败、取消也可回溯。
+- root observation 名为 `tgpp-agent`，实际执行的每个 LangGraph 节点自动成为 child span；session / user / run / message / environment 均进入保留 metadata。
+- pause/resume 复用 assistant stub 的 trace ID，但创建新的 handler/root observation；fork 不复制运行标识，下一轮会产生新 trace。
+- 缺 key、kill-switch 关闭、SDK 初始化失败时返回 `None`，主聊天链路保持 fail-open；只在 FastAPI lifespan shutdown 时统一 flush/shutdown，不阻塞 SSE。
+- `LANGFUSE_CAPTURE_CONTENT=false` 为默认值：问题、答案、历史正文被遮蔽，候选块只保留 ID/spec/section/score/字符数，secret/token/password 永久遮蔽，并限制字符串、集合和递归深度。
+- 本阶段只接节点级 trace。自定义 `LiteLLMClient` 的 generation、token/usage/cost 与首 token 时间属于 Issue #9 PR2，不能从现有节点 span 推断。
 
 ## 9. 测试策略
 
@@ -757,14 +769,14 @@ if state.paused:    interrupt({"reason": "paused by user"})  # 区别：paused �
   - **暂停 → 关进程 → 重启 → 恢复续跑**
   - **从历史 checkpoint fork 出新会话 + 老会话变只读（status=archived_branch）**
   - **rollback 最后 N 轮 messages + checkpoints 一致性**
-- [ ] `[human]` Langfuse 中能看到完整 trace（每个节点 span + token stream）—— Langfuse Cloud 账号由人创建，trace 实际效果由人确认
+- [x] `[human]` Langfuse Cloud 中能看到节点级 trace（2026-08-13：真实 Cloud 冒烟确认 `tgpp-agent → classify/retrieve`、父子关系与 content mask；token/usage/cost 明细留 Issue #9 PR2）
 
 > **2026-05-17 完成 M4.5**
 > - 交付：`agent/checkpoint.py`（list/pause/cancel/resume/fork/rollback 5 个纯函数 + `CheckpointSummary` dataclass）；`agent/langfuse_handler.py`（懒单例 `init_langfuse` + `build_callback_handler` + `build_trace_metadata`，缺 key 全返 None）；`build_graph(deps, *, checkpointer=...)` 接受可选 saver，生产 `AsyncPostgresSaver`、测试 `InMemorySaver`；`AgentState` 早已带 paused/run_id，9 个节点开头都已检测 cancelled/paused → `langgraph.types.interrupt`（M4.8 batch A.2 完成迁移）
 > - 依赖：新增 `psycopg[binary,pool]>=3.2` 满足 langgraph-checkpoint-postgres 运行时 libpq 需求
 > - 测试：unit 16（checkpoint 操作 + langfuse 工厂兜底）+ integration 5（cancel / pause→重启→resume / fork / rollback 一致性 / rollback 超界 wipe）；全部用 InMemorySaver 自包含跑，不要 PG。`make lint` 全绿，全量 148 测试通过
-> - 自主决策记录（CLAUDE.md §4.3）：(1) §8 文档 Langfuse 例子停留在 v2 API（`langfuse.callback.CallbackHandler(public_key=...,session_id=...)`），实际 langfuse 4.6.1 把 session/user 移到 RunnableConfig.metadata（`langfuse_session_id` 等），handler 不再吃这些参数 —— 实现按 v4 API 走，文档示例已陈旧（保留注释）；(2) LangGraph v1+ 把 interrupt 改为不抛异常、把 `__interrupt__` 注入返回字典 + snap.next 指向被打断节点，测试断言据此调整；M4.5 临时保留 `raise NodeInterrupt(...)` 兼容；**M4.8 batch A.2 已统一迁移到 `langgraph.types.interrupt({"reason": ...})`，DeprecationWarning 清零**；(3) rollback 用 `adelete_thread` + `aupdate_state` 重落最后一个 checkpoint，符合"不可逆"语义；不做单 checkpoint 精细删除（saver 未暴露公共 API）
-> - 留给人审：`[human]` Langfuse trace 验证；fork 时原会话 `status=archived_branch` 的写入由 backend API 层（M5）做，本层只动 LangGraph state 隔离
+> - 自主决策记录（CLAUDE.md §4.3）：(1) Langfuse 4.6.1 的 session/user/trace name/tags 通过 RunnableConfig metadata 保留键传入，handler 用 `trace_context` 绑定预生成 trace ID；2026-08-13 已同步更新 §8；(2) LangGraph v1+ 把 interrupt 改为不抛异常、把 `__interrupt__` 注入返回字典 + snap.next 指向被打断节点，测试断言据此调整；M4.5 临时保留 `raise NodeInterrupt(...)` 兼容；**M4.8 batch A.2 已统一迁移到 `langgraph.types.interrupt({"reason": ...})`，DeprecationWarning 清零**；(3) rollback 用 `adelete_thread` + `aupdate_state` 重落最后一个 checkpoint，符合"不可逆"语义；不做单 checkpoint 精细删除（saver 未暴露公共 API）
+> - 人审记录：2026-08-13 已用真实 Langfuse Cloud 项目验证节点 trace、metadata、父子关系与默认 content mask；fork 时原会话 `status=archived_branch` 的写入由 backend API 层（M5）做，本层只动 LangGraph state 隔离
 > - 剩余风险：(1) `psycopg[binary]` ~10MB wheel，CI 缓存命中即可；(2) `langgraph.types.interrupt` 迁移已落地（M4.8 batch A.2），未来 langgraph 主版本若再变签名需要重测；(3) 真实 AsyncPostgresSaver 在 PG 上要先 `await saver.setup()` 建 `langgraph_*` schema，由 M5 backend lifespan 负责
 
 ## 15. 完成后下一步

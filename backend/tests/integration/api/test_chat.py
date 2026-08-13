@@ -17,6 +17,7 @@ from httpx import ASGITransport, AsyncClient
 from langchain_core.messages import AIMessageChunk
 from sqlalchemy import select
 
+from app.agent.langfuse_handler import LangfuseRun
 from app.db.models import Message, MessageCitation
 
 from .test_auth import _bootstrap_admin, _login
@@ -64,10 +65,12 @@ class _CannedGraph:
         self._events = events
         self._final_state = final_state
         self.aupdate_state_calls: list[dict[str, Any]] = []
+        self.run_configs: list[dict[str, Any]] = []
 
     async def astream_events(
         self, state: Any, *, config: Any, version: str
     ) -> AsyncIterator[dict[str, Any]]:
+        self.run_configs.append(config)
         for ev in self._events or []:
             yield ev
             # 让出控制权，确保 SSE 能拆帧
@@ -76,7 +79,7 @@ class _CannedGraph:
         if self._final_state is not None:
             yield {
                 "event": "on_chain_end",
-                "name": "LangGraph",
+                "name": config.get("run_name", "LangGraph"),
                 "data": {"output": self._final_state},
             }
 
@@ -180,6 +183,20 @@ def _canned_final_state() -> dict[str, Any]:
     }
 
 
+def _fake_langfuse_run(trace_id: str) -> LangfuseRun:
+    return LangfuseRun(
+        trace_id=trace_id,
+        handler=object(),
+        metadata={
+            "app": "tgpp",
+            "langfuse_session_id": "session-from-factory",
+            "langfuse_user_id": "user-from-factory",
+            "run_id": "run-from-factory",
+            "message_id": "message-from-factory",
+        },
+    )
+
+
 def _parse_sse(payload: str) -> list[tuple[str, str]]:
     """切回 (event, data) tuple 列表；忽略 ping 注释行。"""
     out: list[tuple[str, str]] = []
@@ -210,10 +227,11 @@ async def test_full_sse_stream_emits_all_event_types_and_persists(
     app_and_state: Any, db_session: Any
 ) -> None:
     app, _, _ = app_and_state
-    app.state.agent_graph = _CannedGraph(
+    graph = _CannedGraph(
         events=_canned_full_run_events(),
         final_state=_canned_final_state(),
     )
+    app.state.agent_graph = graph
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -246,6 +264,8 @@ async def test_full_sse_stream_emits_all_event_types_and_persists(
     assert kinds.index("final") < kinds.index("end")
     # token 必出现两次（"Hello "、"world."）
     assert kinds.count("token") == 2
+    # 测试 Settings 没有 Langfuse key：主路径只保留 checkpointer config，不传 [None]。
+    assert graph.run_configs == [{"configurable": {"thread_id": sid}}]
 
     # DB 验证：assistant 行 content/citations/status
     res = await db_session.execute(select(Message).where(Message.role == "assistant"))
@@ -265,6 +285,45 @@ async def test_full_sse_stream_emits_all_event_types_and_persists(
     assert len(cits) == 1
     assert cits[0].chunk_id == "c1"
     assert cits[0].spec_id == "23.501"
+
+
+async def test_send_message_injects_langfuse_config_and_persists_factory_trace_id(
+    app_and_state: Any, db_session: Any, monkeypatch: Any
+) -> None:
+    """路由预生成的 trace id 是真相源，覆盖 canned final state 的旧字段。"""
+
+    import app.api.v1.chat as chat_mod
+
+    trace_id = "ab" * 16
+    trace_run = _fake_langfuse_run(trace_id)
+    monkeypatch.setattr(chat_mod, "build_langfuse_run", lambda **_kwargs: trace_run)
+    app, _, _ = app_and_state
+    graph = _CannedGraph(events=_canned_full_run_events(), final_state=_canned_final_state())
+    app.state.agent_graph = graph
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _new_user_token(client, username="trace-user")
+        sid = await _create_session(client, token)
+        response = await client.post(
+            f"/api/v1/sessions/{sid}/messages",
+            json={"content": "trace this graph"},
+            headers=_auth_headers(token),
+        )
+        assert response.status_code == 200, response.text
+        assert "final" in {event for event, _data in _parse_sse(response.text)}
+
+    assert len(graph.run_configs) == 1
+    config = graph.run_configs[0]
+    assert config["configurable"] == {"thread_id": sid}
+    assert config["run_name"] == "tgpp-agent"
+    assert config["metadata"] is trace_run.metadata
+    assert config["callbacks"] == [trace_run.handler]
+
+    res = await db_session.execute(select(Message).where(Message.role == "assistant"))
+    assistant = res.scalar_one()
+    assert assistant.langfuse_trace_id == trace_id
+    assert assistant.content == "Hello world."
 
 
 class _FakeTitleClient:
@@ -410,9 +469,15 @@ async def test_autotitle_skipped_when_title_already_set(
 
 
 async def test_sse_cancelled_path_writes_cancelled_status(
-    app_and_state: Any, db_session: Any
+    app_and_state: Any, db_session: Any, monkeypatch: Any
 ) -> None:
     """graph final_state.cancelled=True → 路由产 `cancelled` event + status='cancelled'。"""
+    import app.api.v1.chat as chat_mod
+
+    trace_id = "cd" * 16
+    monkeypatch.setattr(
+        chat_mod, "build_langfuse_run", lambda **_kwargs: _fake_langfuse_run(trace_id)
+    )
     app, _, _ = app_and_state
     app.state.agent_graph = _CannedGraph(
         events=[
@@ -444,9 +509,12 @@ async def test_sse_cancelled_path_writes_cancelled_status(
     assistant = res.scalar_one()
     assert assistant.status == "cancelled"
     assert assistant.content == ""
+    assert assistant.langfuse_trace_id == trace_id
 
 
-async def test_sse_error_path_writes_failed_status(app_and_state: Any, db_session: Any) -> None:
+async def test_sse_error_path_writes_failed_status(
+    app_and_state: Any, db_session: Any, monkeypatch: Any
+) -> None:
     """graph 抛异常 → 产 `error` + status='failed'。"""
 
     class _BoomGraph:
@@ -457,6 +525,12 @@ async def test_sse_error_path_writes_failed_status(app_and_state: Any, db_sessio
         async def aupdate_state(self, **kwargs: Any) -> None:
             return None
 
+    import app.api.v1.chat as chat_mod
+
+    trace_id = "ef" * 16
+    monkeypatch.setattr(
+        chat_mod, "build_langfuse_run", lambda **_kwargs: _fake_langfuse_run(trace_id)
+    )
     app, _, _ = app_and_state
     app.state.agent_graph = _BoomGraph()
 
@@ -482,6 +556,7 @@ async def test_sse_error_path_writes_failed_status(app_and_state: Any, db_sessio
     res = await db_session.execute(select(Message).where(Message.role == "assistant"))
     assistant = res.scalar_one()
     assert assistant.status == "failed"
+    assert assistant.langfuse_trace_id == trace_id
 
 
 async def test_delete_cancels_inflight_sse_stream_via_race(

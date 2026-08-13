@@ -53,6 +53,8 @@ services:
       LITELLM_BASE_URL: http://litellm:4000/v1
       APP_ENV: prod
       APP_DEBUG: "false"
+      # deploy.sh 默认注入当前 git SHA；手工 prod-up 未传时保持空值。
+      LANGFUSE_RELEASE: ${LANGFUSE_RELEASE:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     expose: ["8002"]

@@ -36,7 +36,7 @@
 - [x] `[M7.1]` `eval/runner.py`：从金标准集驱动 Agent（HTTP `/chat` SSE）跑出结果，输出 metrics + 报告（2026-05-20 落 `AgentResponse` / `EvalResult` + `consume_sse_stream` + `call_agent` + `compute_eval_metrics` + `run_eval` + `aggregate` + `write_report`；34 单测含 mock-httpx run_eval）
 - [x] `[M7.2]` Ragas pipeline：faithfulness / answer_relevance / context_recall / context_precision，judge=`glm-5.1`（2026-05-20 落 `eval/ragas_eval.py` + `eval.runner.run_eval(ragas_scorer=...)` hook；单题异常隔离 + None 占位；ragas / langchain-openai 进 `[project.optional-dependencies] ragas` extras；27 单测含 mock evaluate / NaN / crash / pandas fallback）
 - [x] `[已存在]` Telco-DPR 风格 retrieval-only 评测：`eval/runner_retrieval.py`（M3 决胜已用）+ `eval/retrieval/{retriever,metrics,client}.py`
-- [x] `[已存在]` Langfuse client + langchain CallbackHandler：`backend/app/agent/langfuse_handler.py`（v4，缺 key 自动 disable）；`.env` 已配 pk/sk/host
+- [x] `[Issue #9 PR1]` Langfuse client + LangChain CallbackHandler：`backend/app/agent/langfuse_handler.py`（v4；请求级 handler + 稳定 trace ID）；send/resume 注入 graph config 后形成 root + 实际执行节点 spans；缺 key / kill-switch / SDK 异常自动 disable
 - [x] `[M7.3]` Langfuse Dataset：`eval/langfuse_dataset.py` push 金标准 + runner 每次跑上传 score（2026-05-20 落 `push_golden_to_langfuse` + `push_run_score` + `make_eval_trace_id` + 单例 `get_client`；`run_eval(langfuse_run_label=..., langfuse_dataset_name=...)` 一处启用；缺 key 自动 disable，runner 主路径不变；21 单测含 mock SDK / 缺 key / 单条失败隔离 / runner 集成）
 - [x] `[已存在]` `ApiUsage` 表 + Alembic 迁移 + `/admin/stats` 7 天聚合查询（M4.10）
 - [x] `[M7.4]` 成本与用量监控**写入链路**：`services/usage.py` + `llm/pricing.py` + `services/alerts.py`（仅 log warning）+ LiteLLM 响应 `usage` 钩（2026-05-22 落地，[`../04-handoff/2026-05-22-m7.4-complete.md`](../04-handoff/2026-05-22-m7.4-complete.md)）
@@ -699,6 +699,20 @@ async def main():
 - 数字：本月累计 / 本月查询数
 
 ## 10. Langfuse 配置清单
+
+应用配置（完整示例见 `.env.example`）：
+
+| 配置 | 默认值 | 说明 |
+|---|---:|---|
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | 空 | 任一为空即 fail-open disable，日志不输出原值 |
+| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | SDK v4 以 `base_url` 参数初始化 |
+| `LANGFUSE_TRACING_ENABLED` | `true` | 独立 kill-switch，无需删除密钥 |
+| `LANGFUSE_SAMPLE_RATE` | `1.0` | `0.0-1.0`；稳定后可按配额降采样 |
+| `LANGFUSE_TRACING_ENVIRONMENT` | 空 | 空值跟随 `APP_ENV`，用于 Cloud 环境过滤 |
+| `LANGFUSE_RELEASE` | 空 | 发布脚本自动注入当前 git 短 SHA |
+| `LANGFUSE_CAPTURE_CONTENT` | `false` | 默认遮蔽问题、答案、历史和检索正文；secret 始终遮蔽 |
+
+节点级 trace 的 identity、resume 和 payload 规则见 [`03-agent.md §8`](03-agent.md)。Issue #9 PR1 不记录自定义 LiteLLM 调用的 token/usage/cost；这些 child observations 属于 PR2。
 
 需要在 Langfuse Cloud 上手工做的：
 

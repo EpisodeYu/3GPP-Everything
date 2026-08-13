@@ -473,6 +473,8 @@ docker compose -f deploy/docker-compose.prod.yml exec nginx nginx -s reload
 
 ### 6.1 `deploy/scripts/deploy.sh`
 
+脚本在 build 前将 `LANGFUSE_RELEASE` 导出为当前 git 短 SHA（真实 `.env` 显式设置时优先），并通过 compose 注入 API 容器；这样 Cloud trace 可按实际部署版本过滤，且发布不需要改写 secret 文件。Langfuse exporter 只在进程 shutdown 时统一 flush，发布重启不会在每个 SSE 请求收尾阶段增加同步网络等待。
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
