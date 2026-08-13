@@ -61,6 +61,10 @@ if [[ "${DEPLOY_GIT_PULL:-0}" == "1" ]]; then
     git pull --ff-only
 fi
 
+# Langfuse release 由最终部署版本自动注入，不要求修改真实 .env。
+export LANGFUSE_RELEASE="${LANGFUSE_RELEASE:-$(git rev-parse --short=12 HEAD)}"
+log "Langfuse release: $LANGFUSE_RELEASE"
+
 # ----- 前端 build -----
 if [[ "${DEPLOY_SKIP_WEB:-0}" == "1" ]]; then
     warn "DEPLOY_SKIP_WEB=1，跳过前端 build"

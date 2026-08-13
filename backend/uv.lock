@@ -3871,7 +3871,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1" },
     { name = "langchain", specifier = ">=0.3" },
     { name = "langchain-openai", specifier = ">=0.2" },
-    { name = "langfuse", specifier = ">=2.50" },
+    { name = "langfuse", specifier = ">=4.6,<5" },
     { name = "langgraph", specifier = ">=0.2" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11" },

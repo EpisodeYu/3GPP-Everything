@@ -11,9 +11,12 @@ from . import checkpoint as checkpoint
 from .deps import AgentDeps
 from .graph import build_graph, build_simple_graph
 from .langfuse_handler import (
+    LangfuseRun,
     build_callback_handler,
+    build_langfuse_run,
     build_trace_metadata,
     init_langfuse,
+    shutdown_langfuse,
 )
 from .state import AgentState, RetrievedChunk
 
@@ -25,13 +28,16 @@ if TYPE_CHECKING:
 __all__ = [
     "AgentDeps",
     "AgentState",
+    "LangfuseRun",
     "RetrievedChunk",
     "build_callback_handler",
     "build_graph",
+    "build_langfuse_run",
     "build_simple_graph",
     "build_trace_metadata",
     "checkpoint",
     "init_langfuse",
+    "shutdown_langfuse",
     "tgpp_agent",
 ]
 

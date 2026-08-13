@@ -41,6 +41,7 @@ from sqlalchemy import asc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
+from app.agent.langfuse_handler import LangfuseRun, build_langfuse_run
 from app.agent.state import AgentState
 from app.agent.utils.history_compactor import HistoryMessage
 from app.core.auth import get_current_user
@@ -156,6 +157,23 @@ def _build_initial_state(
         session_id=session_id,
         run_id=run_id,
     )
+
+
+def _build_graph_run_config(
+    *, sid: uuid.UUID, langfuse_run: LangfuseRun | None = None
+) -> dict[str, Any]:
+    """Merge checkpointer config with optional request-scoped Langfuse tracing."""
+
+    config: dict[str, Any] = {"configurable": {"thread_id": str(sid)}}
+    if langfuse_run is not None:
+        config.update(
+            {
+                "run_name": "tgpp-agent",
+                "metadata": langfuse_run.metadata,
+                "callbacks": [langfuse_run.handler],
+            }
+        )
+    return config
 
 
 def _sse(event: str, data: Any) -> dict[str, str]:
@@ -354,6 +372,17 @@ async def send_message(
     await db.flush()
     assistant_msg_id = assistant_msg.id
     user_msg_id = user_msg.id  # 提交前取，避免 expire_on_commit 后再触发 SELECT
+    langfuse_run = build_langfuse_run(
+        run_id=run_id,
+        session_id=str(sid),
+        user_id=str(user.id),
+        message_id=str(assistant_msg_id),
+        mode=mode_eff,
+        settings=settings,
+    )
+    if langfuse_run is not None:
+        # 入口即落 trace id：cancelled / failed run 同样能从 assistant stub 回溯。
+        assistant_msg.langfuse_trace_id = langfuse_run.trace_id
     await db.commit()
 
     # 3. 加载**未压缩 prior 历史**（= 本轮之前的对话，已排除刚插入的当前问题与
@@ -395,6 +424,8 @@ async def send_message(
         autotitle_question=autotitle_question,
         title_client=_get_title_client(request),
         title_model=settings.LLM_LIGHT_MODEL,
+        langfuse_run=langfuse_run,
+        trace_id=langfuse_run.trace_id if langfuse_run is not None else None,
     )
     return EventSourceResponse(
         stream,
@@ -416,6 +447,8 @@ def _build_sse_stream(
     autotitle_question: str | None = None,
     title_client: Any = None,
     title_model: str | None = None,
+    langfuse_run: LangfuseRun | None = None,
+    trace_id: str | None = None,
 ) -> AsyncIterator[dict[str, str]] | Any:
     """构造 SSE 事件 generator；send_message 与 checkpoint resume 共用。
 
@@ -488,7 +521,7 @@ def _build_sse_stream(
 
         events_iter = graph.astream_events(
             initial_state,
-            config={"configurable": {"thread_id": str(sid)}},
+            config=_build_graph_run_config(sid=sid, langfuse_run=langfuse_run),
             version="v2",
         )
         try:
@@ -633,7 +666,7 @@ def _build_sse_stream(
                     # 注意：不写 langgraph_checkpoint_id —— 系统不维护 message↔checkpoint
                     # 映射（真相源是 PG，每轮历史从 PG 重建；fork/rollback 精度落在 PG 行
                     # 级别）。旧实现把 trace_id 误写进这列，已停。详见 models.Message 注释。
-                    langfuse_trace_id=str(final_state.get("trace_id") or "") or None,
+                    langfuse_trace_id=trace_id or str(final_state.get("trace_id") or "") or None,
                 )
             )
             # v6 索引方案：rank = parse_citations 写入的 1-based N（与 prompt

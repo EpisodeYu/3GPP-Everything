@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     LANGFUSE_PUBLIC_KEY: SecretStr = SecretStr("")
     LANGFUSE_SECRET_KEY: SecretStr = SecretStr("")
     LANGFUSE_HOST: str = "https://cloud.langfuse.com"
+    LANGFUSE_TRACING_ENABLED: bool = True
+    LANGFUSE_SAMPLE_RATE: float = Field(default=1.0, ge=0.0, le=1.0)
+    # 空值时跟随 APP_ENV；显式值需满足 Langfuse environment 命名约束。
+    LANGFUSE_TRACING_ENVIRONMENT: str = ""
+    LANGFUSE_RELEASE: str = ""
+    # production 默认不上传用户问题、回答和历史正文；节点名、耗时、chunk 元数据仍保留。
+    LANGFUSE_CAPTURE_CONTENT: bool = False
 
     # === 鉴权 ===
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15

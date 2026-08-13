@@ -114,6 +114,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if saver_ctx is not None:
             with contextlib.suppress(Exception):
                 await saver_ctx.__aexit__(None, None, None)
+        # Langfuse v4 基于后台 BatchSpanProcessor 导出；进程退出时统一 shutdown，
+        # 不在每个 SSE 请求里同步 flush，避免抬高首 token / 收尾延迟。
+        with contextlib.suppress(Exception):
+            from app.agent.langfuse_handler import shutdown_langfuse
+
+            shutdown_langfuse()
 
 
 def create_app() -> FastAPI:

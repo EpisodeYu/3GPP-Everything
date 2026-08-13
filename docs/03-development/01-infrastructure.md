@@ -151,6 +151,11 @@ REDIS_URL=redis://:CHANGEME@tgpp-redis:6379/0
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=
 LANGFUSE_HOST=https://cloud.langfuse.com
+LANGFUSE_TRACING_ENABLED=true      # kill-switch；缺 key 时也自动关闭
+LANGFUSE_SAMPLE_RATE=1.0           # 0.0-1.0
+LANGFUSE_TRACING_ENVIRONMENT=      # 空值跟随 APP_ENV
+LANGFUSE_RELEASE=                  # deploy.sh 默认注入当前 git SHA
+LANGFUSE_CAPTURE_CONTENT=false     # 生产默认遮蔽问题、回答与历史正文
 
 # === 成本告警（M7.4，仅 log warning）===
 # 每日 / 每月美元阈值；超阈仅 log.warning，不接 webhook（Q2 2026-05-19 决策）

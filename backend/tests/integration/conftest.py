@@ -59,12 +59,15 @@ class FakeRedis:
 
 def _test_settings() -> Settings:
     return Settings(
+        _env_file=None,  # type: ignore[call-arg]
         APP_SECRET_KEY="test-secret-32-bytes-padding-padding",
         ACCESS_TOKEN_EXPIRE_MINUTES=15,
         REFRESH_TOKEN_EXPIRE_DAYS=7,
         BOOTSTRAP_ADMIN_INVITE_CODE="invite-code-for-tests",
         DATABASE_URL="sqlite+aiosqlite:///:memory:",
         REDIS_URL="redis://localhost:6379/0",
+        LANGFUSE_PUBLIC_KEY="",
+        LANGFUSE_SECRET_KEY="",
     )
 
 

@@ -26,8 +26,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.agent import checkpoint as ckpt
+from app.agent.langfuse_handler import build_langfuse_run
 from app.api.v1.chat import _build_sse_stream, _get_agent_graph, _get_cancel_registry
 from app.core.auth import get_current_user
+from app.core.config import Settings, get_settings
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.db.base import get_db
 from app.db.models import Message, MessageCitation, User
@@ -116,6 +118,7 @@ async def resume_session(
     request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> EventSourceResponse:
     session = await _load_owned_session(db, sid, user.id)
     if session.status == "archived_branch":
@@ -151,6 +154,18 @@ async def resume_session(
         await db.flush()
     run_id = stub.langgraph_run_id or uuid.uuid4().hex
     stub.langgraph_run_id = run_id
+    langfuse_run = build_langfuse_run(
+        run_id=run_id,
+        session_id=str(sid),
+        user_id=str(user.id),
+        message_id=str(stub.id),
+        mode=stub.mode or "qa",
+        trace_id=stub.langfuse_trace_id,
+        settings=settings,
+    )
+    if langfuse_run is not None:
+        # pause/resume 复用同一 run 的稳定 trace id；老 stub 无 id 时在这里补齐。
+        stub.langfuse_trace_id = langfuse_run.trace_id
 
     # 清 paused flag → 准备续跑
     graph = _get_agent_graph(request)
@@ -174,6 +189,8 @@ async def resume_session(
         db=db,
         cancel_event=cancel_event,
         cancel_registry=registry,
+        langfuse_run=langfuse_run,
+        trace_id=stub.langfuse_trace_id,
     )
     return EventSourceResponse(stream, ping=15, media_type="text/event-stream")
 

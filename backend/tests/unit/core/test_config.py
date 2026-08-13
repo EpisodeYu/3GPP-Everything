@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
 from app.core.config import Settings
 
 
@@ -16,6 +19,17 @@ def test_defaults() -> None:
     # P1-2 供应商解锁：默认仍 voyage + rerank 开
     assert s.embedding_model == "voyage-4-large"
     assert s.RERANK_ENABLED is True
+    assert s.LANGFUSE_TRACING_ENABLED is True
+    assert s.LANGFUSE_SAMPLE_RATE == 1.0
+    assert s.LANGFUSE_TRACING_ENVIRONMENT == ""
+    assert s.LANGFUSE_CAPTURE_CONTENT is False
+
+
+def test_langfuse_sampling_bounds() -> None:
+    assert Settings(_env_file=None, LANGFUSE_SAMPLE_RATE=0).LANGFUSE_SAMPLE_RATE == 0  # type: ignore[call-arg]
+    assert Settings(_env_file=None, LANGFUSE_SAMPLE_RATE=1).LANGFUSE_SAMPLE_RATE == 1  # type: ignore[call-arg]
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, LANGFUSE_SAMPLE_RATE=1.01)  # type: ignore[call-arg]
 
 
 def test_embedding_model_follows_provider(monkeypatch) -> None:
