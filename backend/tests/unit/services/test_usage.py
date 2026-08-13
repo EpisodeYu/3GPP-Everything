@@ -428,3 +428,63 @@ class TestLiteLLMClientUsageHook:
         assert row is not None, "usage hook should have written ApiUsage"
         assert row.llm_input_tokens == 123
         assert row.llm_output_tokens == 45
+
+    async def test_chat_stream_usage_chunk_triggers_record_llm_usage(
+        self, sm: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+    ) -> None:
+        """The final usage-only SSE chunk must reconcile streaming calls with ApiUsage."""
+
+        import asyncio
+
+        import httpx
+
+        from app.core.config import Settings
+        from app.llm.litellm_client import LiteLLMClient
+
+        def handler(_req: httpx.Request) -> httpx.Response:
+            body = (
+                b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
+                b'data: {"choices":[],"usage":{"prompt_tokens":17,'
+                b'"completion_tokens":4,"total_tokens":21}}\n\n'
+                b"data: [DONE]\n\n"
+            )
+            return httpx.Response(
+                200,
+                content=body,
+                headers={"content-type": "text/event-stream"},
+            )
+
+        settings = Settings(
+            _env_file=None,  # type: ignore[call-arg]
+            LITELLM_BASE_URL="http://test/v1",
+            LITELLM_API_KEY="sk",
+        )
+        http_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        usage_mod.set_sessionmaker_override(sm)
+        token = usage_mod.set_current_user(user_id)
+        try:
+            cli = LiteLLMClient(settings=settings, client=http_client)
+            chunks = [
+                chunk
+                async for chunk in cli.chat_stream(
+                    messages=[{"role": "user", "content": "hi"}],
+                    model="mimo-v2.5",
+                )
+            ]
+            pending = [
+                task
+                for task in asyncio.all_tasks()
+                if task is not asyncio.current_task() and not task.done()
+            ]
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+        finally:
+            usage_mod.reset_current_user(token)
+            usage_mod.set_sessionmaker_override(None)
+            await http_client.aclose()
+
+        assert len(chunks) == 2
+        row = await _read_today_row(sm, user_id)
+        assert row is not None
+        assert row.llm_input_tokens == 17
+        assert row.llm_output_tokens == 4

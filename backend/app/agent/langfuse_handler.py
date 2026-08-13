@@ -282,6 +282,50 @@ def build_callback_handler(settings: Settings | None = None) -> Any | None:
         return None
 
 
+def current_langgraph_trace_context() -> dict[str, str] | None:
+    """Resolve the Langfuse observation for the currently executing graph node.
+
+    Langfuse's LangChain callback attaches an OpenTelemetry context while handling
+    callback events.  LangGraph runs async node bodies in a copied task context, so
+    that attachment is not necessarily current inside custom clients invoked by a
+    node.  The current RunnableConfig still exposes the node's LangChain run ID;
+    resolve it against the callback's v4 run registry and pass explicit W3C parent
+    IDs to child observations.
+
+    The SDK registry is intentionally isolated behind this fail-open compatibility
+    adapter.  A missing LangGraph context or a future SDK layout change simply
+    disables child observations instead of creating an orphan trace.
+    """
+
+    try:
+        from langgraph.config import get_config
+
+        callbacks = get_config().get("callbacks")
+        run_id = getattr(callbacks, "parent_run_id", None)
+        if run_id is None:
+            return None
+        handlers = [
+            *list(getattr(callbacks, "handlers", ()) or ()),
+            *list(getattr(callbacks, "inheritable_handlers", ()) or ()),
+        ]
+        seen_handler_ids: set[int] = set()
+        for handler in handlers:
+            if id(handler) in seen_handler_ids:
+                continue
+            seen_handler_ids.add(id(handler))
+            runs = getattr(handler, "_runs", None)
+            if not isinstance(runs, dict):
+                continue
+            observation = runs.get(run_id)
+            trace_id = str(getattr(observation, "trace_id", "") or "").lower()
+            parent_span_id = str(getattr(observation, "id", "") or "").lower()
+            if _TRACE_ID_RE.fullmatch(trace_id) and re.fullmatch(r"[0-9a-f]{16}", parent_span_id):
+                return {"trace_id": trace_id, "parent_span_id": parent_span_id}
+    except Exception as exc:
+        log.debug("langgraph Langfuse parent context unavailable: %s", exc)
+    return None
+
+
 def build_trace_metadata(
     *,
     session_id: str | None = None,
