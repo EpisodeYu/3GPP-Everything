@@ -79,7 +79,7 @@ class _CannedGraph:
         if self._final_state is not None:
             yield {
                 "event": "on_chain_end",
-                "name": "LangGraph",
+                "name": config.get("run_name", "LangGraph"),
                 "data": {"output": self._final_state},
             }
 
@@ -311,6 +311,7 @@ async def test_send_message_injects_langfuse_config_and_persists_factory_trace_i
             headers=_auth_headers(token),
         )
         assert response.status_code == 200, response.text
+        assert "final" in {event for event, _data in _parse_sse(response.text)}
 
     assert len(graph.run_configs) == 1
     config = graph.run_configs[0]
@@ -322,6 +323,7 @@ async def test_send_message_injects_langfuse_config_and_persists_factory_trace_i
     res = await db_session.execute(select(Message).where(Message.role == "assistant"))
     assistant = res.scalar_one()
     assert assistant.langfuse_trace_id == trace_id
+    assert assistant.content == "Hello world."
 
 
 class _FakeTitleClient:

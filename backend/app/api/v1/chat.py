@@ -548,8 +548,10 @@ def _build_sse_stream(
                             "summary": _summary_for_node_end(name, data.get("output")),
                         },
                     )
-                elif kind == "on_chain_end" and name == "LangGraph":
+                elif kind == "on_chain_end" and name in {"LangGraph", "tgpp-agent"}:
                     # graph 顶层结束：拿到完整 final state
+                    # 注入 `run_name=tgpp-agent` 后 LangGraph 会把顶层事件 name 从
+                    # 默认 `LangGraph` 改成该 run name；两种模式都必须收尾持久化。
                     output = data.get("output")
                     if isinstance(output, dict):
                         final_state = output

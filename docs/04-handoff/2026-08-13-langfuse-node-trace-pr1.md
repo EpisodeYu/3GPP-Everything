@@ -7,6 +7,7 @@
 
 - 每个 assistant run 在 graph 启动前得到稳定的 32 位 trace ID，并写入 `messages.langfuse_trace_id`。
 - graph config 保留 checkpoint `thread_id`，同时注入请求级 CallbackHandler、`tgpp-agent` run name 和 session/user/run/message/environment metadata。
+- SSE 收尾同时识别默认 `LangGraph` 与注入 run name 后的 `tgpp-agent` 顶层 `on_chain_end`，保证 traced run 正常持久化 final state。
 - pause/resume 复用同一 trace ID、使用新 handler；失败和取消保留入口生成的 trace ID；fork 不复制运行标识。
 - Langfuse client 进程级复用，handler 请求级隔离；缺 key、显式关闭或 SDK 初始化失败均不影响聊天结果。
 - 默认不上传问题、答案、历史和检索正文。候选块只留定位/评分字段与字符数，敏感键始终遮蔽，任意 payload 有长度、数量和递归深度边界。
